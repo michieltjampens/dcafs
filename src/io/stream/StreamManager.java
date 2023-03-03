@@ -1087,6 +1087,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					.add(green+" store:id,addtext/addt,name<,index> "+reg+"-> Add a TextVal to the store, with optional index")
 					.add(green+" store:id,addint/addi,name<,index> "+reg+"-> Add a IntVal to the store, with optional index")
 					.add(green+" store:id,addb/addblank "+reg+"-> Add a blank spot incase index isn't used but a item needs to be skipped");
+			join.add("").add(cyan+"Alter attributes"+reg)
+					.add(green+" store:id,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the store")
+					.add(green+" store:id,db,dbids:table "+reg+"-> Alter the database/table ");
 			return join.toString();
 		}
 
@@ -1198,9 +1201,18 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "delim", "delimiter" -> {
 				if (cmds.length < 3)
 					return "Not enough arguments: store:id,delim,delimiter";
-				fab.attr("delimiter", cmds.length == 4 ? "," : cmds[2]);
+				var deli = cmds.length == 4 ? "," : cmds[2];
+				fab.attr("delimiter", deli);
 				fab.build();
-				return "Set the delimiter";
+				return "Set the delimiter to '"+deli+"'";
+			}
+			case "db" -> {
+				if (cmds.length < 3 || !request[1].contains(":"))
+					return "Not enough arguments or missing table: store:id,db,dbids:table";
+				int start = request[1].indexOf(",db,")+4;
+				fab.attr("db", request[1].substring(start));
+				fab.build();
+				return "Set the db to "+request[1].substring(start);
 			}
 		}
 
