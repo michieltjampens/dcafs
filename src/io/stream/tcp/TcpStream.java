@@ -121,7 +121,7 @@ public class TcpStream extends BaseStream implements Writable {
                     handler.setTargets(targets);
                     handler.setStreamListeners( listeners );
                     handler.setEventLoopGroup(eventLoopGroup);
-                    handler.setRTvals(getAbstractVals(),delimiter);
+                    handler.setValStore(store);
 					ch.pipeline().addLast( handler );	   
 				}catch( io.netty.channel.ChannelPipelineException e ){
 					Logger.error("Issue trying to use handler for "+id);

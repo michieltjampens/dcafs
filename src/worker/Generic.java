@@ -1,14 +1,11 @@
 package worker;
 
-import util.data.RealtimeValues;
+import util.data.*;
 import io.mqtt.MqttWriting;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.influxdb.dto.Point;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.FlagVal;
-import util.data.IntegerVal;
-import util.data.RealVal;
 import util.database.QueryWriting;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -293,7 +290,7 @@ public class Generic {
                     }
                     case TEXT, TAG -> {
                         data[a] = split[entry.index];
-                        rtvals.addTextVal(ref, split[entry.index], settingsPath);
+                        rtvals.addTextVal(TextVal.newVal(ref, split[entry.index]), settingsPath);
                     }
                     case FLAG -> {
                         data[a] = val;
@@ -478,7 +475,7 @@ public class Generic {
                 case REAL -> rt.addRealVal( RealVal.newVal(ent.group,ent.name),settingsPath);
                 case INTEGER -> rt.addIntegerVal( IntegerVal.newVal(ent.group,ent.name),settingsPath);
                 case FLAG -> rt.addFlagVal( FlagVal.newVal(ent.group,ent.name),settingsPath);
-                case TEXT -> rt.addTextVal(ent.getID(),"",settingsPath);
+                case TEXT -> rt.addTextVal(TextVal.newVal(ent.group,ent.name),settingsPath);
                 case FILLER,TAG,LOCALDT,UTCDT -> {}
             }
         });

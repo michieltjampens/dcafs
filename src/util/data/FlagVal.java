@@ -247,8 +247,19 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
 
     @Override
-    public void parseValue(String value) {
-        setState(value);
+    public boolean parseValue(String state) {
+        if( state.equalsIgnoreCase("true")
+                || state.equalsIgnoreCase("1")
+                || state.equalsIgnoreCase("on")) {
+            setState(true);
+        }else if( state.equalsIgnoreCase("false")|| state.equalsIgnoreCase("0")
+                || state.equalsIgnoreCase("off")) {
+            setState(false);
+        }else{
+            Logger.error( id() + " -> Couldn't parse "+state);
+            return false;
+        }
+        return true;
     }
 
     @Override

@@ -168,12 +168,28 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public void updateValue( double val ) {
         value(((Double)val).intValue());
     }
-    public void parseValue( String val ){
-        var res = NumberUtils.toInt(val,Integer.MAX_VALUE);
-        if( res != Integer.MAX_VALUE){
+    public boolean parseValue( String val ){
+        // NumberUtils.createInteger can handle hex, but considers leading zero and not hex as octal
+        // So remove those leading zero's if not hex
+        if( val.startsWith("0") ){
+            if( val.length()>2){
+                if( val.charAt(1)!='x') {
+                    while( val.charAt(0)=='0' && val.length()>1)
+                        val = val.substring(1);
+                }
+            }
+        }
+        try {
+            var res = NumberUtils.createInteger(val.trim());
             value(res);
-        }else{
-            Logger.error(getID() + " -> Failed to parse "+val);
+            return true;
+        }catch( NumberFormatException e ){
+            if( defVal != Integer.MAX_VALUE ) {
+                value(defVal);
+                return true;
+            }
+            Logger.error(id() + " -> Failed to parse to int: "+val);
+            return false;
         }
     }
     /**

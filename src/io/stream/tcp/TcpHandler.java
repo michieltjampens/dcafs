@@ -8,6 +8,7 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import org.tinylog.Logger;
 import util.data.AbstractVal;
+import util.data.ValStore;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
@@ -41,9 +42,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     protected List<Writable> targets;
 
     protected EventLoopGroup eventLoopGroup;
-
-    protected ArrayList<AbstractVal> rtvals;
-    protected String delimiter=",";
+    protected ValStore store;
 
     String eol="\r\n";
     boolean udp=false;
@@ -61,10 +60,8 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     public void setTargets(List<Writable> targets){
         this.targets = targets;
     }
-    public void setRTvals( ArrayList<AbstractVal> vals, String delimiter){
-        rtvals=vals;
-        if( !delimiter.isEmpty())
-            this.delimiter=delimiter;
+    public void setValStore(ValStore store){
+        this.store=store;
     }
 	public String getIP(){
 		return remote.getAddress().getHostAddress();
@@ -86,7 +83,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
         listeners.add(listener);
     }
     @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
     	if (evt instanceof IdleStateEvent e) {
             if (e.state() == IdleState.READER_IDLE ) {
             	if( !idle) {
@@ -195,17 +192,9 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
             }
 
             // Implement the use of store
-            if( !rtvals.isEmpty() ){
-               var split = msg.trim().split(delimiter);
-               if( split.length < rtvals.size()) {
-                   Logger.error(id + " -> Not enough data after split, got " + split.length + " from " + msg);
-               }else{
-                    for( int a=0;a<rtvals.size();a++){
-                        if( rtvals.get(a)!=null)
-                            rtvals.get(a).parseValue(split[a]);
-                   }
-               }
-            }
+           // Implement the use of store
+           if( store!=null )
+               store.apply(new String(data),dQueue);
 
             // Forward data to targets
 			if( !targets.isEmpty() ){

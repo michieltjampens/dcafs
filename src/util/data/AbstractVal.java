@@ -111,7 +111,7 @@ public abstract class AbstractVal {
         return name;
     }
     public String unit(){ return unit; }
-    public abstract void parseValue( String value );
+    public abstract boolean parseValue( String value );
     /* ********************************* Requests/Targets ********************************************************** */
     public void addTarget( Writable wr){
         if( targets==null)

@@ -369,13 +369,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( baseOpt.isPresent() ){ // meaning reloading an existing one
 			var str = baseOpt.get();
 			str.disconnect();
-			str.removeRealtimeValues(rtvals); // Remove the existing ones
+			str.getValStore().ifPresent( store -> store.removeRealtimeValues(rtvals));
 			str.readFromXML(childOpt.get());
-			str.shareRealtimeValues(rtvals);
+			str.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
 			str.reconnectFuture = scheduler.schedule( new DoConnection( str ), 0, TimeUnit.SECONDS );
 			return "Reloaded and trying to reconnect";
 		}else{
-			addStreamFromXML(childOpt.get()).shareRealtimeValues(rtvals);
+			var str = addStreamFromXML(childOpt.get());
+			str.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
 			return "Loading new stream.";
 		}
 	}
@@ -395,7 +396,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( !streams.isEmpty()){
 			streams.values().forEach(BaseStream::disconnect);
 		}
-		streams.values().forEach( s -> s.removeRealtimeValues(rtvals));
+		streams.values().forEach( s -> s.getValStore().ifPresent( store -> store.removeRealtimeValues(rtvals)));
 		streams.clear(); // Clear out before the reread
 
 		XMLtools.getFirstElementByTag( settingsPath, "streams").ifPresent( ele -> {
@@ -404,7 +405,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 			for( Element el : XMLtools.getChildElements( ele, XML_CHILD_TAG)){
 				BaseStream bs = addStreamFromXML(el);
-				bs.shareRealtimeValues(rtvals);
+				bs.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
 				streams.put(bs.getID().toLowerCase(), bs);
 			}
 		});
@@ -1071,7 +1072,22 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		String id = cmds[0];
 
 		if( id.equalsIgnoreCase("?")){
-			return "todo Help";
+			String cyan = html?"":TelnetCodes.TEXT_CYAN;
+			String green=html?"":TelnetCodes.TEXT_GREEN;
+			String ora = html?"":TelnetCodes.TEXT_ORANGE;
+			String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+
+			StringJoiner join = new StringJoiner("\r\n");
+
+			join.add(TelnetCodes.TEXT_RESET+ora+"Notes"+reg);
+
+			join.add("").add(cyan+"Add new vals"+reg)
+					.add(green+" store:id,addreal/addr,name<,index> "+reg+"-> Add a RealVal to the store, with optional index")
+					.add(green+" store:id,addflag/addf,name<,index> "+reg+"-> Add a FlagVal to the store, with optional index")
+					.add(green+" store:id,addtext/addt,name<,index> "+reg+"-> Add a TextVal to the store, with optional index")
+					.add(green+" store:id,addint/addi,name<,index> "+reg+"-> Add a IntVal to the store, with optional index")
+					.add(green+" store:id,addb/addblank "+reg+"-> Add a blank spot incase index isn't used but a item needs to be skipped");
+			return join.toString();
 		}
 
 		var bsOpt = getStream(id);
@@ -1124,6 +1140,60 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 				fab.build();
 				return "Real added";
+			}
+			case "addint","addi" -> {
+				if (cmds.length < 3)
+					return "Not enough arguments: store:id,addint,name<,index>";
+				fab.down();
+				if( dig.peekAt("int","id",cmds[2]).hasValidPeek())
+					return "Already an int with that id, try something else?";
+
+				fab.addChild("int").attr("id",cmds[2]).attr("unit");
+				if( cmds.length==4 ) {
+					if(NumberUtils.isCreatable(cmds[3])) {
+						fab.attr("index", cmds[3]);
+					}else{
+						return "Not a valid index: "+cmds[3];
+					}
+				}
+				fab.build();
+				return "Int added";
+			}
+			case "addtext","addt" -> {
+				if (cmds.length < 3)
+					return "Not enough arguments: store:id,addtext,name<,index>";
+				fab.down();
+				if( dig.peekAt("text","id",cmds[2]).hasValidPeek())
+					return "Already a text with that id, try something else?";
+
+				fab.addChild("text").attr("id",cmds[2]);
+				if( cmds.length==4 ) {
+					if(NumberUtils.isCreatable(cmds[3])) {
+						fab.attr("index", cmds[3]);
+					}else{
+						return "Not a valid index: "+cmds[3];
+					}
+				}
+				fab.build();
+				return "Text added";
+			}
+			case "addflag","addf" -> {
+				if (cmds.length < 3)
+					return "Not enough arguments: store:id,addflag,name<,index>";
+				fab.down();
+				if( dig.peekAt("flag","id",cmds[2]).hasValidPeek())
+					return "Already a flag with that id, try something else?";
+
+				fab.addChild("flag").attr("id",cmds[2]).attr("unit");
+				if( cmds.length==4 ) {
+					if(NumberUtils.isCreatable(cmds[3])) {
+						fab.attr("index", cmds[3]);
+					}else{
+						return "Not a valid index: "+cmds[3];
+					}
+				}
+				fab.build();
+				return "Flag added";
 			}
 			case "delim", "delimiter" -> {
 				if (cmds.length < 3)

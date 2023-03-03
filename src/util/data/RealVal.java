@@ -129,13 +129,17 @@ public class RealVal extends AbstractVal implements NumericVal{
         this.unit=unit;
         return this;
     }
-    public void parseValue( String val ){
+    public boolean parseValue( String val ){
         var res = NumberUtils.toDouble(val,Double.NaN);
         if(!Double.isNaN(res)){
             value(res);
-        }else{
-            Logger.error(getID() + " -> Failed to parse "+val);
+            return true;
+        }else if( Double.isNaN(defVal) ){
+            value(defVal);
+            return true;
         }
+        Logger.error(id() + " -> Failed to parse "+val);
+        return false;
     }
     /**
      * Update the value, this will -depending on the options set- also update related variables
@@ -277,13 +281,7 @@ public class RealVal extends AbstractVal implements NumericVal{
             }
         }
     }
-    public String getID(){
-        if( group.isEmpty())
-            return name;
-        return group+"_"+name;
-    }
     /* ***************************************** U S I N G ********************************************************** */
-
     /**
      * Store the setup of this val in the settings.xml
      * @param digger The digger to work with, with the rtvals node as root/parent

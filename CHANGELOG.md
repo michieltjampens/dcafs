@@ -9,6 +9,26 @@ Note: Version numbering: x.y.z
 - integerval telnet interface?
 - Resolve #34
 
+## 1.1.0 (work in progress)
+
+Properly implemented the 'store' node, at the same time cleanup of the generic node.
+Generic is old and has changed purpose but code wasn't cleaned up to reflect that.
+
+### StreamManager
+- Default label changed to an empty string from 'void'. This means the queue will no longer be
+used if no label was set. This was mainly doing nothing with data since moving away from labels 
+and moving more code away from central processing part.
+
+### RealtimeValues
+- Text now has its own object. Shouldn't make any difference in usage, besides adding option for
+triggered commands.
+
+### StoreVal
+- New class that will at some point replace generic.
+- Has a telnet interface through 'store:' commands. Differs from regular because this has the id
+as the first argument instead of the cmd. This allows for use of `store:id,!!` for faster creation.
+- Support for int,real,text,flag
+
 ## 1.0.9 (work in progress)
 
 ### Fixes

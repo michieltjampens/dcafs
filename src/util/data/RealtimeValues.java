@@ -28,7 +28,7 @@ public class RealtimeValues implements Commandable {
 	/* Data stores */
 	private final ConcurrentHashMap<String, RealVal> realVals = new ConcurrentHashMap<>(); 		 // doubles
 	private final ConcurrentHashMap<String, IntegerVal> integerVals = new ConcurrentHashMap<>(); // integers
-	private final ConcurrentHashMap<String, String> texts = new ConcurrentHashMap<>(); 			 // strings
+	private final ConcurrentHashMap<String, TextVal> textVals = new ConcurrentHashMap<>(); 			 // strings
 	private final ConcurrentHashMap<String, FlagVal> flagVals = new ConcurrentHashMap<>(); 		 // booleans
 
 	private final IssuePool issuePool;
@@ -162,12 +162,12 @@ public class RealtimeValues implements Commandable {
 			Logger.error("Invalid RealVal received, won't try adding it");
 			return false;
 		}
-		if( realVals.containsKey(rv.getID()))
+		if( realVals.containsKey(rv.id()))
 			return false;
 
 		if(xmlPath!=null&& Files.exists(xmlPath))
 			rv.storeInXml(XMLdigger.goIn(xmlPath,"dcafs").goDown("rtvals"));
-		return realVals.put(rv.getID(),rv)==null;
+		return realVals.put(rv.id(),rv)==null;
 	}
 	public boolean addRealVal(RealVal rv, boolean storeInXML) {
 		return addRealVal(rv,storeInXML?settingsPath:null);
@@ -309,25 +309,28 @@ public class RealtimeValues implements Commandable {
 	}
 	/* *********************************** T E X T S  ************************************************************* */
 	public boolean hasText(String id){
-		return texts.containsKey(id);
+		return textVals.containsKey(id);
 	}
-	public void addTextVal( String parameter, String value, Path xmlPath){
-		boolean created = setText(parameter,value);
+	public TextVal addTextVal( TextVal tv, Path xmlPath){
 
-		if( created ){
-			var fab = XMLfab.withRoot(xmlPath, "dcafs", "rtvals");
-			var name = parameter.contains("_")?parameter.substring(parameter.indexOf("_")+1):parameter;
-			fab.alterChild("group","id",parameter.contains("_")?parameter.substring(0,parameter.indexOf("_")):"")
-					.down(); // Go down in the group
-
-			if( fab.hasChild("text","id",name).isEmpty()) { // If this one isn't present
-				fab.addChild("text").attr("id", name);
-				fab.build();
-			}
+		if( tv==null) {
+			Logger.error("Invalid IntegerVal given, can't add it");
+			return null;
 		}
+		String id = tv.id();
+		var val = textVals.get(id);
+		if( !textVals.containsKey(id)){
+			textVals.put(id,tv);
+			if(xmlPath!=null && Files.exists(xmlPath)) {
+				tv.storeInXml( XMLdigger.goIn(xmlPath,"dcafs").goDown("rtvals"));
+			}else if( xmlPath!=null){
+				Logger.error("No such file found: "+xmlPath);
+			}
+			return tv;
+		}
+		return val;
 
 	}
-
 	/**
 	 * Set the value of a textval and create it if it doesn't exist yet
 	 * @param id The name/id of the val
@@ -340,8 +343,13 @@ public class RealtimeValues implements Commandable {
 			Logger.error("Empty id given");
 			return false;
 		}
-		boolean created = texts.put(id, value)==null;
-
+		boolean created=false;
+		if( textVals.containsKey(id)) {
+			textVals.get(id).parseValue(value);
+		}else{
+			textVals.put(id, TextVal.newVal(id, value));
+			created=true;
+		}
 		if( !textRequest.isEmpty()){
 			var res = textRequest.get(id);
 			if( res != null)
@@ -357,23 +365,20 @@ public class RealtimeValues implements Commandable {
 	 * @return True if found and updated
 	 */
 	public boolean updateText( String id, String value){
-		if( texts.containsKey(id)) {
-			texts.put(id, value);
+		if( textVals.containsKey(id)) {
+			textVals.get(id).parseValue(value);
 			return true;
 		}
 		return false;
 	}
 	public String getText(String parameter, String def) {
-		String result = texts.get(parameter);
+		String result = textVals.get(parameter).value();
 		return result == null ? def : result;
 	}
 
 	/* ************************************** F L A G S ************************************************************* */
 	public FlagVal addFlagVal( FlagVal fv ){
 		return addFlagVal(fv,null);
-	}
-	public FlagVal addFlagVal( String group,String name ){
-		return addFlagVal(FlagVal.newVal(group,name),null);
 	}
 	public FlagVal addFlagVal( FlagVal fv, Path xmlPath ){
 		if( fv==null) {
@@ -457,7 +462,7 @@ public class RealtimeValues implements Commandable {
 	public int addRequest(Writable writable, String type, String req) {
 
 		switch (type) {
-			case "rtval", "double", "real" -> {
+			case "double", "real" -> {
 				var rv = realVals.get(req);
 				if (rv == null)
 					return 0;
@@ -472,17 +477,11 @@ public class RealtimeValues implements Commandable {
 				return 1;
 			}
 			case "text" -> {
-				var t = textRequest.get(req);
-				if (t == null) {
-					textRequest.put(req, new ArrayList<>());
-					Logger.info("Created new request for: " + req);
-				} else {
-					Logger.info("Appended existing request to: " + t + "," + req);
-				}
-				if (!textRequest.get(req).contains(writable)) {
-					textRequest.get(req).add(writable);
-					return 1;
-				}
+				var tv = textVals.get(req);
+				if (tv == null)
+					return 0;
+				tv.addTarget(writable);
+				return 1;
 			}
 			default -> Logger.warn("Requested unknown type: " + type);
 		}
@@ -491,7 +490,7 @@ public class RealtimeValues implements Commandable {
 	public void removeRequests( Writable wr ){
 		realVals.values().forEach( rv -> rv.removeTarget(wr));
 		integerVals.values().forEach( iv -> iv.removeTarget(wr));
-		textRequest.forEach( (k,v) -> v.remove(wr));
+		textVals.values().forEach( tv -> tv.removeTarget(wr));
 	}
 	/* ************************** C O M M A N D A B L E ***************************************** */
 	@Override
@@ -731,7 +730,7 @@ public class RealtimeValues implements Commandable {
 					return "Not enough arguments given, " + request[0] + ":new,id(,value)";
 				rv = RealVal.newVal(cmds[1], cmds[2]);
 				if (addRealVal(rv, true)) {
-					return "New realVal added " + rv.getID() + ", stored in xml";
+					return "New realVal added " + rv.id() + ", stored in xml";
 				}
 				return "Real already exists";
 			}
@@ -901,7 +900,7 @@ public class RealtimeValues implements Commandable {
 					.forEach(join::add);
 		}
 		if( showTexts ) {
-			texts.entrySet().stream().filter(ent -> ent.getKey().startsWith(group + "_"))
+			textVals.entrySet().stream().filter(ent -> ent.getKey().startsWith(group + "_"))
 					.map(ent -> "  " + ent.getKey().split("_")[1] + " : " + ent.getValue())
 					.sorted().forEach(join::add);
 		}
@@ -963,7 +962,7 @@ public class RealtimeValues implements Commandable {
 				.forEach(rv -> join.add("  "+(rv.group().isEmpty()?"":rv.group()+" -> ")+rv.name()+" : "+rv));
 		integerVals.values().stream().filter( iv -> iv.name().matches(regex))
 				.forEach(iv -> join.add("  "+(iv.group().isEmpty()?"":iv.group()+" -> ")+iv.name()+" : "+iv));
-		texts.entrySet().stream().filter(ent -> ent.getKey().matches(regex))
+		textVals.entrySet().stream().filter(ent -> ent.getKey().matches(regex))
 				.forEach( ent -> join.add( "  "+ent.getKey().replace("_","->")+" : "+ent.getValue()) );
 		flagVals.values().stream().filter(fv -> fv.name().matches(regex))
 				.forEach(fv -> join.add("  "+(fv.group().isEmpty()?"":fv.group()+" -> ")+fv.name()+" : "+fv));
@@ -987,7 +986,7 @@ public class RealtimeValues implements Commandable {
 				.distinct()
 				.forEach(groups::add);
 
-		texts.keySet().stream()
+		textVals.keySet().stream()
 				.filter( k -> k.contains("_"))
 				.map( k -> k.split("_")[0] )
 				.distinct()
