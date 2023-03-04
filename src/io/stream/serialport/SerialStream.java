@@ -54,7 +54,7 @@ public class SerialStream extends BaseStream implements Writable {
                 info=port;
             info += " | "+ getSerialSettings();
         }
-        return "SERIAL [" + id + "|" + label + "] " + info;
+        return "SERIAL [" + id + "] " + info;
     }
 
     public boolean connect() {

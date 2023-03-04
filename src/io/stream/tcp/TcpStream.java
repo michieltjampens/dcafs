@@ -196,7 +196,7 @@ public class TcpStream extends BaseStream implements Writable {
 
     @Override
     public String getInfo() {
-        return "TCP ["+id+"|"+label+"] "+ ipsock.toString();
+        return "TCP ["+id+"] "+ ipsock.toString();
     }
 
     @Override
