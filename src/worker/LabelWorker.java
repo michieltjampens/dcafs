@@ -208,8 +208,8 @@ public class LabelWorker implements Runnable, Commandable {
 					}
 				} );
 		// Find the path ones?
-		XMLfab.getRootChildren(settingsPath, "dcafs","paths","path")
-				.forEach(this::readGenericElementInPath);
+	/*	XMLfab.getRootChildren(settingsPath, "dcafs","paths","path")
+				.forEach(this::readGenericElementInPath);*/
 		Logger.info("Finished loading generics.");
 	}
 
