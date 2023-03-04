@@ -48,6 +48,8 @@ public class FilterForward extends AbstractForward {
             }
             if( log )
                 Logger.tag("RAW").info( "1\t" + (label.isEmpty()?"void":label)+"|"+getID() + "\t" + data);
+            if( store!=null)
+                store.apply(data,dQueue);
         }else{
             reversed.removeIf( t-> !t.writeLine(data) );
         }

@@ -4,6 +4,7 @@ import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
+import util.data.ValStore;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -35,6 +36,7 @@ public abstract class AbstractForward implements Writable {
     protected int badDataCount=0;               // Keep track of the amount of bad data received
     protected boolean log = false;
     protected final RealtimeValues rtvals;
+    protected ValStore store;
     protected boolean readOk=false;
 
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
@@ -215,6 +217,9 @@ public abstract class AbstractForward implements Writable {
         }
     }
     public void setInvalid(){valid=false;}
+    public void setStore( ValStore store){
+        this.store=store;
+    }
     /* *********************** Abstract Methods ***********************************/
     /**
      * This is called when data is received through the writable
