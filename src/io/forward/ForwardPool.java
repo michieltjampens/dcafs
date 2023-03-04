@@ -1,5 +1,6 @@
 package io.forward;
 
+import util.cmds.PathCmds;
 import util.data.RealtimeValues;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
@@ -943,7 +944,7 @@ public class ForwardPool implements Commandable {
                 .add(" the amount of xml the user needs to write.");
                 help.add("").add(cyan+"Add/build new paths"+reg)
                 .add(green+" pf:addpath/add,id,src "+reg+"-> Add a path with the given id and src")
-                .add(green+" pf:addfile/add,id,src "+reg+"-> Add a path file with the given id and src")
+                .add(green+" pf:addfile,id,src "+reg+"-> Add a path file with the given id and src")
                 .add(green+" pf:addsteps,id,format "+reg+"-> Add empty steps to the path")
                 .add("                             Format options are:")
                 .add("                             F -> filter without subs")
@@ -1150,7 +1151,7 @@ public class ForwardPool implements Commandable {
                     return pp.debugStep(cmds[2],wr);
                 return pp.debugStep(nr,wr);
             default:
-                return "Unknown command: paths:"+cmd;
+                return PathCmds.replyToCommand(cmd,html,settingsPath);
         }
     }
     public void readPathsFromXML(){
