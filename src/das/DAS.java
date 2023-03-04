@@ -312,7 +312,7 @@ public class DAS implements Commandable{
     private void addStreamPool() {
 
         streampool = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
-        addCommandable(streampool,"ss","streams","");
+        addCommandable(streampool,"ss","streams");
         addCommandable(streampool,"s_","h_");
         addCommandable(streampool,"rios","raw","stream");
         addCommandable(streampool,"");

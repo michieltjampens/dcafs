@@ -6,7 +6,7 @@ import io.Writable;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.data.StoreCmds;
+import util.cmds.StoreCmds;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -179,7 +179,12 @@ public class CommandPool {
 			case "serialports" -> Tools.getSerialPorts(html);
 			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
 			case "ts" -> doTimeStamping( split );
-			case "store" -> StoreCmds.replyToCommand(split,html,settingsPath);
+			case "store" -> {
+				var ans = StoreCmds.replyToCommand(split[1],html,settingsPath);
+				if( !split[1].startsWith("?"))
+					doCmd("ss","reloadstore,"+split[1].split(",")[0],wr);
+				yield ans;
+			}
 			case "", "stop", "nothing" -> {
 				stopCommandable.forEach(c -> c.replyToCommand(new String[]{"", ""}, wr, false));
 				yield "Clearing requests";
@@ -247,12 +252,14 @@ public class CommandPool {
 	}
 	/* ****************************************** C O M M A N D A B L E ********************************************* */
 	private String doCmd( String id, String command, Writable wr){
-		var c = commandables.get(id);
-		if( c==null) {
-			Logger.error("No "+id+" available");
-			return UNKNOWN_CMD+": No "+id+" available";
+		for( var cmd : commandables.entrySet() ){
+			var spl = cmd.getKey().split(";");
+			if( Arrays.stream(spl).anyMatch( x->x.equalsIgnoreCase(id)) ){
+				return cmd.getValue().replyToCommand(new String[]{id,command},wr,false);
+			}
 		}
-		return c.replyToCommand(new String[]{id,command},wr,false);
+		Logger.error("No "+id+" available");
+		return UNKNOWN_CMD+": No "+id+" available";
 	}
 	/* ********************************************************************************************/
 	/**
