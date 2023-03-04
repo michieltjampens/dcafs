@@ -6,6 +6,7 @@ import util.xml.XMLtools;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
 import org.w3c.dom.Element;
@@ -38,18 +39,12 @@ public class ValStore {
     public void addVals( ArrayList<AbstractVal> rtvals){
         this.rtvals.addAll(rtvals);
     }
-    public static Optional<ValStore> build( Element parentNode ){
-        var storeOpt = XMLtools.getFirstChildByTag(parentNode,"store");
+    public static Optional<ValStore> build( Element store, String id){
 
-        if( storeOpt.isEmpty())
-            return Optional.empty();
-
-        String id = XMLtools.getStringAttribute(parentNode,"id","");
-        if( id.isEmpty() ) {
-            Logger.error("No id in parentNode");
+        if( id.isEmpty() && !store.hasAttribute("group"))  {
+            Logger.error("No id/group found");
             return Optional.empty();
         }
-        var store=storeOpt.get();
 
         var valStore = new ValStore();
         valStore.id(id);
@@ -66,7 +61,7 @@ public class ValStore {
             }
         }
 
-        var vals = XMLtools.getChildElements(storeOpt.get());
+        var vals = XMLtools.getChildElements(store);
 
         ArrayList<AbstractVal> rtvals = new ArrayList<>();
         for( var val : vals){
@@ -87,6 +82,15 @@ public class ValStore {
         valStore.addVals(rtvals);
         return Optional.of( valStore );
     }
+    public static Optional<ValStore> build( Element parentNode ){
+        var storeOpt = XMLtools.getFirstChildByTag(parentNode,"store");
+
+        if( storeOpt.isEmpty())
+            return Optional.empty();
+        String id = parentNode.getAttribute("id");
+
+        return ValStore.build(storeOpt.get(),id);
+    }
     public void shareRealtimeValues(RealtimeValues rtv){
         for( var val : rtvals ){
             if( val instanceof RealVal ){
@@ -104,19 +108,19 @@ public class ValStore {
         rtvals.forEach(rtv::removeVal);
     }
 
-    public boolean apply( String line, BlockingQueue<Datagram> dQueue){
+    public boolean apply( String line, BlockingQueue<Datagram> dQueue) {
         var items = line.split(delimiter);
-        if( items.length<rtvals.size()) {
-            Logger.warn(id+" -> Can't apply store, not enough data in the line received");
+        if (items.length < rtvals.size()) {
+            Logger.warn(id + " -> Can't apply store, not enough data in the line received");
             return false;
         }
-        boolean parsed=true;
-        for( int a=0;a<rtvals.size();a++){
-            if( rtvals.get(a)!=null && parsed) {
+        boolean parsed = true;
+        for (int a = 0; a < rtvals.size(); a++) {
+            if (rtvals.get(a) != null && parsed) {
                 parsed = rtvals.get(a).parseValue(items[a]);
             }
         }
-        if(parsed) {
+        if (parsed) {
             if (!db[0].isEmpty()) { // if a db is present
                 // dbm needs to retrieve everything
                 Arrays.stream(db[0].split(","))
@@ -124,5 +128,17 @@ public class ValStore {
             }
         }
         return true;
+    }
+    public String toString(){
+        var join = new StringJoiner("\r\n");
+        join.add("Store splits on '"+delimiter+"'").add( "Targets:");
+        int index=0;
+        for( var val :rtvals ){
+            if( val !=null){
+                join.add("At index "+index+" -> "+val.toString());
+            }
+            index++;
+        }
+        return join.toString();
     }
 }
