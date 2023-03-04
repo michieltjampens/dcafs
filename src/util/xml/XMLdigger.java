@@ -157,6 +157,14 @@ public class XMLdigger {
         last = siblings.remove(0);
         return true;
     }
+    public XMLdigger toLastChild(){
+        if( !siblings.isEmpty() ) {
+            last = siblings.get(siblings.size() - 1);
+        }else{
+            invalidate();
+        }
+        return this;
+    }
     /**
      * Get all the other elements at the same 'level' as the current one, keeping them or removing them from the digger
      * @return A (potentially empty) list of the elements
