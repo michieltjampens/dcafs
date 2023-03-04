@@ -6,6 +6,7 @@ import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
+import util.data.ValStore;
 import util.data.ValTools;
 import util.database.SQLiteDB;
 import util.tools.FileTools;
@@ -127,7 +128,7 @@ public class PathForward {
         int vals=1;
         for( int a=0;a<steps.size();a++  ){
             Element step = steps.get(a);
-
+            ValStore store=null;
             if(step.getTagName().equalsIgnoreCase("customsrc")){
                 addCustomSrc( step.getTextContent(),
                               XMLtools.getStringAttribute(step,"interval","1s"),
@@ -141,11 +142,10 @@ public class PathForward {
                 var next = steps.get(a+1);
                 if(next.getTagName().equalsIgnoreCase("generic")
                         ||next.getTagName().equalsIgnoreCase("store")){// Next element is a generic
-                    if( !step.hasAttribute("label")) { // If this step doesn't have a label
-                        var genid = next.getAttribute("id"); // get the id of the generic
-                        genid = genid.isEmpty()?id+"_gen"+gens:genid; // If no id is given, take the path id and append gen
-                        gens++; // increase the total gen count
-                        step.setAttribute("label", "generic:" + genid); //alter this step label to the gen
+                    var storeOpt = ValStore.build(next,step.getAttribute("id"));
+                    if( storeOpt.isPresent()) {
+                        store = storeOpt.get();
+                        store.shareRealtimeValues(rtvals);
                     }
                 }
                 if(next.getTagName().equalsIgnoreCase("valmap")){
@@ -160,7 +160,7 @@ public class PathForward {
             if( step.hasAttribute("label"))
                 hasLabel=true;
 
-            boolean lastGenMap = false;
+            boolean lastGenMap = false; // Used to determine end of 'filter' and start of '!filter'
             if( !stepsForward.isEmpty() ) {
                 var prev = steps.get(a - 1);
                 lastGenMap = prev.getTagName().equalsIgnoreCase("generic")
@@ -189,6 +189,8 @@ public class PathForward {
                     } else {
                         addAsTarget(ff, src);
                     }
+                    if( store!=null)
+                        ff.setStore(store);
                     lastff = ff;
                     stepsForward.add(ff);
                 }
@@ -202,6 +204,8 @@ public class PathForward {
                     }else{
                         addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastGenMap));
                     }
+                    if( store!=null)
+                        mf.setStore(store);
                     stepsForward.add(mf);
                 }
                 case "editor" -> {
@@ -219,6 +223,8 @@ public class PathForward {
                     }else{
                         addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastGenMap));
                     }
+                    if( store!=null)
+                        ef.setStore(store);
                     stepsForward.add(ef);
                 }
             }
