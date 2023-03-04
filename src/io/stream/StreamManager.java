@@ -380,6 +380,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			return "Loading new stream.";
 		}
 	}
+	public boolean reloadStore( String id ){
+		var baseOpt = getStream(id);
+		if( baseOpt.isPresent() ){ // meaning reloading an existing one
+			return baseOpt.get().reloadStore(settingsPath,rtvals);
+		}
+		return false;
+	}
 	/* ***************************** A D D I N G C H A N N E L S ******************************************/
 	/**
 	 * Add the streams by reading the settings.xml
@@ -941,6 +948,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "List of available streams:"+nl+this.getStreamList(html);
 			case "status" :
 				return getStatus();
+			case "reloadstore":
+				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
+					return "Bad amount of arguments, ss:reloadstore,id";
+				if( reloadStore(cmds[1])){
+					return "Reloaded the store of "+cmds[1];
+				}else{
+					return "Failed to reload the store of "+cmds[1];
+				}
 			default: return "Unknown command: "+request;
 		}
 		return "";
