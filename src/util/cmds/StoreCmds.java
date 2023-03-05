@@ -87,7 +87,7 @@ public class StoreCmds {
             startNew = true;
         }else{
             dig.goDown("*");
-            dig.toLastChild();
+            dig.toLastSibling();
             startNew = !dig.tagName("").equalsIgnoreCase("store");
         }
         if( startNew ){

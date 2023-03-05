@@ -157,7 +157,7 @@ public class XMLdigger {
         last = siblings.remove(0);
         return true;
     }
-    public XMLdigger toLastChild(){
+    public XMLdigger toLastSibling(){
         if( !siblings.isEmpty() ) {
             last = siblings.get(siblings.size() - 1);
         }else{
