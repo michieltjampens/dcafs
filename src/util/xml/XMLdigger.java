@@ -165,6 +165,16 @@ public class XMLdigger {
         }
         return this;
     }
+    public XMLdigger toSibling( int index){
+        if( index == -1 )
+            index = siblings.size()-1;
+        if( !siblings.isEmpty() && index < siblings.size() ) {
+            last = siblings.get(index);
+        }else{
+            invalidate();
+        }
+        return this;
+    }
     /**
      * Get all the other elements at the same 'level' as the current one, keeping them or removing them from the digger
      * @return A (potentially empty) list of the elements
