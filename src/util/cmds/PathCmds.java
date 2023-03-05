@@ -28,12 +28,11 @@ public class PathCmds {
                     .add(green+" pf:pathid,addfilter/addf,rule "+reg+"-> Add a filter to the path with the given rule")
                     .add(green+" pf:pathid,addeditor/adde,name<,index> "+reg+"-> Add an editor to the store with the given rule")
                     .add(green+" pf:pathid,addtext/addt,name<,index> "+reg+"-> Add a TextVal to the store, with optional index")
-                    .add(green+" pf:pathid,addint/addi,name<,index> "+reg+"-> Add a IntVal to the store, with optional index")
-                    .add(green+" pf:pathid,addb/addblank "+reg+"-> Add a blank spot incase index isn't used but a item needs to be skipped");
+                    .add(green+" pf:pathid,addmath/addm,name<,index> "+reg+"-> Add a IntVal to the store, with optional index")
+                    .add(green+" pf:pathid,store,cmds "+reg+"-> Add/edit a store");
             join.add("").add(cyan+"Alter attributes"+reg)
-                    .add(green+" pf:pathid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the store")
-                    .add(green+" pf:pathid,db,dbids:table "+reg+"-> Alter the database/table ")
-                    .add(green+" pf:pathid,group,newgroup"+reg+"-> Alter the group used");
+                    .add(green+" pf:pathid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the path")
+                    .add(green+" pf:pathid,src,newsrc "+reg+"-> Alter the src");
             return join.toString();
         }
 
@@ -53,6 +52,21 @@ public class PathCmds {
         var fab=fabOpt.get();
 
         switch( cmds[1]){
+            case "delimiter","delim" ->{
+                if (cmds.length < 3)
+                    return "Not enough arguments: pf:id,delim/delimiter,newdelimiter";
+                var deli = cmds.length == 4 ? "," : cmds[2];
+                fab.attr("delimiter", deli);
+                fab.build();
+                return "Set the delimiter to '"+deli+"'";
+            }
+            case "src" ->{
+                if (cmds.length < 3)
+                    return "Not enough arguments: store:id,delim,newdelimiter";
+                fab.attr("src", cmds[2]);
+                fab.build();
+                return "Set the src to '"+cmds[2]+"'";
+            }
             case "addfilter","addf" -> {
                 var rule = cmds[2].split(":");
                 fab.addChild("filter").attr("type",rule[0]).content(rule[1]);

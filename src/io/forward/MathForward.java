@@ -774,7 +774,7 @@ public class MathForward extends AbstractForward {
             valid=true;
             doCmd = true;
 
-            if( ((cmd.startsWith("doubles:update")||cmd.startsWith("dv")) && cmd.endsWith(",$"))  ){
+            if( ((cmd.startsWith("real:update")||cmd.startsWith("rv")) && cmd.endsWith(",$"))  ){
                 String val = cmd.substring(8).split(",")[1];
                 this.cmd = rtvals.getRealVal(val).map(dv-> {
                     update=dv;

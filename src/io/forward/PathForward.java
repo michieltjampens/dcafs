@@ -126,7 +126,6 @@ public class PathForward {
 
         FilterForward lastff=null;
         boolean hasLabel=false;
-        int gens=1;
         int vals=1;
         for( int a=0;a<steps.size();a++  ){
             Element step = steps.get(a);
@@ -254,7 +253,8 @@ public class PathForward {
         return "";
     }
     public void clearStores(){
-        stepsForward.forEach( x -> x.clearStore(rtvals));
+        if( stepsForward!=null)
+            stepsForward.forEach( x -> x.clearStore(rtvals));
     }
     public boolean isValid(){
         return valid;
@@ -468,18 +468,17 @@ public class PathForward {
             if( targets.isEmpty() )
                 stop();
 
-            switch( srcType){
-                case CMD:
-                    targets.forEach(t->dQueue.add( Datagram.build(pathOrData).label("system").writable(t).toggleSilent())); break;
-                case RTVALS:
-                    var write = ValTools.parseRTline(pathOrData,"-999",rtvals);
-                    targets.forEach( x -> x.writeLine(write));
-                    break;
-                default:
-                case PLAIN: targets.forEach( x -> x.writeLine(pathOrData)); break;
-                case SQLITE:
-                    if( buffer.isEmpty() ) {
-                        if( readOnce ) {
+            switch (srcType) {
+                case CMD ->
+                        targets.forEach(t -> dQueue.add(Datagram.build(pathOrData).label("system").writable(t).toggleSilent()));
+                case RTVALS -> {
+                    var write = ValTools.parseRTline(pathOrData, "-999", rtvals);
+                    targets.forEach(x -> x.writeLine(write));
+                }
+                case PLAIN -> targets.forEach(x -> x.writeLine(pathOrData));
+                case SQLITE -> {
+                    if (buffer.isEmpty()) {
+                        if (readOnce) {
                             stop();
                             return;
                         }
@@ -488,64 +487,64 @@ public class PathForward {
                         lite.disconnect(); //disconnect the database after retrieving the data
                         if (dataOpt.isPresent()) {
                             var data = dataOpt.get();
-                            readOnce=true;
-                            for( var d : data ){
+                            readOnce = true;
+                            for (var d : data) {
                                 StringJoiner join = new StringJoiner(";");
                                 d.stream().map(Object::toString).forEach(join::add);
                                 buffer.add(join.toString());
                             }
                         }
-                    }else{
+                    } else {
                         String line = buffer.remove(0);
-                        targets.forEach( wr-> wr.writeLine(line));
+                        targets.forEach(wr -> wr.writeLine(line));
                     }
-                    break;
-                case FILE:
+                }
+                case FILE -> {
                     try {
-                        for( int a=0;a<multiLine;a++){
+                        for (int a = 0; a < multiLine; a++) {
                             if (buffer.isEmpty()) {
-                                if( files.isEmpty()){
+                                if (files.isEmpty()) {
                                     future.cancel(true);
-                                    dQueue.add( Datagram.system("telnet:broadcast,info,"+id+" finished."));
+                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished."));
                                     return;
                                 }
-                                if( SKIPLINES==0 ) {
-                                    buffer.addAll( FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
-                                }else{
-                                    if( !readOnce )
-                                        buffer.addAll( FileTools.readSubsetLines( files.get(0),10,SKIPLINES));
-                                    readOnce=true;
+                                if (SKIPLINES == 0) {
+                                    buffer.addAll(FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
+                                } else {
+                                    if (!readOnce)
+                                        buffer.addAll(FileTools.readSubsetLines(files.get(0), 10, SKIPLINES));
+                                    readOnce = true;
                                 }
                                 lineCount += buffer.size();
-                                if( buffer.size() < READ_BUFFER_SIZE ){
-                                    dQueue.add( Datagram.system("telnet:broadcast,info,"+id+" processed "+files.get(0)));
-                                    Logger.info("Finished processing "+files.get(0));
+                                if (buffer.size() < READ_BUFFER_SIZE) {
+                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)));
+                                    Logger.info("Finished processing " + files.get(0));
                                     files.remove(0);
                                     lineCount = 1;
-                                    if( buffer.isEmpty()) {
+                                    if (buffer.isEmpty()) {
                                         if (!files.isEmpty()) {
-                                            Logger.info("Started processing "+files.get(0));
+                                            Logger.info("Started processing " + files.get(0));
                                             buffer.addAll(FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
                                             lineCount += buffer.size();
-                                        }else{
+                                        } else {
                                             future.cancel(true);
-                                            dQueue.add( Datagram.system("telnet:broadcast,info,"+id+" finished."));
+                                            dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished."));
                                             return;
                                         }
                                     }
                                 }
                             }
                             String line = buffer.remove(0);
-                            targets.forEach( wr-> wr.writeLine(line));
-                            if( !label.isEmpty()){
-                                dQueue.add( Datagram.build(line).label(label));
+                            targets.forEach(wr -> wr.writeLine(line));
+                            if (!label.isEmpty()) {
+                                dQueue.add(Datagram.build(line).label(label));
                             }
                             sendLines++;
                         }
-                    }catch(Exception e){
+                    } catch (Exception e) {
                         Logger.error(e);
                     }
-                    break;
+                }
             }
         }
         public String toString(){
