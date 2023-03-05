@@ -78,7 +78,7 @@ public class PathForward {
         // if any future is active, stop it
         customs.forEach(CustomSrc::stop);
 
-        if( stepsForward!=null) {// If this is a reload, reset the steps
+        if( stepsForward!=null && !stepsForward.isEmpty()) {// If this is a reload, reset the steps
             dQueue.add(Datagram.system("nothing").writable(stepsForward.get(0))); // stop asking for data
             lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets()));
             stepsForward.clear();
