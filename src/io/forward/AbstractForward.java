@@ -38,6 +38,7 @@ public abstract class AbstractForward implements Writable {
     protected final RealtimeValues rtvals;
     protected ValStore store;
     protected boolean readOk=false;
+    public enum RESULT{ERROR,EXISTS,OK}
 
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
@@ -219,6 +220,10 @@ public abstract class AbstractForward implements Writable {
     public void setInvalid(){valid=false;}
     public void setStore( ValStore store){
         this.store=store;
+        if( !valid && store!=null){
+            valid=true;
+            sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+        }
     }
     public void clearStore(RealtimeValues rtv){
         if( store!=null)
