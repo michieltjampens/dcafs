@@ -337,10 +337,9 @@ public class DAS implements Commandable{
      */
     private void addLabelWorker() {
         if (this.labelWorker == null)
-            labelWorker = new LabelWorker(settingsPath,dQueue,rtvals,dbManager);
+            labelWorker = new LabelWorker(settingsPath,dQueue,rtvals);
         labelWorker.setCommandReq(commandPool);
         labelWorker.setDebugging(debug);
-        labelWorker.setMqttWriter(mqttPool);
     }
     public void addDatagramProcessor( DatagramProcessing rtvals ){
         labelWorker.addDatagramProcessing(rtvals);

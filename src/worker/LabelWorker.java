@@ -33,8 +33,6 @@ import java.util.stream.Collectors;
  */
 public class LabelWorker implements Runnable {
 
-	static final String UNKNOWN_CMD = "unknown command";
-
 	private final Map<String, ValMap> mappers = new HashMap<>();
 	private final Map<String, Readable> readables = new HashMap<>();
 
@@ -42,8 +40,6 @@ public class LabelWorker implements Runnable {
 
 	private BlockingQueue<Datagram> dQueue;      // The queue holding raw data for processing
 	private final RealtimeValues rtvals;
-	private final QueryWriting queryWriting;
-	private MqttWriting mqtt;
 	private final Path settingsPath;
 	private boolean goOn=true;
 	protected CommandPool reqData;
@@ -78,15 +74,11 @@ public class LabelWorker implements Runnable {
 		this.settingsPath=settingsPath;
 		this.dQueue = dQueue;
 		this.rtvals=rtvals;
-		this.queryWriting=queryWriting;
 
 		Logger.info("Using " + Math.min(3, Runtime.getRuntime().availableProcessors()) + " threads");
 		debug.scheduleAtFixedRate(this::selfCheck,5,30,TimeUnit.MINUTES);
 
 		loadValMaps(true);
-	}
-	public void setMqttWriter( MqttWriting mqtt){
-		this.mqtt=mqtt;
 	}
 
 	/**
@@ -186,32 +178,6 @@ public class LabelWorker implements Runnable {
 	}
 
 	/* ******************************* D E F A U L T   S T U F F **************************************** */
-	private void storeInRealVal(String param, String data, String origin ){
-		try{
-			String[] ids = param.split(",");
-
-			String group = ids.length==1?"":ids[0];
-			String name = ids.length==1?ids[0]:ids[1];
-			String id = group+"_"+name;
-
-			var val = NumberUtils.toDouble(data,Double.NaN);
-			if( Double.isNaN(val) && NumberUtils.isCreatable(data)){
-				val = NumberUtils.createInteger(data);
-			}
-
-			if( !Double.isNaN(val) ){
-				if( rtvals.hasReal(id)){
-					rtvals.updateReal(id,val);
-				}else{
-					rtvals.addRealVal( RealVal.newVal(group,name).value(val),true);
-				}
-			}else{
-				Logger.warn("Tried to convert "+data+" from "+origin+" to a double, but got NaN");
-			}
-		}catch( NumberFormatException e ){
-			Logger.warn("Tried to convert "+data+" from "+origin+" to a double, but got numberformatexception");
-		}
-	}
 	private void checkRead( String from, Writable wr, String id){
 		if(wr!=null){
 			var ids = id.split(",");

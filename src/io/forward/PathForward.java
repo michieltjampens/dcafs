@@ -177,8 +177,8 @@ public class PathForward {
                 step.setAttribute("id",id+"_"+stepsForward.size());
 
             var src = XMLtools.getStringAttribute(step,"src","");
-            if( stepsForward.isEmpty() && !src.isEmpty())
-                step.setAttribute("src","");
+            if( stepsForward.isEmpty() && src.isEmpty())
+                step.setAttribute("src",this.src);
 
             switch (step.getTagName()) {
                 case "filter" -> {
@@ -187,8 +187,6 @@ public class PathForward {
                         addAsTarget(ff, src);
                     } else if (lastff != null && (!(lastStep().isPresent()&&lastStep().get() instanceof FilterForward) || lastGenMap)) {
                         lastff.addReverseTarget(ff);
-                    } else {
-                        addAsTarget(ff, src);
                     }
                     if( store!=null)
                         ff.setStore(store);
