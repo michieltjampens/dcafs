@@ -1151,7 +1151,13 @@ public class ForwardPool implements Commandable {
                     return pp.debugStep(cmds[2],wr);
                 return pp.debugStep(nr,wr);
             default:
-                return PathCmds.replyToCommand(cmd,html,settingsPath);
+                var res = PathCmds.replyToCommand(cmd,html,settingsPath);
+                // Reload the path
+                var pEle = XMLfab.withRoot(settingsPath,"dcafs","paths")
+                                .getChild("path","id",cmds[1]);
+                if(!pEle.isEmpty())
+                    paths.get(cmds[1]).readFromXML(pEle.get(),settingsPath.getParent());
+                return res;
         }
     }
     public void readPathsFromXML(){
