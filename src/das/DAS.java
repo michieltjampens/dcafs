@@ -341,8 +341,6 @@ public class DAS implements Commandable{
         labelWorker.setCommandReq(commandPool);
         labelWorker.setDebugging(debug);
         labelWorker.setMqttWriter(mqttPool);
-
-        addCommandable(labelWorker,"gens");
     }
     public void addDatagramProcessor( DatagramProcessing rtvals ){
         labelWorker.addDatagramProcessing(rtvals);

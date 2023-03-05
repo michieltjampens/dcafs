@@ -14,7 +14,6 @@ import util.tools.Tools;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
-import worker.Generic;
 
 import java.io.File;
 import java.io.IOException;
