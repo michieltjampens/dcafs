@@ -2,6 +2,7 @@ package util.cmds;
 
 import io.forward.PathForward;
 import io.telnet.TelnetCodes;
+import org.apache.commons.lang3.math.NumberUtils;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
@@ -96,16 +97,44 @@ public class PathCmds {
             }
             case "src" ->{
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,delim,newdelimiter";
+                    return "! Not enough arguments: pf:id,src,newsrc";
                 fab.attr("src", cmds[2]);
                 fab.build();
                 return "Set the src to '"+cmds[2]+"'";
             }
             case "addfilter","addf" -> {
+                if( cmds.length < 3 )
+                    return "! Not enough arguments: pf:id,addfilter,type:rule";
                 var rule = cmds[2].split(":");
+                if( rule.length != 2)
+                    return "! Need a type and a rule separated with : (pf:id,addfilter,type:rule)";
                 fab.addChild("filter").attr("type",rule[0]).content(rule[1]);
                 fab.build();
                 return "Filter added";
+            }
+            case "addeditor","adde" -> {
+                if( cmds.length < 3 )
+                    return "! Not enough arguments: pf:id,addeditor,type:value";
+                var rule = cmds[2].split(":");
+                if( rule.length < 2)
+                    return "! Need a type and a value separated with : (pf:id,addeditor,type:value)";
+                // Now the value can contain : and , that messes up the general split, so redo it
+                int a = request.indexOf(",adde"); // get the position of ,adde
+                a += request.substring(a+1).indexOf(",");// alter this to the first , after is (because addeditor exists)
+                var typval = request.substring(a);// new get that part from the original
+                a = typval.indexOf(":"); // split is done on the first :
+                EditorCmds.addEditor(fab,typval.substring(0,a),typval.substring(a+1));
+                fab.build();
+                return "Filter added";
+            }
+            case "addmath","addm" -> {
+                if( cmds.length < 3 )
+                    return "! Not enough arguments: pf:id,addmath,operation";
+
+                fab.addChild("math").down()
+                        .addChild("op",cmds[2]);
+                fab.build();
+                return "Math added";
             }
             case "store" -> {
                 if( cmds.length <4 )
@@ -116,4 +145,5 @@ public class PathCmds {
         }
         return "unknown command: pf:"+request;
     }
+
 }
