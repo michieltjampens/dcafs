@@ -143,7 +143,7 @@ public class PathForward {
                 var next = steps.get(a+1);
                 if(next.getTagName().equalsIgnoreCase("generic")
                         ||next.getTagName().equalsIgnoreCase("store")){// Next element is a generic
-                    var storeOpt = ValStore.build(next,step.getAttribute("id"));
+                    var storeOpt = ValStore.build(next,id);
                     if( storeOpt.isPresent()) {
                         store = storeOpt.get();
                         store.shareRealtimeValues(rtvals);
