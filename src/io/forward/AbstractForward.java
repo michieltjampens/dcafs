@@ -32,7 +32,6 @@ public abstract class AbstractForward implements Writable {
     protected boolean xmlOk=false;             // There's a valid xml path available
     protected boolean deleteNoTargets=false;   // Get this object to kill itself when targets is empty
     protected Path xml;                        // Path to the xml file containing the info
-    protected String label="";                 // With this the forward can use the dataQueue as a target
     protected int badDataCount=0;               // Keep track of the amount of bad data received
     protected boolean log = false;
     protected final RealtimeValues rtvals;
@@ -118,7 +117,7 @@ public abstract class AbstractForward implements Writable {
         targets.clear();
     }
     public boolean noTargets(){
-        return targets.isEmpty() && label.isEmpty() && !log;
+        return targets.isEmpty() && store==null && !log;
     }
     public ArrayList<Writable> getTargets(){
         return targets;
@@ -137,14 +136,8 @@ public abstract class AbstractForward implements Writable {
             targets.forEach(x -> ts.add(x.getID()));
             join.add(ts.toString());
         }
-
-        if( !label.isEmpty()) {
-            if( label.startsWith("generic")){
-                join.add("    Given to generic/store " + label.substring(8));
-            }else {
-                join.add("    To label " + label);
-            }
-        }
+        if( store != null )
+            join.add(store.toString());
         return join.toString();
     }
     /**
@@ -161,17 +154,6 @@ public abstract class AbstractForward implements Writable {
 
         return join.toString();
     }
-    /**
-     * Change the label
-     * @param label The new label
-     */
-    public void setLabel(String label){
-        this.label=label;
-        if( !valid && !label.isEmpty()) {
-            sources.forEach(source -> dQueue.add(Datagram.build(source).label("system").writable(this)));
-            valid=true;
-        }
-    }
     protected boolean readBasicsFromXml( Element fw ){
 
         if( fw==null) // Can't work if this is null
@@ -182,10 +164,9 @@ public abstract class AbstractForward implements Writable {
         if( id.isEmpty() ) // Cant work without id
             return false;
 
-        label = XMLtools.getStringAttribute( fw, "label", "");
         log = XMLtools.getBooleanAttribute(fw,"log",false);
 
-        if( !label.isEmpty() || log ){ // this counts as a target, so enable it
+        if( log ){ // this counts as a target, so enable it
             valid=true;
         }
 
@@ -204,9 +185,6 @@ public abstract class AbstractForward implements Writable {
      * @param fab An XMLfab with the forward as the current parent
      */
     protected void writeBasicsToXML( XMLfab fab){
-        if( !label.isEmpty() )
-            fab.attr("label",label);
-
         // Sources
         if( sources.size()==1 ){
             fab.attr("src",sources.get(0));

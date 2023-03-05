@@ -27,7 +27,6 @@ public class ForwardPool implements Commandable {
     private final HashMap<String, FilterForward> filters = new HashMap<>();
     private final HashMap<String, EditorForward> editors = new HashMap<>();
     private final HashMap<String, MathForward> maths = new HashMap<>();
-
     private final HashMap<String, PathForward> paths = new HashMap<>();
 
     private final BlockingQueue<Datagram> dQueue;
@@ -256,11 +255,6 @@ public class ForwardPool implements Commandable {
                         mf.setDelimiter(value);
                         fab.attr("delimiter", value);
                         return fab.build() ? "Delimiter changed" : "Delimiter change failed";
-                    }
-                    case "label" -> {
-                        mf.setLabel(value);
-                        fab.attr("label", value);
-                        return fab.build() ? "Label changed" : "Label change failed";
                     }
                     default -> {
                         return "No valid alter target: " + param;
@@ -491,11 +485,6 @@ public class ForwardPool implements Commandable {
                 fab = XMLfab.withRoot(settingsPath, "dcafs", "editors"); // get a fab pointing to the maths node
                 if (fab.selectChildAsParent("editor", "id", cmds[1]).isEmpty())
                     return "No such editor node '" + cmds[1] + "'";
-                if (param.equals("label")) {
-                    ef.setLabel(val);
-                    fab.attr("label", val);
-                    return fab.build() ? "Label changed" : "Label change failed";
-                }
                 return "No valid alter target: " + param;
             }
             case "edits" -> {
@@ -835,11 +824,6 @@ public class ForwardPool implements Commandable {
                     return "No such filter node '"+cmds[1]+"'";
 
                 switch (param) {
-                    case "label" -> {
-                        ff.setLabel(value);
-                        fab.attr("label", value);
-                        return fab.build() ? "Label changed" : "Label change failed";
-                    }
                     case "delim", "delimiter" -> {
                         fab.attr("delimiter", value);
                         return fab.build() ? "Delimiter changed" : "Delimiter change failed";

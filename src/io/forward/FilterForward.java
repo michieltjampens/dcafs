@@ -40,14 +40,12 @@ public class FilterForward extends AbstractForward {
     @Override
     protected boolean addData(String data) {
 
-        if( doFilter(data)){
-            targets.stream().forEach(wr -> wr.writeLine( data ) );
+        if( doFilter(data) ){
+            targets.forEach(wr -> wr.writeLine( data ) );
             targets.removeIf(wr -> !wr.isConnectionValid() );
-            if( !label.isEmpty() ){
-                dQueue.add( Datagram.build(data).writable(this).label(label) );
-            }
+
             if( log )
-                Logger.tag("RAW").info( "1\t" + (label.isEmpty()?"void":label)+"|"+getID() + "\t" + data);
+                Logger.tag("RAW").info( "1\t" +getID() + "\t" + data);
             if( store!=null)
                 store.apply(data,dQueue);
         }else{
@@ -96,13 +94,6 @@ public class FilterForward extends AbstractForward {
         if( !reversed.isEmpty())
             join.add(ts2.toString());
 
-        if( !label.isEmpty()) {
-            if (label.startsWith("generic")) {
-                join.add("    Given to generic/store " + label.substring(8));
-            } else {
-                join.add("    To label " + label);
-            }
-        }
         return join.toString();
     }
     @Override

@@ -99,9 +99,6 @@ public class EditorForward extends AbstractForward{
     protected boolean addData(String data) {
 
         if( data.startsWith("corrupt")){
-            if( label.startsWith("generic") && data.endsWith(":1")) {
-                dQueue.add(Datagram.build("corrupt").label(label).writable(this));
-            }
             String d = data;
             targets.removeIf(t-> !t.writeLine(d) );
             return true;
@@ -121,15 +118,12 @@ public class EditorForward extends AbstractForward{
         targets.removeIf(t-> !t.writeLine(finalData) ); // Send this data to the targets, remove those that refuse it
 
         if( log )
-            Logger.tag("RAW").info( "1\t" + (label.isEmpty()?"void":label)+"|"+getID() + "\t" + data);
+            Logger.tag("RAW").info( "1\t" + getID() + "\t" + data);
 
-        if( !label.isEmpty() ){ // If the object has a label associated
-            dQueue.add( Datagram.build(data).label(label).writable(this) ); // add it to the queue
-        }
         if( store != null )
             store.apply(data,dQueue);
         // If there are no target, no label, this no longer needs to be a target
-        if( targets.isEmpty() && label.isEmpty() && !log && store==null){
+        if( targets.isEmpty() && !log && store==null){
             valid=false;
             if( deleteNoTargets )
                 dQueue.add( Datagram.system("ef:remove,"+id) ); // todo
@@ -460,17 +454,16 @@ public class EditorForward extends AbstractForward{
 
         rulesString.add( new String[]{"","resplit","deli:"+delimiter+" ->"+resplit} );
 
-        var is = Pattern.compile("[i][0-9]{1,3}")
+        var is = Pattern.compile("i[0-9]{1,3}")
                 .matcher(resplit)
                 .results()
                 .map(MatchResult::group)
                 .toArray(String[]::new);
 
-        var filler = resplit.split("[i][0-9]{1,3}");
+        var filler = resplit.split("i[0-9]{1,3}");
 
         if(is.length==0) {
             Logger.warn(id+"(ef)-> No original data referenced in the resplit");
-          //  return;
         }
 
         int[] indexes = new int[is.length];

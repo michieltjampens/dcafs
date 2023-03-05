@@ -178,22 +178,6 @@ public class LabelWorker implements Runnable {
 	}
 
 	/* ******************************* D E F A U L T   S T U F F **************************************** */
-	private void checkRead( String from, Writable wr, String id){
-		if(wr!=null){
-			var ids = id.split(",");
-			var read = readables.get(ids[0]);
-			if( read != null && !read.isInvalid()){
-
-				read.addTarget(wr,ids.length==2?ids[1]:"*");
-				Logger.info("Added "+wr.getID()+ " to target list of "+read.getID());
-			}else{
-				Logger.error(wr.getID()+" asked for data from "+id+" but doesn't exists (anymore)");
-			}
-			readables.entrySet().removeIf( entry -> entry.getValue().isInvalid());
-		}else{
-			Logger.error("No valid writable in the datagram from "+from);
-		}
-	}
 	public void checkTelnet(Datagram d) {
 		Writable dt = d.getWritable();
 		d.origin("telnet");
@@ -263,10 +247,8 @@ public class LabelWorker implements Runnable {
 				}
 
 				if( d.label.contains(":") ){
-					String readID = label.substring(label.indexOf(":")+1);
 					switch (d.label.split(":")[0]) {
 						case "valmap" -> executor.execute(() -> processValmap(d));
-						case "read" -> executor.execute(() -> checkRead(d.getOriginID(), d.getWritable(), readID));
 						case "telnet" -> executor.execute(() -> checkTelnet(d));
 						case "log" -> {
 							switch (d.label.split(":")[1]) {
@@ -289,36 +271,20 @@ public class LabelWorker implements Runnable {
 					}
 				}else {
 					switch (label) {
-						case "system": case "cmd": case "matrix":
-							executor.execute(() -> reqData.createResponse( d, false));
-							break;
-						case "void":
-							break;
-						case "readable":
-							if(  d.getReadable()!=null)
-								readables.put(d.getReadable().getID(),d.getReadable());
-							readables.entrySet().removeIf( entry -> entry.getValue().isInvalid()); // cleanup
-							break;
-						case "test":
-							executor.execute(() -> Logger.info(d.getOriginID() + "|" + label + " -> " + d.getData()));
-							break;
-						case "email":
-							executor.execute(() -> reqData.emailResponse(d));
-							break;
-						case "telnet":
-							executor.execute(() -> checkTelnet(d) );
-							break;
-						default:
-							boolean processed=false;
-							for( DatagramProcessing dgp : dgProc ){
-								if( dgp.processDatagram(d)) {
-									processed=true;
+						case "system", "cmd", "matrix" -> executor.execute(() -> reqData.createResponse(d, false));
+						case "email" -> executor.execute(() -> reqData.emailResponse(d));
+						case "telnet" -> executor.execute(() -> checkTelnet(d));
+						default -> {
+							boolean processed = false;
+							for (DatagramProcessing dgp : dgProc) {
+								if (dgp.processDatagram(d)) {
+									processed = true;
 									break;
 								}
 							}
-							if( ! processed)
-								Logger.error("Unknown label: "+label);
-							break;
+							if (!processed)
+								Logger.error("Unknown label: " + label);
+						}
 					}
 				}
 				int proc = procCount.get();

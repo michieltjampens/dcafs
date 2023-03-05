@@ -182,9 +182,6 @@ public class MathForward extends AbstractForward {
         }
 
         fab.attr("delimiter",delimiter);
-        if( !label.isEmpty())
-            fab.attr("label",label);
-
         fab.clearChildren(); // Remove any existing
 
         if( sources.size()==1){
@@ -291,14 +288,8 @@ public class MathForward extends AbstractForward {
         }
         targets.removeIf( t-> !t.writeLine(result) ); // Send this data to the targets, remove those that refuse it
 
-        if( !label.isEmpty() ){ // If the object has a label associated
-            Double[] d = new Double[bds.length];
-            for( int a=0;a<bds.length;a++)
-                d[a]=bds[a]==null?null:bds[a].doubleValue();  // don't try to convert null
-            dQueue.add( Datagram.build(result).label(label).writable(this).payload(d) ); // add it to the queue
-        }
         if( log )
-            Logger.tag("RAW").info( "1\t" + (label.isEmpty()?"void":label)+"|"+getID() + "\t" + result);
+            Logger.tag("RAW").info( "1\t" + getID() + "\t" + result);
         if( store!=null)
             store.apply(result,dQueue);
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
