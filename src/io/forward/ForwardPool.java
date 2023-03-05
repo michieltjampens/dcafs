@@ -1031,6 +1031,7 @@ public class ForwardPool implements Commandable {
                 return "No such path "+cmds[1];
             case "clear":
                 XMLfab.withRoot(settingsPath, "dcafs", "paths").clearChildren().build();
+                readPathsFromXML();
                 return "Paths cleared";
             case "stop":
                 paths.values().forEach( pf -> pf.removeTarget(wr) );
