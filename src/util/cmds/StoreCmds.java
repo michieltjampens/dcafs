@@ -4,6 +4,7 @@ import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
+import util.xml.XMLtools;
 
 import java.nio.file.Path;
 import java.util.StringJoiner;
@@ -95,7 +96,8 @@ public class StoreCmds {
                 return "No valid fab created";
             var fab=fabOpt.get();
             fab.up(); // dig was pointing to the last step which wasn't a store, go back up
-            fab.addChild("store").attr("delimiter",",");
+            var deli = XMLtools.getStringAttribute(fab.getCurrentElement(),"delimiter",",");
+            fab.addChild("store").attr("delimiter",deli);
             fab.down(); // make the store the parent
             //fab.build();
             dig = XMLdigger.goIn(fab.getCurrentElement()); // reset the digger
