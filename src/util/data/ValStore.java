@@ -1,5 +1,6 @@
 package util.data;
 
+import io.forward.AbstractForward;
 import org.tinylog.Logger;
 import util.xml.XMLtools;
 
@@ -92,15 +93,20 @@ public class ValStore {
         return ValStore.build(storeOpt.get(),id);
     }
     public void shareRealtimeValues(RealtimeValues rtv){
-        for( var val : rtvals ){
+        for( int index=0;index<rtvals.size();index++){
+            var val = rtvals.get(index);
             if( val instanceof RealVal ){
-                rtv.addRealVal((RealVal)val,false);
+                if( rtv.addRealVal((RealVal)val,false) == AbstractForward.RESULT.EXISTS)
+                    rtvals.set(index, rtv.getRealVal(val.id()).get());
             }else if( val instanceof IntegerVal ){
-                rtv.addIntegerVal((IntegerVal) val,null);
+                if( rtv.addIntegerVal((IntegerVal)val,null) == AbstractForward.RESULT.EXISTS)
+                    rtvals.set(index, rtv.getIntegerVal(val.id()).get());
             }else if( val instanceof  FlagVal ){
-                rtv.addFlagVal((FlagVal)val,null);
+                if( rtv.addFlagVal((FlagVal)val,null) == AbstractForward.RESULT.EXISTS)
+                    rtvals.set(index, rtv.getFlagVal(val.id()).get());
             }else if( val instanceof TextVal ){
-                rtv.addTextVal((TextVal)val,null);
+                if( rtv.addTextVal((TextVal)val,null) == AbstractForward.RESULT.EXISTS)
+                    rtvals.set(index, rtv.getTextVal(val.id()).get());
             }
         }
     }
