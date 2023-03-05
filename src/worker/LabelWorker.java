@@ -70,7 +70,7 @@ public class LabelWorker implements Runnable {
 	 *
 	 * @param dQueue The queue to use
 	 */
-	public LabelWorker(Path settingsPath, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, QueryWriting queryWriting) {
+	public LabelWorker(Path settingsPath, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals) {
 		this.settingsPath=settingsPath;
 		this.dQueue = dQueue;
 		this.rtvals=rtvals;
