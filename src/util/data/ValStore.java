@@ -14,7 +14,7 @@ import org.w3c.dom.Element;
 import worker.Datagram;
 
 public class ValStore {
-    private ArrayList<AbstractVal> rtvals = new ArrayList<>();
+    private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
     private String delimiter = ",";
     private String[] db={"",""}; // dbid,table
     private String id;
@@ -141,7 +141,7 @@ public class ValStore {
         int index=0;
         for( var val :rtvals ){
             if( val !=null){
-                join.add("At index "+index+" -> "+val.toString());
+                join.add("At index "+index+" -> "+val);
             }
             index++;
         }

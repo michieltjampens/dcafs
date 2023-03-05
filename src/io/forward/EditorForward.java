@@ -1,5 +1,6 @@
 package io.forward;
 
+import io.telnet.TelnetCodes;
 import util.data.RealtimeValues;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
@@ -43,58 +44,7 @@ public class EditorForward extends AbstractForward{
         return new EditorForward( ele,dQueue, rtvals );
     }
 
-    /**
-     * Get an overview of all the available edit types
-     * @param eol The end of line to use for the overview
-     * @return A listing of all the types with examples
-     */
-    public static String getHelp(String eol) {
-        StringJoiner join = new StringJoiner(eol);
-        join.add("All examples will start from 16:25:12 as base data");
-        join.add("resplit -> Use the delimiter to split the data and combine according to the value")
-                .add("    fe. <edit type='resplit' delimiter=':' leftover='append'>i0-i1</edit>  --> 16-25:12")
-                .add("    fe. <edit type='resplit' delimiter=':' leftover='remove'>i0-i1</edit>  --> 16-25")
-                .add("    fe. <edit type='resplit' delimiter=':' leftover='remove'>i2-i1-i0</edit>  --> 12-25-16")
-                .add("charsplit -> Splits the given data on the char positions and combines with first used delimiter")
-                .add("    fe. <edit type='charsplit'>1,4,7 </edit>  --> 1,6:2,5:1,2")
-                .add("redate -> Get the value at index according to delimiter, then go 'from' one date(time) format to the format in the value given")
-                .add("    fe. <edit type='redate' from='yy:dd:MM' >dd_MMMM_yy</edit>  --> 25_december_16")
-                .add("retime -> Same as redate but for only time")
-                .add("    fe. <edit type='retime' from='HH:mm:ss' >HH-mm</edit>  --> 16-25")
-                .add("replace -> Replace 'find' with the value given (NOTE: 'Value given' can't be a whitespace character)")
-                .add("    fe. <edit type='replace' find='1'>4</edit>  --> 46:25:42")
-                .add("prepend -> Add the given data to the front")
-                .add("    fe. <edit type='prepend' >time=</edit>  --> time=16:25:12")
-                .add("append -> Add the given data at the end")
-                .add("    fe. <edit type='append' > (UTC)</edit>  --> time=16:25:12 (UTC)")
-                .add("insert -> Add the given data at the chosen position")
-                .add("    fe. <edit type='insert' position='4' >!</edit>  --> time!=16:25:12 (UTC)")
-                .add("")
-                .add("--REMOVE--")
-                .add("trim -> Remove all whitespace characters from the start and end of the data")
-                .add("    fe. <edit type='trim'/>")
-                .add("remove -> Remove all occurrences of the value given  (NOTE: 'Value given' can't be a whitespace character)")
-                .add("    fe. <edit type='remove' >1</edit>  --> 6:25:2")
-                .add("cutstart -> Cut the given amount of characters from the front")
-                .add("    fe. <edit type='cutstart' >2</edit>  --> time=:25:12")
-                .add("cutend -> Cut the given amount of characters from the end")
-                .add("    fe. <edit type='cutend' >2</edit>  --> time=16:25:").add("")
-                .add("--REGEX BASED--")
-                .add("rexsplit -> Use the value as a regex to split the data and combine again with the delimiter")
-                .add("    fe. <edit type='rexsplit' delimiter='-'>\\d*</edit>  --> 16-25-12")
-                .add("rexreplace -> Use a regex based on 'find' and replace it with the value given")
-                .add("    fe. <edit type='rexreplace' find='\\d*'>x</edit>  --> x:x:x")
-                .add("rexremove -> Remove all matches of the value as a regex ")
-                .add("    fe. <edit type='rexremove' >\\d*</edit>  --> ::")
-                .add("rexkeep -> Only retain the result of the regex given as value")
-                .add("    fe. <edit type='rexkeep' >\\d*</edit>  --> 162512")
-                .add("millisdate -> Convert epoch millis to a timestamp with given format")
-                .add("    fe. <edit type='millisdate'>yyyy-MM-dd HH:mm:ss.SSS</edit> ")
-                .add("listreplace -> Replace the element at a certain index with the one in that position in a list")
-                .add("    fe. <edit type='listreplace' index='1' first='0'>cat,dog,canary</edit> --> if a 0 is at index 1, that will become cat");
 
-        return join.toString();
-    }
     @Override
     protected boolean addData(String data) {
 
@@ -576,5 +526,70 @@ public class EditorForward extends AbstractForward{
     @Override
     protected String getXmlChildTag() {
         return "editor";
+    }
+    /**
+     * Get an overview of all the available edit types
+     * @param eol The end of line to use for the overview
+     * @return A listing of all the types with examples
+     */
+    public static String getHelp(String eol) {
+        StringJoiner join = new StringJoiner(eol);
+        var gr = TelnetCodes.TEXT_GREEN;
+        var re = TelnetCodes.TEXT_YELLOW;
+        join.add(TelnetCodes.TEXT_MAGENTA+"All examples will start from 16:25:12 as base data");
+        join.add(TelnetCodes.TEXT_ORANGE+"--REGULAR--")
+                .add(gr+"resplit"+re+" -> Use the delimiter to split the data and combine according to the value")
+                .add("    cmd addf,resplit:")
+                .add("    xml <edit type='resplit' delimiter=':' leftover='append'>i0-i1</edit>  --> 16-25:12")
+                .add("    xml <edit type='resplit' delimiter=':' leftover='remove'>i0-i1</edit>  --> 16-25")
+                .add(gr+"charsplit"+re+" -> Splits the given data on the char positions and combines with first used delimiter")
+                .add("    fe. <edit type='charsplit'>1,4,7 </edit>  --> 1,6:2,5:1,2")
+                .add(gr+"redate"+re+" -> Get the value at index according to delimiter, then go 'from' one date(time) format to the format in the value given")
+                .add("    fe. <edit type='redate' from='yy:dd:MM' >dd_MMMM_yy</edit>  --> 25_december_16")
+                .add(gr+"retime"+re+" -> Same as redate but for only time")
+                .add("    fe. <edit type='retime' from='HH:mm:ss' >HH-mm</edit>  --> 16-25")
+                .add(gr+"replace"+re+" -> Replace 'find' with the value given (NOTE: 'Value given' can't be a whitespace character)")
+                .add("    cmd ...,addf,replace:find,replace")
+                .add("    fe. <edit type='replace' find='1'>4</edit>  --> 46:25:42")
+                .add(gr+"prepend"+re+" -> Add the given data to the front")
+                .add("    cmd ...,addf,prepend:givendata")
+                .add("    fe. <edit type='prepend' >time=</edit>  --> time=16:25:12")
+                .add(gr+"append"+re+" -> Add the given data at the end")
+                .add("    cmd ...,addf,append:givendata")
+                .add("    fe. <edit type='append' > (UTC)</edit>  --> time=16:25:12 (UTC)")
+                .add(gr+"insert"+re+" -> Add the given data at the chosen position")
+                .add("    cmd ...,addf,insert:position,givendata")
+                .add("    fe. <edit type='insert' position='4' >!</edit>  --> time!=16:25:12 (UTC)")
+                .add("")
+                .add(TelnetCodes.TEXT_ORANGE+"--REMOVE--")
+                .add(gr+"trim"+re+" -> Remove all whitespace characters from the start and end of the data")
+                .add("    cmd ...,addf,trim")
+                .add("    fe. <edit type='trim'/>")
+                .add(gr+"remove"+re+" -> Remove all occurrences of the value given  (NOTE: 'Value given' can't be a whitespace character)")
+                .add("    cmd ...,addf,remove:toremove ")
+                .add("    fe. <edit type='remove' >1</edit>  --> 6:25:2")
+                .add(gr+"cutstart"+re+" -> Cut the given amount of characters from the front")
+                .add("    cmd ...,addf,cutstart:charstocut")
+                .add("    fe. <edit type='cutstart' >2</edit>  --> time=:25:12")
+                .add(gr+"cutend"+re+" -> Cut the given amount of characters from the end")
+                .add("    cmd ...,addf,cutend:charstocut")
+                .add("    fe. <edit type='cutend' >2</edit>  --> time=16:25:")
+                .add("")
+                .add(TelnetCodes.TEXT_ORANGE+"--REGEX BASED--")
+                .add(gr+"rexsplit"+re+" -> Use the value as a regex to split the data and combine again with the delimiter")
+                .add("    fe. <edit type='rexsplit' delimiter='-'>\\d*</edit>  --> 16-25-12")
+                .add(gr+"rexreplace"+re+" -> Use a regex based on 'find' and replace it with the value given")
+                .add("    fe. <edit type='rexreplace' find='\\d*'>x</edit>  --> x:x:x")
+                .add(gr+"rexremove"+re+" -> Remove all matches of the value as a regex ")
+                .add("    fe. <edit type='rexremove' >\\d*</edit>  --> ::")
+                .add(gr+"rexkeep"+re+" -> Only retain the result of the regex given as value")
+                .add("    fe. <edit type='rexkeep' >\\d*</edit>  --> 162512")
+                .add(gr+"millisdate"+re+" -> Convert epoch millis to a timestamp with given format")
+                .add("    cmd ...,addf,millisdate:index,format")
+                .add("    fe. <edit type='millisdate'>yyyy-MM-dd HH:mm:ss.SSS</edit> ")
+                .add(gr+"listreplace"+re+" -> Replace the element at a certain index with the one in that position in a list")
+                .add("    fe. <edit type='listreplace' index='1' first='0'>cat,dog,canary</edit> --> if a 0 is at index 1, that will become cat");
+
+        return join.toString();
     }
 }

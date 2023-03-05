@@ -3,6 +3,8 @@ package das;
 import io.email.Email;
 import io.email.EmailSending;
 import io.Writable;
+import io.forward.EditorForward;
+import io.forward.FilterForward;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
@@ -470,6 +472,9 @@ public class CommandPool {
 					join.add("   -> For scheduling events, check taskmanager");
 					join.add("   -> ...").add("");
 				break;
+			case "filter": return FilterForward.getHelp(nl);
+			case "math": break;
+			case "editor": return EditorForward.getHelp(nl);
 			default:	return UNKNOWN_CMD+":"+request[1];
 		}
 		return join.toString();
