@@ -129,7 +129,7 @@ public class EditorForward extends AbstractForward{
         if( store != null )
             store.apply(data,dQueue);
         // If there are no target, no label, this no longer needs to be a target
-        if( targets.isEmpty() && label.isEmpty() && !log){
+        if( targets.isEmpty() && label.isEmpty() && !log && store==null){
             valid=false;
             if( deleteNoTargets )
                 dQueue.add( Datagram.system("ef:remove,"+id) ); // todo
