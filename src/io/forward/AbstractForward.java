@@ -220,6 +220,10 @@ public abstract class AbstractForward implements Writable {
     public void setStore( ValStore store){
         this.store=store;
     }
+    public void clearStore(RealtimeValues rtv){
+        if( store!=null)
+            store.removeRealtimeValues(rtv);
+    }
     /* *********************** Abstract Methods ***********************************/
     /**
      * This is called when data is received through the writable

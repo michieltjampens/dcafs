@@ -68,8 +68,10 @@ public class PathForward {
     }
     public String readFromXML( Element pathEle, Path workpath ){
 
+        // Reset things
         var oldTargets = new ArrayList<>(targets);
         targets.clear();
+        clearStores();
 
         this.workPath=workpath;
 
@@ -250,6 +252,9 @@ public class PathForward {
         valid=true;
         error="";
         return "";
+    }
+    public void clearStores(){
+        stepsForward.forEach( x -> x.clearStore(rtvals));
     }
     public boolean isValid(){
         return valid;

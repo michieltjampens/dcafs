@@ -1155,6 +1155,9 @@ public class ForwardPool implements Commandable {
         }
     }
     public void readPathsFromXML(){
+        // Reset the rtval stores
+        clearStores();
+
         // From the paths section
         XMLfab.getRootChildren(settingsPath,"dcafs","paths","path").forEach(
                 pathEle -> {
@@ -1192,5 +1195,8 @@ public class ForwardPool implements Commandable {
                         pathEle.setAttribute("src","raw:"+parentId);
                         path.readFromXML(pathEle,settingsPath.getParent());
                     });
+    }
+    private void clearStores(){
+        paths.values().forEach( x -> x.clearStores());
     }
 }
