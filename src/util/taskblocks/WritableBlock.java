@@ -20,7 +20,7 @@ public class WritableBlock extends AbstractBlock implements CollectorFuture {
     public WritableBlock(Writable wr, String set){
         this.wr=wr;
         this.data=set;
-        ori = wr.getID()+"->"+set;
+        ori = wr.id()+"->"+set;
     }
     public WritableBlock(BaseStream target, String set){
         this.target=target;
@@ -86,8 +86,8 @@ public class WritableBlock extends AbstractBlock implements CollectorFuture {
     }
     public String toString(){
         if( cc!=null ){
-            return "Write '"+data+"' to the writable "+wr.getID()+" and expect '"+reply+"' as reply";
+            return "Write '"+data+"' to the writable "+wr.id()+" and expect '"+reply+"' as reply";
         }
-        return "Write '"+data+"' to the writable "+wr.getID();
+        return "Write '"+data+"' to the writable "+wr.id();
     }
 }

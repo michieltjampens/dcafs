@@ -166,10 +166,10 @@ public class TelnetServer implements Commandable {
                     writables.removeIf(w -> !w.writeLine(send+TelnetCodes.TEXT_YELLOW));
                     return "";
                 case "write":
-                    var wrs = writables.stream().filter(w -> w.getID().equalsIgnoreCase(cmds[1])).toList();
+                    var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
                     if( wrs.isEmpty())
                         return "No such id";
-                    var mes = TelnetCodes.TEXT_MAGENTA+wr.getID()+": "+request[1].substring(7+cmds[1].length())+TelnetCodes.TEXT_YELLOW;
+                    var mes = TelnetCodes.TEXT_MAGENTA+wr.id()+": "+request[1].substring(7+cmds[1].length())+TelnetCodes.TEXT_YELLOW;
                     wrs.forEach( w->w.writeLine(mes));
                     return mes.replace(TelnetCodes.TEXT_MAGENTA,TelnetCodes.TEXT_ORANGE);
                 case "bt":

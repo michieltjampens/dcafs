@@ -161,7 +161,7 @@ public class ForwardPool implements Commandable {
     public void readMathsFromXML( List<Element> mathsEles ){
         for( Element ele : mathsEles ){
             MathForward mf = new MathForward( ele,dQueue,rtvals );
-            String id = mf.getID();
+            String id = mf.id();
             maths.put(id.replace("math:", ""), mf);
         }
     }
@@ -366,7 +366,7 @@ public class ForwardPool implements Commandable {
         Logger.info("Reading TextForwards from xml");
         for( Element ele : editorsEle ){
             var tf = new EditorForward( ele,dQueue,rtvals );
-            editors.put(tf.getID().replace("editor:", ""), tf);
+            editors.put(tf.id().replace("editor:", ""), tf);
         }
     }
     public String replyToEditorCmd( String cmd, boolean html ){
@@ -670,7 +670,7 @@ public class ForwardPool implements Commandable {
         filters.clear();
         for( Element ele : filterEles ){
             FilterForward ff = new FilterForward( ele,dQueue );
-            filters.put(ff.getID().replace("filter:", ""), ff);
+            filters.put(ff.id().replace("filter:", ""), ff);
         }
     }
     public String replyToFilterCmd( String cmd, Writable wr, boolean html ){
@@ -1018,7 +1018,7 @@ public class ForwardPool implements Commandable {
                 return "Paths cleared";
             case "stop":
                 paths.values().forEach( pf -> pf.removeTarget(wr) );
-                return "Stopped sending to "+wr.getID();
+                return "Stopped sending to "+wr.id();
             case "list":
                 StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
                 join.setEmptyValue("No paths yet");

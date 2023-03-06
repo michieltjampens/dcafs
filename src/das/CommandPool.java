@@ -139,7 +139,7 @@ public class CommandPool {
 		String question = d.getData();
 		var wr = d.getWritable();
 
-		if( wr!=null && (wr.getID().contains("matrix") || wr.getID().startsWith("file:"))){
+		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:"))){
 			html=true;
 		}
 		String result;
@@ -235,14 +235,14 @@ public class CommandPool {
 		if( wr!=null ) {
 			if( d.getLabel().startsWith("matrix")) {
 				wr.writeLine(d.getOriginID()+"|"+result);
-			}else if (wr.getID().startsWith("file:")) {
+			}else if (wr.id().startsWith("file:")) {
 				result = result.replace("<br>",System.lineSeparator());
 				result = result.replaceAll("<.{1,2}>","");
 				wr.writeLine(result);
 			}else if(!d.isSilent()) {
 				wr.writeLine(result);
 			}else{
-				Logger.debug("Hidden response for " + wr.getID() + ": " + result);
+				Logger.debug("Hidden response for " + wr.id() + ": " + result);
 			}
 		}else{
 			Logger.debug("Hidden response to " + question + ": " + result);
@@ -483,7 +483,7 @@ public class CommandPool {
 
 	public String doREAD( String[] request, Writable wr ){
 		dQueue.add( Datagram.build("").writable(wr).label("read:"+request[1]) );
-		return "Request for readable "+request[1]+" from "+wr.getID()+" issued";
+		return "Request for readable "+request[1]+" from "+wr.id()+" issued";
 	}
 	public String doADMIN( String[] request, Writable wr, boolean html ){
 		String nl = html?"<br":"\r\n";

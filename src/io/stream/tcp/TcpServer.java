@@ -195,23 +195,23 @@ public class TcpServer implements StreamListener, Commandable {
 	public boolean notifyActive(String title) {
 		Logger.info(title+" is active");
 		for( TransHandler th : clients ){
-			if( th.getID().equalsIgnoreCase(title) ){
+			if( th.id().equalsIgnoreCase(title) ){
 				Logger.info("Found matching id "+title);
 				for( TransDefault td : defaults.values() ){
 					if( td.ip.equalsIgnoreCase(th.getIP())){
 						th.writeHistory(td.commands);
 						th.setID(td.id);
 						th.setLabel(td.label);
-						th.writeLine("Welcome back "+th.getID()+"!");
+						th.writeLine("Welcome back "+th.id()+"!");
 						break;
 					}
 				}
-				if(targets.containsKey(th.getID())){
-					targets.get(th.getID()).forEach( th::addTarget );
+				if(targets.containsKey(th.id())){
+					targets.get(th.id()).forEach( th::addTarget );
 				}
 				return true;
 			}else{
-				Logger.info("No matching ID "+title+" vs "+th.getID() );
+				Logger.info("No matching ID "+title+" vs "+th.id() );
 			}
 		}
 		return false;
@@ -230,7 +230,7 @@ public class TcpServer implements StreamListener, Commandable {
 	public void notifyClosed(String id) {
 		Logger.info(id+" is closed");
 		
-		if( clients.removeIf( client -> client.getID().equalsIgnoreCase(id) ) ){
+		if( clients.removeIf( client -> client.id().equalsIgnoreCase(id) ) ){
 			Logger.info("Removed client handler for "+id);
 		}else{
 			Logger.info("Couldn't find handler for "+id);
@@ -252,7 +252,7 @@ public class TcpServer implements StreamListener, Commandable {
 		if( index != -1 ){
 			return Optional.ofNullable(clients.get(index));
 		}
-		return clients.stream().filter( h->h.getID().equalsIgnoreCase(id)).findFirst();
+		return clients.stream().filter( h->h.id().equalsIgnoreCase(id)).findFirst();
 	}
 
 	/**
@@ -263,7 +263,7 @@ public class TcpServer implements StreamListener, Commandable {
 	public void storeHandler( TransHandler handler, Writable wr ){
 		XMLfab fab = XMLfab.withRoot(xmlPath, "settings", XML_PARENT_TAG);
 
-		fab.selectOrAddChildAsParent("default","id",handler.getID());
+		fab.selectOrAddChildAsParent("default","id",handler.id());
 		fab.attr("address",handler.getIP());
 		if( handler.getLabel().equalsIgnoreCase("system")){
 			fab.removeAttr("label");
@@ -275,9 +275,9 @@ public class TcpServer implements StreamListener, Commandable {
 			fab.addChild("cmd",h);
 		}
 		if( fab.build() ){
-			wr.writeLine(handler.getID()+" Stored!");
+			wr.writeLine(handler.id()+" Stored!");
 		}else{
-			wr.writeLine("Storing "+handler.getID()+" failed");
+			wr.writeLine("Storing "+handler.id()+" failed");
 		}
 	}
 
@@ -291,14 +291,14 @@ public class TcpServer implements StreamListener, Commandable {
 		int index=0;
 
 		for( TransHandler th : clients ){
-			join.add( index +" -> "+th.getID()+" --> "+th.getHistory(" "));
+			join.add( index +" -> "+th.id()+" --> "+th.getHistory(" "));
 			index++;
 		}
 		return join.toString();
 	}
 	public Optional<Writable> getClientWritable( String id){
 		for( var h:clients){
-			if(h.getID().equalsIgnoreCase(id))
+			if(h.id().equalsIgnoreCase(id))
 				return Optional.of(h.getWritable());
 		}
 		return Optional.empty();
@@ -349,7 +349,7 @@ public class TcpServer implements StreamListener, Commandable {
 				if( hOpt.isEmpty() )
 					return "Invalid id";
 				var handler = hOpt.get();
-				handler.setID(cmds.length==3?cmds[2]:handler.getID());
+				handler.setID(cmds.length==3?cmds[2]:handler.id());
 				storeHandler(handler,wr);
 				return "";
 			case "add":
@@ -404,7 +404,7 @@ public class TcpServer implements StreamListener, Commandable {
 
 					if( !list.contains(wr)){// no exact match
 						list.removeIf(Objects::isNull); // Remove invalid ones
-						list.removeIf( w -> w.getID().equalsIgnoreCase(wr.getID()));// Remove id match
+						list.removeIf( w -> w.id().equalsIgnoreCase(wr.id()));// Remove id match
 						list.add(wr);
 					}
 				}

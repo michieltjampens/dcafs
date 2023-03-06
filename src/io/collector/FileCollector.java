@@ -17,7 +17,6 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -25,7 +24,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Stream;
 
 public class FileCollector extends AbstractCollector{
 
@@ -78,7 +76,7 @@ public class FileCollector extends AbstractCollector{
         this.dQueue=dQueue;
     }
     @Override
-    public String getID(){ return "fc:"+id;}
+    public String id(){ return "fc:"+id;}
     public String toString(){
         String size;
         if( byteCount < 10000){
@@ -540,7 +538,7 @@ public class FileCollector extends AbstractCollector{
                 currentForm = ldt.format(format);
             }
         }catch( java.time.temporal.UnsupportedTemporalTypeException f ){
-            Logger.error( getID() + " -> Format given is unsupported! Database creation cancelled.");
+            Logger.error( id() + " -> Format given is unsupported! Database creation cancelled.");
             return false;
         }
         Logger.info("Updated filename after rollover to "+getPath());

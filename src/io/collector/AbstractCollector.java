@@ -68,7 +68,7 @@ public abstract class AbstractCollector implements Writable {
     }
 
     @Override
-    public String getID() {
+    public String id() {
         return id;
     }
     @Override

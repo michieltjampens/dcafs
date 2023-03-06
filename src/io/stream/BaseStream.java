@@ -240,7 +240,7 @@ public abstract class BaseStream {
     public void setID( String id ){
         this.id=id;
     }
-    public String getID(){
+    public String id(){
         return id;
     }
     public boolean isWritable(){
@@ -262,16 +262,16 @@ public abstract class BaseStream {
             return false;
         }
         if( targets.contains(writable)){
-            Logger.info(id +" -> Already has "+writable.getID()+" as target, not adding.");
+            Logger.info(id +" -> Already has "+writable.id()+" as target, not adding.");
             return false;
         }
-        targets.removeIf( x -> x.getID().equals(writable.getID())&&writable.getID().contains(":")); // if updated
+        targets.removeIf( x -> x.id().equals(writable.id())&&writable.id().contains(":")); // if updated
         targets.add( writable );
-        Logger.info("Added request from "+writable.getID()+ " to "+id);
+        Logger.info("Added request from "+writable.id()+ " to "+id);
         return true;
     }
     public boolean removeTarget(String id ){
-        return targets.removeIf(entry -> entry.getID().equalsIgnoreCase(id));
+        return targets.removeIf(entry -> entry.id().equalsIgnoreCase(id));
     }
     public boolean removeTarget(Writable wr ){
 		return targets.remove(wr);
@@ -286,7 +286,7 @@ public abstract class BaseStream {
     }
     public String listTargets(){
         StringJoiner join = new StringJoiner(", ");
-        targets.forEach(wr -> join.add(wr.getID()));
+        targets.forEach(wr -> join.add(wr.id()));
         return join.toString();
     }
     /* Echo */
@@ -301,7 +301,7 @@ public abstract class BaseStream {
     public boolean disableEcho(){
         if( this instanceof Writable ){
             echo=false;
-            targets.removeIf(r -> r.getID().equalsIgnoreCase(id));
+            targets.removeIf(r -> r.id().equalsIgnoreCase(id));
             return true;
         }
         return false;

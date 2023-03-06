@@ -11,7 +11,6 @@ import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
@@ -80,8 +79,8 @@ public class CollectorPool implements Commandable, CollectorFuture {
      * @param fc The filecollector to add
      */
     private void addFileCollector( FileCollector fc ){
-        Logger.info("Created "+fc.getID());
-        fileCollectors.put(fc.getID().substring(3),fc); // remove the fc: from the front
+        Logger.info("Created "+fc.id());
+        fileCollectors.put(fc.id().substring(3),fc); // remove the fc: from the front
         dQueue.add( Datagram.system(fc.getSource()).writable(fc) ); // request the data
     }
 

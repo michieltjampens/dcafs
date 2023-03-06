@@ -1,18 +1,12 @@
 package worker;
 
-import das.Commandable;
 import io.telnet.TelnetCodes;
-import org.apache.commons.lang3.ArrayUtils;
 import org.w3c.dom.Element;
 import io.Readable;
 import io.Writable;
 import das.CommandPool;
-import io.mqtt.MqttWriting;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.data.RealVal;
 import util.data.RealtimeValues;
-import util.database.QueryWriting;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
@@ -20,10 +14,8 @@ import util.xml.XMLtools;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 /**
  * This class retrieves @see worker.Datagram s from a @see BlockingQueue. 
@@ -197,14 +189,14 @@ public class LabelWorker implements Runnable {
 			String from = " for ";
 
 			if (dt != null) {
-				from += dt.getID();
+				from += dt.id();
 			}
 			if (!d.getData().isBlank())
 				Logger.info("Executing telnet command [" + d.getData() + "]" + from);
 		}
 
 		String response = reqData.createResponse( d, false);
-		if( spy!=null && d.getWritable()!=spy && (d.getWritable().getID().equalsIgnoreCase(spyingOn)|| spyingOn.equalsIgnoreCase("all"))){
+		if( spy!=null && d.getWritable()!=spy && (d.getWritable().id().equalsIgnoreCase(spyingOn)|| spyingOn.equalsIgnoreCase("all"))){
 			spy.writeLine(TelnetCodes.TEXT_ORANGE+"Cmd: "+d.getData()+TelnetCodes.TEXT_YELLOW);
 			spy.writeLine(response);
 		}

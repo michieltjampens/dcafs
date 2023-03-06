@@ -3,7 +3,6 @@ package io.stream.tcp;
 import io.Writable;
 import io.netty.channel.ChannelHandlerContext;
 import org.tinylog.Logger;
-import util.math.MathUtils;
 import util.tools.Tools;
 import worker.Datagram;
 
@@ -102,7 +101,7 @@ public class ModbusTCP extends TcpHandler{
             }
         }
         if(debug)
-            Logger.info( writable.getID()+" -> " + Tools.fromBytesToHexString(rec,0,index));
+            Logger.info( writable.id()+" -> " + Tools.fromBytesToHexString(rec,0,index));
 
         if( !targets.isEmpty() ){
             targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine(join.toString())));

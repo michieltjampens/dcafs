@@ -2,7 +2,6 @@ package util.data;
 
 import io.Writable;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.time.Instant;
@@ -131,7 +130,7 @@ public abstract class AbstractVal {
         if( targets==null)
             return "";
         var join = new StringJoiner(",");
-        targets.forEach( wr -> join.add(wr.getID()));
+        targets.forEach( wr -> join.add(wr.id()));
         return join.toString();
     }
     abstract boolean storeInXml(XMLdigger digger);

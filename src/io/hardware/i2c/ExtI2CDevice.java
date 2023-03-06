@@ -86,7 +86,7 @@ public class ExtI2CDevice extends I2CDevice {
 	public String getWritableIDs(){
 		StringJoiner join = new StringJoiner(", ");
 		join.setEmptyValue("None yet.");
-		targets.forEach(wr -> join.add(wr.getID()));
+		targets.forEach(wr -> join.add(wr.id()));
 		return join.toString();
 	}
 	public void updateTimestamp(){

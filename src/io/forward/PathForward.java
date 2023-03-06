@@ -80,7 +80,7 @@ public class PathForward {
 
         if( stepsForward!=null && !stepsForward.isEmpty()) {// If this is a reload, reset the steps
             dQueue.add(Datagram.system("nothing").writable(stepsForward.get(0))); // stop asking for data
-            lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets()));
+            lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
         }
 
@@ -274,7 +274,11 @@ public class PathForward {
                 }
             }
         }else if( !stepsForward.isEmpty() && notReversed) {
-            lastStep().ifPresent( ls -> ls.addTarget(f));
+            if( lastStep().isPresent() ){
+                var ls = lastStep().get();
+                ls.addTarget(f);
+                f.addSource(ls.id());
+            }
         }
     }
     public String debugStep( String step, Writable wr ){
@@ -345,7 +349,7 @@ public class PathForward {
                 join.add("|-> " + abstractForward.toString()).add("");
             }
             if( !stepsForward.isEmpty() )
-                join.add( "=> gives the data from "+stepsForward.get(stepsForward.size()-1).getID() );
+                join.add( "=> gives the data from "+stepsForward.get(stepsForward.size()-1).id() );
         }
         return join.toString();
     }
@@ -360,9 +364,20 @@ public class PathForward {
             if (!targets.contains(wr))
                 targets.add(wr);
         }else{
-            if (!targets.contains(stepsForward.get(0)))
-                targets.add(stepsForward.get(0));
-            stepsForward.get(stepsForward.size()-1).addTarget(wr);
+            // Go through the steps and make the connections?
+            for( int a=stepsForward.size()-1;a>0;a--){
+                var step = stepsForward.get(a);
+                for( var sib : stepsForward ){
+                    if( sib.id().equalsIgnoreCase(step.getSrc())) {
+                        sib.addTarget(step);
+                        break;
+                    }
+                }
+            }
+            // The path can receive the data but this isn't given to first step unless there's a request for the data
+            if (!targets.contains(stepsForward.get(0))) // Check if the first step is a target, if not
+                targets.add(stepsForward.get(0)); // add it
+            stepsForward.get(stepsForward.size()-1).addTarget(wr); // Asking the path data is actually asking the last step
         }
 
         if( targets.size()==1 ){

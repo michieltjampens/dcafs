@@ -56,9 +56,9 @@ public class ConfirmCollector extends AbstractCollector {
             confirms.get(0).doAttempt(false);
         }else{
             if( reply.isEmpty()){
-                logInfo("Added '" + message + "' without reply to the queue for "+target.getID());
+                logInfo("Added '" + message + "' without reply to the queue for "+target.id());
             }else {
-                logInfo("Added '" + message + "' with reply '" + reply + "' to the queue for "+target.getID());
+                logInfo("Added '" + message + "' with reply '" + reply + "' to the queue for "+target.id());
             }
         }
     }
@@ -184,7 +184,7 @@ public class ConfirmCollector extends AbstractCollector {
                 Logger.tag("TASK").info(id+ " -> All attempts done ("+attempts+" of "+maxAttempts+"), giving up.");
                 return false;
             }
-            Logger.tag("TASK").info(id+ " -> Sending '"+confirms.get(0).msg+"' to "+target.getID()+" for attempt "+attempts);
+            Logger.tag("TASK").info(id+ " -> Sending '"+confirms.get(0).msg+"' to "+target.id()+" for attempt "+attempts);
             target.writeLine(msg);
             if( (confirms.size()>1||!confirms.get(0).reply.isEmpty()) || !timeout)
                 withTimeOut(timeoutSeconds+"s",scheduler);

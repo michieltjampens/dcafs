@@ -46,7 +46,7 @@ public class FilterForward extends AbstractForward {
             targets.removeIf(wr -> !wr.isConnectionValid() );
 
             if( log )
-                Logger.tag("RAW").info( "1\t" +getID() + "\t" + data);
+                Logger.tag("RAW").info( "1\t" + id() + "\t" + data);
             if( store!=null)
                 store.apply(data,dQueue);
         }else{
@@ -69,13 +69,13 @@ public class FilterForward extends AbstractForward {
     public void addReverseTarget(Writable wr ){
         if( !reversed.contains(wr)) {
             reversed.add(wr);
-            Logger.info(getID() + " -> Adding reverse target to " + wr.getID());
+            Logger.info(id() + " -> Adding reverse target to " + wr.id());
             if (!valid) {
                 valid = true;
                 sources.forEach(source -> dQueue.add( Datagram.system(source).writable(this)) );
             }
         }else{
-            Logger.info(id+" -> Trying to add duplicate reverse target "+wr.getID());
+            Logger.info(id+" -> Trying to add duplicate reverse target "+wr.id());
         }
 
     }
@@ -86,12 +86,12 @@ public class FilterForward extends AbstractForward {
         join.add(getRules());
 
         StringJoiner ts = new StringJoiner(", ","    Approved data target: ","" );
-        targets.forEach( x -> ts.add(x.getID()));
+        targets.forEach( x -> ts.add(x.id()));
         if( !targets.isEmpty())
             join.add(ts.toString());
 
         StringJoiner ts2 = new StringJoiner(", ","    Rejected data target: ","" );
-        reversed.forEach( x -> ts2.add(x.getID()));
+        reversed.forEach( x -> ts2.add(x.id()));
         if( !reversed.isEmpty())
             join.add(ts2.toString());
 

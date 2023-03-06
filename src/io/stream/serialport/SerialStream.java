@@ -142,13 +142,13 @@ public class SerialStream extends BaseStream implements Writable {
             try {
                 targets.forEach(dt -> eventLoopGroup.submit(()-> {
                     try {
-                        if( dt.getID().contains("telnet")) {
+                        if( dt.id().contains("telnet")) {
                             dt.writeString(Tools.fromBytesToHexString(data)+" ");
                         }else{
                             dt.writeBytes(data);
                         }
                     } catch (Exception e) {
-                        Logger.error(id + " -> Something bad while writeLine to " + dt.getID());
+                        Logger.error(id + " -> Something bad while writeLine to " + dt.id());
                         Logger.error(e);
                     }
                 }));
@@ -199,7 +199,7 @@ public class SerialStream extends BaseStream implements Writable {
                     try {
                         dt.writeLine(message);
                     } catch (Exception e) {
-                        Logger.error(id + " -> Something bad while writeLine to " + dt.getID());
+                        Logger.error(id + " -> Something bad while writeLine to " + dt.id());
                         Logger.error(e);
                     }
                 }));
@@ -375,7 +375,7 @@ public class SerialStream extends BaseStream implements Writable {
     }
 
     @Override
-    public String getID() {
+    public String id() {
         return id;
     }
 

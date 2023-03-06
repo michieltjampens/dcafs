@@ -9,7 +9,6 @@ import io.telnet.TelnetCodes;
 import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import util.math.MathUtils;
 import util.tools.Tools;
@@ -589,11 +588,11 @@ public class I2CWorker implements Commandable {
                         if(oks.length() > 0) {
                             return "Request for i2c:"+cmd[0]+" accepted for "+oks;
                         }else{
-                            Logger.error("No matches for i2c:"+cmd[0]+" requested by "+wr.getID());
+                            Logger.error("No matches for i2c:"+cmd[0]+" requested by "+wr.id());
                             return "No matches for i2c:"+cmd[0];
                         }
                     }
-                    if( wr!=null && wr.getID().equalsIgnoreCase("telnet") ){
+                    if( wr!=null && wr.id().equalsIgnoreCase("telnet") ){
                         if( cmd[0].isEmpty() ){
                             removeWritable(wr);
                         }else {

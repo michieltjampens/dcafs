@@ -283,13 +283,13 @@ public class MathForward extends AbstractForward {
         };
 
         if( debug ){ // extra info given if debug is active
-            Logger.info(getID()+" -> Before: "+data);   // how the data looked before
-            Logger.info(getID()+" -> After:  "+result); // after applying the operations
+            Logger.info(id()+" -> Before: "+data);   // how the data looked before
+            Logger.info(id()+" -> After:  "+result); // after applying the operations
         }
         targets.removeIf( t-> !t.writeLine(result) ); // Send this data to the targets, remove those that refuse it
 
         if( log )
-            Logger.tag("RAW").info( "1\t" + getID() + "\t" + result);
+            Logger.tag("RAW").info( "1\t" + id() + "\t" + result);
         if( store!=null)
             store.apply(result,dQueue);
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
@@ -307,7 +307,7 @@ public class MathForward extends AbstractForward {
         if( count)
             badDataCount++;
         if( badDataCount==1 && count) { // only need to do this the first time
-            targets.stream().filter( t -> t.getID().startsWith("editor")).forEach( t -> t.writeLine("corrupt:1"));
+            targets.stream().filter( t -> t.id().startsWith("editor")).forEach(t -> t.writeLine("corrupt:1"));
         }
         if( badDataCount < 6) {
             if( !error.isEmpty())
@@ -787,7 +787,7 @@ public class MathForward extends AbstractForward {
                     if (showError(false,"(mf) -> Null pointer when processing for " + ori)){
                         StringJoiner join = new StringJoiner(", ");
                         Arrays.stream(data).map(d -> "" + d).forEach(join::add);
-                        Logger.error(getID() + "(mf) -> Data: " + join);
+                        Logger.error(id() + "(mf) -> Data: " + join);
                     }
                     return null;
                 }

@@ -38,6 +38,7 @@ public abstract class AbstractForward implements Writable {
     protected ValStore store;
     protected boolean readOk=false;
     public enum RESULT{ERROR,EXISTS,OK}
+    protected boolean inPath=true;
 
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
@@ -67,9 +68,9 @@ public abstract class AbstractForward implements Writable {
     public boolean addSource( String source ){
         if( !sources.contains(source) && !source.isEmpty()){
             sources.add(source);
-            Logger.info(getID() +" -> Adding source "+source);
+            Logger.info(id() +" -> Adding source "+source);
             if( valid ){
-                Logger.info(getID() +" -> Requesting data from "+source);
+                Logger.info(id() +" -> Requesting data from "+source);
                 dQueue.add( Datagram.system( source ).writable(this) );
             }
             if( xmlOk )
@@ -87,18 +88,19 @@ public abstract class AbstractForward implements Writable {
      * @param target The writable the result of the filter will be written to
      */
     public synchronized void addTarget( Writable target ){
-        if( target.getID().isEmpty()) {
+        if( target.id().isEmpty()) {
             Logger.error(id+" -> Tried to add target with empty id");
             return;
         }
         if( !targets.contains(target)){
             if( !valid ){
                 valid=true;
-                sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+                if( !inPath)
+                    sources.stream().forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
             }
             targets.add(target);
         }else{
-            Logger.info(id+" -> Trying to add duplicate target "+target.getID());
+            Logger.info(id+" -> Trying to add duplicate target "+target.id());
         }
     }
     public boolean hasSrc(){
@@ -133,7 +135,7 @@ public abstract class AbstractForward implements Writable {
 
         if(!targets.isEmpty()) {
             StringJoiner ts = new StringJoiner(", ", "    Targets: ", "");
-            targets.forEach(x -> ts.add(x.getID()));
+            targets.forEach(x -> ts.add(x.id()));
             join.add(ts.toString());
         }
         if( store != null )
@@ -243,7 +245,7 @@ public abstract class AbstractForward implements Writable {
         return addData(new String(data));
     }
     @Override
-    public String getID() {
+    public String id() {
         return getXmlChildTag()+":"+id;
     }
     @Override

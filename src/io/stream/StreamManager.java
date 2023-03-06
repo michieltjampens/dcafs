@@ -17,13 +17,11 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
 import util.tools.Tools;
-import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -188,7 +186,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String getConfirmBuffers() {
 		StringJoiner join = new StringJoiner("\r\n");
-		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.getID()).add( cw.getStored().length() == 0 ? " empty" : cw.getStored()));
+		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.id()).add( cw.getStored().length() == 0 ? " empty" : cw.getStored()));
 		return join.toString();
 	}
 	/* *************************************  S E T U P **************************************************************/
@@ -293,7 +291,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					cw.addListener(this);
 					if( !reply.isEmpty()) // No need to get data if we won't use it
 						stream.addTarget(cw);
-					confirmCollectors.put(stream.getID(),cw);
+					confirmCollectors.put(stream.id(),cw);
 				}else{
 					if( txt.indexOf("\\") < txt.length()-2 ){
 						txt = Tools.fromEscapedStringToBytes(txt);
@@ -413,7 +411,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			for( Element el : XMLtools.getChildElements( ele, XML_CHILD_TAG)){
 				BaseStream bs = addStreamFromXML(el);
 				bs.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
-				streams.put(bs.getID().toLowerCase(), bs);
+				streams.put(bs.id().toLowerCase(), bs);
 			}
 		});
 	}
@@ -507,7 +505,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		// Check if it already exists (based on id and address?)
 		XMLfab fab = XMLfab.withRoot(settingsPath, "dcafs",XML_PARENT_TAG);
-		boolean exists = fab.hasChild(XML_CHILD_TAG, "id", stream.getID() ).isPresent();
+		boolean exists = fab.hasChild(XML_CHILD_TAG, "id", stream.id() ).isPresent();
 
 		if( exists && !overwrite ){
 			Logger.warn("Already such stream ("+id+") in the settings.xml, not overwriting");
@@ -544,13 +542,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				int delay = retryDelayIncrement*(base.connectionAttempts+1);
 				if( delay > retryDelayMax )
 					delay = retryDelayMax;
-				Logger.error( "Failed to connect to "+base.getID()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );				
-				String device = base.getID().replace(" ","").toLowerCase();
+				Logger.error( "Failed to connect to "+base.id()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );
+				String device = base.id().replace(" ","").toLowerCase();
 				if( issues!=null )
-					issues.addIfNewAndStart(device+".conlost", "Connection lost to "+base.getID());
+					issues.addIfNewAndStart(device+".conlost", "Connection lost to "+base.id());
 				base.reconnectFuture = scheduler.schedule( new DoConnection( base ), delay, TimeUnit.SECONDS );
 			} catch (Exception ex) {		
-				Logger.error( "Connection thread interrupting while trying to connect to "+base.getID());
+				Logger.error( "Connection thread interrupting while trying to connect to "+base.id());
 				Logger.error( ex );
 			}
 		}
@@ -672,7 +670,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "requests":
 				join.setEmptyValue("No requests yet.");
 				streams.values().stream().filter( base -> base.getRequestsSize() !=0 )
-								.forEach( x -> join.add( x.getID()+" -> "+x.listTargets() ) );
+								.forEach( x -> join.add( x.id()+" -> "+x.listTargets() ) );
 				return join.toString();
 			case "cleartargets":
 				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
@@ -1001,7 +999,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			Logger.error("Bad id given for reconnection request: "+id);
 			return false;
 		}
-		Logger.error("Requesting reconnect for "+bs.getID());
+		Logger.error("Requesting reconnect for "+bs.id());
 		if( bs.reconnectFuture==null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0 ){
 			bs.reconnectFuture = scheduler.schedule( new DoConnection( bs ), 5, TimeUnit.SECONDS );
 			return true;
@@ -1013,7 +1011,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public boolean addForwarding(String cmd, Writable writable) {
 
 		if( writable != null ){
-			Logger.info("Received data request from "+writable.getID()+" for "+cmd);
+			Logger.info("Received data request from "+writable.id()+" for "+cmd);
 		}else if( cmd.startsWith("email") ){
 			Logger.info("Received request through email for "+cmd);
 		}
@@ -1114,7 +1112,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 * @param id The id to look for
 	 */
 	public void removeConfirm(String id){
-		if( confirmCollectors.values().removeIf( cc -> cc.getID().equalsIgnoreCase(id)) ){
+		if( confirmCollectors.values().removeIf( cc -> cc.id().equalsIgnoreCase(id)) ){
 			Logger.info("ConfirmCollector removed: "+id);
 		}else{
 			Logger.info("ConfirmCollector not found: "+id);
@@ -1140,8 +1138,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return;
 
 			if (!stream.isConnectionValid()) { // No use scheduling timeout if there's no connection
-				Logger.warn(stream.getID()+" -> Connection invalid, waiting for reconnect");
-				requestReconnection(stream.getID());
+				Logger.warn(stream.id()+" -> Connection invalid, waiting for reconnect");
+				requestReconnection(stream.id());
 				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
 				return;
 			}
@@ -1154,8 +1152,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				// Reader is idle - set a new timeout and notify the callback.
 				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
 				if( nextDelay > -1000*stream.readerIdleSeconds) { // only apply this the first time
-					Logger.warn(stream.getID()+" is idle for "+stream.readerIdleSeconds+"s");
-					notifyIdle(stream.getID());
+					Logger.warn(stream.id()+" is idle for "+stream.readerIdleSeconds+"s");
+					notifyIdle(stream.id());
 				}
 			} else {
 				// Read occurred before the timeout - set a new timeout with shorter delay.

@@ -739,7 +739,7 @@ public class MatrixClient implements Writable, Commandable {
     }
 
     @Override
-    public String getID() {
+    public String id() {
         return "matrix:"+userName;
     }
 

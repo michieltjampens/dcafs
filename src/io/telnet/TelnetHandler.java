@@ -358,7 +358,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		return channel;
 	}
 	@Override
-	public String getID() {
+	public String id() {
 		return "telnet:"+(id.isEmpty()?LABEL:id);
 	}
 
