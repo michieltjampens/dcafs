@@ -4,8 +4,6 @@ import util.xml.XMLfab;
 
 public class EditorCmds {
     private static XMLfab addNode( XMLfab fab, String type, String value, String comment){
-        if( !fab.getName().equalsIgnoreCase("editor"))
-            fab.addChild("editor").down();
         if( !comment.isEmpty())
             fab.comment(comment);
         fab.addChild("edit",value).attr("type",type);
@@ -13,12 +11,12 @@ public class EditorCmds {
     }
     public static String addEditor(XMLfab fab, String type, String value ){
         String deli="";
-        String[] p = value.split(",");
+        String[] p = value.split("[|]");
         switch (type) {
             /* Splitting */
             case "rexsplit" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,rexsplit:delimiter,regextomatch";
+                    return "pf:pathid,addedit,rexsplit,delimiter|regextomatch";
                 if (value.startsWith(",")) {
                     deli = ",";
                     value = value.substring(2);
@@ -33,7 +31,7 @@ public class EditorCmds {
             }
             case "resplit" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,resplit:delimiter,format";
+                    return "pf:pathid,addedit,resplit,delimiter|format";
                 if (value.startsWith(",")) {
                     deli = ",";
                     value = value.substring(2);
@@ -50,7 +48,7 @@ public class EditorCmds {
             }
             case "charsplit" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,rexplit:regextosplitwith";
+                    return "pf:pathid,addedit,rexplit,regextosplitwith";
 
                 addNode(fab, type,value,"");
                 return "Charsplit added with default delimiter";
@@ -58,7 +56,7 @@ public class EditorCmds {
             /* Timestamp stuff */
             case "redate" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,redate:index,from,to";
+                    return "pf:pathid,addedit,redate,index|from|to";
 
                 addNode(fab, "redate", p[2], "")
                     .attr("index", p[0])
@@ -67,7 +65,7 @@ public class EditorCmds {
             }
             case "retime" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addeditor,retime:index,from,to";
+                    return "pf:pathid,addeditor,retime,index|from|to";
 
                 addNode(fab, "retime", p[2], "")
                     .attr("index", p[1])
@@ -77,16 +75,15 @@ public class EditorCmds {
             /* Replacing */
             case "replace" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,replace:what,with";
-
-                addNode( fab, type,value,"Replace " + p[0] + " with " + p[1])
+                    return "pf:pathid,addedit,replace,find|replacement";
+                addNode( fab, type,p[1],"Replace " + p[0] + " with " + p[1])
                         .attr("find", p[0])
                         .build();
-                return "Replacing " + p[0] + " with " + p[1];
+                return "Replacing " +  p[0] + " with " + p[1];
             }
             case "rexreplace" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,rexreplace:regexwhat,with";
+                    return "pf:pathid,addedit,rexreplace,regexwhat|replacement";
                 addNode( fab, type,value,"RexReplace " + p[0] + " with " + p[1])
                         .attr("find", p[0])
                         .build();
@@ -95,7 +92,7 @@ public class EditorCmds {
             /* Remove stuff */
             case "remove" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,remove:find";
+                    return "pf:pathid,addedit,remove,find";
                 addNode( fab, type,"","Removing " + value+" from data")
                         .attr("find", p[0])
                         .build();
@@ -103,7 +100,7 @@ public class EditorCmds {
             }
             case "rexremove" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,rexremove:regexfind";
+                    return "pf:pathid,addedit,rexremove,regexfind";
                 addNode( fab, type,"","Removing " + value+" from data")
                         .attr("find", p[0])
                         .build();
@@ -118,7 +115,7 @@ public class EditorCmds {
             }
             case "cutstart" -> {
                 if (value.equals("?"))
-                    return "pf:pathid,addedit,cutstart:charcount";
+                    return "pf:pathid,addedit,cutstart,charcount";
                 addNode( fab, type,value,"Cutting "+value+" chars from the start")
                     .build();
                 return "Cutting " + value + " char(s) from the start";

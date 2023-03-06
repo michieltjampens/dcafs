@@ -55,28 +55,26 @@ public class EditorForward extends AbstractForward{
         }
 
         if( debug ) // extra info given if debug is active
-            Logger.info(getID()+" -> Before: "+data); // how the data looked before
+            Logger.info(id()+" -> Before: "+data); // how the data looked before
 
         for( var edit:edits){
             data = edit.apply(data);
         }
 
         if( debug ){ // extra info given if debug is active
-            Logger.info(getID()+" -> After: "+data);
+            Logger.info(id()+" -> After: "+data);
         }
         String finalData = data;
         targets.removeIf(t-> !t.writeLine(finalData) ); // Send this data to the targets, remove those that refuse it
 
         if( log )
-            Logger.tag("RAW").info( "1\t" + getID() + "\t" + data);
+            Logger.tag("RAW").info( "1\t" + id() + "\t" + data);
 
         if( store != null )
             store.apply(data,dQueue);
         // If there are no target, no label, this no longer needs to be a target
         if( targets.isEmpty() && !log && store==null){
             valid=false;
-            if( deleteNoTargets )
-                dQueue.add( Datagram.system("ef:remove,"+id) ); // todo
             return false;
         }
         return true;
@@ -212,7 +210,7 @@ public class EditorForward extends AbstractForward{
                 break;
             case "millisdate":
                 addMillisToDate(content,index,deli);
-                Logger.info( getID() +" -> Added millis conversion to "+content);
+                Logger.info( id() +" -> Added millis conversion to "+content);
                 break;
             case "listreplace":
                 int first = XMLtools.getIntAttribute(edit,"first",0);
@@ -295,7 +293,7 @@ public class EditorForward extends AbstractForward{
             if( split.length > index){
                 long millis = NumberUtils.toLong(split[index],-1L);
                 if( millis == -1L ){
-                    Logger.error( getID() + " -> Couldn't convert "+split[index]+" to millis");
+                    Logger.error( id() + " -> Couldn't convert "+split[index]+" to millis");
                     return input;
                 }
                 var ins = Instant.ofEpochMilli(millis);
@@ -306,12 +304,12 @@ public class EditorForward extends AbstractForward{
                         split[index] = DateTimeFormatter.ofPattern(to).withZone(ZoneId.of("UTC")).format(ins);
                     }
                     if (split[index].isEmpty()) {
-                        Logger.error(getID() + " -> Failed to convert datetime " + split[index]);
+                        Logger.error(id() + " -> Failed to convert datetime " + split[index]);
                         return input;
                     }
                     return String.join(delimiter, split);
                 }catch(IllegalArgumentException | DateTimeException e){
-                    Logger.error( getID() + " -> Invalid format in millis to date: "+to+" -> "+e.getMessage());
+                    Logger.error( id() + " -> Invalid format in millis to date: "+to+" -> "+e.getMessage());
                     return input;
                 }
             }
@@ -341,7 +339,7 @@ public class EditorForward extends AbstractForward{
             if( split.length > index){
                 split[index] = TimeTools.reformatDate(split[index], from, to);
                 if( split[index].isEmpty()) {
-                    Logger.error( getID() + " -> Failed to convert datetime "+split[index]);
+                    Logger.error( id() + " -> Failed to convert datetime "+split[index]);
                     return input;
                 }
                 return String.join(delimiter,split);
@@ -539,7 +537,7 @@ public class EditorForward extends AbstractForward{
         join.add(TelnetCodes.TEXT_MAGENTA+"All examples will start from 16:25:12 as base data");
         join.add(TelnetCodes.TEXT_ORANGE+"--REGULAR--")
                 .add(gr+"resplit"+re+" -> Use the delimiter to split the data and combine according to the value")
-                .add("    cmd addf,resplit:")
+                .add("    cmd adde,resplit:")
                 .add("    xml <edit type='resplit' delimiter=':' leftover='append'>i0-i1</edit>  --> 16-25:12")
                 .add("    xml <edit type='resplit' delimiter=':' leftover='remove'>i0-i1</edit>  --> 16-25")
                 .add(gr+"charsplit"+re+" -> Splits the given data on the char positions and combines with first used delimiter")
@@ -548,31 +546,31 @@ public class EditorForward extends AbstractForward{
                 .add("    fe. <edit type='redate' from='yy:dd:MM' >dd_MMMM_yy</edit>  --> 25_december_16")
                 .add(gr+"retime"+re+" -> Same as redate but for only time")
                 .add("    fe. <edit type='retime' from='HH:mm:ss' >HH-mm</edit>  --> 16-25")
-                .add(gr+"replace"+re+" -> Replace 'find' with the value given (NOTE: 'Value given' can't be a whitespace character)")
-                .add("    cmd ...,addf,replace:find,replace")
+                .add(gr+"replace"+re+" -> Replace 'find' with the replacement (NOTE: 'replacement' can't be a whitespace character)")
+                .add("    cmd pf:pathid,adde,replace,find|replace")
                 .add("    fe. <edit type='replace' find='1'>4</edit>  --> 46:25:42")
                 .add(gr+"prepend"+re+" -> Add the given data to the front")
-                .add("    cmd ...,addf,prepend:givendata")
+                .add("    cmd pf:pathid,adde,prepend,givendata")
                 .add("    fe. <edit type='prepend' >time=</edit>  --> time=16:25:12")
                 .add(gr+"append"+re+" -> Add the given data at the end")
-                .add("    cmd ...,addf,append:givendata")
+                .add("    cmd pf:pathid,adde,append,givendata")
                 .add("    fe. <edit type='append' > (UTC)</edit>  --> time=16:25:12 (UTC)")
                 .add(gr+"insert"+re+" -> Add the given data at the chosen position")
-                .add("    cmd ...,addf,insert:position,givendata")
+                .add("    cmd pf:pathid,adde,insert,position,givendata")
                 .add("    fe. <edit type='insert' position='4' >!</edit>  --> time!=16:25:12 (UTC)")
                 .add("")
                 .add(TelnetCodes.TEXT_ORANGE+"--REMOVE--")
                 .add(gr+"trim"+re+" -> Remove all whitespace characters from the start and end of the data")
-                .add("    cmd ...,addf,trim")
+                .add("    cmd pf:pathid,adde,trim")
                 .add("    fe. <edit type='trim'/>")
                 .add(gr+"remove"+re+" -> Remove all occurrences of the value given  (NOTE: 'Value given' can't be a whitespace character)")
-                .add("    cmd ...,addf,remove:toremove ")
+                .add("    cmd pf:pathid,adde,remove:toremove ")
                 .add("    fe. <edit type='remove' >1</edit>  --> 6:25:2")
                 .add(gr+"cutstart"+re+" -> Cut the given amount of characters from the front")
-                .add("    cmd ...,addf,cutstart:charstocut")
+                .add("    cmd pf:pathid,adde,cutstart:charstocut")
                 .add("    fe. <edit type='cutstart' >2</edit>  --> time=:25:12")
                 .add(gr+"cutend"+re+" -> Cut the given amount of characters from the end")
-                .add("    cmd ...,addf,cutend:charstocut")
+                .add("    cmd pf:pathid,adde,cutend:charstocut")
                 .add("    fe. <edit type='cutend' >2</edit>  --> time=16:25:")
                 .add("")
                 .add(TelnetCodes.TEXT_ORANGE+"--REGEX BASED--")
@@ -585,7 +583,7 @@ public class EditorForward extends AbstractForward{
                 .add(gr+"rexkeep"+re+" -> Only retain the result of the regex given as value")
                 .add("    fe. <edit type='rexkeep' >\\d*</edit>  --> 162512")
                 .add(gr+"millisdate"+re+" -> Convert epoch millis to a timestamp with given format")
-                .add("    cmd ...,addf,millisdate:index,format")
+                .add("    cmd pf:pathid,addf,millisdate:index,format")
                 .add("    fe. <edit type='millisdate'>yyyy-MM-dd HH:mm:ss.SSS</edit> ")
                 .add(gr+"listreplace"+re+" -> Replace the element at a certain index with the one in that position in a list")
                 .add("    fe. <edit type='listreplace' index='1' first='0'>cat,dog,canary</edit> --> if a 0 is at index 1, that will become cat");

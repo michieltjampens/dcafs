@@ -6,6 +6,7 @@ import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 public class PathCmds {
@@ -90,10 +91,23 @@ public class PathCmds {
                 return "Removed all steps";
             }
             case "delete" -> {
-                fab.up();
-                fab.removeChild("path","id",cmds[0]);
-                fab.build();
-                return "Deleted the path completely";
+                if( cmds.length < 3 )
+                    return "! Not enough arguments: pf:id,delete,all/last";
+                switch( cmds[2] ){
+                    case "all" ->{
+                        fab.up();
+                        fab.removeChild("path","id",cmds[0]);
+                        fab.build();
+                        return "Deleted the path completely";
+                    }
+                    case "last" ->{
+                        if( fab.removeLastChild("*")) {
+                            fab.build();
+                            return "Node removed";
+                        }
+                        return "! Failed to remove node";
+                    }
+                }
             }
             case "src" ->{
                 if (cmds.length < 3)
@@ -135,19 +149,27 @@ public class PathCmds {
                 return "Filter added";
             }
             case "addeditor","adde" -> {
-                if( cmds.length < 3 )
-                    return "! Not enough arguments: pf:id,addeditor,type:value";
-                var rule = cmds[2].split(":");
-                if( rule.length < 2)
-                    return "! Need a type and a value separated with : (pf:id,addeditor,type:value)";
-                // Now the value can contain : and , that messes up the general split, so redo it
-                int a = request.indexOf(",adde"); // get the position of ,adde
-                a += request.substring(a+1).indexOf(",");// alter this to the first , after is (because addeditor exists)
-                var typval = request.substring(a);// new get that part from the original
-                a = typval.indexOf(":"); // split is done on the first :
-                EditorCmds.addEditor(fab,typval.substring(0,a),typval.substring(a+1));
-                fab.build();
-                return "Editor added";
+                if( cmds.length < 4 )
+                    return "! Not enough arguments: pf:id,addeditor,type,value";
+
+                // Now get the value that can contain ,
+                int a = request.indexOf(cmds[2]+",");
+                a += cmds[2].length()+1;
+                var value = request.substring(a);
+
+                // fab is pointing at path node, needs to know if last item is an editor or not
+                dig.goDown("*").toLastSibling();
+                var opt = dig.current();
+                if( opt.isPresent() && opt.get().getTagName().equalsIgnoreCase("editor")) {
+                    // Last one is a editor, so get a
+                    fabOpt= XMLfab.alterDigger(dig);
+                    if( fabOpt.isEmpty() )
+                        return "! Failed to get fab";
+                    fab = fabOpt.get();
+                }else{
+                    fab.addChild("editor").down();
+                }
+                return EditorCmds.addEditor(fab,cmds[2],value);
             }
             case "addmath","addm" -> {
                 if( cmds.length < 3 )
@@ -156,7 +178,7 @@ public class PathCmds {
                 // fab is pointing at path node, needs to know if last item is a filter or not
                 dig.goDown("*").toLastSibling();
                 var opt = dig.current();
-                // Check if it has steps and if the last one isn't a filter
+                // Check if it has steps and if the last one isn't a math
                 if( opt.isEmpty() || !opt.get().getTagName().equalsIgnoreCase("math")){
                     fab.addChild("math",cmds[2]);
                 }else{ // Last one is a math
@@ -164,7 +186,7 @@ public class PathCmds {
                     if( fabOpt.isEmpty() )
                         return "! Failed to get fab";
                     fab = fabOpt.get();
-                    // fab pointing at the last filter
+                    // fab pointing at the last math
                     if( dig.goDown("op").isInvalid()){ // check if already contains a rule node
                          // Correct node but no subnodes... replace current
                         var cur = opt.get();
@@ -185,21 +207,5 @@ public class PathCmds {
             }
         }
         return "unknown command: pf:"+request;
-    }
-    private static String findSibling( XMLdigger dig, String tag, String pos ){
-        int index = NumberUtils.toInt(pos,-1);
-        var subs = dig.currentSubs();
-        if( subs.isEmpty() )
-            return "! No "+tag+" steps yet";
-        dig.goDown(tag).all(true);
-        // Make digger point at the correct sibling
-        if( index == -1 ) { // No index given
-            dig.toLastSibling();
-        }else{
-            dig.toSibling(index);
-        }
-        if( dig.isInvalid() )
-            return "! No "+tag+" at that index";
-        return "";
     }
 }
