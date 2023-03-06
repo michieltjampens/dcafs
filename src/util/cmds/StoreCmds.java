@@ -122,10 +122,11 @@ public class StoreCmds {
             case "addreal","addr" -> {
                 if (cmds.length < 3)
                     return "Not enough arguments: store:id,addreal,name<,index>";
-                if( dig.peekAt("real","name",cmds[2]).hasValidPeek())
+                if( dig.peekAtContent("real",cmds[2]).hasValidPeek()) {
+                    // todo: Check group?
                     return "Already a real with that id, try something else?";
-
-                fab.addChild("real").attr("name",cmds[2]).attr("unit");
+                }
+                fab.addChild("real",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
@@ -139,10 +140,11 @@ public class StoreCmds {
             case "addint","addi" -> {
                 if (cmds.length < 3)
                     return "Not enough arguments: store:id,addint,name<,index>";
-                if( dig.peekAt("int","name",cmds[2]).hasValidPeek())
+                if( dig.peekAtContent("int",cmds[2]).hasValidPeek()) {
+                    // todo: check group?
                     return "Already an int with that id, try something else?";
-
-                fab.addChild("int").attr("name",cmds[2]).attr("unit");
+                }
+                fab.addChild("int",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
@@ -156,10 +158,11 @@ public class StoreCmds {
             case "addtext","addt" -> {
                 if (cmds.length < 3)
                     return "Not enough arguments: store:id,addtext,name<,index>";
-                if( dig.peekAt("text","name",cmds[2]).hasValidPeek())
+                if( dig.peekAtContent("text",cmds[2]).hasValidPeek()) {
+                    // todo: check group?
                     return "Already a text with that id, try something else?";
-
-                fab.addChild("text").attr("name",cmds[2]);
+                }
+                fab.addChild("text",cmds[2]);
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
@@ -173,10 +176,11 @@ public class StoreCmds {
             case "addflag","addf" -> {
                 if (cmds.length < 3)
                     return "Not enough arguments: store:id,addflag,name<,index>";
-                if( dig.peekAt("flag","name",cmds[2]).hasValidPeek())
+                if( dig.peekAtContent("flag",cmds[2]).hasValidPeek()) {
+                    // todo: Check group?
                     return "Already a flag with that id, try something else?";
-
-                fab.addChild("flag").attr("name",cmds[2]).attr("unit");
+                }
+                fab.addChild("flag",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);

@@ -61,8 +61,7 @@ public class RealVal extends AbstractVal implements NumericVal{
      * @return The created node, still needs dQueue set
      */
     public static RealVal build( Element rtval, String group, double defReal){
-        String name = XMLtools.getStringAttribute(rtval,"name","");
-        name = XMLtools.getStringAttribute(rtval,"id",name);
+        String name = rtval.getTextContent();
 
         if( name.isEmpty()){
             Logger.error("Tried to create a RealVal without id/name, group "+group);
@@ -294,8 +293,7 @@ public class RealVal extends AbstractVal implements NumericVal{
             if( digger.isValid() ){ // Group exists
                 digger.goDown("real","name",name); // Check for the int node
                 if( digger.isInvalid() ){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("real")
-                            .attr("name",name)
+                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("real",name)
                             .attr("unit",unit).build());
                 }
             }else{ // No such group
@@ -303,7 +301,7 @@ public class RealVal extends AbstractVal implements NumericVal{
                 if(digFabOpt.isPresent() ){
                     var digFab = digFabOpt.get();
                     digFab.selectOrAddChildAsParent("group","id",group);
-                    digFab.addChild("real").attr("name",name).attr("unit","");
+                    digFab.addChild("real",name).attr("unit","");
                     digFab.build();
                 }
             }

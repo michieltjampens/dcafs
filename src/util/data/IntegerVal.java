@@ -61,10 +61,12 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      * @return The created node, still needs dQueue set
      */
     public static IntegerVal build(Element rtval, String group, int defVal){
-        String name = XMLtools.getStringAttribute(rtval,"name","");
-        name = XMLtools.getStringAttribute(rtval,"id",name);
-        if( name.isEmpty())
-            name = rtval.getTextContent();
+        String name = rtval.getTextContent();
+
+        if( name.isEmpty()){
+            Logger.error("Tried to create a IntVal without name, group "+group);
+            return null;
+        }
 
         return IntegerVal.newVal(group,name).alter(rtval,defVal);
     }
@@ -267,9 +269,8 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             digger.goDown("group","id",group); // Try to go into the group node
             if( digger.isValid() ){ // Group exists
                 digger.goDown("int","name",name); // Check for the int node
-                if( digger.isInvalid() && digger.goDown("integer","name",name).isInvalid()){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("int")
-                            .attr("name",name)
+                if( digger.isInvalid() && digger.goDown("integer",name).isInvalid()){
+                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("int",name)
                             .attr("unit",unit).build());
                 }
             }else{ // No such group
