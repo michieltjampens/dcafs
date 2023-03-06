@@ -2,9 +2,14 @@ package util.cmds;
 
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.tinylog.Logger;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
+import worker.Datagram;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -23,10 +28,9 @@ public class PathCmds {
 
             StringJoiner join = new StringJoiner("\r\n");
 
-            join.add(TelnetCodes.TEXT_RESET+ora+"Notes"+reg)
-                    .add("- a / in the command means both options are valid.");
             join.add("").add(cyan+"Add/edit a path"+reg)
                     .add(green+" pf:pathid,new,src "+reg+"-> Create a new path with the given id and src")
+                    .add(green+" pf:pathid,xml,src "+reg+"-> Add a path file with the given id and src (in default path folder)")
                     .add(green+" pf:pathid,delete "+reg+"-> Delete this path completely")
                     .add(green+" pf:pathid,clear "+reg+"-> Remove all the steps");
             join.add("").add(cyan+"Add new steps"+reg)
@@ -47,25 +51,43 @@ public class PathCmds {
 
         dig.goDown("path","id",id);
         if( dig.isInvalid() ) {
-            if( cmds[1].equalsIgnoreCase("new")){
-                if( cmds.length<3) {
-                    return "! To few arguments, expected pf:pathid,new,src";
-                }
-                var fab = XMLfab.withRoot(settingsPath,"dcafs","paths")
-                        .selectOrAddChildAsParent("path","id",cmds[0])
-                        .attr("delimiter",",");
+            switch(cmds[1]){
+                case "new" ->{
+                    if( cmds.length<3) {
+                        return "! To few arguments, expected pf:pathid,new,src";
+                    }
+                    var fab = XMLfab.withRoot(settingsPath,"dcafs","paths")
+                            .selectOrAddChildAsParent("path","id",cmds[0])
+                            .attr("delimiter",",");
 
-                if( cmds[2].startsWith("file:")) {
-                    fab.addChild("customsrc", cmds[2]).attr("type", "file").attr("interval", "1s");
-                }else{
-                    fab.attr("src",cmds[2]);
+                    if( cmds[2].startsWith("file:")) {
+                        fab.addChild("customsrc", cmds[2]).attr("type", "file").attr("interval", "1s");
+                    }else{
+                        fab.attr("src",cmds[2]);
+                    }
+                    fab.build();
+                    return "Path created";
                 }
-                fab.build();
-                return "Path created";
-            }else {
-                return "! No such path yet " + id;
+                case "xml" -> {
+                    if( cmds.length<3)
+                        return "To few arguments, expected pf:pathid,xml,src";
+                    try {
+                        Files.createDirectories( settingsPath.getParent().resolve("paths") );
+                    } catch (IOException e) {
+                        Logger.error(e);
+                    }
+                    XMLfab.withRoot(settingsPath,"dcafs","paths")
+                            .selectOrAddChildAsParent("path","id",cmds[0])
+                            .attr("src",cmds[2])
+                            .attr("delimiter",",")
+                            .attr("import","paths"+ File.separator+cmds[0]+".xml")
+                            .build();
+                    return "Path created";
+                }
             }
-        }else if( cmds[1].equalsIgnoreCase("new")){
+            return "! No such path yet " + id;
+        }else if( cmds[1].equalsIgnoreCase("new")
+                    || cmds[1].equalsIgnoreCase("xml")){
             return "! Already a path with that id, pick something else?";
         }
         // At this point, the digger is pointing to the path node for the given id
