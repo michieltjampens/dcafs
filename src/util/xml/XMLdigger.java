@@ -95,6 +95,13 @@ public class XMLdigger {
         peek=eleOpt.orElse(null);
         return this;
     }
+    public XMLdigger peekAtContent( String tag, String content ){
+        peeked=true;
+        var eleOpt = XMLtools.getChildElements(last==null?root:last, tag).stream().filter(x ->
+                x.getTextContent().equalsIgnoreCase(content)).findFirst();
+        peek=eleOpt.orElse(null);
+        return this;
+    }
     public XMLdigger goUp(){
         last = root;
         peeked=false;
