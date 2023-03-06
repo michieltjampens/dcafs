@@ -35,7 +35,8 @@ public class TextVal extends AbstractVal{
      * @return The created node, still needs dQueue set
      */
     public static TextVal build(Element rtval, String group){
-        String name = rtval.getTextContent();
+        String name = XMLtools.getStringAttribute(rtval,"name","");
+        name = XMLtools.getStringAttribute(rtval,"id",name);
 
         if( name.isEmpty()){
             Logger.error("Tried to create a TextVal without id/name, group "+group);
@@ -45,7 +46,7 @@ public class TextVal extends AbstractVal{
     }
 
     /**
-     * Change the TextVal according to a xml node
+     * Change the RealVal according to a xml node
      * @param rtval The node
      */
     public TextVal alter( Element rtval ){
