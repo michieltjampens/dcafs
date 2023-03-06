@@ -3,7 +3,6 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.math.MathUtils;
 import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -13,7 +12,7 @@ import java.util.ArrayList;
 import java.util.function.Function;
 
 public class TextVal extends AbstractVal{
-    private String value;
+    private String value="";
     private ArrayList<String> history = new ArrayList<>();
     private ArrayList<TriggeredCmd> triggered = new ArrayList<>();
 

@@ -879,8 +879,8 @@ public class RealtimeValues implements Commandable {
 					.forEach(join::add);
 		}
 		if( showTexts ) {
-			textVals.entrySet().stream().filter(ent -> ent.getKey().startsWith(group + "_"))
-					.map(ent -> "  " + ent.getKey().split("_")[1] + " : " + ent.getValue())
+			textVals.values().stream().filter( v -> v.group().equalsIgnoreCase(group))
+					.map(v -> "  " + v.name() + " : " + (v.value().isEmpty()?"<empty>":v.value()) )
 					.sorted().forEach(join::add);
 		}
 		if( showFlags ) {
