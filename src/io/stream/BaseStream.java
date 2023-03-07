@@ -105,9 +105,7 @@ public abstract class BaseStream {
             enableEcho();
         }
         // Store
-        var storeOpt = ValStore.build(stream);
-        if( storeOpt.isPresent())
-            store = storeOpt.get();
+        ValStore.build(stream).ifPresent(valStore -> store = valStore);
 
         // cmds
         triggeredActions.clear();
@@ -189,18 +187,14 @@ public abstract class BaseStream {
             fab.addChild(XML_PRIORITY_TAG,""+ priority );
         }
         if( echo )
-            fab.alterChild("echo", echo?"yes":"no");
+            fab.alterChild("echo", "yes");
         fab.alterChild("eol", Tools.getEOLString(eol) );
 
         fab.clearChildren("cmd"); // easier to just remove first instead of checking if existing
         for( var tr : triggeredActions){
-            switch(tr.trigger){
-                case OPEN: case IDLE: case CLOSE: case IDLE_END:
-                    fab.addChild("cmd",tr.data);
-                    break;
-                case HELLO:  case WAKEUP:
-                    fab.addChild("write",tr.data);
-                    break;
+            switch (tr.trigger) {
+                case OPEN, IDLE, CLOSE, IDLE_END -> fab.addChild("cmd", tr.data);
+                case HELLO, WAKEUP -> fab.addChild("write", tr.data);
             }
             if( tr.trigger==TRIGGER.IDLE_END){
                 fab.attr("when","!idle");
@@ -290,21 +284,17 @@ public abstract class BaseStream {
         return join.toString();
     }
     /* Echo */
-    public boolean enableEcho(){
+    public void enableEcho(){
         if( this instanceof Writable ){
             targets.add((Writable)this );
             echo=true;
-            return true;
         }
-        return false;
     }
-    public boolean disableEcho(){
+    public void disableEcho(){
         if( this instanceof Writable ){
             echo=false;
             targets.removeIf(r -> r.id().equalsIgnoreCase(id));
-            return true;
         }
-        return false;
     }
     public boolean hasEcho(){
         return echo;
@@ -340,14 +330,29 @@ public abstract class BaseStream {
         return triggeredActions.stream().filter(x -> x.trigger==trigger).map(x -> x.data).collect(Collectors.toList());
     }
     private static TRIGGER convertTrigger( String trigger ){
-        switch (trigger){
-            case "open":   return TRIGGER.OPEN;
-            case "close":  return TRIGGER.CLOSE;
-            case "idle":   return TRIGGER.IDLE;
-            case "!idle":  return TRIGGER.IDLE_END;
-            case "hello":  return TRIGGER.HELLO;
-            case "wakeup": case "asleep": return TRIGGER.WAKEUP;
-            default : Logger.error("Unknown trigger requested : "+trigger); return null;
+        switch (trigger.toLowerCase()) {
+            case "open" -> {
+                return TRIGGER.OPEN;
+            }
+            case "close" -> {
+                return TRIGGER.CLOSE;
+            }
+            case "idle" -> {
+                return TRIGGER.IDLE;
+            }
+            case "!idle" -> {
+                return TRIGGER.IDLE_END;
+            }
+            case "hello" -> {
+                return TRIGGER.HELLO;
+            }
+            case "wakeup", "asleep" -> {
+                return TRIGGER.WAKEUP;
+            }
+            default -> {
+                Logger.error("Unknown trigger requested : " + trigger);
+                return null;
+            }
         }
     }
     protected static class TriggerAction {

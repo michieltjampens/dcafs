@@ -52,12 +52,12 @@ public class PathPool implements Commandable {
                 pathEle -> {
                     PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
                     path.readFromXML( pathEle,settingsPath.getParent() );
-                    var p = paths.get(path.getID());
+                    var p = paths.get(path.id());
                     if( p!=null) {
                         p.stop();
-                        paths.remove(p.getID());
+                        paths.remove(p.id());
                     }
-                    paths.put(path.getID(),path);
+                    paths.put(path.id(),path);
                 }
         );
 
@@ -203,7 +203,7 @@ public class PathPool implements Commandable {
                                 if( res.equalsIgnoreCase("path created")){
                                     PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
                                     path.readFromXML( pEle.get(),settingsPath.getParent() );
-                                    paths.put(path.getID(),path);
+                                    paths.put(path.id(),path);
                                 }
                                 var pat = paths.get(cmds[0]);
                                 if( pat!=null) {

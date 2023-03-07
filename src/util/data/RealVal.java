@@ -273,17 +273,6 @@ public class RealVal extends AbstractVal implements NumericVal{
     public boolean hasTriggeredCmds(){
         return triggered!=null&& !triggered.isEmpty();
     }
-    private void storeTriggeredCmds(XMLfab fab){
-        if( triggered==null)
-            return;
-        for( var tc : triggered ){
-            switch (tc.type) {
-                case ALWAYS -> fab.addChild("cmd", tc.cmd);
-                case CHANGED -> fab.addChild("cmd", tc.cmd).attr("when", "changed");
-                case STDEV, COMP -> fab.addChild("cmd", tc.cmd).attr("when", tc.ori);
-            }
-        }
-    }
     /* ***************************************** U S I N G ********************************************************** */
     /**
      * Get a delimited string with all the used options

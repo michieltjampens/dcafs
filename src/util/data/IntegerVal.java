@@ -155,7 +155,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         if( dQueue!=null && triggered!=null ) {
             double v = val;
             // Execute all the triggers, only if it's the first time
-            triggered.stream().forEach(tc -> tc.apply(v));
+            triggered.forEach(tc -> tc.apply(v));
         }
         value=val;
         if( targets!=null ){
@@ -250,40 +250,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public boolean hasTriggeredCmds(){
         return triggered!=null&& !triggered.isEmpty();
     }
-    private void storeTriggeredCmds(XMLfab fab){
-        if( triggered==null)
-            return;
-        for( var tc : triggered ){
-            switch (tc.type) {
-                case ALWAYS -> fab.addChild("cmd", tc.cmd);
-                case CHANGED -> fab.addChild("cmd", tc.cmd).attr("when", "changed");
-                case STDEV, COMP -> fab.addChild("cmd", tc.cmd).attr("when", tc.ori);
-            }
-        }
-    }
     /* ***************************************** U S I N G ********************************************************** */
-    public boolean storeInXml(XMLdigger digger){
-        if( digger.isValid() ){ // meaning there's a rtvals node
-            digger.goDown("group","id",group); // Try to go into the group node
-            if( digger.isValid() ){ // Group exists
-                digger.goDown("int","name",name); // Check for the int node
-                if( digger.isInvalid() && digger.goDown("integer","name",name).isInvalid()){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("int")
-                            .attr("name",name)
-                            .attr("unit",unit).build());
-                }
-            }else{ // No such group
-                var digFabOpt = XMLfab.alterDigger(digger);
-                if(digFabOpt.isPresent() ){
-                    var digFab = digFabOpt.get();
-                    digFab.selectOrAddChildAsParent("group","id",group);
-                    digFab.addChild("int").attr("name",name).attr("unit","");
-                    digFab.build();
-                }
-            }
-        }
-        return true;
-    }
     /**
      * Get a ',' delimited string with all the used options
      * @return The options in a listing or empty if none are used

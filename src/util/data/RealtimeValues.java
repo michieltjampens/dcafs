@@ -9,13 +9,11 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
-import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
@@ -29,7 +27,7 @@ public class RealtimeValues implements Commandable {
 	/* Data stores */
 	private final ConcurrentHashMap<String, RealVal> realVals = new ConcurrentHashMap<>(); 		 // doubles
 	private final ConcurrentHashMap<String, IntegerVal> integerVals = new ConcurrentHashMap<>(); // integers
-	private final ConcurrentHashMap<String, TextVal> textVals = new ConcurrentHashMap<>(); 			 // strings
+	private final ConcurrentHashMap<String, TextVal> textVals = new ConcurrentHashMap<>(); 		 // strings
 	private final ConcurrentHashMap<String, FlagVal> flagVals = new ConcurrentHashMap<>(); 		 // booleans
 
 	private final IssuePool issuePool;
@@ -188,12 +186,15 @@ public class RealtimeValues implements Commandable {
 	}
 	/**
 	 * Sets the value of a real (in a hashmap)
-	 * @param id The parameter name
+	 *
+	 * @param id    The parameter name
 	 * @param value The value of the parameter
-	 * @return True if it was created
 	 */
-	public boolean updateReal(String id, double value) {
-		return getRealVal(id).map( r -> {r.value(value);return true;}).orElse(false);
+	public void updateReal(String id, double value) {
+		getRealVal(id).map(r -> {
+			r.value(value);
+			return true;
+		});
 	}
 	/**
 	 * Alter all the values of the reals in the given group
@@ -218,9 +219,6 @@ public class RealtimeValues implements Commandable {
 		var dOpt = getRealVal(star==-1?id:id.substring(0,star));
 
 		return dOpt.map(realVal -> realVal.value(star == -1 ? "" : id.substring(star + 1))).orElse(defVal);
-	}
-	public String realValueString(String id){
-		return getRealVal(id).map( rv -> rv.asValueString()).orElse("?"+id+"?");
 	}
 	/* ************************************ I N T E G E R V A L ***************************************************** */
 
@@ -288,9 +286,6 @@ public class RealtimeValues implements Commandable {
 		}
 		return i.intValue( star==-1?"":id.substring(star+1) );
 	}
-	public String intValueString(String id){
-		return getRealVal(id).map(RealVal::asValueString).orElse("?"+id+"?");
-	}
 	/* *********************************** T E X T S  ************************************************************* */
 	public boolean hasText(String id){
 		return textVals.containsKey(id);
@@ -314,13 +309,6 @@ public class RealtimeValues implements Commandable {
 		if( textVals.get(id)==null)
 			Logger.error( "Tried to retrieve non existing TextVal "+id);
 		return Optional.ofNullable(textVals.get(id));
-	}
-	public String getTextVal( String id, String def ){
-		if (textVals.get(id) == null) {
-			Logger.warn("Tried to retrieve non existing TextVal " + id);
-			return def;
-		}
-		return textVals.get(id).value();
 	}
 	/**
 	 * Set the value of a textval and create it if it doesn't exist yet
@@ -538,12 +526,6 @@ public class RealtimeValues implements Commandable {
 			}
 			case "list" -> {
 				return String.join(html ? "<br>" : "\r\n", getRtvalsList(html, false, false, true, true));
-			}
-			/* Create or alter */
-			case "new", "create" -> {
-				if (setText(cmds[1], cmds[2]))
-					return cmds[1] + " stored with value " + cmds[2];
-				return cmds[1] + " updated with value " + cmds[2];
 			}
 			case "update" -> {
 				if (updateText(cmds[1], cmds[2]))
@@ -938,11 +920,10 @@ public class RealtimeValues implements Commandable {
 				.distinct()
 				.forEach(groups::add);
 
-		textVals.keySet().stream()
-				.filter( k -> k.contains("_"))
-				.map( k -> k.split("_")[0] )
+		textVals.values().stream()
+				.map( TextVal::group)
+				.filter(group -> !group.isEmpty() )
 				.distinct()
-				.filter( g -> !g.equalsIgnoreCase("dcafs"))
 				.forEach(groups::add);
 
 		flagVals.values().stream()

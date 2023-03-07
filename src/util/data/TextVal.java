@@ -13,8 +13,8 @@ import java.util.function.Function;
 
 public class TextVal extends AbstractVal{
     private String value="";
-    private ArrayList<String> history = new ArrayList<>();
-    private ArrayList<TriggeredCmd> triggered = new ArrayList<>();
+    private final ArrayList<String> history = new ArrayList<>();
+    private final ArrayList<TriggeredCmd> triggered = new ArrayList<>();
 
     /* ********************************* Constructing ************************************************************ */
     /**
