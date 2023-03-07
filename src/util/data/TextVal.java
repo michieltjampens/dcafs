@@ -38,6 +38,9 @@ public class TextVal extends AbstractVal{
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
+        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
+            name = rtval.getTextContent();
+
         if( name.isEmpty()){
             Logger.error("Tried to create a TextVal without id/name, group "+group);
             return null;

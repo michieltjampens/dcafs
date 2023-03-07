@@ -41,9 +41,14 @@ public class FlagVal extends AbstractVal implements NumericVal{
     public static FlagVal build(Element rtval, String group, boolean def){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
-        if( name.isEmpty())
-            return null;
 
+        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
+            name = rtval.getTextContent();
+
+        if( name.isEmpty()) {
+            Logger.error("Tried to create a FlagVal without id/name, group " + group);
+            return null;
+        }
         return FlagVal.newVal(group,name).alter(rtval,def);
     }
     public FlagVal alter( Element rtval, boolean defFlag){

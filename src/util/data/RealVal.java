@@ -64,6 +64,9 @@ public class RealVal extends AbstractVal implements NumericVal{
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
+        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
+            name = rtval.getTextContent();
+
         if( name.isEmpty()){
             Logger.error("Tried to create a RealVal without id/name, group "+group);
             return null;

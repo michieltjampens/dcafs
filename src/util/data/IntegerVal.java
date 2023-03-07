@@ -63,9 +63,14 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public static IntegerVal build(Element rtval, String group, int defVal){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
-        if( name.isEmpty())
+
+        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
             name = rtval.getTextContent();
 
+        if( name.isEmpty()){
+            Logger.error("Tried to create a IntegerVal without name, group "+group);
+            return null;
+        }
         return IntegerVal.newVal(group,name).alter(rtval,defVal);
     }
 
