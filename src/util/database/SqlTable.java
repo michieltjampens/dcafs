@@ -4,6 +4,8 @@ import util.data.RealtimeValues;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.data.TextVal;
+import util.data.ValStore;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
@@ -25,6 +27,7 @@ public class SqlTable {
     }
 
     ArrayList<Column> columns = new ArrayList<>();
+    HashMap<String, ValStore> stores = new HashMap<>();
     boolean ifnotexists = false;
     boolean server = false;
 
@@ -70,6 +73,7 @@ public class SqlTable {
         String tableName = tbl.getAttribute("name").trim();
         SqlTable table = SqlTable.withName(tableName);
         boolean ok = true;
+
         for (Element node : XMLtools.getChildElements(tbl)) {
             if (node != null) {
                 String val = node.getTextContent().trim();
@@ -79,7 +83,6 @@ public class SqlTable {
                     break;
                 }
                 String rtval = XMLtools.getStringAttribute(node,"rtval","");
-                rtval = XMLtools.getStringAttribute(node,"alias",rtval); // Retain backwards compatibility
 
                 switch (node.getNodeName()) {
                     case "real":
@@ -499,11 +502,11 @@ public class SqlTable {
         prep.disableLock();
         return offset;
     }
-    public boolean clearRecords( String id, int count ){
+    public void clearRecords(String id, int count ){
         PrepStatement prep = preps.get(id);
         if( prep==null){
             Logger.error(name+" -> No such prep: "+id);
-            return false;
+            return;
         }
         prep.enableLock();
         var dd = prep.getData();
@@ -517,7 +520,6 @@ public class SqlTable {
             dd.removeIf( Objects::isNull );
         }
         prep.disableLock();
-        return true;
     }
     public int doInsert(Object[] values){
         return getPrep("").map( p -> p.addData(values)?1:0).orElse(-1);
@@ -545,29 +547,56 @@ public class SqlTable {
         }
 
         Object[] record = new Object[columns.size()];
+
+        if( stores.get(macro)==null) {
+            stores.put(macro, new ValStore());
+        }
+        var store = stores.get(macro);
         int index=-1;
         for( int colPos : prep.getIndexes() ){
             Column col = columns.get(colPos);
             index++;    
             String def = col.getDefault();
-            if( def.equalsIgnoreCase("@macro"))
-                def=macro;
             
             String ref = col.rtval.replace("@macro", macro);
             Object val = null;
             try{
-                if( col.type==COLUMN_TYPE.TIMESTAMP ){
-                    record[index] = index==0?TimeTools.formatLongUTCNow():rtvals.getText(ref,"");
-                    continue;
-                }else if( col.type == COLUMN_TYPE.EPOCH){
+                if( col.type == COLUMN_TYPE.EPOCH){
                     record[index]=Instant.now().toEpochMilli();
+                    if( index >= store.size())
+                        store.addEmptyVal();
                     continue;
                 }else if( col.type == COLUMN_TYPE.TEXT){
-                    val = rtvals.getText(ref,"");
-                }else if( col.type == COLUMN_TYPE.INTEGER){
-                    if( rtvals.hasInteger(ref) ){
-                        val = rtvals.getInteger(ref,-999);
-                    }else{
+                    if( index >= store.size() ){
+                        var v = rtvals.getTextVal(ref);
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            store.addEmptyVal();
+                        }
+                    }else if( store.isEmptyAt(index)){
+                        var v = rtvals.getTextVal(ref);
+                        if( v.isPresent()){
+                            store.setAbstractVal(index,v.get());
+                        }
+                    }
+                    val = store.getValueAt(index);
+                }else if( col.type == COLUMN_TYPE.INTEGER ){
+                    if( index >= store.size() ){
+                        var v = rtvals.getIntegerVal(ref);
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            store.addEmptyVal();
+                        }
+                    }else if( store.isEmptyAt(index)){
+                        var v = rtvals.getIntegerVal(ref);
+                        if( v.isPresent()){
+                            store.setAbstractVal(index,v.get());
+                        }
+                    }
+                    val = store.getIntValueAt(index);
+                    if( val==null ){
                         if( col.hasDefault) {
                             Logger.debug(id + " -> Didn't find integer with id " + ref);
                         }else {
@@ -576,9 +605,21 @@ public class SqlTable {
                         val = col.hasDefault?NumberUtils.createInteger(def):null;
                     }
                 }else if( col.type == COLUMN_TYPE.REAL){
-                    if( rtvals.hasReal(ref) ){
-                        val = rtvals.getReal(ref,-999);
-                    }else{
+                    if( index >= store.size() ){
+                        var v = rtvals.getRealVal(ref);
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            store.addEmptyVal();
+                        }
+                    }else if( store.isEmptyAt(index)){
+                        var v = rtvals.getRealVal(ref);
+                        if( v.isPresent()){
+                            store.setAbstractVal(index,v.get());
+                        }
+                    }
+                    val = store.getRealValueAt(index);
+                    if( val==null ){
                         if( col.hasDefault) {
                             Logger.debug(id + " -> Didn't find real with id " + ref);
                         }else {
@@ -587,15 +628,32 @@ public class SqlTable {
                         val = col.hasDefault?NumberUtils.createDouble(def):null;
                     }
                 }else if( col.type == COLUMN_TYPE.LOCALDTNOW){
+                    if( index >= store.size() )
+                        store.addEmptyVal();
                     val = OffsetDateTime.now();
                     if( !server )
                         val = val.toString();
                 }else if( col.type == COLUMN_TYPE.UTCDTNOW){
+                    if( index >= store.size() )
+                        store.addEmptyVal();
                     val = OffsetDateTime.now(ZoneOffset.UTC);
                     if( !server )
                         val = val.toString();
                 }else if( col.type == COLUMN_TYPE.DATETIME){
-                    val = TimeTools.parseDateTime(rtvals.getText(ref,""),"yyyy-MM-dd HH:mm:ss.SSS");
+                    if( index >= store.size() ) {
+                        var v = rtvals.getTextVal(ref);
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            store.addEmptyVal();
+                        }
+                    }else if( store.isEmptyAt(index)){
+                        var v = rtvals.getTextVal(ref);
+                        if( v.isPresent()){
+                            store.setAbstractVal(index,v.get());
+                        }
+                    }
+                    val = TimeTools.parseDateTime(store.getValueAt(index),"yyyy-MM-dd HH:mm:ss.SSS");
                     if( !server )
                         val = val.toString();
                 }
@@ -693,59 +751,6 @@ public class SqlTable {
         }
         return fab.build();
     }
-
-    /**
-     * Builds a generic based on this table
-     * @param fab The fab to create the node, pointing to generics node
-     * @param db The database that contains the table
-     * @param id The id for this generic
-     * @param delimiter The delimiter used by the generic
-     * @return True if build was ok
-     */
-    public boolean buildGeneric(XMLfab fab, String db, String id, String delimiter){
-
-        fab.selectOrAddChildAsParent("generic","id",id).clearChildren();
-        fab.attr("id",id).attr("db",db+":"+this.name).attr("delimiter",delimiter);
-
-        int index=0;
-        boolean macro=false;
-        for( Column col : columns ){ //check for macro
-            if( col.rtval.contains("@macro")){
-                fab.addChild("macro").attr("index",0);
-                index++;
-                macro=true;
-                break;
-            }
-        }
-        boolean groupAllowed = columns.stream().allMatch( col -> col.rtval.equalsIgnoreCase(name+"_"+col.title));
-        if( groupAllowed ) // All the colums refer to the same group
-            fab.attr("group",this.name);
-
-        for( Column col : columns ){
-            String value = col.title;
-            if( !groupAllowed || macro )
-                value = col.rtval;
-
-            if( col.defString.contains("@macro"))
-                continue;
-            switch( col.type ){
-                case LOCALDTNOW: fab.addChild("filler","localdt");break;
-                case UTCDTNOW: fab.addChild("filler","utcdt");break;
-                case INTEGER:  fab.addChild("integer",value).attr("index",index++);break;
-                case REAL:     fab.addChild("real",value).attr("index",index++);break;
-                case TEXT:     fab.addChild("text",value).attr("index",index++);break;
-                case DATETIME: fab.addChild("utcdt",value).attr("index",index++);break;
-                case TIMESTAMP:
-                    if( index !=0)
-                        fab.addChild("timestamp",macro||!col.rtval.isEmpty()?col.rtval :col.title).attr("index",index++);
-                    break;
-                default:
-                    break;
-            }
-        }
-        return fab.build();
-    }
-
     private void buildDefStatement(){
         PrepStatement stat = preps.get("");
 

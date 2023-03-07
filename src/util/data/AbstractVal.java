@@ -111,6 +111,7 @@ public abstract class AbstractVal {
     }
     public String unit(){ return unit; }
     public abstract boolean parseValue( String value );
+    public abstract String stringValue();
     /* ********************************* Requests/Targets ********************************************************** */
     public void addTarget( Writable wr){
         if( targets==null)

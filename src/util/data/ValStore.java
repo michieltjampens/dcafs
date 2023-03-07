@@ -2,6 +2,7 @@ package util.data;
 
 import io.forward.AbstractForward;
 import org.tinylog.Logger;
+import org.w3c.dom.Document;
 import util.xml.XMLtools;
 
 import java.util.ArrayList;
@@ -113,7 +114,52 @@ public class ValStore {
     public void removeRealtimeValues( RealtimeValues rtv){
         rtvals.forEach(rtv::removeVal);
     }
-
+    public int size(){
+        return rtvals.size();
+    }
+    public void addEmptyVal(){
+        rtvals.add(null);
+    }
+    public void addAbstractVal( AbstractVal val){
+        rtvals.add(val);
+    }
+    public void setAbstractVal( int index, AbstractVal val ){
+        if( val==null)
+            return;
+        if( index > rtvals.size()) {
+            Logger.warn("Tried to set a val index "+index+" but rtvals to small -> "+val.id());
+            return;
+        }
+        rtvals.set(index,val);
+    }
+    public String getValueAt(int index ){
+        if( index > rtvals.size() || rtvals.get(index)==null)
+            return "";
+        return rtvals.get(index).stringValue();
+    }
+    public boolean isEmptyAt(int index ){
+        if( rtvals.size()<=index)
+            return true;
+        return rtvals.get(index)==null;
+    }
+    public Integer getIntValueAt(int index ){
+        if( index > rtvals.size() || rtvals.get(index)==null)
+            return null;
+        var v = rtvals.get(index);
+        if( v instanceof IntegerVal ){
+            return ((IntegerVal) v).intValue();
+        }
+        return null;
+    }
+    public Double getRealValueAt(int index ){
+        if( index > rtvals.size() || rtvals.get(index)==null)
+            return null;
+        var v = rtvals.get(index);
+        if( v instanceof RealVal){
+            return ((RealVal) v).value();
+        }
+        return null;
+    }
     public boolean apply( String line, BlockingQueue<Datagram> dQueue) {
         var items = line.split(delimiter);
         if (items.length < rtvals.size()) {

@@ -42,7 +42,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
-        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
+        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
             name = rtval.getTextContent();
 
         if( name.isEmpty()) {
@@ -164,6 +164,11 @@ public class FlagVal extends AbstractVal implements NumericVal{
         setState( Double.compare(val,0.0)!=0 );
     }
 
+    @Override
+    public String asValueString() {
+        return toString();
+    }
+
     /**
      * Convert the flag state to a big decimal value
      * @return BigDecimal.ONE if the state is true or ZERO if not
@@ -208,9 +213,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
     public int intValue() {
         return state?1:0;
     }
-    public String asValueString(){
-        return toString();
-    }
+    public String stringValue(){ return toString();}
     public String toString(){
         return ""+state;
     }

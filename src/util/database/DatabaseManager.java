@@ -651,8 +651,14 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 return getStatus();
             case "store":
                 if( cmds.length < 3 )
-                    return "Not enough arguments, needs to be dbm:store,dbId,tableid";
-                if( buildInsert(cmds[1],cmds[2],"") )
+                    return "Not enough arguments, needs to be dbm:store,dbId,tableid<,/:macro>";
+                var macro = cmds.length==4?cmds[3]:"";
+                if( macro.isEmpty() ){
+                    var ms = cmds[2].split(":");
+                    if( ms.length==2)
+                        macro=ms[1];
+                }
+                if( buildInsert(cmds[1],cmds[2],macro) )
                     return "Wrote record";
                 return "Failed to write record";
             default:

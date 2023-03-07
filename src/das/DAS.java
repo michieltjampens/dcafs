@@ -125,7 +125,7 @@ public class DAS implements Commandable{
         var docOpt = XMLtools.readXML(settingsPath);
 
         if( docOpt.isEmpty()){
-            Logger.error("Issue in current settings.xml, aborting: " + settingsPath.toString());
+            Logger.error("Issue in current settings.xml, aborting: " + settingsPath);
             addTelnetServer();
             return;
         }

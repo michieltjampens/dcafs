@@ -38,7 +38,7 @@ public class TextVal extends AbstractVal{
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
-        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
+        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
             name = rtval.getTextContent();
 
         if( name.isEmpty()){
@@ -80,6 +80,7 @@ public class TextVal extends AbstractVal{
         return this;
     }
     public String value(){ return value; }
+    public String stringValue(){ return value;}
     public TextVal value( String val){
         /* Keep history of passed values */
         if( keepHistory!=0 ) {

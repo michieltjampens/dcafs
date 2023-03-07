@@ -137,26 +137,6 @@ public abstract class Database{
      * @return The gathered information
      */
     public abstract String getTableInfo(String eol);
-
-    /**
-     * Build a generic based on the information of the chosen table
-     * @param fab The xmlfab used
-     * @param tableName The name of the table
-     * @param genID The id for the new generic
-     * @param delimiter The delimiter to use in the generic
-     * @return True if this worked
-     */
-    public abstract boolean buildGenericFromTable( XMLfab fab, String tableName, String genID, String delimiter);
-
-    /**
-     * Build a generic for each local table of this database
-     * @param fab The xmlfab to use
-     * @param overwrite If true will overwrite existing generics
-     * @param delim The delimiter for the generics
-     * @return The amount of generics build
-     */
-    public abstract int buildGenericsFromTables(XMLfab fab, boolean overwrite, String delim);
-
     /**
      * Check and update the current state of the database
      * @param secondsPassed How many seconds passed since the last check (interval so fixed)

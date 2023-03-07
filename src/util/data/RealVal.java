@@ -64,7 +64,7 @@ public class RealVal extends AbstractVal implements NumericVal{
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
-        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
+        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
             name = rtval.getTextContent();
 
         if( name.isEmpty()){
@@ -314,6 +314,7 @@ public class RealVal extends AbstractVal implements NumericVal{
      * @return Get the current value as a double
      */
     public double value(){ return value; }
+    public String stringValue(){ return ""+value;}
     public double value( String type ){
         return switch( type ){
             case "stdev", "stdv"-> getStdev();

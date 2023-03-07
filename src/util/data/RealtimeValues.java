@@ -312,8 +312,15 @@ public class RealtimeValues implements Commandable {
 	 */
 	public Optional<TextVal> getTextVal( String id ){
 		if( textVals.get(id)==null)
-			Logger.error( "Tried to retrieve non existing IntegerVal "+id);
+			Logger.error( "Tried to retrieve non existing TextVal "+id);
 		return Optional.ofNullable(textVals.get(id));
+	}
+	public String getTextVal( String id, String def ){
+		if (textVals.get(id) == null) {
+			Logger.warn("Tried to retrieve non existing TextVal " + id);
+			return def;
+		}
+		return textVals.get(id).value();
 	}
 	/**
 	 * Set the value of a textval and create it if it doesn't exist yet

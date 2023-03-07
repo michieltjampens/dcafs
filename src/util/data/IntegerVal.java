@@ -59,7 +59,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
-        if( XMLtools.getChildElements(rtval).isEmpty() || name.isEmpty() )
+        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
             name = rtval.getTextContent();
 
         if( name.isEmpty()){
@@ -319,6 +319,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public double value() {
         return value;
     }
+    public String stringValue(){ return ""+value;}
     @Override
     public int intValue() {
         return value;
