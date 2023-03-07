@@ -5,12 +5,12 @@ import io.collector.CollectorPool;
 import io.email.Email;
 import io.email.EmailSending;
 import io.email.EmailWorker;
+import io.forward.PathPool;
 import io.hardware.gpio.InterruptPins;
 import io.hardware.i2c.I2CWorker;
 import io.matrix.MatrixClient;
 import io.mqtt.MqttPool;
 import io.stream.StreamManager;
-import io.forward.ForwardPool;
 import util.gis.Waypoints;
 import util.tools.FileMonitor;
 import io.stream.tcp.TcpServer;
@@ -185,12 +185,12 @@ public class DAS implements Commandable{
         addI2CWorker();
 
         /* Forwards */
-        ForwardPool forwardPool = new ForwardPool(dQueue, settingsPath, rtvals, nettyGroup);
-        addCommandable(forwardPool,"filter","ff","filters");
-        addCommandable(forwardPool,"math","mf","maths");
-        addCommandable(forwardPool,"editor","ef","editors");
-        addCommandable(forwardPool,"paths","path","pf","paths");
-        addCommandable(forwardPool, "");
+        PathPool pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup);
+        addCommandable(pathPool,"filter","ff","filters");
+        addCommandable(pathPool,"math","mf","maths");
+        addCommandable(pathPool,"editor","ef","editors");
+        addCommandable(pathPool,"paths","path","pf","paths");
+        addCommandable(pathPool, "");
 
         /* Waypoints */
         waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);

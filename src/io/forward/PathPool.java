@@ -17,7 +17,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 
-public class ForwardPool implements Commandable {
+public class PathPool implements Commandable {
 
     private final HashMap<String, PathForward> paths = new HashMap<>();
     private final BlockingQueue<Datagram> dQueue;
@@ -25,30 +25,65 @@ public class ForwardPool implements Commandable {
     private final RealtimeValues rtvals;
     private final EventLoopGroup nettyGroup;
 
-    public ForwardPool(BlockingQueue<Datagram> dQueue, Path settingsPath, RealtimeValues rtvals,EventLoopGroup group){
+    public PathPool(BlockingQueue<Datagram> dQueue, Path settingsPath, RealtimeValues rtvals, EventLoopGroup group){
         this.dQueue=dQueue;
         this.settingsPath=settingsPath;
         this.rtvals=rtvals;
         nettyGroup=group;
-        readSettingsFromXML();
+        readPathsFromXML();
     }
     /* **************************************** G E N E R A L ************************************************** */
     /**
-     * Read the forwards stored in the settings.xml
+     * Read the paths stored in the settings.xml and imported
      */
-    public void readSettingsFromXML() {
-
+    public void readPathsFromXML(){
         var xmlOpt = XMLtools.readXML(settingsPath);
         if( xmlOpt.isEmpty()) {
             dQueue.add(Datagram.build("ForwardPool -> Failed to read xml at "+settingsPath).label("fail"));
             return;
         }
-        /* Figure out the paths? */
-        Logger.info("Loading paths...");
-        readPathsFromXML();
-        Logger.info("Finished loading Forwardpool");
-    }
 
+        Logger.info("Loading paths...");
+        // Reset the rtval stores
+        clearStores();
+
+        // From the paths section
+        XMLfab.getRootChildren(settingsPath,"dcafs","paths","path").forEach(
+                pathEle -> {
+                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
+                    path.readFromXML( pathEle,settingsPath.getParent() );
+                    var p = paths.get(path.getID());
+                    if( p!=null) {
+                        p.stop();
+                        paths.remove(p.getID());
+                    }
+                    paths.put(path.getID(),path);
+                }
+        );
+
+        // From the streams section
+        XMLfab.getRootChildren(settingsPath,"dcafs","streams","stream").stream()
+                .filter( e -> XMLtools.hasChildByTag(e,"path")) // Only those with a path node
+                .map( e -> XMLtools.getFirstChildByTag(e,"path").get())
+                .forEach(
+                        pathEle -> {
+                            PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
+                            var parentId = XMLtools.getStringAttribute((Element) pathEle.getParentNode(), "id", "");
+                            // The functionality to import a path, relies on an attribute while this will be a content instead but may be...
+                            if( !pathEle.hasAttribute("import")) {
+                                var importPath = pathEle.getTextContent();
+                                if (importPath.isEmpty()) {
+                                    Logger.error("Empty content in path node for " + parentId);
+                                    return;
+                                }
+                                pathEle.setAttribute("import", pathEle.getTextContent());
+                                pathEle.setTextContent("");
+                            }
+                            pathEle.setAttribute("src","raw:"+parentId);
+                            path.readFromXML(pathEle,settingsPath.getParent());
+                        });
+        Logger.info("Finished loading paths");
+    }
     @Override
     public String replyToCommand(String[] request, Writable wr, boolean html) {
         // Regular ones
@@ -109,7 +144,7 @@ public class ForwardPool implements Commandable {
                 var ele = XMLfab.withRoot(settingsPath, "dcafs", "paths")
                         .getChild("path", "id", cmds[1]);
                 if (ele.isEmpty())
-                    return "No such path " + cmds[1];
+                    return "! No such path " + cmds[1];
                 var result = paths.get(cmds[1]).readFromXML(ele.get(), settingsPath.getParent());
                 return result.isEmpty() ? "Path reloaded" : result;
             }
@@ -195,48 +230,6 @@ public class ForwardPool implements Commandable {
             p.clearStores(); // reset the used stores
             paths.remove(id);
         }
-    }
-    public void readPathsFromXML(){
-        // Reset the rtval stores
-        clearStores();
-
-        // From the paths section
-        XMLfab.getRootChildren(settingsPath,"dcafs","paths","path").forEach(
-                pathEle -> {
-                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
-                    path.readFromXML( pathEle,settingsPath.getParent() );
-                    var p = paths.get(path.getID());
-                    if( p!=null) {
-                      //  p.lastStep().ifPresent( path::addTarget);
-                        p.stop();
-                        paths.remove(p.getID());
-                    }
-                    paths.put(path.getID(),path);
-                }
-        );
-
-        // From the streams section
-        XMLfab.getRootChildren(settingsPath,"dcafs","streams","stream").stream()
-                .filter( e -> XMLtools.hasChildByTag(e,"path")) // Only those with a path node
-                .map( e -> XMLtools.getFirstChildByTag(e,"path").get())
-                .forEach(
-                    pathEle -> {
-                        PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
-                        var parentId = XMLtools.getStringAttribute((Element) pathEle.getParentNode(), "id", "");
-                        // The functionality to import a path, relies on an attribute while this will be a content instead but may be...
-                        if( !pathEle.hasAttribute("import")) {
-                            var importPath = pathEle.getTextContent();
-                            if (importPath.isEmpty()) {
-
-                                Logger.error("Empty content in path node for " + parentId);
-                                return;
-                            }
-                            pathEle.setAttribute("import", pathEle.getTextContent());
-                            pathEle.setTextContent("");
-                        }
-                        pathEle.setAttribute("src","raw:"+parentId);
-                        path.readFromXML(pathEle,settingsPath.getParent());
-                    });
     }
     private void clearStores(){
         paths.values().forEach(PathForward::clearStores);
