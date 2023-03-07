@@ -47,11 +47,6 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         return new IntegerVal().group(group).name(name);
     }
 
-    public String getID(){
-        if( group.isEmpty())
-            return name;
-        return group+"_"+name;
-    }
     /* ********************************* Constructing ************************************************************ */
     /**
      * Create a new IntegerVal based on a rtval real node
