@@ -96,16 +96,16 @@ public class ValStore {
         for( int index=0;index<rtvals.size();index++){
             var val = rtvals.get(index);
             if( val instanceof RealVal ){
-                if( rtv.addRealVal((RealVal)val,false) == AbstractForward.RESULT.EXISTS)
+                if( rtv.addRealVal((RealVal)val) == AbstractForward.RESULT.EXISTS)
                     rtvals.set(index, rtv.getRealVal(val.id()).get());
             }else if( val instanceof IntegerVal ){
-                if( rtv.addIntegerVal((IntegerVal)val,null) == AbstractForward.RESULT.EXISTS)
+                if( rtv.addIntegerVal((IntegerVal)val) == AbstractForward.RESULT.EXISTS)
                     rtvals.set(index, rtv.getIntegerVal(val.id()).get());
             }else if( val instanceof  FlagVal ){
-                if( rtv.addFlagVal((FlagVal)val,null) == AbstractForward.RESULT.EXISTS)
+                if( rtv.addFlagVal((FlagVal)val) == AbstractForward.RESULT.EXISTS)
                     rtvals.set(index, rtv.getFlagVal(val.id()).get());
             }else if( val instanceof TextVal ){
-                if( rtv.addTextVal((TextVal)val,null) == AbstractForward.RESULT.EXISTS)
+                if( rtv.addTextVal((TextVal)val) == AbstractForward.RESULT.EXISTS)
                     rtvals.set(index, rtv.getTextVal(val.id()).get());
             }
         }

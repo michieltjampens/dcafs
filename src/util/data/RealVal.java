@@ -286,35 +286,6 @@ public class RealVal extends AbstractVal implements NumericVal{
     }
     /* ***************************************** U S I N G ********************************************************** */
     /**
-     * Store the setup of this val in the settings.xml
-     * @param digger The digger to work with, with the rtvals node as root/parent
-     * @return True when
-     */
-    public boolean storeInXml( XMLdigger digger ){
-
-        if( digger.isValid() ){ // meaning there's a rtvals node
-            digger.goDown("group","id",group); // Try to go into the group node
-            if( digger.isValid() ){ // Group exists
-                digger.goDown("real","name",name); // Check for the int node
-                if( digger.isInvalid() ){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("real")
-                            .attr("name",name)
-                            .attr("unit",unit).build());
-                }
-            }else{ // No such group
-                var digFabOpt = XMLfab.alterDigger(digger);
-                if(digFabOpt.isPresent() ){
-                    var digFab = digFabOpt.get();
-                    digFab.selectOrAddChildAsParent("group","id",group);
-                    digFab.addChild("real").attr("name",name).attr("unit","");
-                    digFab.build();
-                }
-            }
-        }
-        return true;
-    }
-
-    /**
      * Get a delimited string with all the used options
      * @return The options in a listing or empty if none are used
      */

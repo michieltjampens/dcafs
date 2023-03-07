@@ -133,5 +133,4 @@ public abstract class AbstractVal {
         targets.forEach( wr -> join.add(wr.id()));
         return join.toString();
     }
-    abstract boolean storeInXml(XMLdigger digger);
 }

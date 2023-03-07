@@ -235,15 +235,14 @@ public class FlagVal extends AbstractVal implements NumericVal{
      */
     public boolean addTriggeredCmd(String trigger, String cmd){
 
-        switch( trigger ){
-            case "raised": case "up": case "set": // State goes from false to true
-                raisedList.add(cmd);
-                break;
-            case "lowered": case "down": case "clear": // state goes from true to false
-                loweredList.add(cmd);
-                break;
-            default: // No other triggers for now or typo's
+        switch (trigger) {
+            case "raised", "up", "set" -> // State goes from false to true
+                    raisedList.add(cmd);
+            case "lowered", "down", "clear" -> // state goes from true to false
+                    loweredList.add(cmd);
+            default -> { // No other triggers for now or typo's
                 return false;
+            }
         }
         return true;
     }
@@ -265,35 +264,6 @@ public class FlagVal extends AbstractVal implements NumericVal{
             return false;
         }
         return true;
-    }
-
-    @Override
-    public boolean storeInXml(XMLdigger digger) {
-        if( digger.isValid() ){ // meaning there's a rtvals node
-            digger.goDown("group","id",group); // Try to go into the group node
-            if( digger.isValid() ){ // Group exists
-                digger.goDown("flag","name",name); // Check for the int node
-                if( digger.isInvalid() ){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("flag")
-                            .attr("name",name).build());
-                }
-            }else{ // No such group
-                var digFabOpt = XMLfab.alterDigger(digger);
-                if(digFabOpt.isPresent() ){
-                    var digFab = digFabOpt.get();
-                    digFab.selectOrAddChildAsParent("group","id",group);
-                    digFab.addChild("flag").attr("name",name);
-                    digFab.build();
-                }
-            }
-        }
-        return true;
-    }
-    private void storeTriggeredCmds(XMLfab fab){
-        for( var cmd : raisedList )
-            fab.addChild("cmd",cmd).attr("when","up");
-        for( var cmd : loweredList )
-                fab.addChild("cmd",cmd).attr("when","down");
     }
     private String getOptions(){
         var join = new StringJoiner(",");

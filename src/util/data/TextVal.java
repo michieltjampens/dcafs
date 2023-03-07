@@ -123,11 +123,6 @@ public class TextVal extends AbstractVal{
         this.value=value;
         return true;
     }
-
-    @Override
-    boolean storeInXml(XMLdigger digger) {
-        return false;
-    }
     private class TriggeredCmd{
         String cmd; // The cmd to issue
         String ori; // The compare before it was converted to a function (for toString purposes)

@@ -285,41 +285,6 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         return true;
     }
     /**
-     * Store the setup of this val in the settings.xml
-     * @param fab The fab to work with, with the rtvals node as parent
-     * @return True when
-     */
-    public boolean storeInXml( XMLfab fab ){
-
-        fab.alterChild("group","id",group)
-                    .down(); // Go down in the group
-
-        fab.hasChild("integer","id",name).ifPresent( x -> {
-            x.removeAttr("id");
-            x.attr("name",name);
-        });
-        fab.hasChild("int","id",name).ifPresent( x -> {
-            x.removeAttr("id");
-            x.attr("name",name);
-        });
-
-        if( fab.hasChild("integer","name",name).isEmpty()
-                && fab.hasChild("int","name",name).isEmpty()) { // If this one isn't present
-            fab.addChild("integer").attr("name", name);
-        }else {
-            fab.alterChild("integer", "name", name);
-        }
-
-        fab.attr("unit",unit);
-
-        var opts = getOptions();
-        if( !opts.isEmpty())
-            fab.attr("options",opts);
-        storeTriggeredCmds(fab.down());
-        fab.build();
-        return true;
-    }
-    /**
      * Get a ',' delimited string with all the used options
      * @return The options in a listing or empty if none are used
      */

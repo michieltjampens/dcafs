@@ -152,10 +152,9 @@ public class RealtimeValues implements Commandable {
 	/**
 	 * Add a RealVal to the collection if it doesn't exist yet, optionally writing it to xml
 	 * @param rv The RealVal to add
-	 * @param xmlPath The path to the xml
-	 * @return True if it was added
+	 * @return RESULT.OK if ok, RESULT.EXISTS if already existing, RESULT.ERROR if something went wrong
 	 */
-	public AbstractForward.RESULT addRealVal(RealVal rv, Path xmlPath) {
+	public AbstractForward.RESULT addRealVal(RealVal rv) {
 		if( rv==null) {
 			Logger.error("Invalid RealVal received, won't try adding it");
 			return AbstractForward.RESULT.ERROR;
@@ -163,12 +162,7 @@ public class RealtimeValues implements Commandable {
 		if( realVals.containsKey(rv.id()))
 			return AbstractForward.RESULT.EXISTS;
 
-		if(xmlPath!=null&& Files.exists(xmlPath))
-			rv.storeInXml(XMLdigger.goIn(xmlPath,"dcafs").goDown("rtvals"));
 		return realVals.put(rv.id(),rv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
-	}
-	public AbstractForward.RESULT addRealVal(RealVal rv, boolean storeInXML) {
-		return addRealVal(rv,storeInXML?settingsPath:null);
 	}
 	public boolean hasReal(String id){
 		if( id.isEmpty()) {
@@ -246,10 +240,9 @@ public class RealtimeValues implements Commandable {
 	/**
 	 * Retrieves the id or adds it if it doesn't exist yet
 	 * @param iv The IntegerVal to add
-	 * @param xmlPath The path of the xml to store it in
 	 * @return The requested or newly made IntegerVal
 	 */
-	public AbstractForward.RESULT addIntegerVal( IntegerVal iv, Path xmlPath ){
+	public AbstractForward.RESULT addIntegerVal( IntegerVal iv ){
 		if( iv==null) {
 			Logger.error("Invalid IntegerVal received, won't try adding it");
 			return AbstractForward.RESULT.ERROR;
@@ -257,8 +250,6 @@ public class RealtimeValues implements Commandable {
 		if( integerVals.containsKey(iv.id()))
 			return AbstractForward.RESULT.EXISTS;
 
-		if(xmlPath!=null&& Files.exists(xmlPath))
-			iv.storeInXml(XMLdigger.goIn(xmlPath,"dcafs").goDown("rtvals"));
 		return integerVals.put(iv.id(),iv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
 	}
 	/**
@@ -304,7 +295,7 @@ public class RealtimeValues implements Commandable {
 	public boolean hasText(String id){
 		return textVals.containsKey(id);
 	}
-	public AbstractForward.RESULT addTextVal( TextVal tv, Path xmlPath){
+	public AbstractForward.RESULT addTextVal( TextVal tv){
 		if( tv==null) {
 			Logger.error("Invalid IntegerVal received, won't try adding it");
 			return AbstractForward.RESULT.ERROR;
@@ -312,8 +303,6 @@ public class RealtimeValues implements Commandable {
 		if( textVals.containsKey(tv.id()))
 			return AbstractForward.RESULT.EXISTS;
 
-		if(xmlPath!=null&& Files.exists(xmlPath))
-			tv.storeInXml(XMLdigger.goIn(xmlPath,"dcafs").goDown("rtvals"));
 		return textVals.put(tv.id(),tv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
 	}
 	/**
@@ -367,7 +356,7 @@ public class RealtimeValues implements Commandable {
 	}
 
 	/* ************************************** F L A G S ************************************************************* */
-	public AbstractForward.RESULT addFlagVal( FlagVal fv, Path xmlPath ){
+	public AbstractForward.RESULT addFlagVal( FlagVal fv ){
 		if( fv==null) {
 			Logger.error("Invalid IntegerVal received, won't try adding it");
 			return AbstractForward.RESULT.ERROR;
@@ -375,8 +364,6 @@ public class RealtimeValues implements Commandable {
 		if( flagVals.containsKey(fv.id()))
 			return AbstractForward.RESULT.EXISTS;
 
-		if(xmlPath!=null&& Files.exists(xmlPath))
-			fv.storeInXml(XMLdigger.goIn(xmlPath,"dcafs").goDown("rtvals"));
 		return flagVals.put(fv.id(),fv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
 	}
 	public Optional<FlagVal> getFlagVal( String flag ){
@@ -594,18 +581,6 @@ public class RealtimeValues implements Commandable {
 			case "list" -> {
 				return getRtvalsList(html, false, true, false, false);
 			}
-			case "new", "add" -> {
-				if (cmds.length < 2)
-					return "Not enough arguments, need flags:new,id<,state> or fv:new,id<,state>";
-				if (hasFlag(cmds[1]))
-					return "Flag already exists with that name";
-				int pos = cmds[1].indexOf("_");
-				String group = pos != -1 ? cmds[1].substring(0, pos) : "";
-				String name = pos == -1 ? cmds[1] : cmds[1].substring(pos + 1);
-				var flag = FlagVal.newVal(group, name).setState(Tools.parseBool(cmds.length == 3 ? cmds[2] : "false", false));
-				addFlagVal(flag, settingsPath);
-				return "Flag created/updated " + cmds[1];
-			}
 			case "raise", "set" -> {
 				if (cmds.length != 2)
 					return "Not enough arguments, need flags:raise,id or flags:set,id";
@@ -703,15 +678,6 @@ public class RealtimeValues implements Commandable {
 			}
 			case "list" -> {
 				return getRtvalsList(html, true, false, false, false);
-			}
-			case "new", "create" -> {
-				if (cmds.length != 3)
-					return "Not enough arguments given, " + request[0] + ":new,id(,value)";
-				rv = RealVal.newVal(cmds[1], cmds[2]);
-				if (addRealVal(rv, true) == AbstractForward.RESULT.OK) {
-					return "New realVal added " + rv.id() + ", stored in xml";
-				}
-				return "Real already exists";
 			}
 			case "alter" -> {
 				if (cmds.length < 3)
