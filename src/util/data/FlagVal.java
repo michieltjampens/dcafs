@@ -39,7 +39,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
 
     /* **************************** C O N S T R U C T I N G ******************************************************* */
-    public static Optional<FlagVal> build(Element rtval, String group, boolean def){
+    public static Optional<FlagVal> build(Element rtval, String group){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -50,13 +50,13 @@ public class FlagVal extends AbstractVal implements NumericVal{
             Logger.error("Tried to create a FlagVal without id/name, group " + group);
             return Optional.empty();
         }
-        return Optional.of(FlagVal.newVal(group,name).alter(rtval,def));
+        return Optional.of(FlagVal.newVal(group,name).alter(rtval));
     }
-    public FlagVal alter( Element rtval, boolean defFlag){
+    public FlagVal alter( Element rtval){
         reset(); // reset is needed if this is called because of reload
         name(name)
                 .group(XMLtools.getChildStringValueByTag(rtval, "group", group()))
-                .defState(XMLtools.getBooleanAttribute(rtval, "default", defFlag));
+                .defState(XMLtools.getBooleanAttribute(rtval, "default", defState));
         if (XMLtools.getBooleanAttribute(rtval, "keeptime", false))
             keepTime();
         if (!XMLtools.getChildElements(rtval, "cmd").isEmpty())

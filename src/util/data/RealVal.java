@@ -58,10 +58,9 @@ public class RealVal extends AbstractVal implements NumericVal{
      * Create a new Realval based on a rtval real node
      * @param rtval The node
      * @param group The group the node is found in
-     * @param defReal The global default real
      * @return The created node, still needs dQueue set
      */
-    public static Optional<RealVal> build(Element rtval, String group, double defReal){
+    public static Optional<RealVal> build(Element rtval, String group){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -72,19 +71,18 @@ public class RealVal extends AbstractVal implements NumericVal{
             Logger.error("Tried to create a RealVal without id/name, group "+group);
             return Optional.empty();
         }
-        return Optional.of(RealVal.newVal(group,name).alter(rtval,defReal));
+        return Optional.of(RealVal.newVal(group,name).alter(rtval));
     }
 
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
-     * @param defReal The global default
      */
-    public RealVal alter( Element rtval,double defReal ){
+    public RealVal alter( Element rtval ){
         reset();
         unit(XMLtools.getStringAttribute(rtval, "unit", ""))
                 .scale(XMLtools.getIntAttribute(rtval, "scale", -1))
-                .defValue(XMLtools.getDoubleAttribute(rtval, "default", defReal))
+                .defValue(XMLtools.getDoubleAttribute(rtval, "default", defVal))
                 .defValue(XMLtools.getDoubleAttribute(rtval, "def", defVal));
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {

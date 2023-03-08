@@ -146,7 +146,6 @@ public class DAS implements Commandable{
 
         /* RealtimeValues */
         rtvals = new RealtimeValues( settingsPath, dQueue );
-        rtvals.setText("dcafs_version",version);
 
         /* Database manager */
         dbManager = new DatabaseManager(workPath,rtvals);

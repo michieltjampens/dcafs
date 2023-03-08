@@ -183,8 +183,13 @@ public class CommandPool {
 			case "ts" -> doTimeStamping( split );
 			case "store" -> {
 				var ans = StoreCmds.replyToCommand(split[1],html,settingsPath);
-				if( !split[1].startsWith("?"))
-					doCmd("ss","reloadstore,"+split[1].split(",")[0],wr);
+				if( !split[1].startsWith("?")) {
+					if( split[1].equalsIgnoreCase("global")) {
+						doCmd("ss", "reloadstore," + split[1].split(",")[0], wr);
+					}else{
+						doCmd("rtvals","reload",wr);// reload the global rtvals
+					}
+				}
 				yield ans;
 			}
 			case "", "stop", "nothing" -> {

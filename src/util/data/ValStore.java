@@ -74,11 +74,11 @@ public class ValStore {
             }
             var b = rtvals.size();
             switch (val.getTagName()) {
-                case "real" -> RealVal.build(val, groupID, Double.NaN).ifPresent(rtvals::add);
-                case "int" -> IntegerVal.build(val, groupID, Integer.MAX_VALUE).ifPresent(rtvals::add);
-                case "flag","bool" -> FlagVal.build(val,groupID,false).ifPresent(rtvals::add);
+                case "real" -> RealVal.build(val, groupID).ifPresent(rtvals::add);
+                case "int" -> IntegerVal.build(val, groupID).ifPresent(rtvals::add);
+                case "flag","bool" -> FlagVal.build(val,groupID).ifPresent(rtvals::add);
                 case "ignore" -> rtvals.add(null);
-                case "text" -> TextVal.build(val,groupID,"").ifPresent(rtvals::add);
+                case "text" -> TextVal.build(val,groupID).ifPresent(rtvals::add);
                 default -> {}
             }
             if( rtvals.size()==b) {

@@ -55,23 +55,20 @@ public class RealtimeValues implements Commandable {
 	 */
 	public void readFromXML( Element rtvalsEle ){
 
-		var xml = XMLdigger.goIn(rtvalsEle);
-		if( !xml.isValid())
+		var dig = XMLdigger.goIn(rtvalsEle);
+		if( !dig.isValid())
 			return;
 
-		Logger.info("Reading rtvals element");
-		double defReal = xml.attr("realdefault",Double.NaN);
-		String defText = xml.attr("textdefault","");
-		boolean defFlag = xml.attr("flagdefault",false);
-		int defInteger  = xml.attr("integerdefault",-999);
+		String groupName = dig.attr("group","");
+		dig.goDown("*");
+		if( !dig.isValid())
+			return;
 
-		xml.goDown("group"); // Only interested in the group nodes, ignore non 'group' ones
+		Logger.info("Reading rtvals node");
 
-		while ( xml.iterate() ) { // If any found, iterate through
-			var groupName = xml.attr("id", ""); // get the node id
-			groupName = xml.attr("name", groupName);
-			for (var rtval : xml.currentSubs())
-				processRtvalElement(rtval, groupName, defReal, defText, defFlag, defInteger);
+		while ( dig.iterate() ) { // If any found, iterate through vals
+			for (var rtval : dig.currentSubs())
+				processRtvalElement(rtval, groupName);
 		}
 	}
 	public void readFromXML( XMLfab fab ){
@@ -81,11 +78,8 @@ public class RealtimeValues implements Commandable {
 	 * Process a Val node
 	 * @param rtval The node to process
 	 * @param group The group of the Val
-	 * @param defReal The default real value
-	 * @param defText The default text value
-	 * @param defFlag The default boolean value
 	 */
-	private void processRtvalElement(Element rtval, String group, double defReal, String defText, boolean defFlag, int defInteger ){
+	private void processRtvalElement(Element rtval, String group ){
 		String name = XMLtools.getStringAttribute(rtval,"name","");
 		name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -95,25 +89,25 @@ public class RealtimeValues implements Commandable {
 
 		switch (rtval.getTagName()) {
 			case "double", "real" -> {
-				RealVal.build(rtval,group,defReal).ifPresent( r->{
+				RealVal.build(rtval,group).ifPresent( r->{
 					r.enableTriggeredCmds(dQueue);
 					realVals.put(r.id(),r);
 				});
 			}
 			case "integer", "int" -> {
-				IntegerVal.build(rtval,group,defInteger).ifPresent( r->{
+				IntegerVal.build(rtval,group).ifPresent( r->{
 					r.enableTriggeredCmds(dQueue);
 					integerVals.put(r.id(),r);
 				});
 			}
 			case "flag" -> {
-				FlagVal.build(rtval, group, defFlag).ifPresent(r -> {
+				FlagVal.build(rtval, group).ifPresent(r -> {
 					r.enableTriggeredCmds(dQueue);
 					flagVals.put(r.id(), r);
 				});
 			}
 			case "text" -> {
-				TextVal.build(rtval, group, defText).ifPresent(r -> {
+				TextVal.build(rtval, group).ifPresent(r -> {
 					r.enableTriggeredCmds(dQueue);
 					textVals.put(r.id(), r);
 				});

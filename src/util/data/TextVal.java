@@ -36,7 +36,7 @@ public class TextVal extends AbstractVal{
      * @param group The group the node is found in
      * @return The created node, still needs dQueue set
      */
-    public static Optional<TextVal> build(Element rtval, String group, String def){
+    public static Optional<TextVal> build(Element rtval, String group){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -47,14 +47,14 @@ public class TextVal extends AbstractVal{
             Logger.error("Tried to create a TextVal without id/name, group "+group);
             return Optional.empty();
         }
-        return Optional.of(TextVal.newVal(group,name).alter(rtval,def));
+        return Optional.of(TextVal.newVal(group,name).alter(rtval));
     }
 
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
      */
-    public TextVal alter( Element rtval, String def ){
+    public TextVal alter( Element rtval){
         reset();
         name(name)
                 .group(XMLtools.getChildStringValueByTag(rtval, "group", group()))

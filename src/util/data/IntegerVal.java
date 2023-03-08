@@ -53,10 +53,9 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      * Create a new IntegerVal based on a rtval real node
      * @param rtval The node
      * @param group The group the node is found in
-     * @param defVal The global default real
      * @return The created node, still needs dQueue set
      */
-    public static Optional<IntegerVal> build(Element rtval, String group, int defVal){
+    public static Optional<IntegerVal> build(Element rtval, String group){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -67,18 +66,17 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             Logger.error("Tried to create a IntegerVal without name, group "+group);
             return Optional.empty();
         }
-        return Optional.of(IntegerVal.newVal(group,name).alter(rtval,defVal));
+        return Optional.of(IntegerVal.newVal(group,name).alter(rtval));
     }
 
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
-     * @param defInt The global default
      */
-    public IntegerVal alter( Element rtval,int defInt ){
+    public IntegerVal alter( Element rtval ){
         reset();
         unit(XMLtools.getStringAttribute(rtval, "unit", "")).
-                defValue( XMLtools.getIntAttribute(rtval, "default", defInt) ).
+                defValue( XMLtools.getIntAttribute(rtval, "default", defVal) ).
                 defValue( XMLtools.getIntAttribute(rtval, "default", defVal) );
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
