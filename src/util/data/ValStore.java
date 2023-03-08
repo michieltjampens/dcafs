@@ -72,13 +72,18 @@ public class ValStore {
                 while( i>rtvals.size() )
                     rtvals.add(null);
             }
+            var b = rtvals.size();
             switch (val.getTagName()) {
-                case "real" -> rtvals.add(RealVal.build(val, groupID, Double.NaN));
-                case "int" -> rtvals.add(IntegerVal.build(val, groupID, Integer.MAX_VALUE));
-                case "flag","bool" -> rtvals.add(FlagVal.build(val,groupID,false));
+                case "real" -> RealVal.build(val, groupID, Double.NaN).ifPresent(rtvals::add);
+                case "int" -> IntegerVal.build(val, groupID, Integer.MAX_VALUE).ifPresent(rtvals::add);
+                case "flag","bool" -> FlagVal.build(val,groupID,false).ifPresent(rtvals::add);
                 case "ignore" -> rtvals.add(null);
-                case "text" -> rtvals.add( TextVal.build(val,groupID) );
+                case "text" -> TextVal.build(val,groupID,"").ifPresent(rtvals::add);
                 default -> {}
+            }
+            if( rtvals.size()==b) {
+                Logger.error("Failed to create an AbstractVal for " + groupID);
+                return Optional.empty();
             }
         }
         valStore.addVals(rtvals);
