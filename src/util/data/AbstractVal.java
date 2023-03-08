@@ -79,7 +79,8 @@ public abstract class AbstractVal {
      * @param dQueue The queue in which the datagram holding the command needs to be put
      */
     public void enableTriggeredCmds(BlockingQueue<Datagram> dQueue){
-        this.dQueue=dQueue;
+        if( hasTriggeredCmds())
+            this.dQueue=dQueue;
     }
 
     /**

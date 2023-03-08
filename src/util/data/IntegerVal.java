@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -55,7 +56,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      * @param defVal The global default real
      * @return The created node, still needs dQueue set
      */
-    public static IntegerVal build(Element rtval, String group, int defVal){
+    public static Optional<IntegerVal> build(Element rtval, String group, int defVal){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -64,9 +65,9 @@ public class IntegerVal extends AbstractVal implements NumericVal{
 
         if( name.isEmpty()){
             Logger.error("Tried to create a IntegerVal without name, group "+group);
-            return null;
+            return Optional.empty();
         }
-        return IntegerVal.newVal(group,name).alter(rtval,defVal);
+        return Optional.of(IntegerVal.newVal(group,name).alter(rtval,defVal));
     }
 
     /**

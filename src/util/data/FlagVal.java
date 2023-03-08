@@ -11,6 +11,7 @@ import worker.Datagram;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 public class FlagVal extends AbstractVal implements NumericVal{
@@ -38,7 +39,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
 
     /* **************************** C O N S T R U C T I N G ******************************************************* */
-    public static FlagVal build(Element rtval, String group, boolean def){
+    public static Optional<FlagVal> build(Element rtval, String group, boolean def){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -47,9 +48,9 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
         if( name.isEmpty()) {
             Logger.error("Tried to create a FlagVal without id/name, group " + group);
-            return null;
+            return Optional.empty();
         }
-        return FlagVal.newVal(group,name).alter(rtval,def);
+        return Optional.of(FlagVal.newVal(group,name).alter(rtval,def));
     }
     public FlagVal alter( Element rtval, boolean defFlag){
         reset(); // reset is needed if this is called because of reload

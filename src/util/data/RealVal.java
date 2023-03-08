@@ -14,6 +14,7 @@ import worker.Datagram;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -60,7 +61,7 @@ public class RealVal extends AbstractVal implements NumericVal{
      * @param defReal The global default real
      * @return The created node, still needs dQueue set
      */
-    public static RealVal build( Element rtval, String group, double defReal){
+    public static Optional<RealVal> build(Element rtval, String group, double defReal){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -69,9 +70,9 @@ public class RealVal extends AbstractVal implements NumericVal{
 
         if( name.isEmpty()){
             Logger.error("Tried to create a RealVal without id/name, group "+group);
-            return null;
+            return Optional.empty();
         }
-        return RealVal.newVal(group,name).alter(rtval,defReal);
+        return Optional.of(RealVal.newVal(group,name).alter(rtval,defReal));
     }
 
     /**

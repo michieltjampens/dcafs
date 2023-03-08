@@ -9,10 +9,12 @@ import worker.Datagram;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.function.Function;
 
 public class TextVal extends AbstractVal{
     private String value="";
+    private String def="";
     private final ArrayList<String> history = new ArrayList<>();
     private final ArrayList<TriggeredCmd> triggered = new ArrayList<>();
 
@@ -34,7 +36,7 @@ public class TextVal extends AbstractVal{
      * @param group The group the node is found in
      * @return The created node, still needs dQueue set
      */
-    public static TextVal build(Element rtval, String group){
+    public static Optional<TextVal> build(Element rtval, String group, String def){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
@@ -43,17 +45,20 @@ public class TextVal extends AbstractVal{
 
         if( name.isEmpty()){
             Logger.error("Tried to create a TextVal without id/name, group "+group);
-            return null;
+            return Optional.empty();
         }
-        return TextVal.newVal(group,name).alter(rtval);
+        return Optional.of(TextVal.newVal(group,name).alter(rtval,def));
     }
 
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
      */
-    public TextVal alter( Element rtval ){
+    public TextVal alter( Element rtval, String def ){
         reset();
+        name(name)
+                .group(XMLtools.getChildStringValueByTag(rtval, "group", group()))
+                .defValue(XMLtools.getStringAttribute(rtval, "default", def));
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
@@ -80,8 +85,12 @@ public class TextVal extends AbstractVal{
         return this;
     }
     public String value(){ return value; }
+    public void defValue(String def){
+        this.def=def;
+    }
     public String stringValue(){ return value;}
     public TextVal value( String val){
+
         /* Keep history of passed values */
         if( keepHistory!=0 ) {
             history.add(val);
