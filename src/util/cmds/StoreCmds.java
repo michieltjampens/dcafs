@@ -27,15 +27,15 @@ public class StoreCmds {
                     .add("- If no store exists yet, any command will create it first with default delimiter of ','");
 
             join.add("").add(cyan+"Add new vals"+reg)
-                    .add(green+" store:streamid,addreal/addr,name<,index> "+reg+"-> Add a RealVal to the store, with optional index")
-                    .add(green+" store:streamid,addflag/addf,name<,index> "+reg+"-> Add a FlagVal to the store, with optional index")
-                    .add(green+" store:streamid,addtext/addt,name<,index> "+reg+"-> Add a TextVal to the store, with optional index")
-                    .add(green+" store:streamid,addint/addi,name<,index> "+reg+"-> Add a IntVal to the store, with optional index")
-                    .add(green+" store:streamid,addb/addblank "+reg+"-> Add a blank spot incase index isn't used but a item needs to be skipped");
+                    .add(green+" store:streamid,addreal/addr,name<,index/group> "+reg+"-> Add a RealVal to the store, with optional index/group")
+                    .add(green+" store:streamid,addflag/addf,name<,index/group> "+reg+"-> Add a FlagVal to the store, with optional index/group")
+                    .add(green+" store:streamid,addtext/addt,name<,index/group> "+reg+"-> Add a TextVal to the store, with optional index/group")
+                    .add(green+" store:streamid,addint/addi,name<,index/group> "+reg+"-> Add a IntVal to the store, with optional index/group")
+                    .add(green+" store:streamid,addb/addblank "+reg+"-> Add a blank spot (if index isn't used but a item needs to be skipped)");
             join.add("").add(cyan+"Alter attributes"+reg)
                     .add(green+" store:streamid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the store")
                     .add(green+" store:streamid,db,dbids:table "+reg+"-> Alter the database/table ")
-                    .add(green+" store:streamid,group,newgroup"+reg+"-> Alter the group used");
+                    .add(green+" store:streamid,group,newgroup"+reg+"-> Alter the default group used");
             return join.toString();
         }else if( id.isEmpty()){
             return "! Empty id is not valid";
@@ -89,7 +89,7 @@ public class StoreCmds {
 
         // At this point, the digger is pointing to the path node for the given id
         // Now determine if the last step in the path is a store...
-        boolean startNew = false;
+        boolean startNew;
         dig.peekAt("*");  // Check if something is already in the path
         if( !dig.hasValidPeek() ) { // path has no steps
             startNew = true;
@@ -138,7 +138,7 @@ public class StoreCmds {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
                     }else{
-                        return "Not a valid index: "+cmds[3];
+                        fab.attr("group", cmds[3]);
                     }
                 }
                 fab.build();
@@ -155,7 +155,7 @@ public class StoreCmds {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
                     }else{
-                        return "Not a valid index: "+cmds[3];
+                        fab.attr("group", cmds[3]);
                     }
                 }
                 fab.build();
@@ -172,7 +172,7 @@ public class StoreCmds {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
                     }else{
-                        return "Not a valid index: "+cmds[3];
+                        fab.attr("group", cmds[3]);
                     }
                 }
                 fab.build();
@@ -189,7 +189,7 @@ public class StoreCmds {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
                     }else{
-                        return "Not a valid index: "+cmds[3];
+                        fab.attr("group", cmds[3]);
                     }
                 }
                 fab.build();
