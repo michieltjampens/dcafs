@@ -56,15 +56,13 @@ public class StoreCmds {
             return "No valid fab created";
         var fab=fabOpt.get();
 
-        fab.alterChild("store").down(); // Go to store or make if not existing
+        String tag = id.equalsIgnoreCase("global")?"rtvals":"store";
+        fab.alterChild(tag).down(); // Go to store or make if not existing
+        dig.goDown(tag);
 
-        dig.goDown("store");
-        if( !id.equalsIgnoreCase("global")) {
+        if(  tag.equals("store")) {
             if (!dig.current().get().hasAttribute("delimiter"))
                 fab.attr("delimiter", ",");
-        }else{
-            if (!dig.current().get().hasAttribute("group"))
-                fab.attr("group", "");
         }
         // At this point 'store' certainly exists in memory and dig is pointing to it
         return doCmd(request,fab,dig);
@@ -98,11 +96,12 @@ public class StoreCmds {
             dig.toLastSibling();
             startNew = !dig.tagName("").equalsIgnoreCase("store");
         }
+        var fabOpt = XMLfab.alterDigger(dig);
+        if( fabOpt.isEmpty())
+            return "No valid fab created";
+        var fab=fabOpt.get();
+
         if( startNew ){
-            var fabOpt = XMLfab.alterDigger(dig);
-            if( fabOpt.isEmpty())
-                return "No valid fab created";
-            var fab=fabOpt.get();
             fab.up(); // dig was pointing to the last step which wasn't a store, go back up
             var deli = XMLtools.getStringAttribute(fab.getCurrentElement(),"delimiter",",");
             fab.addChild("store").attr("delimiter",deli);
@@ -110,13 +109,9 @@ public class StoreCmds {
             //fab.build();
             dig = XMLdigger.goIn(fab.getCurrentElement()); // reset the digger
             return doCmd(request,fab,dig);
-        }else{ // Work in existing one at the end
-            var fabOpt = XMLfab.alterDigger(dig);
-            if( fabOpt.isEmpty())
-                return "No valid fab created";
-            var fab=fabOpt.get();
-            return doCmd(request,fab,dig);
-        }
+        } // Work in existing one at the end
+        return doCmd(request,fab,dig);
+
     }
     private static String doCmd( String request, XMLfab fab, XMLdigger dig){
         var cmds = request.split(",");
@@ -129,11 +124,12 @@ public class StoreCmds {
             }
             case "addreal","addr" -> {
                 if (cmds.length < 3)
-                    return "Not enough arguments: store:id,addreal,name<,index>";
-                if( dig.peekAt("real","name",cmds[2]).hasValidPeek())
+                    return "Not enough arguments: store:id,addreal,name<,index/group>";
+                if( dig.peekAt("real","name",cmds[2]).hasValidPeek()
+                        || dig.peekAtContent("real",cmds[2]).hasValidPeek() )
                     return "Already a real with that id, try something else?";
 
-                fab.addChild("real").attr("name",cmds[2]).attr("unit");
+                fab.addChild("real",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
@@ -146,11 +142,12 @@ public class StoreCmds {
             }
             case "addint","addi" -> {
                 if (cmds.length < 3)
-                    return "Not enough arguments: store:id,addint,name<,index>";
-                if( dig.peekAt("int","name",cmds[2]).hasValidPeek())
+                    return "Not enough arguments: store:id,addint,name<,index/group>";
+                if( dig.peekAt("int","name",cmds[2]).hasValidPeek()
+                        || dig.peekAtContent("int",cmds[2]).hasValidPeek() )
                     return "Already an int with that id, try something else?";
 
-                fab.addChild("int").attr("name",cmds[2]).attr("unit");
+                fab.addChild("int",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
@@ -163,11 +160,12 @@ public class StoreCmds {
             }
             case "addtext","addt" -> {
                 if (cmds.length < 3)
-                    return "Not enough arguments: store:id,addtext,name<,index>";
-                if( dig.peekAt("text","name",cmds[2]).hasValidPeek())
+                    return "Not enough arguments: store:id,addtext,name<,index/group>";
+                if( dig.peekAt("text","name",cmds[2]).hasValidPeek()
+                    || dig.peekAtContent("text",cmds[2]).hasValidPeek() )
                     return "Already a text with that id, try something else?";
 
-                fab.addChild("text").attr("name",cmds[2]);
+                fab.addChild("text",cmds[2]);
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
@@ -180,11 +178,12 @@ public class StoreCmds {
             }
             case "addflag","addf" -> {
                 if (cmds.length < 3)
-                    return "Not enough arguments: store:id,addflag,name<,index>";
-                if( dig.peekAt("flag","name",cmds[2]).hasValidPeek())
+                    return "Not enough arguments: store:id,addflag,name<,index/group>";
+                if( dig.peekAt("flag","name",cmds[2]).hasValidPeek()
+                    || dig.peekAtContent("flag",cmds[2]).hasValidPeek() )
                     return "Already a flag with that id, try something else?";
 
-                fab.addChild("flag").attr("name",cmds[2]).attr("unit");
+                fab.addChild("flag",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
                     if(NumberUtils.isCreatable(cmds[3])) {
                         fab.attr("index", cmds[3]);
