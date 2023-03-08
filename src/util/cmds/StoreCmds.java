@@ -37,15 +37,18 @@ public class StoreCmds {
                     .add(green+" store:streamid,db,dbids:table "+reg+"-> Alter the database/table ")
                     .add(green+" store:streamid,group,newgroup"+reg+"-> Alter the group used");
             return join.toString();
+        }else if( id.isEmpty()){
+            return "! Empty id is not valid";
         }
-
-        var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("streams");
-        if( dig.isInvalid())
-            return "No streams yet";
-
-        dig.goDown("stream","id",id);
-        if( dig.isInvalid() )
-            return "No such stream yet "+id;
+        var dig = XMLdigger.goIn(settingsPath,"dcafs");
+        if( !id.equalsIgnoreCase("global")){
+            dig.goDown("streams");
+            if( dig.isInvalid())
+                return "No streams yet";
+            dig.goDown("stream","id",id);
+            if( dig.isInvalid() )
+                return "No such stream yet "+id;
+        }
 
         // At this point, the digger is pointing to the stream node for the given id
         var fabOpt = XMLfab.alterDigger(dig);
@@ -53,11 +56,16 @@ public class StoreCmds {
             return "No valid fab created";
         var fab=fabOpt.get();
 
-        fab.alterChild("store");
+        fab.alterChild("store").down(); // Go to store or make if not existing
+
         dig.goDown("store");
-        if( !dig.current().get().hasAttribute("delimiter"))
-           fab.attr("delimiter",",");
-        fab.down(); // make store the parent node instead of stream
+        if( !id.equalsIgnoreCase("global")) {
+            if (!dig.current().get().hasAttribute("delimiter"))
+                fab.attr("delimiter", ",");
+        }else{
+            if (!dig.current().get().hasAttribute("group"))
+                fab.attr("group", "");
+        }
         // At this point 'store' certainly exists in memory and dig is pointing to it
         return doCmd(request,fab,dig);
     }
