@@ -292,7 +292,6 @@ public class RealtimeValues implements Commandable {
 	/* ******************************************************************************************************/
 
 	public int addRequest(Writable writable, String type, String req) {
-
 		switch (type) {
 			case "double", "real" -> {
 				var rv = realVals.get(req);
@@ -329,53 +328,59 @@ public class RealtimeValues implements Commandable {
 	@Override
 	public String replyToCommand(String[] request, Writable wr, boolean html) {
 
+		// Switch between either empty string or the telnetcode because of htm not understanding telnet
 		String green=html?"":TelnetCodes.TEXT_GREEN;
 		String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+		String ora = html?"":TelnetCodes.TEXT_ORANGE;
 
+		String result;
 		switch (request[0]) {
 			case "rv", "reals" -> {
 				if( request[1].equals("?"))
 					return green + "  rv:update,id,value" + reg + " -> Update an existing real, do nothing if not found";
-				return replyToNumericalCmd(request);
+				result = replyToNumericalCmd(request);
 			}
 			case "iv", "integers" -> {
 				if( request[1].equals("?"))
 					return green + "  iv:update,id,value" + reg + " -> Update an existing int, do nothing if not found";
-				return replyToNumericalCmd(request);
+				result = replyToNumericalCmd(request);
 			}
 			case "texts", "tv" -> {
-				return replyToTextsCmd(request, html);
+				result = replyToTextsCmd(request, html);
 			}
 			case "flags", "fv" -> {
-				return replyToFlagsCmd(request, html);
+				result = replyToFlagsCmd(request, html);
 			}
 			case "rtvals", "rvs" -> {
-				return replyToRtvalsCmd(request, html);
+				result = replyToRtvalsCmd(request, html);
 			}
 			case "rtval", "real", "int", "integer" -> {
 				int s = addRequest(wr, request[0], request[1]);
-				return s != 0 ? "Request added to " + s : "Request failed";
+				result = s != 0 ? "Request added to " + s : "Request failed";
 			}
 			case "" -> {
 				removeWritable(wr);
 				return "";
 			}
 			default -> {
-				return "unknown command " + request[0] + ":" + request[1];
+				return ora+"unknown command " + request[0] + ":" + request[1]+reg;
 			}
 		}
+		if( result.startsWith("!"))
+			return ora+result+reg;
+		return green+result+reg;
 	}
 	public String replyToNumericalCmd( String[] request ){
 
 		var cmds = request[1].split(",");
 
 		NumericVal val;
-		if( request[0].startsWith("r")){
+		if( request[0].startsWith("r")){ // so real, rv
 			var rOpt = getRealVal(cmds[0]);
 			if( rOpt.isEmpty() )
 				return "! No such real yet";
 			val = rOpt.get();
-		}else{
+		}else{ // so int,iv
 			var iOpt = getIntegerVal(cmds[0]);
 			if( iOpt.isEmpty() )
 				return "! No such int yet";
