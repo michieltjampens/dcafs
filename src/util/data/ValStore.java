@@ -5,6 +5,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Document;
 import util.xml.XMLtools;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
@@ -185,6 +186,26 @@ public class ValStore {
             }
         }
         return true;
+    }
+    public void setValueAt(int index, BigDecimal d){
+        var val = rtvals.get(index);
+        if( val == null)
+            return;
+        if( val instanceof RealVal) {
+            ((RealVal) val).value(d.doubleValue());
+        }else if( val instanceof IntegerVal ){
+            ((IntegerVal) val).value(d.intValue());
+        }else{
+            val.parseValue(d.toPlainString());
+        }
+    }
+    public void setValueAt(int index, String d){
+        if( index >= rtvals.size())
+            return;
+        var val = rtvals.get(index);
+        if( val == null)
+            return;
+        val.parseValue(d);
     }
     public String toString(){
         var join = new StringJoiner("\r\n");

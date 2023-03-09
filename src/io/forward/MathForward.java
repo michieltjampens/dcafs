@@ -290,12 +290,17 @@ public class MathForward extends AbstractForward {
 
         if( log )
             Logger.tag("RAW").info( "1\t" + id() + "\t" + result);
-        if( store!=null)
-            store.apply(result,dQueue);
+        if( store!=null) {
+            for( int a=0;a<bds.length;a++){
+                if( bds[a] != null){
+                    store.setValueAt(a,bds[a]);
+                }else{
+                    store.setValueAt(a,split[a]);
+                }
+            }
+        }
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         if( noTargets() && !log && store==null){
-            if( deleteNoTargets )
-                dQueue.add( Datagram.system("mf:remove,"+id) );
             return false;
         }
         return true;
