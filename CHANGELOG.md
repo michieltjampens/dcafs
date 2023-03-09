@@ -11,23 +11,37 @@ Note: Version numbering: x.y.z
 
 ## 1.1.0 (work in progress)
 
-Properly implemented the 'store' node, at the same time cleanup of the generic node.
-Generic is old and has changed purpose but code wasn't cleaned up to reflect that.
+This should probably be 2.0.0...
 
+Main changes:
+* Generics and rtvals overlapped to much, removed generics and store now handles both. 
+* Removed a lot of 'labels' that are now handled with store and hidden the rest from the user
+* Started changing commands to have the id first and the cmd secondary
+* Started using childnodes in favour of id -> src references 
+* Removed functionality that either wasn't used anyway or had multiple ways of doing
+  * filters,math,editors had their own node and cmd's outside of paths, this is no longer the case  
+
+The Getting started guid has been updated to use all these changes, making it about 10% shorter.
+
+### Labels
+- Changed default label to an empty string, so streams no longer pass it on to the labelworker. Because of store,
+there wasn't a use for it anymore.
+
+### StoreVal
+- Has a telnet interface through 'store:' commands. Differs from regular because this has the id
+  as the first argument instead of the cmd. This allows for use of `store:id,!!` for faster creation.
+- Support for int,real,text,flag and parsing happens inside this object
+ 
 ### StreamManager
-- Default label changed to an empty string from 'void'. This means the queue will no longer be
-used if no label was set. This was mainly doing nothing with data since moving away from labels 
-and moving more code away from central processing part.
+- StoreVals are part of the stream node and processing happens inside the capture thread instead of the global worker.
 
 ### RealtimeValues
 - Text now has its own object. Shouldn't make any difference in usage, besides adding option for
 triggered commands.
+- rtvals by default now use the node content for the name instead of attribute, unless childnodes are added.
+But a rtvals node with name attribute and no childnodes will still be processed as before.
 
-### StoreVal
-- New class that will at some point replace generic.
-- Has a telnet interface through 'store:' commands. Differs from regular because this has the id
-as the first argument instead of the cmd. This allows for use of `store:id,!!` for faster creation.
-- Support for int,real,text,flag
+
 
 ## 1.0.9 (work in progress)
 
