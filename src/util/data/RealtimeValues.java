@@ -55,20 +55,15 @@ public class RealtimeValues implements Commandable {
 	 */
 	public void readFromXML( Element rtvalsEle ){
 
-		var dig = XMLdigger.goIn(rtvalsEle);
+		var dig = XMLdigger.goIn(rtvalsEle).goDown("*"); // inside the rtvals node
 		if( !dig.isValid())
 			return;
 
-		String groupName = dig.attr("group","");
-		dig.goDown("*");
-		if( !dig.isValid())
-			return;
-
-		Logger.info("Reading rtvals node");
+		Logger.info("Reading rtvals element");
 
 		while ( dig.iterate() ) { // If any found, iterate through vals
-			for (var rtval : dig.currentSubs())
-				processRtvalElement(rtval, groupName);
+			var groupName = dig.attr("id", ""); // get the node id
+			dig.currentSubs().forEach( rtval -> processRtvalElement(rtval,groupName));
 		}
 	}
 	public void readFromXML( XMLfab fab ){
