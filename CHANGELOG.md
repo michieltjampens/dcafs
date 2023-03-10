@@ -44,6 +44,9 @@ triggered commands.
 - rtvals by default now use the node content for the name instead of attribute, unless childnodes are added.
 But a rtvals node with name attribute and no childnodes will still be processed as before.
 
+### Telnet 
+
+- Added the `>>prefix` command, to toggle having telnet add the id of incoming data as prefix, default false.
 
 ## 1.2.1 (work in progress)
 

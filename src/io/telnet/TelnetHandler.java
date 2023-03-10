@@ -50,7 +50,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 	CommandLineInterface cli;
 	ArrayList<String> onetime = new ArrayList<>();
-	private boolean prefix=true;
+	private boolean prefix=false;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
