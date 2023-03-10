@@ -50,12 +50,12 @@ public class LocalStream extends BaseStream implements Writable {
 		    listeners.forEach( l-> l.notifyActive(id));
 	   }	
        if (msg != null && !(msg.isBlank() && clean)) { //make sure that the received data is not 'null' or an empty string           
-            var d = Datagram.build(msg).priority(priority).label(label).writable(this).timestamp(Instant.now().toEpochMilli());
-            dQueue.add( d );
-           
-		    if(debug)
-			    Logger.info( d.getOriginID()+" -> " + d.getData());
-				   
+            if(!label.isEmpty()) {
+                var d = Datagram.build(msg).priority(priority).label(label).writable(this).timestamp(Instant.now().toEpochMilli());
+                dQueue.add(d);
+            }
+           if(debug)
+               Logger.info( id() +" -> " + msg);
             // Log anything and everything (except empty strings)
             if( !msg.isBlank() && log )		// If the message isn't an empty string and logging is enabled, store the data with logback
         	    Logger.tag("RAW").warn( priority + "\t" + label + "\t" + msg );
