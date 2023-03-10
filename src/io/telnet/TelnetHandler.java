@@ -50,6 +50,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 	CommandLineInterface cli;
 	ArrayList<String> onetime = new ArrayList<>();
+	private boolean prefix=true;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
@@ -202,13 +203,17 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			return;
 		}else if( d.getData().startsWith(">>")) {
 			var split = new String[2];
-			if( !d.getData().contains(":")){
-				writeLine("Missing :");
+			if( !d.getData().contains(":") && !d.getData().contains("prefix")){
+				writeLine("Missing ':'");
 				return;
 			}
 			String cmd = d.getData().substring(2);
-			split[0] = cmd.substring( 0,cmd.indexOf(":"));
-			split[1] = cmd.substring(split[0].length()+1);
+			if( cmd.contains(":")) {
+				split[0] = cmd.substring(0, cmd.indexOf(":"));
+				split[1] = cmd.substring(split[0].length() + 1);
+			}else{
+				split[0]=cmd;
+			}
 
 			switch (split[0]) {
 				case "id" -> {
@@ -221,46 +226,46 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 										return "ID changed to " + id + "\r\n>";
 									}).orElse("ID already in use")
 					);
-					return;
 				}
 				case "talkto" -> {
 					writeString("Talking to " + split[1] + ", send !! to stop\r\n>");
 					repeat = "telnet:write," + split[1] + ",";
-					return;
 				}
 				case "start" -> {
 					if (id.isEmpty()) {
 						writeLine("Please set an id first with >>id:newid");
-						return;
+					}else {
+						start = split[1];
+						writeString("Startup command has been set to '" + start + "'");
+						writeLine(XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
+								.map(f -> {
+									f.addChild("start", split[1]);
+									return "Start set to " + id + "\r\n>";
+								}).orElse("Couldn't find the node"));
 					}
-					start = split[1];
-					writeString("Startup command has been set to '" + start + "'");
-					writeLine(XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
-							.map(f -> {
-								f.addChild("start", split[1]);
-								return "Start set to " + id + "\r\n>";
-							}).orElse("Couldn't find the node"));
-					return;
 				}
 				case "macro" -> {
 					if (!split[1].contains("->")) {
 						writeLine("Missing ->");
-						return;
+					}else {
+						var ma = split[1].split("->");
+						writeString(XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
+								.map(f -> {
+									f.addChild("macro", ma[1]).attr("ref", ma[0]).build();
+									macros.put(ma[0], ma[1]);
+									return "Macro " + ma[0] + " replaced with " + ma[1] + "\r\n>";
+								}).orElse("Couldn't find the node\r\n>"));
 					}
-					var ma = split[1].split("->");
-					writeString(XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
-							.map(f -> {
-								f.addChild("macro", ma[1]).attr("ref", ma[0]).build();
-								macros.put(ma[0], ma[1]);
-								return "Macro " + ma[0] + " replaced with " + ma[1] + "\r\n>";
-							}).orElse("Couldn't find the node\r\n>"));
-					return;
+				}
+				case "prefix" -> {
+					prefix = !prefix;
+					writeLine("Prefix " + (prefix ? "enabled" : "disabled"));
 				}
 				default -> {
 					writeLine("Unknown telnet command: " + d.getData());
-					return;
 				}
 			}
+			return;
 		}else{
 			d.setData(repeat+d.getData());
 		}
@@ -299,6 +304,14 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	public synchronized boolean writeLine( String message ){
 		return writeString( message + newLine );
 	}
+
+	@Override
+	public boolean writeLine(String origin, String data) {
+		if(prefix)
+			return writeLine(TelnetCodes.TEXT_MAGENTA+origin+TelnetCodes.TEXT_BRIGHT_YELLOW+"  "+data);
+		return writeLine(data);
+	}
+
 	/**
 	 * Sending data that won't be appended with anything
 	 * @param message The data to send.

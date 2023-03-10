@@ -65,7 +65,7 @@ public class EditorForward extends AbstractForward{
             Logger.info(id()+" -> After: "+data);
         }
         String finalData = data;
-        targets.removeIf(t-> !t.writeLine(finalData) ); // Send this data to the targets, remove those that refuse it
+        targets.removeIf(t-> !t.writeLine(id(),finalData) ); // Send this data to the targets, remove those that refuse it
 
         if( log )
             Logger.tag("RAW").info( "1\t" + id() + "\t" + data);

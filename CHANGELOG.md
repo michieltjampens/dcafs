@@ -9,7 +9,7 @@ Note: Version numbering: x.y.z
 - integerval telnet interface?
 - Resolve #34
 
-## 1.1.0 (work in progress)
+## 2.0.0 (work in progress)
 
 This should probably be 2.0.0...
 
@@ -31,6 +31,9 @@ there wasn't a use for it anymore.
 - Has a telnet interface through 'store:' commands. Differs from regular because this has the id
   as the first argument instead of the cmd. This allows for use of `store:id,!!` for faster creation.
 - Support for int,real,text,flag and parsing happens inside this object
+- Is used for paths instead of generics
+  - Is stored inside the forwards and parsing happens there. 
+  - If a math, then parsed values are given instead of parsing again
  
 ### StreamManager
 - StoreVals are part of the stream node and processing happens inside the capture thread instead of the global worker.
@@ -42,8 +45,7 @@ triggered commands.
 But a rtvals node with name attribute and no childnodes will still be processed as before.
 
 
-
-## 1.0.9 (work in progress)
+## 1.2.1 (work in progress)
 
 ### Fixes
 - FileCollector: trying to create an existing directory structure throws an exception that 
@@ -51,7 +53,7 @@ wasn't handled properly on linux if that structure is made with a link.
 - PathForward: Generic means the end of a filterblock, but working with id's didn't circumvent
 this as it's supposed to
 - 
-## 1.0.8 ( 23/02/2023 )
+## 1.2.0 ( 23/02/2023 )
 Main addition is probably that you now get feedback on loading of taskmanager scripts. 
 Either when logging into telnet (issues during startup) or after reloading (as response to the command.
 
@@ -77,7 +79,7 @@ XML reading.
 - Fixed tm:add,tmid for some reason this year's old code suddenly stopped working
 - Fixed i2c raw streaming not stopping on a global clear request 
 
-## 1.0.7 (07/12/22)
+## 1.1.0 (07/12/22)
 
 ### SQLiteDB
 - Fix: The path to the sqlite with rollover is determined at startup and after rollover. Thus if

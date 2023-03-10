@@ -732,7 +732,7 @@ public class MatrixClient implements Writable, Commandable {
         sendMessage(d[0],d[2]);
         return true;
     }
-
+    public boolean writeLine(String origin, String data) { return writeLine(data); }
     @Override
     public boolean writeBytes(byte[] data) {
         return false;

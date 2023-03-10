@@ -14,7 +14,7 @@ public interface Writable {
      * @return True if this was successful
      */
     boolean writeLine(String data);
-
+    boolean writeLine(String origin, String data);
     /**
      * Write the given data bytes
      * @param data The bytes to write

@@ -199,7 +199,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
             // Forward data to targets
 			if( !targets.isEmpty() ){
                 String tosend=new String(data);
-                targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine(tosend)));
+                targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine(id,tosend)));
                 targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
 			}
 

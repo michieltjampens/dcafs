@@ -286,7 +286,7 @@ public class MathForward extends AbstractForward {
             Logger.info(id()+" -> Before: "+data);   // how the data looked before
             Logger.info(id()+" -> After:  "+result); // after applying the operations
         }
-        targets.removeIf( t-> !t.writeLine(result) ); // Send this data to the targets, remove those that refuse it
+        targets.removeIf( t-> !t.writeLine(id(),result) ); // Send this data to the targets, remove those that refuse it
 
         if( log )
             Logger.tag("RAW").info( "1\t" + id() + "\t" + result);

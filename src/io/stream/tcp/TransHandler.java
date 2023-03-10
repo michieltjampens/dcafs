@@ -225,6 +225,9 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
         channel.writeAndFlush((data+eol).getBytes());
         return true;
     }
+	public boolean writeLine(String origin, String data) {
+		return writeLine(data);
+	}
 	/**
 	 * Write the given binary data
 	 * @param data The data to write

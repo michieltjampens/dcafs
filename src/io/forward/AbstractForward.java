@@ -241,6 +241,10 @@ public abstract class AbstractForward implements Writable {
         return addData(data);
     }
     @Override
+    public boolean writeLine(String origin, String data) {
+        return addData(data);
+    }
+    @Override
     public boolean writeBytes(byte[] data) {
         return addData(new String(data));
     }

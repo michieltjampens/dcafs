@@ -44,6 +44,10 @@ public class LocalStream extends BaseStream implements Writable {
     public boolean writeLine(String data) {
         return processData(data);
     }
+    @Override
+    public boolean writeLine(String origin, String data) {
+        return processData(data);
+    }
     private boolean processData( String msg ){
         if( idle ){
 		    idle=false;
@@ -61,7 +65,7 @@ public class LocalStream extends BaseStream implements Writable {
         	    Logger.tag("RAW").warn( priority + "\t" + label + "\t" + msg );
 
 			if( !targets.isEmpty() ){
-                targets.forEach(dt -> eventLoopGroup.submit( () -> dt.writeLine(msg)) );
+                targets.forEach(dt -> eventLoopGroup.submit( () -> dt.writeLine(id,msg)) );
                 targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
 			}
 		

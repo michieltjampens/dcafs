@@ -42,7 +42,7 @@ public class FilterForward extends AbstractForward {
     protected boolean addData(String data) {
 
         if( doFilter(data) ){
-            targets.forEach(wr -> wr.writeLine( data ) );
+            targets.forEach(wr -> wr.writeLine( id(),data ) );
             targets.removeIf(wr -> !wr.isConnectionValid() );
 
             if( log )

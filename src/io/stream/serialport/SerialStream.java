@@ -197,7 +197,7 @@ public class SerialStream extends BaseStream implements Writable {
             try {
                 targets.forEach(dt -> eventLoopGroup.submit(()-> {
                     try {
-                        dt.writeLine(message);
+                        dt.writeLine(id,message);
                     } catch (Exception e) {
                         Logger.error(id + " -> Something bad while writeLine to " + dt.id());
                         Logger.error(e);
@@ -294,7 +294,10 @@ public class SerialStream extends BaseStream implements Writable {
     public synchronized boolean writeLine(String message) {
         return writeString(message + eol);
     }
-
+    @Override
+    public synchronized boolean writeLine(String origin, String message) {
+        return writeString(message + eol);
+    }
     /**
      * Sending data that won't be appended with anything
      * 
