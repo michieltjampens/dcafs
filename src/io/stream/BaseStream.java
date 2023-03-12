@@ -7,10 +7,12 @@ import org.w3c.dom.Element;
 import util.data.*;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,8 +52,7 @@ public abstract class BaseStream {
     protected ScheduledFuture<?> reconnectFuture=null;
     protected ArrayList<TriggerAction> triggeredActions = new ArrayList<>();
 
-    protected ArrayList<AbstractVal> rtvals = new ArrayList<>();
-    protected String delimiter = ",";
+    protected ValStore store;
 
     private static final String XML_PRIORITY_TAG="priority";
     private static final String XML_STREAM_TAG="stream";
@@ -80,10 +81,9 @@ public abstract class BaseStream {
             Logger.error("Not a "+getType()+" stream element.");
             return false;
         }
-        rtvals.clear(); // Reset this, somehow also from general store?
 
         id = XMLtools.getStringAttribute( stream, "id", ""); 
-        label = XMLtools.getChildStringValueByTag( stream, "label", "void");    // The label associated fe. nmea,sbe38 etc
+        label = XMLtools.getChildStringValueByTag( stream, "label", "");    // The label associated fe. nmea,sbe38 etc
         priority = XMLtools.getChildIntValueByTag( stream, XML_PRIORITY_TAG, 1);	 // Determine priority of the sensor
         
         log = XMLtools.getChildStringValueByTag(stream, "log", "yes").equals("yes");
@@ -105,28 +105,8 @@ public abstract class BaseStream {
             enableEcho();
         }
         // Store
-        var storeOpt = XMLtools.getFirstChildByTag(stream,"store");
-        if( storeOpt.isPresent()){
-            var store=storeOpt.get();
-            String groupID = XMLtools.getStringAttribute(store,"group",id);
-            delimiter = XMLtools.getStringAttribute(store,"delimiter",delimiter);
-            var vals = XMLtools.getChildElements(storeOpt.get());
+        ValStore.build(stream).ifPresent(valStore -> store = valStore);
 
-            for( var val : vals){
-                int i = XMLtools.getIntAttribute(val,"index",-1);
-                if( i != -1 ){
-                    while( i>rtvals.size() )
-                        rtvals.add(null);
-                }
-                switch (val.getTagName()) {
-                    case "real" -> rtvals.add(RealVal.build(val, groupID, Double.NaN));
-                    case "int" -> rtvals.add(IntegerVal.build(val, groupID, Integer.MAX_VALUE));
-                    case "flag","bool" -> rtvals.add(FlagVal.build(val,groupID,false));
-                    case "ignore" -> rtvals.add(null);
-                    default -> {}
-                }
-            }
-        }
         // cmds
         triggeredActions.clear();
         for( Element cmd : XMLtools.getChildElements(stream, "cmd") ){
@@ -141,22 +121,24 @@ public abstract class BaseStream {
         }
         return readExtraFromXML(stream);
     }
-    public ArrayList<AbstractVal> getAbstractVals(){
-        return rtvals;
-    }
-    public void shareRealtimeValues(RealtimeValues rtv){
-        for( var val : rtvals ){
-            if( val instanceof RealVal ){
-                rtv.addRealVal((RealVal)val,false);
-            }else if( val instanceof IntegerVal ){
-                rtv.addIntegerVal((IntegerVal) val,null);
-            }else if( val instanceof  FlagVal ){
-                rtv.addFlagVal((FlagVal)val,null);
+    protected boolean reloadStore(Path settingsPath, RealtimeValues rtvals){
+        if( store !=null)
+            store.removeRealtimeValues(rtvals);
+
+        var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("streams").goDown("stream","id",id);
+        var eleOpt = dig.current();
+        if( eleOpt.isPresent()){
+            var storeOpt = ValStore.build(eleOpt.get());
+            if( storeOpt.isPresent()) {
+                store = storeOpt.get();
+                store.shareRealtimeValues(rtvals);
+                return true;
             }
         }
+        return false;
     }
-    public void removeRealtimeValues( RealtimeValues rtv){
-        rtvals.forEach(rtv::removeVal);
+    public Optional<ValStore> getValStore(){
+        return Optional.ofNullable(store);
     }
     protected abstract boolean readExtraFromXML( Element stream );
     protected abstract boolean writeExtraToXML( XMLfab fab );
@@ -205,18 +187,14 @@ public abstract class BaseStream {
             fab.addChild(XML_PRIORITY_TAG,""+ priority );
         }
         if( echo )
-            fab.alterChild("echo", echo?"yes":"no");
+            fab.alterChild("echo", "yes");
         fab.alterChild("eol", Tools.getEOLString(eol) );
 
         fab.clearChildren("cmd"); // easier to just remove first instead of checking if existing
         for( var tr : triggeredActions){
-            switch(tr.trigger){
-                case OPEN: case IDLE: case CLOSE: case IDLE_END:
-                    fab.addChild("cmd",tr.data);
-                    break;
-                case HELLO:  case WAKEUP:
-                    fab.addChild("write",tr.data);
-                    break;
+            switch (tr.trigger) {
+                case OPEN, IDLE, CLOSE, IDLE_END -> fab.addChild("cmd", tr.data);
+                case HELLO, WAKEUP -> fab.addChild("write", tr.data);
             }
             if( tr.trigger==TRIGGER.IDLE_END){
                 fab.attr("when","!idle");
@@ -256,7 +234,7 @@ public abstract class BaseStream {
     public void setID( String id ){
         this.id=id;
     }
-    public String getID(){
+    public String id(){
         return id;
     }
     public boolean isWritable(){
@@ -278,16 +256,16 @@ public abstract class BaseStream {
             return false;
         }
         if( targets.contains(writable)){
-            Logger.info(id +" -> Already has "+writable.getID()+" as target, not adding.");
+            Logger.info(id +" -> Already has "+writable.id()+" as target, not adding.");
             return false;
         }
-        targets.removeIf( x -> x.getID().equals(writable.getID())&&writable.getID().contains(":")); // if updated
+        targets.removeIf( x -> x.id().equals(writable.id())&&writable.id().contains(":")); // if updated
         targets.add( writable );
-        Logger.info("Added request from "+writable.getID()+ " to "+id);
+        Logger.info("Added request from "+writable.id()+ " to "+id);
         return true;
     }
     public boolean removeTarget(String id ){
-        return targets.removeIf(entry -> entry.getID().equalsIgnoreCase(id));
+        return targets.removeIf(entry -> entry.id().equalsIgnoreCase(id));
     }
     public boolean removeTarget(Writable wr ){
 		return targets.remove(wr);
@@ -302,25 +280,21 @@ public abstract class BaseStream {
     }
     public String listTargets(){
         StringJoiner join = new StringJoiner(", ");
-        targets.forEach(wr -> join.add(wr.getID()));
+        targets.forEach(wr -> join.add(wr.id()));
         return join.toString();
     }
     /* Echo */
-    public boolean enableEcho(){
+    public void enableEcho(){
         if( this instanceof Writable ){
             targets.add((Writable)this );
             echo=true;
-            return true;
         }
-        return false;
     }
-    public boolean disableEcho(){
+    public void disableEcho(){
         if( this instanceof Writable ){
             echo=false;
-            targets.removeIf(r -> r.getID().equalsIgnoreCase(id));
-            return true;
+            targets.removeIf(r -> r.id().equalsIgnoreCase(id));
         }
-        return false;
     }
     public boolean hasEcho(){
         return echo;
@@ -356,14 +330,29 @@ public abstract class BaseStream {
         return triggeredActions.stream().filter(x -> x.trigger==trigger).map(x -> x.data).collect(Collectors.toList());
     }
     private static TRIGGER convertTrigger( String trigger ){
-        switch (trigger){
-            case "open":   return TRIGGER.OPEN;
-            case "close":  return TRIGGER.CLOSE;
-            case "idle":   return TRIGGER.IDLE;
-            case "!idle":  return TRIGGER.IDLE_END;
-            case "hello":  return TRIGGER.HELLO;
-            case "wakeup": case "asleep": return TRIGGER.WAKEUP;
-            default : Logger.error("Unknown trigger requested : "+trigger); return null;
+        switch (trigger.toLowerCase()) {
+            case "open" -> {
+                return TRIGGER.OPEN;
+            }
+            case "close" -> {
+                return TRIGGER.CLOSE;
+            }
+            case "idle" -> {
+                return TRIGGER.IDLE;
+            }
+            case "!idle" -> {
+                return TRIGGER.IDLE_END;
+            }
+            case "hello" -> {
+                return TRIGGER.HELLO;
+            }
+            case "wakeup", "asleep" -> {
+                return TRIGGER.WAKEUP;
+            }
+            default -> {
+                Logger.error("Unknown trigger requested : " + trigger);
+                return null;
+            }
         }
     }
     protected static class TriggerAction {

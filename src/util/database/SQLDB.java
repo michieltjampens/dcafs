@@ -244,42 +244,6 @@ public class SQLDB extends Database{
         return j.toString();
     }
     /**
-     * Build a generic based on the information of the chosen table
-     * @param fab The xmlfab used
-     * @param tableName The name of the table
-     * @param genID The id for the new generic
-     * @param delimiter The delimiter to use in the generic
-     * @return True if this worked
-     */
-    public boolean buildGenericFromTable(XMLfab fab, String tableName, String genID, String delimiter){
-        return getTable(tableName).map(sqlTable -> sqlTable.buildGeneric(fab, id, genID, delimiter)).orElse(false);
-    }
-    /**
-     * Build a generic for each local table of this database
-     * @param fab The xmlfab to use
-     * @param overwrite If true will overwrite existing generics
-     * @param delimiter The delimiter for the generics
-     * @return The amount of generics build
-     */
-    @Override
-    public int buildGenericsFromTables(XMLfab fab, boolean overwrite, String delimiter) {
-        int cnt=0; // keep track of the amount of generics build
-        for( var table : tables.values()){ // Go through the tables
-            boolean found = fab.getChildren("generic").stream().anyMatch(
-                    e-> {
-                        var s = e.getAttribute("db");
-                        return s.contains(id)&&s.endsWith(":"+table.getName());
-                    });
-
-            if( !found ){ // If no such node exists yet
-                table.buildGeneric(fab,id,table.name,delimiter); // build it
-                fab.up(); // return the fab to higher level
-                cnt++; // increment the counter
-            }
-        }
-        return cnt;
-    }
-    /**
      * Check which tables are currently in the database and add them to this object
      * @param clear Clear the stored databases first
      * @return True if successful

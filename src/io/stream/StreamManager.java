@@ -17,13 +17,11 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
 import util.tools.Tools;
-import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -188,7 +186,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String getConfirmBuffers() {
 		StringJoiner join = new StringJoiner("\r\n");
-		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.getID()).add( cw.getStored().length() == 0 ? " empty" : cw.getStored()));
+		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.id()).add( cw.getStored().length() == 0 ? " empty" : cw.getStored()));
 		return join.toString();
 	}
 	/* *************************************  S E T U P **************************************************************/
@@ -293,7 +291,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					cw.addListener(this);
 					if( !reply.isEmpty()) // No need to get data if we won't use it
 						stream.addTarget(cw);
-					confirmCollectors.put(stream.getID(),cw);
+					confirmCollectors.put(stream.id(),cw);
 				}else{
 					if( txt.indexOf("\\") < txt.length()-2 ){
 						txt = Tools.fromEscapedStringToBytes(txt);
@@ -369,15 +367,23 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( baseOpt.isPresent() ){ // meaning reloading an existing one
 			var str = baseOpt.get();
 			str.disconnect();
-			str.removeRealtimeValues(rtvals); // Remove the existing ones
+			str.getValStore().ifPresent( store -> store.removeRealtimeValues(rtvals));
 			str.readFromXML(childOpt.get());
-			str.shareRealtimeValues(rtvals);
+			str.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
 			str.reconnectFuture = scheduler.schedule( new DoConnection( str ), 0, TimeUnit.SECONDS );
 			return "Reloaded and trying to reconnect";
 		}else{
-			addStreamFromXML(childOpt.get()).shareRealtimeValues(rtvals);
+			var str = addStreamFromXML(childOpt.get());
+			str.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
 			return "Loading new stream.";
 		}
+	}
+	public boolean reloadStore( String id ){
+		var baseOpt = getStream(id);
+		if( baseOpt.isPresent() ){ // meaning reloading an existing one
+			return baseOpt.get().reloadStore(settingsPath,rtvals);
+		}
+		return false;
 	}
 	/* ***************************** A D D I N G C H A N N E L S ******************************************/
 	/**
@@ -395,7 +401,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( !streams.isEmpty()){
 			streams.values().forEach(BaseStream::disconnect);
 		}
-		streams.values().forEach( s -> s.removeRealtimeValues(rtvals));
+		streams.values().forEach( s -> s.getValStore().ifPresent( store -> store.removeRealtimeValues(rtvals)));
 		streams.clear(); // Clear out before the reread
 
 		XMLtools.getFirstElementByTag( settingsPath, "streams").ifPresent( ele -> {
@@ -404,8 +410,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 			for( Element el : XMLtools.getChildElements( ele, XML_CHILD_TAG)){
 				BaseStream bs = addStreamFromXML(el);
-				bs.shareRealtimeValues(rtvals);
-				streams.put(bs.getID().toLowerCase(), bs);
+				bs.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
+				streams.put(bs.id().toLowerCase(), bs);
 			}
 		});
 	}
@@ -499,7 +505,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		// Check if it already exists (based on id and address?)
 		XMLfab fab = XMLfab.withRoot(settingsPath, "dcafs",XML_PARENT_TAG);
-		boolean exists = fab.hasChild(XML_CHILD_TAG, "id", stream.getID() ).isPresent();
+		boolean exists = fab.hasChild(XML_CHILD_TAG, "id", stream.id() ).isPresent();
 
 		if( exists && !overwrite ){
 			Logger.warn("Already such stream ("+id+") in the settings.xml, not overwriting");
@@ -536,13 +542,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				int delay = retryDelayIncrement*(base.connectionAttempts+1);
 				if( delay > retryDelayMax )
 					delay = retryDelayMax;
-				Logger.error( "Failed to connect to "+base.getID()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );				
-				String device = base.getID().replace(" ","").toLowerCase();
+				Logger.error( "Failed to connect to "+base.id()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );
+				String device = base.id().replace(" ","").toLowerCase();
 				if( issues!=null )
-					issues.addIfNewAndStart(device+".conlost", "Connection lost to "+base.getID());
+					issues.addIfNewAndStart(device+".conlost", "Connection lost to "+base.id());
 				base.reconnectFuture = scheduler.schedule( new DoConnection( base ), delay, TimeUnit.SECONDS );
 			} catch (Exception ex) {		
-				Logger.error( "Connection thread interrupting while trying to connect to "+base.getID());
+				Logger.error( "Connection thread interrupting while trying to connect to "+base.id());
 				Logger.error( ex );
 			}
 		}
@@ -583,7 +589,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "rios" -> replyToStreamCommand("rios", html);
 			case "raw","stream" -> "Request for "+request[0]+":"+request[1]+" "+( addForwarding(request[1],wr)?"ok":"failed");
 			case "s_","h_" -> doSorH( request);
-			case "store" -> replyToStoreCommand(request,html);
 			case "","stop" -> removeWritable(wr)?"Ok.":"";
 			default -> "Unknown Command";
 		};
@@ -665,7 +670,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "requests":
 				join.setEmptyValue("No requests yet.");
 				streams.values().stream().filter( base -> base.getRequestsSize() !=0 )
-								.forEach( x -> join.add( x.getID()+" -> "+x.listTargets() ) );
+								.forEach( x -> join.add( x.id()+" -> "+x.listTargets() ) );
 				return join.toString();
 			case "cleartargets":
 				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
@@ -941,6 +946,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "List of available streams:"+nl+this.getStreamList(html);
 			case "status" :
 				return getStatus();
+			case "reloadstore":
+				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
+					return "Bad amount of arguments, ss:reloadstore,id";
+				if( reloadStore(cmds[1])){
+					return "Reloaded the store of "+cmds[1];
+				}else{
+					return "Failed to reload the store of "+cmds[1];
+				}
 			default: return "Unknown command: "+request;
 		}
 		return "";
@@ -986,7 +999,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			Logger.error("Bad id given for reconnection request: "+id);
 			return false;
 		}
-		Logger.error("Requesting reconnect for "+bs.getID());
+		Logger.error("Requesting reconnect for "+bs.id());
 		if( bs.reconnectFuture==null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0 ){
 			bs.reconnectFuture = scheduler.schedule( new DoConnection( bs ), 5, TimeUnit.SECONDS );
 			return true;
@@ -998,7 +1011,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public boolean addForwarding(String cmd, Writable writable) {
 
 		if( writable != null ){
-			Logger.info("Received data request from "+writable.getID()+" for "+cmd);
+			Logger.info("Received data request from "+writable.id()+" for "+cmd);
 		}else if( cmd.startsWith("email") ){
 			Logger.info("Received request through email for "+cmd);
 		}
@@ -1063,79 +1076,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 		};
 	}
-	public String replyToStoreCommand(String[] request, boolean html ){
-		if( request.length == 1 )
-			return "Not enough arguments, need at least two";
 
-		var cmds= request[1].split(",");
-		String id = cmds[0];
-
-		if( id.equalsIgnoreCase("?")){
-			return "todo Help";
-		}
-
-		var bsOpt = getStream(id);
-		if( bsOpt.isEmpty()) // Check if that stream exists
-			return "No such stream: "+id;
-
-		// It does, so dig for the node
-		var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("streams");
-		if( dig.isInvalid())
-			return "No streams yet";
-
-		dig.goDown("stream","id",id);
-		if( dig.isInvalid() )
-			return "No such stream yet "+id;
-
-		// At this point, the digger is pointing to the stream node for the given id
-		var fabOpt = XMLfab.alterDigger(dig);
-		if( fabOpt.isEmpty())
-			return "No valid fab created";
-		var fab=fabOpt.get();
-
-		fab.alterChild("store");
-		dig.goDown("store");
-		if( !dig.current().get().hasAttribute("delimiter"))
-			fab.attr("delimiter",",");
-
-		// At this point 'store' certainly exists in memory and dig is pointing to it
-
-		switch (cmds[1]) {
-			case "addblank", "addb" -> { // Adds an ignore node
-				fab.down();
-				fab.addChild("ignore");
-				fab.build();
-				return "Blank added";
-			}
-			case "addreal","addr" -> {
-				if (cmds.length < 3)
-					return "Not enough arguments: store:id,addreal,name<,index>";
-				fab.down();
-				if( dig.peekAt("real","id",cmds[2]).hasValidPeek())
-					return "Already a real with that id, try something else?";
-
-				fab.addChild("real").attr("id",cmds[2]).attr("unit");
-				if( cmds.length==4 ) {
-					if(NumberUtils.isCreatable(cmds[3])) {
-						fab.attr("index", cmds[3]);
-					}else{
-						return "Not a valid index: "+cmds[3];
-					}
-				}
-				fab.build();
-				return "Real added";
-			}
-			case "delim", "delimiter" -> {
-				if (cmds.length < 3)
-					return "Not enough arguments: store:id,delim,delimiter";
-				fab.attr("delimiter", cmds.length == 4 ? "," : cmds[2]);
-				fab.build();
-				return "Set the delimiter";
-			}
-		}
-
-		return "Unknown command: "+request[0]+":"+request[1];
-	}
 	/**
 	 * Remove the given writable from the various sources
 	 * @param wr The writable to remove
@@ -1171,7 +1112,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 * @param id The id to look for
 	 */
 	public void removeConfirm(String id){
-		if( confirmCollectors.values().removeIf( cc -> cc.getID().equalsIgnoreCase(id)) ){
+		if( confirmCollectors.values().removeIf( cc -> cc.id().equalsIgnoreCase(id)) ){
 			Logger.info("ConfirmCollector removed: "+id);
 		}else{
 			Logger.info("ConfirmCollector not found: "+id);
@@ -1197,8 +1138,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return;
 
 			if (!stream.isConnectionValid()) { // No use scheduling timeout if there's no connection
-				Logger.warn(stream.getID()+" -> Connection invalid, waiting for reconnect");
-				requestReconnection(stream.getID());
+				Logger.warn(stream.id()+" -> Connection invalid, waiting for reconnect");
+				requestReconnection(stream.id());
 				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
 				return;
 			}
@@ -1211,8 +1152,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				// Reader is idle - set a new timeout and notify the callback.
 				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
 				if( nextDelay > -1000*stream.readerIdleSeconds) { // only apply this the first time
-					Logger.warn(stream.getID()+" is idle for "+stream.readerIdleSeconds+"s");
-					notifyIdle(stream.getID());
+					Logger.warn(stream.id()+" is idle for "+stream.readerIdleSeconds+"s");
+					notifyIdle(stream.id());
 				}
 			} else {
 				// Read occurred before the timeout - set a new timeout with shorter delay.

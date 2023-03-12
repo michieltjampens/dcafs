@@ -75,8 +75,8 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
             buf.discardReadBytes();                                 // Remove read bytes
             
             String chunk = process.toString(CharsetUtil.UTF_8);     // Convert the binary data to readable ascii
-
-            dQueue.add( Datagram.build(chunk).label(label).priority(priority).raw(process.array()).origin(id).timestamp() );  // Add it to the data queue
+            if(!label.isEmpty())
+                dQueue.add( Datagram.build(chunk).label(label).priority(priority).raw(process.array()).origin(id).timestamp() );  // Add it to the data queue
 
             // Targets
             if( !targets.isEmpty() ){

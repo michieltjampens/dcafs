@@ -30,7 +30,7 @@ public class MultiStream extends SerialStream{
     }
     @Override
     public String getInfo() {
-        return "MULTIPLEX [" + id + "|" + label + "] " + serialPort + " | " + getSerialSettings();
+        return "MULTIPLEX [" + id + "] " + serialPort + " | " + getSerialSettings();
     }
     @Override
     protected void processListenerEvent(byte[] data){

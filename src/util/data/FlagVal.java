@@ -11,6 +11,7 @@ import worker.Datagram;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 public class FlagVal extends AbstractVal implements NumericVal{
@@ -38,19 +39,24 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
 
     /* **************************** C O N S T R U C T I N G ******************************************************* */
-    public static FlagVal build(Element rtval, String group, boolean def){
+    public static Optional<FlagVal> build(Element rtval, String group){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
-        if( name.isEmpty())
-            return null;
 
-        return FlagVal.newVal(group,name).alter(rtval,def);
+        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
+            name = rtval.getTextContent();
+
+        if( name.isEmpty()) {
+            Logger.error("Tried to create a FlagVal without id/name, group " + group);
+            return Optional.empty();
+        }
+        return Optional.of(FlagVal.newVal(group,name).alter(rtval));
     }
-    public FlagVal alter( Element rtval, boolean defFlag){
+    public FlagVal alter( Element rtval){
         reset(); // reset is needed if this is called because of reload
         name(name)
                 .group(XMLtools.getChildStringValueByTag(rtval, "group", group()))
-                .defState(XMLtools.getBooleanAttribute(rtval, "default", defFlag));
+                .defState(XMLtools.getBooleanAttribute(rtval, "default", defState));
         if (XMLtools.getBooleanAttribute(rtval, "keeptime", false))
             keepTime();
         if (!XMLtools.getChildElements(rtval, "cmd").isEmpty())
@@ -159,6 +165,11 @@ public class FlagVal extends AbstractVal implements NumericVal{
         setState( Double.compare(val,0.0)!=0 );
     }
 
+    @Override
+    public String asValueString() {
+        return toString();
+    }
+
     /**
      * Convert the flag state to a big decimal value
      * @return BigDecimal.ONE if the state is true or ZERO if not
@@ -203,9 +214,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
     public int intValue() {
         return state?1:0;
     }
-    public String asValueString(){
-        return toString();
-    }
+    public String stringValue(){ return toString();}
     public String toString(){
         return ""+state;
     }
@@ -230,15 +239,14 @@ public class FlagVal extends AbstractVal implements NumericVal{
      */
     public boolean addTriggeredCmd(String trigger, String cmd){
 
-        switch( trigger ){
-            case "raised": case "up": case "set": // State goes from false to true
-                raisedList.add(cmd);
-                break;
-            case "lowered": case "down": case "clear": // state goes from true to false
-                loweredList.add(cmd);
-                break;
-            default: // No other triggers for now or typo's
+        switch (trigger) {
+            case "raised", "up", "set" -> // State goes from false to true
+                    raisedList.add(cmd);
+            case "lowered", "down", "clear" -> // state goes from true to false
+                    loweredList.add(cmd);
+            default -> { // No other triggers for now or typo's
                 return false;
+            }
         }
         return true;
     }
@@ -247,37 +255,19 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
 
     @Override
-    public void parseValue(String value) {
-        setState(value);
-    }
-
-    @Override
-    public boolean storeInXml(XMLdigger digger) {
-        if( digger.isValid() ){ // meaning there's a rtvals node
-            digger.goDown("group","id",group); // Try to go into the group node
-            if( digger.isValid() ){ // Group exists
-                digger.goDown("flag","name",name); // Check for the int node
-                if( digger.isInvalid() ){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("flag")
-                            .attr("name",name).build());
-                }
-            }else{ // No such group
-                var digFabOpt = XMLfab.alterDigger(digger);
-                if(digFabOpt.isPresent() ){
-                    var digFab = digFabOpt.get();
-                    digFab.selectOrAddChildAsParent("group","id",group);
-                    digFab.addChild("flag").attr("name",name);
-                    digFab.build();
-                }
-            }
+    public boolean parseValue(String state) {
+        if( state.equalsIgnoreCase("true")
+                || state.equalsIgnoreCase("1")
+                || state.equalsIgnoreCase("on")) {
+            setState(true);
+        }else if( state.equalsIgnoreCase("false")|| state.equalsIgnoreCase("0")
+                || state.equalsIgnoreCase("off")) {
+            setState(false);
+        }else{
+            Logger.error( id() + " -> Couldn't parse "+state);
+            return false;
         }
         return true;
-    }
-    private void storeTriggeredCmds(XMLfab fab){
-        for( var cmd : raisedList )
-            fab.addChild("cmd",cmd).attr("when","up");
-        for( var cmd : loweredList )
-                fab.addChild("cmd",cmd).attr("when","down");
     }
     private String getOptions(){
         var join = new StringJoiner(",");

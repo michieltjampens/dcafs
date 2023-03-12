@@ -89,7 +89,7 @@ public class Datagram {
     public Datagram writable(Writable writable){
         this.writable=writable;
         if(originID.isEmpty())
-            this.originID=writable.getID();
+            this.originID=writable.id();
         return this;
     }
     /**

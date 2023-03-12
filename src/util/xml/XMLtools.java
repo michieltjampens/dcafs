@@ -311,9 +311,14 @@ public class XMLtools {
 			Logger.error("Element is null when looking for "+tag);
 			return Optional.empty();
 		}
-
-		NodeList lstNmElmntLst = element.getElementsByTagName(tag);
-		return lstNmElmntLst.getLength() > 0?Optional.of((Element) lstNmElmntLst.item(0)):Optional.empty();
+		var list = element.getChildNodes();
+		for( int a=0;a<list.getLength();a++){
+			if(list.item(a) instanceof Element ele) {
+				if (ele.getTagName().equalsIgnoreCase(tag))
+					return Optional.of(ele);
+			}
+		}
+		return Optional.empty();
 	}
 	/**
 	 * Check the given element for a child node with a specific tag

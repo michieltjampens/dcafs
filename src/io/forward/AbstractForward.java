@@ -4,6 +4,7 @@ import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
+import util.data.ValStore;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -31,11 +32,13 @@ public abstract class AbstractForward implements Writable {
     protected boolean xmlOk=false;             // There's a valid xml path available
     protected boolean deleteNoTargets=false;   // Get this object to kill itself when targets is empty
     protected Path xml;                        // Path to the xml file containing the info
-    protected String label="";                 // With this the forward can use the dataQueue as a target
     protected int badDataCount=0;               // Keep track of the amount of bad data received
     protected boolean log = false;
     protected final RealtimeValues rtvals;
+    protected ValStore store;
     protected boolean readOk=false;
+    public enum RESULT{ERROR,EXISTS,OK}
+    protected boolean inPath=true;
 
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
@@ -65,9 +68,9 @@ public abstract class AbstractForward implements Writable {
     public boolean addSource( String source ){
         if( !sources.contains(source) && !source.isEmpty()){
             sources.add(source);
-            Logger.info(getID() +" -> Adding source "+source);
+            Logger.info(id() +" -> Adding source "+source);
             if( valid ){
-                Logger.info(getID() +" -> Requesting data from "+source);
+                Logger.info(id() +" -> Requesting data from "+source);
                 dQueue.add( Datagram.system( source ).writable(this) );
             }
             if( xmlOk )
@@ -85,18 +88,19 @@ public abstract class AbstractForward implements Writable {
      * @param target The writable the result of the filter will be written to
      */
     public synchronized void addTarget( Writable target ){
-        if( target.getID().isEmpty()) {
+        if( target.id().isEmpty()) {
             Logger.error(id+" -> Tried to add target with empty id");
             return;
         }
         if( !targets.contains(target)){
             if( !valid ){
                 valid=true;
-                sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+                if( !inPath)
+                    sources.stream().forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
             }
             targets.add(target);
         }else{
-            Logger.info(id+" -> Trying to add duplicate target "+target.getID());
+            Logger.info(id+" -> Trying to add duplicate target "+target.id());
         }
     }
     public boolean hasSrc(){
@@ -115,7 +119,7 @@ public abstract class AbstractForward implements Writable {
         targets.clear();
     }
     public boolean noTargets(){
-        return targets.isEmpty() && label.isEmpty() && !log;
+        return targets.isEmpty() && store==null && !log;
     }
     public ArrayList<Writable> getTargets(){
         return targets;
@@ -131,17 +135,11 @@ public abstract class AbstractForward implements Writable {
 
         if(!targets.isEmpty()) {
             StringJoiner ts = new StringJoiner(", ", "    Targets: ", "");
-            targets.forEach(x -> ts.add(x.getID()));
+            targets.forEach(x -> ts.add(x.id()));
             join.add(ts.toString());
         }
-
-        if( !label.isEmpty()) {
-            if( label.startsWith("generic")){
-                join.add("    Given to generic/store " + label.substring(8));
-            }else {
-                join.add("    To label " + label);
-            }
-        }
+        if( store != null )
+            join.add(store.toString());
         return join.toString();
     }
     /**
@@ -158,17 +156,6 @@ public abstract class AbstractForward implements Writable {
 
         return join.toString();
     }
-    /**
-     * Change the label
-     * @param label The new label
-     */
-    public void setLabel(String label){
-        this.label=label;
-        if( !valid && !label.isEmpty()) {
-            sources.forEach(source -> dQueue.add(Datagram.build(source).label("system").writable(this)));
-            valid=true;
-        }
-    }
     protected boolean readBasicsFromXml( Element fw ){
 
         if( fw==null) // Can't work if this is null
@@ -179,10 +166,9 @@ public abstract class AbstractForward implements Writable {
         if( id.isEmpty() ) // Cant work without id
             return false;
 
-        label = XMLtools.getStringAttribute( fw, "label", "");
         log = XMLtools.getBooleanAttribute(fw,"log",false);
 
-        if( !label.isEmpty() || log ){ // this counts as a target, so enable it
+        if( log ){ // this counts as a target, so enable it
             valid=true;
         }
 
@@ -201,9 +187,6 @@ public abstract class AbstractForward implements Writable {
      * @param fab An XMLfab with the forward as the current parent
      */
     protected void writeBasicsToXML( XMLfab fab){
-        if( !label.isEmpty() )
-            fab.attr("label",label);
-
         // Sources
         if( sources.size()==1 ){
             fab.attr("src",sources.get(0));
@@ -215,6 +198,17 @@ public abstract class AbstractForward implements Writable {
         }
     }
     public void setInvalid(){valid=false;}
+    public void setStore( ValStore store){
+        this.store=store;
+        if( !valid && store!=null){
+            valid=true;
+            sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+        }
+    }
+    public void clearStore(RealtimeValues rtv){
+        if( store!=null)
+            store.removeRealtimeValues(rtv);
+    }
     /* *********************** Abstract Methods ***********************************/
     /**
      * This is called when data is received through the writable
@@ -247,11 +241,15 @@ public abstract class AbstractForward implements Writable {
         return addData(data);
     }
     @Override
+    public boolean writeLine(String origin, String data) {
+        return addData(data);
+    }
+    @Override
     public boolean writeBytes(byte[] data) {
         return addData(new String(data));
     }
     @Override
-    public String getID() {
+    public String id() {
         return getXmlChildTag()+":"+id;
     }
     @Override

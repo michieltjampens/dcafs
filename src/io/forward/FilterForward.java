@@ -1,6 +1,7 @@
 package io.forward;
 
 import io.Writable;
+import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
@@ -40,19 +41,19 @@ public class FilterForward extends AbstractForward {
     @Override
     protected boolean addData(String data) {
 
-        if( doFilter(data)){
-            targets.stream().forEach(wr -> wr.writeLine( data ) );
+        if( doFilter(data) ){
+            targets.forEach(wr -> wr.writeLine( id(),data ) );
             targets.removeIf(wr -> !wr.isConnectionValid() );
-            if( !label.isEmpty() ){
-                dQueue.add( Datagram.build(data).writable(this).label(label) );
-            }
+
             if( log )
-                Logger.tag("RAW").info( "1\t" + (label.isEmpty()?"void":label)+"|"+getID() + "\t" + data);
+                Logger.tag("RAW").info( "1\t" + id() + "\t" + data);
+            if( store!=null)
+                store.apply(data,dQueue);
         }else{
             reversed.removeIf( t-> !t.writeLine(data) );
         }
 
-        if( noTargets() && reversed.isEmpty() ){
+        if( noTargets() && reversed.isEmpty() && store==null){
             valid=false;
             if( deleteNoTargets )
                 dQueue.add( Datagram.system("ff:remove,"+id));
@@ -68,13 +69,13 @@ public class FilterForward extends AbstractForward {
     public void addReverseTarget(Writable wr ){
         if( !reversed.contains(wr)) {
             reversed.add(wr);
-            Logger.info(getID() + " -> Adding reverse target to " + wr.getID());
+            Logger.info(id() + " -> Adding reverse target to " + wr.id());
             if (!valid) {
                 valid = true;
                 sources.forEach(source -> dQueue.add( Datagram.system(source).writable(this)) );
             }
         }else{
-            Logger.info(id+" -> Trying to add duplicate reverse target "+wr.getID());
+            Logger.info(id+" -> Trying to add duplicate reverse target "+wr.id());
         }
 
     }
@@ -85,22 +86,15 @@ public class FilterForward extends AbstractForward {
         join.add(getRules());
 
         StringJoiner ts = new StringJoiner(", ","    Approved data target: ","" );
-        targets.forEach( x -> ts.add(x.getID()));
+        targets.forEach( x -> ts.add(x.id()));
         if( !targets.isEmpty())
             join.add(ts.toString());
 
         StringJoiner ts2 = new StringJoiner(", ","    Rejected data target: ","" );
-        reversed.forEach( x -> ts2.add(x.getID()));
+        reversed.forEach( x -> ts2.add(x.id()));
         if( !reversed.isEmpty())
             join.add(ts2.toString());
 
-        if( !label.isEmpty()) {
-            if (label.startsWith("generic")) {
-                join.add("    Given to generic/store " + label.substring(8));
-            } else {
-                join.add("    To label " + label);
-            }
-        }
         return join.toString();
     }
     @Override
@@ -240,32 +234,7 @@ public class FilterForward extends AbstractForward {
     public int addRule( String type, String value){
         return addRule(type,value,"");
     }
-    public static String getHelp(String eol){
-        StringJoiner join = new StringJoiner(eol);
-        join.add("start   -> Which text the data should start with" )
-            .add("    fe. <filter type='start'>$</filter> --> The data must start with $");
-        join.add("nostart -> Which text the data can't start with")
-            .add("    fe. <filter type='nostart'>$</filter> --> The data can't start with $");
-        join.add("end     -> Which text the data should end with")
-            .add("    fe. <filter type='end'>!?</filter> --> The data must end with !?");
-        join.add("contain -> Which text the data should contain")
-            .add("    fe. <filter type='contain'>zda</filter> --> The data must contain zda somewhere");
-        join.add("c_start -> Which character should be found on position c from the start (1=first)")
-            .add("    fe. <filter type='c_start'>1,+</filter> --> The first character must be a +");
-        join.add("c_end   -> Which character should be found on position c from the end (1=last)")
-            .add("    fe. <filter type='c_end'>3,+</filter> --> The third last character must be a +");
-        join.add("minlength -> The minimum length the data should be")
-            .add("    fe. <filter type='minlength'>6</filter> --> if data is shorter than 6 chars, filter out");
-        join.add("maxlength -> The maximum length the data can be")
-            .add("    fe.<filter type='maxlength'>10</filter>  --> if data is longer than 10, filter out");
-        join.add("nmea -> True or false that it's a valid nmea string")
-            .add("    fe. <filter type='nmea'>true</filter> --> The data must end be a valid nmea string");
-        join.add("regex -> Matches the given regex")
-            .add("    fe. <filter type='regex'>\\s[a,A]</filter> --> The data must contain an empty character followed by a in any case");
-        join.add("math -> Checks a mathematical comparison")
-            .add("    fe. <filter type='math' delimiter=','>i1 below 2500 and i1 above 10</filter>" );
-        return join.toString();
-    }
+
     /**
      * Remove the given rule from the set
      * @param index The index of the rule to remove
@@ -390,5 +359,33 @@ public class FilterForward extends AbstractForward {
             Logger.info(id+" -> "+data + " -> Ok");
         freePasses = ignoreFalse;
         return true;
+    }
+    public static String getHelp(String eol){
+        StringJoiner join = new StringJoiner(eol);
+        var gr = TelnetCodes.TEXT_GREEN;
+        var re = TelnetCodes.TEXT_YELLOW;
+        join.add(gr+"start"+re+" -> Which text the data should start with" )
+                .add("    fe. <filter type='start'>$</filter> --> The data must start with $");
+        join.add(gr+"nostart"+re+" -> Which text the data can't start with")
+                .add("    fe. <filter type='nostart'>$</filter> --> The data can't start with $");
+        join.add(gr+"end"+re+" -> Which text the data should end with")
+                .add("    fe. <filter type='end'>!?</filter> --> The data must end with !?");
+        join.add(gr+"contain"+re+""+re+" -> Which text the data should contain")
+                .add("    fe. <filter type='contain'>zda</filter> --> The data must contain zda somewhere");
+        join.add(gr+"c_start"+re+" -> Which character should be found on position c from the start (1=first)")
+                .add("    fe. <filter type='c_start'>1,+</filter> --> The first character must be a +");
+        join.add(gr+"c_end"+re+" -> Which character should be found on position c from the end (1=last)")
+                .add("    fe. <filter type='c_end'>3,+</filter> --> The third last character must be a +");
+        join.add(gr+"minlength"+re+" -> The minimum length the data should be")
+                .add("    fe. <filter type='minlength'>6</filter> --> if data is shorter than 6 chars, filter out");
+        join.add(gr+"maxlength"+re+" -> The maximum length the data can be")
+                .add("    fe.<filter type='maxlength'>10</filter>  --> if data is longer than 10, filter out");
+        join.add(gr+"nmea"+re+" -> True or false that it's a valid nmea string")
+                .add("    fe. <filter type='nmea'>true</filter> --> The data must end be a valid nmea string");
+        join.add(gr+"regex"+re+" -> Matches the given regex")
+                .add("    fe. <filter type='regex'>\\s[a,A]</filter> --> The data must contain an empty character followed by a in any case");
+        join.add(gr+"math"+re+" -> Checks a mathematical comparison")
+                .add("    fe. <filter type='math' delimiter=','>i1 below 2500 and i1 above 10</filter>" );
+        return join.toString();
     }
 }

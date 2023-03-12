@@ -26,7 +26,7 @@ public class ModbusStream extends SerialStream{
     }
     @Override
     public String getInfo() {
-        return "MODBUS [" + id + "|" + label + "] " + serialPort + " | " + getSerialSettings();
+        return "MODBUS [" + id + "] " + serialPort + " | " + getSerialSettings();
     }
     @Override
     protected void processListenerEvent(byte[] data){

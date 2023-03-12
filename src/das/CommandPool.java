@@ -3,9 +3,12 @@ package das;
 import io.email.Email;
 import io.email.EmailSending;
 import io.Writable;
+import io.forward.EditorForward;
+import io.forward.FilterForward;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.cmds.StoreCmds;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -136,7 +139,7 @@ public class CommandPool {
 		String question = d.getData();
 		var wr = d.getWritable();
 
-		if( wr!=null && (wr.getID().contains("matrix") || wr.getID().startsWith("file:"))){
+		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:"))){
 			html=true;
 		}
 		String result;
@@ -178,6 +181,17 @@ public class CommandPool {
 			case "serialports" -> Tools.getSerialPorts(html);
 			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
 			case "ts" -> doTimeStamping( split );
+			case "store" -> {
+				var ans = StoreCmds.replyToCommand(split[1],html,settingsPath);
+				if( !split[1].startsWith("?")) {
+					if( split[1].equalsIgnoreCase("global")) {
+						doCmd("ss", "reloadstore," + split[1].split(",")[0], wr);
+					}else{
+						doCmd("rtvals","reload",wr);// reload the global rtvals
+					}
+				}
+				yield ans;
+			}
 			case "", "stop", "nothing" -> {
 				stopCommandable.forEach(c -> c.replyToCommand(new String[]{"", ""}, wr, false));
 				yield "Clearing requests";
@@ -226,14 +240,14 @@ public class CommandPool {
 		if( wr!=null ) {
 			if( d.getLabel().startsWith("matrix")) {
 				wr.writeLine(d.getOriginID()+"|"+result);
-			}else if (wr.getID().startsWith("file:")) {
+			}else if (wr.id().startsWith("file:")) {
 				result = result.replace("<br>",System.lineSeparator());
 				result = result.replaceAll("<.{1,2}>","");
 				wr.writeLine(result);
 			}else if(!d.isSilent()) {
 				wr.writeLine(result);
 			}else{
-				Logger.debug("Hidden response for " + wr.getID() + ": " + result);
+				Logger.debug("Hidden response for " + wr.id() + ": " + result);
 			}
 		}else{
 			Logger.debug("Hidden response to " + question + ": " + result);
@@ -245,12 +259,14 @@ public class CommandPool {
 	}
 	/* ****************************************** C O M M A N D A B L E ********************************************* */
 	private String doCmd( String id, String command, Writable wr){
-		var c = commandables.get(id);
-		if( c==null) {
-			Logger.error("No "+id+" available");
-			return UNKNOWN_CMD+": No "+id+" available";
+		for( var cmd : commandables.entrySet() ){
+			var spl = cmd.getKey().split(";");
+			if( Arrays.stream(spl).anyMatch( x->x.equalsIgnoreCase(id)) ){
+				return cmd.getValue().replyToCommand(new String[]{id,command},wr,false);
+			}
 		}
-		return c.replyToCommand(new String[]{id,command},wr,false);
+		Logger.error("No "+id+" available");
+		return UNKNOWN_CMD+": No "+id+" available";
 	}
 	/* ********************************************************************************************/
 	/**
@@ -281,57 +297,59 @@ public class CommandPool {
 		String[] spl = request[1].split(",");
 
 		switch (spl[0]) {
-			case "?":
-				StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
-				join.add( "upgrade:dcafs -> Try to update dcafs (todo)")
-					.add( "upgrade:tmscript,tm id -> Try to update the given taskmanagers script")
-					.add( "upgrade:settings -> Try to update the settings.xml");
-				return join.toString();			
-			case "dcafs":
+			case "?" -> {
+				StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
+				join.add("upgrade:dcafs -> Try to update dcafs (todo)")
+						.add("upgrade:tmscript,tm id -> Try to update the given taskmanagers script")
+						.add("upgrade:settings -> Try to update the settings.xml");
+				return join.toString();
+			}
+			case "dcafs" -> {
 				return "todo";
-			case "tmscript"://fe. update:tmscript,tmid
-				var ori = doCmd("tm","getpath,"+spl[1],wr );
-				if( ori.isEmpty() )
+			}
+			case "tmscript" -> {//fe. update:tmscript,tmid
+				var ori = doCmd("tm", "getpath," + spl[1], wr);
+				if (ori.isEmpty())
 					return "No such script";
-
 				p = Path.of(ori);
-				to = Path.of(ori.replace(".xml", "")+"_" + TimeTools.formatUTCNow("yyMMdd_HHmm") + ".xml");
-				refr = Path.of(workPath,"attachments",spl[1]);
+				to = Path.of(ori.replace(".xml", "") + "_" + TimeTools.formatUTCNow("yyMMdd_HHmm") + ".xml");
+				refr = Path.of(workPath, "attachments", spl[1]);
 				try {
-					if( Files.exists(p) && Files.exists(refr) ){
-						Files.copy(p, to );	// Make a backup if it doesn't exist yet
-						Files.move(refr, p , StandardCopyOption.REPLACE_EXISTING );// Overwrite
-						
+					if (Files.exists(p) && Files.exists(refr)) {
+						Files.copy(p, to);    // Make a backup if it doesn't exist yet
+						Files.move(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
+
 						// somehow reload the script
-						return doCmd("tm","reload,"+spl[1],wr);// Reloads based on id
-					}else{
+						return doCmd("tm", "reload," + spl[1], wr);// Reloads based on id
+					} else {
 						Logger.warn("Didn't find the needed files.");
 						return "Couldn't find the correct files. (maybe check spelling?)";
 					}
 				} catch (IOException e) {
 					Logger.error(e);
 				}
-				break;
-			case "settings":
-				p = Path.of(workPath,"settings.xml");
-
-				to = Path.of( workPath,"settings_" + TimeTools.formatNow("yyMMdd_HHmm") + ".xml");
-				refr = Path.of( workPath,"attachments"+File.separator+"settings.xml");
+			}
+			case "settings" -> {
+				p = Path.of(workPath, "settings.xml");
+				to = Path.of(workPath, "settings_" + TimeTools.formatNow("yyMMdd_HHmm") + ".xml");
+				refr = Path.of(workPath, "attachments" + File.separator + "settings.xml");
 				try {
-					if( Files.exists(p) && Files.exists(refr) ){
-						Files.copy(p, to );	// Make a backup if it doesn't exist yet
-						Files.copy(refr, p , StandardCopyOption.REPLACE_EXISTING );// Overwrite
+					if (Files.exists(p) && Files.exists(refr)) {
+						Files.copy(p, to);    // Make a backup if it doesn't exist yet
+						Files.copy(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
 						shutdownReason = "Replaced settings.xml";    // restart das
 						System.exit(0);
-					}else{
+					} else {
 						Logger.warn("Didn't find the needed files.");
 						return "Couldn't find the correct files. (maybe check spelling?)";
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-				break;
-			default: return UNKNOWN_CMD;
+			}
+			default -> {
+				return UNKNOWN_CMD;
+			}
 		}
 		return UNKNOWN_CMD;
 	}
@@ -350,34 +368,36 @@ public class CommandPool {
 			return "Can't retrieve without EmailWorker";
 
 		String[] spl = request[1].split(",");
-		
-		switch( spl[0] ){
-			case "?":
-				StringJoiner join = new StringJoiner(html?"<br>":"\r\n","",html?"<br>":"\r\n");
-				join.add( "retrieve:tmscript,tm id,<email/ref> -> Request the given taskmanager script through email")
-					.add( "retrieve:settings,<email/ref> -> Request the current settings.xml through email");
+
+		switch (spl[0]) {
+			case "?" -> {
+				StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n", "", html ? "<br>" : "\r\n");
+				join.add("retrieve:tmscript,tm id,<email/ref> -> Request the given taskmanager script through email")
+						.add("retrieve:settings,<email/ref> -> Request the current settings.xml through email");
 				return join.toString();
-			case "tmscript":case "tmscripts":
-				if( spl.length < 3 )
-					return "Not enough arguments retrieve:type,tmid,email in "+request[0]+":"+request[1];
-
-				var p = doCmd("tm","getpath,"+spl[1],wr );
-				if( p.isEmpty() )
+			}
+			case "tmscript", "tmscripts" -> {
+				if (spl.length < 3)
+					return "Not enough arguments retrieve:type,tmid,email in " + request[0] + ":" + request[1];
+				var p = doCmd("tm", "getpath," + spl[1], wr);
+				if (p.isEmpty())
 					return "No such script";
-
-				sendEmail.sendEmail( Email.to(spl[2]).subject("Requested tm script: "+spl[1]).content("Nothing to say").attachment(p) );
-				return "Tried sending "+spl[1]+" to "+spl[2];
-			case "setup":
-			case "settings":
-				Path set = Path.of(workPath,"settings.xml");
-				if( Files.notExists(set) ){
-					return "No such file: "+ set;
+				sendEmail.sendEmail(Email.to(spl[2]).subject("Requested tm script: " + spl[1]).content("Nothing to say").attachment(p));
+				return "Tried sending " + spl[1] + " to " + spl[2];
+			}
+			case "setup", "settings" -> {
+				Path set = Path.of(workPath, "settings.xml");
+				if (Files.notExists(set)) {
+					return "No such file: " + set;
 				}
-				if( spl.length!=2)
+				if (spl.length != 2)
 					return "Not enough arguments, expected retrieve:setup,email/ref";
-				sendEmail.sendEmail(Email.to(spl[1]).subject("Requested file: settings.xml").content("Nothing to say").attachment(workPath+File.separator+"settings.xml") );
-				return "Tried sending settings.xml to "+spl[1];
-			default: return UNKNOWN_CMD+":"+spl[0];
+				sendEmail.sendEmail(Email.to(spl[1]).subject("Requested file: settings.xml").content("Nothing to say").attachment(workPath + File.separator + "settings.xml"));
+				return "Tried sending settings.xml to " + spl[1];
+			}
+			default -> {
+				return UNKNOWN_CMD + ":" + spl[0];
+			}
 		}
 	}
 	/* *******************************************************************************/
@@ -457,6 +477,9 @@ public class CommandPool {
 					join.add("   -> For scheduling events, check taskmanager");
 					join.add("   -> ...").add("");
 				break;
+			case "filter": return FilterForward.getHelp(nl);
+			case "math": break;
+			case "editor": return EditorForward.getHelp(nl);
 			default:	return UNKNOWN_CMD+":"+request[1];
 		}
 		return join.toString();
@@ -465,7 +488,7 @@ public class CommandPool {
 
 	public String doREAD( String[] request, Writable wr ){
 		dQueue.add( Datagram.build("").writable(wr).label("read:"+request[1]) );
-		return "Request for readable "+request[1]+" from "+wr.getID()+" issued";
+		return "Request for readable "+request[1]+" from "+wr.id()+" issued";
 	}
 	public String doADMIN( String[] request, Writable wr, boolean html ){
 		String nl = html?"<br":"\r\n";

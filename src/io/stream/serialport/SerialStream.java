@@ -54,7 +54,7 @@ public class SerialStream extends BaseStream implements Writable {
                 info=port;
             info += " | "+ getSerialSettings();
         }
-        return "SERIAL [" + id + "|" + label + "] " + info;
+        return "SERIAL [" + id + "] " + info;
     }
 
     public boolean connect() {
@@ -142,13 +142,13 @@ public class SerialStream extends BaseStream implements Writable {
             try {
                 targets.forEach(dt -> eventLoopGroup.submit(()-> {
                     try {
-                        if( dt.getID().contains("telnet")) {
+                        if( dt.id().contains("telnet")) {
                             dt.writeString(Tools.fromBytesToHexString(data)+" ");
                         }else{
                             dt.writeBytes(data);
                         }
                     } catch (Exception e) {
-                        Logger.error(id + " -> Something bad while writeLine to " + dt.getID());
+                        Logger.error(id + " -> Something bad while writeLine to " + dt.id());
                         Logger.error(e);
                     }
                 }));
@@ -180,17 +180,8 @@ public class SerialStream extends BaseStream implements Writable {
         }
 
         // Implement the use of store
-        if( !rtvals.isEmpty() ){
-            var split = msg.trim().split(delimiter);
-            if( split.length < rtvals.size()) {
-                Logger.error(id + " -> Not enough data after split, got " + split.length + " from " + msg);
-            }else{
-                for( int a=0;a<rtvals.size();a++){
-                    if( rtvals.get(a)!=null)
-                        rtvals.get(a).parseValue(split[a]);
-                }
-            }
-        }
+        if( store!=null )
+            store.apply(new String(data),dQueue);
 
         forwardData(msg);
 
@@ -206,9 +197,9 @@ public class SerialStream extends BaseStream implements Writable {
             try {
                 targets.forEach(dt -> eventLoopGroup.submit(()-> {
                     try {
-                        dt.writeLine(message);
+                        dt.writeLine(id,message);
                     } catch (Exception e) {
-                        Logger.error(id + " -> Something bad while writeLine to " + dt.getID());
+                        Logger.error(id + " -> Something bad while writeLine to " + dt.id());
                         Logger.error(e);
                     }
                 }));
@@ -303,7 +294,10 @@ public class SerialStream extends BaseStream implements Writable {
     public synchronized boolean writeLine(String message) {
         return writeString(message + eol);
     }
-
+    @Override
+    public synchronized boolean writeLine(String origin, String message) {
+        return writeString(message + eol);
+    }
     /**
      * Sending data that won't be appended with anything
      * 
@@ -384,7 +378,7 @@ public class SerialStream extends BaseStream implements Writable {
     }
 
     @Override
-    public String getID() {
+    public String id() {
         return id;
     }
 

@@ -44,24 +44,28 @@ public class LocalStream extends BaseStream implements Writable {
     public boolean writeLine(String data) {
         return processData(data);
     }
+    @Override
+    public boolean writeLine(String origin, String data) {
+        return processData(data);
+    }
     private boolean processData( String msg ){
         if( idle ){
 		    idle=false;
 		    listeners.forEach( l-> l.notifyActive(id));
 	   }	
        if (msg != null && !(msg.isBlank() && clean)) { //make sure that the received data is not 'null' or an empty string           
-            var d = Datagram.build(msg).priority(priority).label(label).writable(this).timestamp(Instant.now().toEpochMilli());
-            dQueue.add( d );
-           
-		    if(debug)
-			    Logger.info( d.getOriginID()+" -> " + d.getData());
-				   
+            if(!label.isEmpty()) {
+                var d = Datagram.build(msg).priority(priority).label(label).writable(this).timestamp(Instant.now().toEpochMilli());
+                dQueue.add(d);
+            }
+           if(debug)
+               Logger.info( id() +" -> " + msg);
             // Log anything and everything (except empty strings)
             if( !msg.isBlank() && log )		// If the message isn't an empty string and logging is enabled, store the data with logback
         	    Logger.tag("RAW").warn( priority + "\t" + label + "\t" + msg );
 
 			if( !targets.isEmpty() ){
-                targets.forEach(dt -> eventLoopGroup.submit( () -> dt.writeLine(msg)) );
+                targets.forEach(dt -> eventLoopGroup.submit( () -> dt.writeLine(id,msg)) );
                 targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
 			}
 		

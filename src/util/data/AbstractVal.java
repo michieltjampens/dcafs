@@ -2,7 +2,6 @@ package util.data;
 
 import io.Writable;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.time.Instant;
@@ -80,7 +79,8 @@ public abstract class AbstractVal {
      * @param dQueue The queue in which the datagram holding the command needs to be put
      */
     public void enableTriggeredCmds(BlockingQueue<Datagram> dQueue){
-        this.dQueue=dQueue;
+        if( hasTriggeredCmds())
+            this.dQueue=dQueue;
     }
 
     /**
@@ -111,7 +111,8 @@ public abstract class AbstractVal {
         return name;
     }
     public String unit(){ return unit; }
-    public abstract void parseValue( String value );
+    public abstract boolean parseValue( String value );
+    public abstract String stringValue();
     /* ********************************* Requests/Targets ********************************************************** */
     public void addTarget( Writable wr){
         if( targets==null)
@@ -131,8 +132,7 @@ public abstract class AbstractVal {
         if( targets==null)
             return "";
         var join = new StringJoiner(",");
-        targets.forEach( wr -> join.add(wr.getID()));
+        targets.forEach( wr -> join.add(wr.id()));
         return join.toString();
     }
-    abstract boolean storeInXml(XMLdigger digger);
 }

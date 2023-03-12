@@ -328,6 +328,24 @@ public class XMLfab {
         getChild(tag).ifPresent( ch -> parent.removeChild(ch));
         return this;
     }
+
+    /**
+     * Remove the last child node with the given tag.
+     * @param tag The tag to find or * for 'any'
+     * @return This fab
+     */
+    public boolean removeLastChild( String tag ){
+        var last = getLastChild(tag);
+        if(last.isPresent()) {
+            try {
+                parent.removeChild(last.get());
+                return true;
+            }catch(DOMException e){
+                Logger.error(e);
+            }
+        }
+        return false;
+    }
     /**
      * Remove a single child node from the current parent node
      * @param tag The tag of the child to remove
@@ -357,12 +375,23 @@ public class XMLfab {
         ).findFirst();
     }
     /**
-     * Get the child node with the given tag and attribute
-     * @param tag The tag of the childnode
+     * Get the child node with the given tag
+     * @param tag The tag of the childnode, * for any
      * @return An optional of the result of the search
      */
     public Optional<Element> getChild( String tag ){
         return getChildren(tag).stream().findFirst();
+    }
+    /**
+     * Get the last child node with the given tag
+     * @param tag The tag of the childnode, * for any
+     * @return An optional of the result of the search
+     */
+    public Optional<Element> getLastChild( String tag ){
+        var ch = getChildren(tag);
+        if( ch.isEmpty())
+            return Optional.empty();
+        return Optional.of(ch.get(ch.size()-1));
     }
     /**
      * Check if a child node with the given tag and attribute is present

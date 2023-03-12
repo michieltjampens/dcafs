@@ -230,12 +230,12 @@ public class ValTools {
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : "" + d);
                     }
                     case "i", "int", "integer" -> {
-                        var i = rv.getInteger(p[1], Integer.MAX_VALUE);
+                        var i = rv.getIntegerVal(p[1]).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
                         if (i != Integer.MAX_VALUE)
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", "" + i);
                     }
                     case "t", "text" -> {
-                        String t = rv.getText(p[1], error);
+                        String t = rv.getTextVal(p[1]).map(TextVal::value).orElse(error);
                         if (!t.isEmpty())
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", t);
                     }
@@ -291,7 +291,7 @@ public class ValTools {
                             if( !error.equalsIgnoreCase("ignore")) // if errors should be ignored
                                 yield error;
                         }
-                        yield "" + rv.getInteger(id,Integer.MAX_VALUE);
+                        yield "" + rv.getIntegerVal(id).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
                     }
                     case 'f'-> {
                         if (!rv.hasFlag(id)) {
@@ -312,7 +312,7 @@ public class ValTools {
                           }
                           yield "";
                         }else{
-                            yield rv.getText(id,"");
+                            yield rv.getTextVal(id).map(TextVal::value).orElse("");
                         }
                     }
                     default -> {
@@ -325,10 +325,10 @@ public class ValTools {
                     replacement = "" + rv.getReal(word,Double.NaN);
                 } else { // if not
                     if( rv.hasInteger(word)){
-                        replacement = ""  + rv.getInteger(word,-999);
+                        replacement = ""  + rv.getIntegerVal(word).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
                     }else {
                         if (rv.hasText(word)) { //next, try text
-                            replacement = rv.getText(word,"");
+                            replacement = rv.getTextVal(word).map(TextVal::value).orElse("");
                         } else if (rv.hasFlag(word)) { // if it isn't a text, check if it's a flag
                             replacement = rv.getFlagState(word) ? "1" : "0";
                         } else{

@@ -182,9 +182,6 @@ public class MathForward extends AbstractForward {
         }
 
         fab.attr("delimiter",delimiter);
-        if( !label.isEmpty())
-            fab.attr("label",label);
-
         fab.clearChildren(); // Remove any existing
 
         if( sources.size()==1){
@@ -286,24 +283,24 @@ public class MathForward extends AbstractForward {
         };
 
         if( debug ){ // extra info given if debug is active
-            Logger.info(getID()+" -> Before: "+data);   // how the data looked before
-            Logger.info(getID()+" -> After:  "+result); // after applying the operations
+            Logger.info(id()+" -> Before: "+data);   // how the data looked before
+            Logger.info(id()+" -> After:  "+result); // after applying the operations
         }
-        targets.removeIf( t-> !t.writeLine(result) ); // Send this data to the targets, remove those that refuse it
+        targets.removeIf( t-> !t.writeLine(id(),result) ); // Send this data to the targets, remove those that refuse it
 
-        if( !label.isEmpty() ){ // If the object has a label associated
-            Double[] d = new Double[bds.length];
-            for( int a=0;a<bds.length;a++)
-                d[a]=bds[a]==null?null:bds[a].doubleValue();  // don't try to convert null
-            dQueue.add( Datagram.build(result).label(label).writable(this).payload(d) ); // add it to the queue
-        }
         if( log )
-            Logger.tag("RAW").info( "1\t" + (label.isEmpty()?"void":label)+"|"+getID() + "\t" + result);
-
+            Logger.tag("RAW").info( "1\t" + id() + "\t" + result);
+        if( store!=null) {
+            for( int a=0;a<bds.length;a++){
+                if( bds[a] != null){
+                    store.setValueAt(a,bds[a]);
+                }else{
+                    store.setValueAt(a,split[a]);
+                }
+            }
+        }
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
-        if( noTargets() && !log){
-            if( deleteNoTargets )
-                dQueue.add( Datagram.system("mf:remove,"+id) );
+        if( noTargets() && !log && store==null){
             return false;
         }
         return true;
@@ -315,9 +312,7 @@ public class MathForward extends AbstractForward {
         if( count)
             badDataCount++;
         if( badDataCount==1 && count) { // only need to do this the first time
-            if(label.startsWith("generic"))
-                dQueue.add(Datagram.build("corrupt").label(label).writable(this));
-            targets.stream().filter( t -> t.getID().startsWith("editor")).forEach( t -> t.writeLine("corrupt:1"));
+            targets.stream().filter( t -> t.id().startsWith("editor")).forEach(t -> t.writeLine("corrupt:1"));
         }
         if( badDataCount < 6) {
             if( !error.isEmpty())
@@ -773,7 +768,7 @@ public class MathForward extends AbstractForward {
             valid=true;
             doCmd = true;
 
-            if( ((cmd.startsWith("doubles:update")||cmd.startsWith("dv")) && cmd.endsWith(",$"))  ){
+            if( ((cmd.startsWith("real:update")||cmd.startsWith("rv")) && cmd.endsWith(",$"))  ){
                 String val = cmd.substring(8).split(",")[1];
                 this.cmd = rtvals.getRealVal(val).map(dv-> {
                     update=dv;
@@ -797,7 +792,7 @@ public class MathForward extends AbstractForward {
                     if (showError(false,"(mf) -> Null pointer when processing for " + ori)){
                         StringJoiner join = new StringJoiner(", ");
                         Arrays.stream(data).map(d -> "" + d).forEach(join::add);
-                        Logger.error(getID() + "(mf) -> Data: " + join);
+                        Logger.error(id() + "(mf) -> Data: " + join);
                     }
                     return null;
                 }

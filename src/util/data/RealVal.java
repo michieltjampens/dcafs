@@ -14,6 +14,7 @@ import worker.Datagram;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -57,30 +58,31 @@ public class RealVal extends AbstractVal implements NumericVal{
      * Create a new Realval based on a rtval real node
      * @param rtval The node
      * @param group The group the node is found in
-     * @param defReal The global default real
      * @return The created node, still needs dQueue set
      */
-    public static RealVal build( Element rtval, String group, double defReal){
+    public static Optional<RealVal> build(Element rtval, String group){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
 
+        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
+            name = rtval.getTextContent();
+
         if( name.isEmpty()){
             Logger.error("Tried to create a RealVal without id/name, group "+group);
-            return null;
+            return Optional.empty();
         }
-        return RealVal.newVal(group,name).alter(rtval,defReal);
+        return Optional.of(RealVal.newVal(group,name).alter(rtval));
     }
 
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
-     * @param defReal The global default
      */
-    public RealVal alter( Element rtval,double defReal ){
+    public RealVal alter( Element rtval ){
         reset();
         unit(XMLtools.getStringAttribute(rtval, "unit", ""))
                 .scale(XMLtools.getIntAttribute(rtval, "scale", -1))
-                .defValue(XMLtools.getDoubleAttribute(rtval, "default", defReal))
+                .defValue(XMLtools.getDoubleAttribute(rtval, "default", defVal))
                 .defValue(XMLtools.getDoubleAttribute(rtval, "def", defVal));
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
@@ -129,13 +131,17 @@ public class RealVal extends AbstractVal implements NumericVal{
         this.unit=unit;
         return this;
     }
-    public void parseValue( String val ){
+    public boolean parseValue( String val ){
         var res = NumberUtils.toDouble(val,Double.NaN);
         if(!Double.isNaN(res)){
             value(res);
-        }else{
-            Logger.error(getID() + " -> Failed to parse "+val);
+            return true;
+        }else if( Double.isNaN(defVal) ){
+            value(defVal);
+            return true;
         }
+        Logger.error(id() + " -> Failed to parse "+val);
+        return false;
     }
     /**
      * Update the value, this will -depending on the options set- also update related variables
@@ -266,53 +272,7 @@ public class RealVal extends AbstractVal implements NumericVal{
     public boolean hasTriggeredCmds(){
         return triggered!=null&& !triggered.isEmpty();
     }
-    private void storeTriggeredCmds(XMLfab fab){
-        if( triggered==null)
-            return;
-        for( var tc : triggered ){
-            switch (tc.type) {
-                case ALWAYS -> fab.addChild("cmd", tc.cmd);
-                case CHANGED -> fab.addChild("cmd", tc.cmd).attr("when", "changed");
-                case STDEV, COMP -> fab.addChild("cmd", tc.cmd).attr("when", tc.ori);
-            }
-        }
-    }
-    public String getID(){
-        if( group.isEmpty())
-            return name;
-        return group+"_"+name;
-    }
     /* ***************************************** U S I N G ********************************************************** */
-
-    /**
-     * Store the setup of this val in the settings.xml
-     * @param digger The digger to work with, with the rtvals node as root/parent
-     * @return True when
-     */
-    public boolean storeInXml( XMLdigger digger ){
-
-        if( digger.isValid() ){ // meaning there's a rtvals node
-            digger.goDown("group","id",group); // Try to go into the group node
-            if( digger.isValid() ){ // Group exists
-                digger.goDown("real","name",name); // Check for the int node
-                if( digger.isInvalid() ){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("real")
-                            .attr("name",name)
-                            .attr("unit",unit).build());
-                }
-            }else{ // No such group
-                var digFabOpt = XMLfab.alterDigger(digger);
-                if(digFabOpt.isPresent() ){
-                    var digFab = digFabOpt.get();
-                    digFab.selectOrAddChildAsParent("group","id",group);
-                    digFab.addChild("real").attr("name",name).attr("unit","");
-                    digFab.build();
-                }
-            }
-        }
-        return true;
-    }
-
     /**
      * Get a delimited string with all the used options
      * @return The options in a listing or empty if none are used
@@ -342,6 +302,7 @@ public class RealVal extends AbstractVal implements NumericVal{
      * @return Get the current value as a double
      */
     public double value(){ return value; }
+    public String stringValue(){ return ""+value;}
     public double value( String type ){
         return switch( type ){
             case "stdev", "stdv"-> getStdev();

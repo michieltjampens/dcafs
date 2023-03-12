@@ -12,7 +12,6 @@ import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import javax.activation.*;
@@ -1014,7 +1013,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			this.about=about;
 		}
 		public String getID(){
-			return bwr.getID();
+			return bwr.id();
 		}
 		public List<String> getBuffer(){
 			return bwr.getBuffer();

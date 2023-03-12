@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -47,37 +48,35 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         return new IntegerVal().group(group).name(name);
     }
 
-    public String getID(){
-        if( group.isEmpty())
-            return name;
-        return group+"_"+name;
-    }
     /* ********************************* Constructing ************************************************************ */
     /**
      * Create a new IntegerVal based on a rtval real node
      * @param rtval The node
      * @param group The group the node is found in
-     * @param defVal The global default real
      * @return The created node, still needs dQueue set
      */
-    public static IntegerVal build(Element rtval, String group, int defVal){
+    public static Optional<IntegerVal> build(Element rtval, String group){
         String name = XMLtools.getStringAttribute(rtval,"name","");
         name = XMLtools.getStringAttribute(rtval,"id",name);
-        if( name.isEmpty())
+
+        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
             name = rtval.getTextContent();
 
-        return IntegerVal.newVal(group,name).alter(rtval,defVal);
+        if( name.isEmpty()){
+            Logger.error("Tried to create a IntegerVal without name, group "+group);
+            return Optional.empty();
+        }
+        return Optional.of(IntegerVal.newVal(group,name).alter(rtval));
     }
 
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
-     * @param defInt The global default
      */
-    public IntegerVal alter( Element rtval,int defInt ){
+    public IntegerVal alter( Element rtval ){
         reset();
         unit(XMLtools.getStringAttribute(rtval, "unit", "")).
-                defValue( XMLtools.getIntAttribute(rtval, "default", defInt) ).
+                defValue( XMLtools.getIntAttribute(rtval, "default", defVal) ).
                 defValue( XMLtools.getIntAttribute(rtval, "default", defVal) );
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
@@ -155,7 +154,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         if( dQueue!=null && triggered!=null ) {
             double v = val;
             // Execute all the triggers, only if it's the first time
-            triggered.stream().forEach(tc -> tc.apply(v));
+            triggered.forEach(tc -> tc.apply(v));
         }
         value=val;
         if( targets!=null ){
@@ -168,12 +167,28 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public void updateValue( double val ) {
         value(((Double)val).intValue());
     }
-    public void parseValue( String val ){
-        var res = NumberUtils.toInt(val,Integer.MAX_VALUE);
-        if( res != Integer.MAX_VALUE){
+    public boolean parseValue( String val ){
+        // NumberUtils.createInteger can handle hex, but considers leading zero and not hex as octal
+        // So remove those leading zero's if not hex
+        if( val.startsWith("0") ){
+            if( val.length()>2){
+                if( val.charAt(1)!='x') {
+                    while( val.charAt(0)=='0' && val.length()>1)
+                        val = val.substring(1);
+                }
+            }
+        }
+        try {
+            var res = NumberUtils.createInteger(val.trim());
             value(res);
-        }else{
-            Logger.error(getID() + " -> Failed to parse "+val);
+            return true;
+        }catch( NumberFormatException e ){
+            if( defVal != Integer.MAX_VALUE ) {
+                value(defVal);
+                return true;
+            }
+            Logger.error(id() + " -> Failed to parse to int: "+val);
+            return false;
         }
     }
     /**
@@ -234,75 +249,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public boolean hasTriggeredCmds(){
         return triggered!=null&& !triggered.isEmpty();
     }
-    private void storeTriggeredCmds(XMLfab fab){
-        if( triggered==null)
-            return;
-        for( var tc : triggered ){
-            switch (tc.type) {
-                case ALWAYS -> fab.addChild("cmd", tc.cmd);
-                case CHANGED -> fab.addChild("cmd", tc.cmd).attr("when", "changed");
-                case STDEV, COMP -> fab.addChild("cmd", tc.cmd).attr("when", tc.ori);
-            }
-        }
-    }
     /* ***************************************** U S I N G ********************************************************** */
-    public boolean storeInXml(XMLdigger digger){
-        if( digger.isValid() ){ // meaning there's a rtvals node
-            digger.goDown("group","id",group); // Try to go into the group node
-            if( digger.isValid() ){ // Group exists
-                digger.goDown("int","name",name); // Check for the int node
-                if( digger.isInvalid() && digger.goDown("integer","name",name).isInvalid()){
-                    XMLfab.alterDigger(digger).ifPresent( x-> x.addChild("int")
-                            .attr("name",name)
-                            .attr("unit",unit).build());
-                }
-            }else{ // No such group
-                var digFabOpt = XMLfab.alterDigger(digger);
-                if(digFabOpt.isPresent() ){
-                    var digFab = digFabOpt.get();
-                    digFab.selectOrAddChildAsParent("group","id",group);
-                    digFab.addChild("int").attr("name",name).attr("unit","");
-                    digFab.build();
-                }
-            }
-        }
-        return true;
-    }
-    /**
-     * Store the setup of this val in the settings.xml
-     * @param fab The fab to work with, with the rtvals node as parent
-     * @return True when
-     */
-    public boolean storeInXml( XMLfab fab ){
-
-        fab.alterChild("group","id",group)
-                    .down(); // Go down in the group
-
-        fab.hasChild("integer","id",name).ifPresent( x -> {
-            x.removeAttr("id");
-            x.attr("name",name);
-        });
-        fab.hasChild("int","id",name).ifPresent( x -> {
-            x.removeAttr("id");
-            x.attr("name",name);
-        });
-
-        if( fab.hasChild("integer","name",name).isEmpty()
-                && fab.hasChild("int","name",name).isEmpty()) { // If this one isn't present
-            fab.addChild("integer").attr("name", name);
-        }else {
-            fab.alterChild("integer", "name", name);
-        }
-
-        fab.attr("unit",unit);
-
-        var opts = getOptions();
-        if( !opts.isEmpty())
-            fab.attr("options",opts);
-        storeTriggeredCmds(fab.down());
-        fab.build();
-        return true;
-    }
     /**
      * Get a ',' delimited string with all the used options
      * @return The options in a listing or empty if none are used
@@ -338,6 +285,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public double value() {
         return value;
     }
+    public String stringValue(){ return ""+value;}
     @Override
     public int intValue() {
         return value;

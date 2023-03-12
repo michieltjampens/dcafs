@@ -327,18 +327,6 @@ public class InfluxDB extends Database{
         Logger.error("Not supported for influxdb");
         return null;
     }
-
-    @Override
-    public boolean buildGenericFromTable(XMLfab fab, String tableName, String genID, String delim) {
-        Logger.error("Not supported for influxdb");
-        return false;
-    }
-
-    @Override
-    public int buildGenericsFromTables(XMLfab fab, boolean overwrite, String delim) {
-        Logger.error("Not supported for influxdb");
-        return 0;
-    }
     public String toString(){
         return "INFluxDB@"+ getTitle()+" -> Buffer managed by lib"+(pointBuffer.isEmpty()?".":" but "+pointBuffer.size()+" waiting for con...");
     }

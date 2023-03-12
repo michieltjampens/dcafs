@@ -10,10 +10,46 @@ Note: Version numbering: x.y.z
 - Resolve #34
 - back up path for sqlite db etc?
 
-## 1.0.10 (work in progress)
+## 2.0.0 (work in progress)
 
-## 1.0.9 (03/03/2023)
-Mainly fixes two bugs related to XML. Are part of the reason sometimes nodes get duplicated...
+This should probably be 2.0.0...
+
+Main changes:
+* Generics and rtvals overlapped to much, removed generics and store now handles both. 
+* Removed a lot of 'labels' that are now handled with store and hidden the rest from the user
+* Started changing commands to have the id first and the cmd secondary
+* Started using childnodes in favour of id -> src references 
+* Removed functionality that either wasn't used anyway or had multiple ways of doing
+  * filters,math,editors had their own node and cmd's outside of paths, this is no longer the case  
+
+The Getting started guid has been updated to use all these changes, making it about 10% shorter.
+
+### Labels
+- Changed default label to an empty string, so streams no longer pass it on to the labelworker. Because of store,
+there wasn't a use for it anymore.
+
+### StoreVal
+- Has a telnet interface through 'store:' commands. Differs from regular because this has the id
+  as the first argument instead of the cmd. This allows for use of `store:id,!!` for faster creation.
+- Support for int,real,text,flag and parsing happens inside this object
+- Is used for paths instead of generics
+  - Is stored inside the forwards and parsing happens there. 
+  - If a math, then parsed values are given instead of parsing again
+ 
+### StreamManager
+- StoreVals are part of the stream node and processing happens inside the capture thread instead of the global worker.
+
+### RealtimeValues
+- Text now has its own object. Shouldn't make any difference in usage, besides adding option for
+triggered commands.
+- rtvals by default now use the node content for the name instead of attribute, unless childnodes are added.
+But a rtvals node with name attribute and no childnodes will still be processed as before.
+
+### Telnet 
+
+- Added the `>>prefix` command, to toggle having telnet add the id of incoming data as prefix, default false.
+
+## 1.2.1 (work in progress)
 
 ### Fixes
 - FileCollector: trying to create an existing directory structure throws an exception that 
@@ -24,7 +60,9 @@ this as it's supposed to
 optional wasn't empty). This affects pretty much all Vals writing to xml
 - XMLdigger: The isInvalid check was copy paste of isValid, without being inverted...
 
-## 1.0.8 ( 23/02/2023 )
+## 1.2.0 ( 23/02/2023 )
+- 
+## 1.2.0 ( 23/02/2023 )
 Main addition is probably that you now get feedback on loading of taskmanager scripts. 
 Either when logging into telnet (issues during startup) or after reloading (as response to the command.
 
@@ -50,7 +88,7 @@ XML reading.
 - Fixed tm:add,tmid for some reason this year's old code suddenly stopped working
 - Fixed i2c raw streaming not stopping on a global clear request 
 
-## 1.0.7 (07/12/22)
+## 1.1.0 (07/12/22)
 
 ### SQLiteDB
 - Fix: The path to the sqlite with rollover is determined at startup and after rollover. Thus if

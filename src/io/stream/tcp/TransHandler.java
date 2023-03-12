@@ -53,7 +53,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 		return label;
 	}
 	public void addTarget( Writable wr){
-		targets.removeIf( w -> w.equals(wr) || w.getID().equalsIgnoreCase(wr.getID()));
+		targets.removeIf( w -> w.equals(wr) || w.id().equalsIgnoreCase(wr.id()));
 		targets.add(wr);
 	}
 	public void setEventLoopGroup(EventLoopGroup eventLoopGroup) {
@@ -87,7 +87,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 			channel.flush();
 
 			if( listener != null ) {
-				if(!listener.notifyActive(getID()))
+				if(!listener.notifyActive(id()))
 					channel.writeAndFlush("Hello?\r\n".getBytes());
 			}
 
@@ -99,11 +99,11 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 						channel.close();
 
 					if( listener != null ){
-						listener.notifyClosed(getID());
+						listener.notifyClosed(id());
 					}
 				});
         }else{
-    	    Logger.error( "Channel is null. (handler:"+getID()+")");
+    	    Logger.error( "Channel is null. (handler:"+ id()+")");
 		} 
 	}    
     @Override
@@ -125,7 +125,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 			String[] cmds = msg.split(":");
 			if (msg.startsWith("label:")) {
 				label = msg.substring(6);
-				msg="ts:alter,"+getID()+",label:"+label;
+				msg="ts:alter,"+ id()+",label:"+label;
 				writeLine("Altered label to "+label);
 				tempLabel="system";
 			}else if (msg.startsWith("id:")) {
@@ -136,9 +136,9 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 				// Somehow save to xml?
 				writeLine("Stored setup to xml (and no longer recording history)");
 				if( cmds.length==2){
-					msg = "ts:store," + getID()+","+cmds[1];
+					msg = "ts:store," + id()+","+cmds[1];
 				}else{
-					msg = "ts:store," + getID();
+					msg = "ts:store," + id();
 				}
 				tempLabel="system";
 				keepHistory=false;
@@ -225,6 +225,9 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
         channel.writeAndFlush((data+eol).getBytes());
         return true;
     }
+	public boolean writeLine(String origin, String data) {
+		return writeLine(data);
+	}
 	/**
 	 * Write the given binary data
 	 * @param data The data to write
@@ -283,7 +286,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 		data.forEach( this::addHistory );
 	}
 	@Override
-	public String getID() {
+	public String id() {
 		if( id.isEmpty() ){
 			return remote.getHostName();
 		}

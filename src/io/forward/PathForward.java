@@ -6,6 +6,7 @@ import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
+import util.data.ValStore;
 import util.data.ValTools;
 import util.database.SQLiteDB;
 import util.tools.FileTools;
@@ -49,10 +50,7 @@ public class PathForward {
         this.dQueue=dQueue;
         this.nettyGroup=nettyGroup;
     }
-    public void setWorkPath( Path wp ){
-        workPath=wp;
-    }
-    public String getID(){
+    public String id(){
         return id;
     }
     public PathForward src( String src){
@@ -67,17 +65,19 @@ public class PathForward {
     }
     public String readFromXML( Element pathEle, Path workpath ){
 
+        // Reset things
         var oldTargets = new ArrayList<>(targets);
         targets.clear();
+        clearStores();
 
         this.workPath=workpath;
 
         // if any future is active, stop it
         customs.forEach(CustomSrc::stop);
 
-        if( stepsForward!=null) {// If this is a reload, reset the steps
+        if( stepsForward!=null && !stepsForward.isEmpty()) {// If this is a reload, reset the steps
             dQueue.add(Datagram.system("nothing").writable(stepsForward.get(0))); // stop asking for data
-            lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets()));
+            lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
         }
 
@@ -123,11 +123,10 @@ public class PathForward {
 
         FilterForward lastff=null;
         boolean hasLabel=false;
-        int gens=1;
         int vals=1;
         for( int a=0;a<steps.size();a++  ){
             Element step = steps.get(a);
-
+            ValStore store=null;
             if(step.getTagName().equalsIgnoreCase("customsrc")){
                 addCustomSrc( step.getTextContent(),
                               XMLtools.getStringAttribute(step,"interval","1s"),
@@ -141,11 +140,10 @@ public class PathForward {
                 var next = steps.get(a+1);
                 if(next.getTagName().equalsIgnoreCase("generic")
                         ||next.getTagName().equalsIgnoreCase("store")){// Next element is a generic
-                    if( !step.hasAttribute("label")) { // If this step doesn't have a label
-                        var genid = next.getAttribute("id"); // get the id of the generic
-                        genid = genid.isEmpty()?id+"_gen"+gens:genid; // If no id is given, take the path id and append gen
-                        gens++; // increase the total gen count
-                        step.setAttribute("label", "generic:" + genid); //alter this step label to the gen
+                    var storeOpt = ValStore.build(next,id);
+                    if( storeOpt.isPresent()) {
+                        store = storeOpt.get();
+                        store.shareRealtimeValues(rtvals);
                     }
                 }
                 if(next.getTagName().equalsIgnoreCase("valmap")){
@@ -160,7 +158,7 @@ public class PathForward {
             if( step.hasAttribute("label"))
                 hasLabel=true;
 
-            boolean lastGenMap = false;
+            boolean lastGenMap = false; // Used to determine end of 'filter' and start of '!filter'
             if( !stepsForward.isEmpty() ) {
                 var prev = steps.get(a - 1);
                 lastGenMap = prev.getTagName().equalsIgnoreCase("generic")
@@ -176,8 +174,8 @@ public class PathForward {
                 step.setAttribute("id",id+"_"+stepsForward.size());
 
             var src = XMLtools.getStringAttribute(step,"src","");
-            if( stepsForward.isEmpty() && !src.isEmpty())
-                step.setAttribute("src","");
+            if( stepsForward.isEmpty() && src.isEmpty())
+                step.setAttribute("src",this.src);
 
             switch (step.getTagName()) {
                 case "filter" -> {
@@ -186,9 +184,9 @@ public class PathForward {
                         addAsTarget(ff, src);
                     } else if (lastff != null && (!(lastStep().isPresent()&&lastStep().get() instanceof FilterForward) || lastGenMap)) {
                         lastff.addReverseTarget(ff);
-                    } else {
-                        addAsTarget(ff, src);
                     }
+                    if( store!=null)
+                        ff.setStore(store);
                     lastff = ff;
                     stepsForward.add(ff);
                 }
@@ -202,6 +200,8 @@ public class PathForward {
                     }else{
                         addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastGenMap));
                     }
+                    if( store!=null)
+                        mf.setStore(store);
                     stepsForward.add(mf);
                 }
                 case "editor" -> {
@@ -219,6 +219,8 @@ public class PathForward {
                     }else{
                         addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastGenMap));
                     }
+                    if( store!=null)
+                        ef.setStore(store);
                     stepsForward.add(ef);
                 }
             }
@@ -245,6 +247,10 @@ public class PathForward {
         error="";
         return "";
     }
+    public void clearStores(){
+        if( stepsForward!=null)
+            stepsForward.forEach( x -> x.clearStore(rtvals));
+    }
     public boolean isValid(){
         return valid;
     }
@@ -265,7 +271,11 @@ public class PathForward {
                 }
             }
         }else if( !stepsForward.isEmpty() && notReversed) {
-            lastStep().ifPresent( ls -> ls.addTarget(f));
+            if( lastStep().isPresent() ){
+                var ls = lastStep().get();
+                ls.addTarget(f);
+                f.addSource(ls.id());
+            }
         }
     }
     public String debugStep( String step, Writable wr ){
@@ -336,7 +346,7 @@ public class PathForward {
                 join.add("|-> " + abstractForward.toString()).add("");
             }
             if( !stepsForward.isEmpty() )
-                join.add( "=> gives the data from "+stepsForward.get(stepsForward.size()-1).getID() );
+                join.add( "=> gives the data from "+stepsForward.get(stepsForward.size()-1).id() );
         }
         return join.toString();
     }
@@ -351,9 +361,20 @@ public class PathForward {
             if (!targets.contains(wr))
                 targets.add(wr);
         }else{
-            if (!targets.contains(stepsForward.get(0)))
-                targets.add(stepsForward.get(0));
-            stepsForward.get(stepsForward.size()-1).addTarget(wr);
+            // Go through the steps and make the connections?
+            for( int a=stepsForward.size()-1;a>0;a--){
+                var step = stepsForward.get(a);
+                for( var sib : stepsForward ){
+                    if( sib.id().equalsIgnoreCase(step.getSrc())) {
+                        sib.addTarget(step);
+                        break;
+                    }
+                }
+            }
+            // The path can receive the data but this isn't given to first step unless there's a request for the data
+            if (!targets.contains(stepsForward.get(0))) // Check if the first step is a target, if not
+                targets.add(stepsForward.get(0)); // add it
+            stepsForward.get(stepsForward.size()-1).addTarget(wr); // Asking the path data is actually asking the last step
         }
 
         if( targets.size()==1 ){
@@ -457,18 +478,17 @@ public class PathForward {
             if( targets.isEmpty() )
                 stop();
 
-            switch( srcType){
-                case CMD:
-                    targets.forEach(t->dQueue.add( Datagram.build(pathOrData).label("system").writable(t).toggleSilent())); break;
-                case RTVALS:
-                    var write = ValTools.parseRTline(pathOrData,"-999",rtvals);
-                    targets.forEach( x -> x.writeLine(write));
-                    break;
-                default:
-                case PLAIN: targets.forEach( x -> x.writeLine(pathOrData)); break;
-                case SQLITE:
-                    if( buffer.isEmpty() ) {
-                        if( readOnce ) {
+            switch (srcType) {
+                case CMD ->
+                        targets.forEach(t -> dQueue.add(Datagram.build(pathOrData).label("system").writable(t).toggleSilent()));
+                case RTVALS -> {
+                    var write = ValTools.parseRTline(pathOrData, "-999", rtvals);
+                    targets.forEach(x -> x.writeLine(write));
+                }
+                case PLAIN -> targets.forEach(x -> x.writeLine(pathOrData));
+                case SQLITE -> {
+                    if (buffer.isEmpty()) {
+                        if (readOnce) {
                             stop();
                             return;
                         }
@@ -477,64 +497,64 @@ public class PathForward {
                         lite.disconnect(); //disconnect the database after retrieving the data
                         if (dataOpt.isPresent()) {
                             var data = dataOpt.get();
-                            readOnce=true;
-                            for( var d : data ){
+                            readOnce = true;
+                            for (var d : data) {
                                 StringJoiner join = new StringJoiner(";");
                                 d.stream().map(Object::toString).forEach(join::add);
                                 buffer.add(join.toString());
                             }
                         }
-                    }else{
+                    } else {
                         String line = buffer.remove(0);
-                        targets.forEach( wr-> wr.writeLine(line));
+                        targets.forEach(wr -> wr.writeLine(line));
                     }
-                    break;
-                case FILE:
+                }
+                case FILE -> {
                     try {
-                        for( int a=0;a<multiLine;a++){
+                        for (int a = 0; a < multiLine; a++) {
                             if (buffer.isEmpty()) {
-                                if( files.isEmpty()){
+                                if (files.isEmpty()) {
                                     future.cancel(true);
-                                    dQueue.add( Datagram.system("telnet:broadcast,info,"+id+" finished."));
+                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished."));
                                     return;
                                 }
-                                if( SKIPLINES==0 ) {
-                                    buffer.addAll( FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
-                                }else{
-                                    if( !readOnce )
-                                        buffer.addAll( FileTools.readSubsetLines( files.get(0),10,SKIPLINES));
-                                    readOnce=true;
+                                if (SKIPLINES == 0) {
+                                    buffer.addAll(FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
+                                } else {
+                                    if (!readOnce)
+                                        buffer.addAll(FileTools.readSubsetLines(files.get(0), 10, SKIPLINES));
+                                    readOnce = true;
                                 }
                                 lineCount += buffer.size();
-                                if( buffer.size() < READ_BUFFER_SIZE ){
-                                    dQueue.add( Datagram.system("telnet:broadcast,info,"+id+" processed "+files.get(0)));
-                                    Logger.info("Finished processing "+files.get(0));
+                                if (buffer.size() < READ_BUFFER_SIZE) {
+                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)));
+                                    Logger.info("Finished processing " + files.get(0));
                                     files.remove(0);
                                     lineCount = 1;
-                                    if( buffer.isEmpty()) {
+                                    if (buffer.isEmpty()) {
                                         if (!files.isEmpty()) {
-                                            Logger.info("Started processing "+files.get(0));
+                                            Logger.info("Started processing " + files.get(0));
                                             buffer.addAll(FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
                                             lineCount += buffer.size();
-                                        }else{
+                                        } else {
                                             future.cancel(true);
-                                            dQueue.add( Datagram.system("telnet:broadcast,info,"+id+" finished."));
+                                            dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished."));
                                             return;
                                         }
                                     }
                                 }
                             }
                             String line = buffer.remove(0);
-                            targets.forEach( wr-> wr.writeLine(line));
-                            if( !label.isEmpty()){
-                                dQueue.add( Datagram.build(line).label(label));
+                            targets.forEach(wr -> wr.writeLine(line));
+                            if (!label.isEmpty()) {
+                                dQueue.add(Datagram.build(line).label(label));
                             }
                             sendLines++;
                         }
-                    }catch(Exception e){
+                    } catch (Exception e) {
                         Logger.error(e);
                     }
-                    break;
+                }
             }
         }
         public String toString(){

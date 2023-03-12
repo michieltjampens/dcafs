@@ -95,6 +95,13 @@ public class XMLdigger {
         peek=eleOpt.orElse(null);
         return this;
     }
+    public XMLdigger peekAtContent( String tag, String content ){
+        peeked=true;
+        var eleOpt = XMLtools.getChildElements(last==null?root:last, tag).stream().filter(x ->
+                x.getTextContent().equalsIgnoreCase(content)).findFirst();
+        peek=eleOpt.orElse(null);
+        return this;
+    }
     public XMLdigger goUp(){
         last = root;
         peeked=false;
@@ -156,6 +163,24 @@ public class XMLdigger {
 
         last = siblings.remove(0);
         return true;
+    }
+    public XMLdigger toLastSibling(){
+        if( !siblings.isEmpty() ) {
+            last = siblings.get(siblings.size() - 1);
+        }else{
+            invalidate();
+        }
+        return this;
+    }
+    public XMLdigger toSibling( int index){
+        if( index == -1 )
+            index = siblings.size()-1;
+        if( !siblings.isEmpty() && index < siblings.size() ) {
+            last = siblings.get(index);
+        }else{
+            invalidate();
+        }
+        return this;
     }
     /**
      * Get all the other elements at the same 'level' as the current one, keeping them or removing them from the digger

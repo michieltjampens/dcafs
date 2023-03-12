@@ -5,12 +5,12 @@ import io.collector.CollectorPool;
 import io.email.Email;
 import io.email.EmailSending;
 import io.email.EmailWorker;
+import io.forward.PathPool;
 import io.hardware.gpio.InterruptPins;
 import io.hardware.i2c.I2CWorker;
 import io.matrix.MatrixClient;
 import io.mqtt.MqttPool;
 import io.stream.StreamManager;
-import io.forward.ForwardPool;
 import util.gis.Waypoints;
 import util.tools.FileMonitor;
 import io.stream.tcp.TcpServer;
@@ -42,7 +42,7 @@ import java.util.concurrent.*;
 
 public class DAS implements Commandable{
 
-    private static final String version = "1.0.10";
+    private static final String version = "2.0.0";
 
     private final Path settingsPath;
     private String workPath;
@@ -125,7 +125,7 @@ public class DAS implements Commandable{
         var docOpt = XMLtools.readXML(settingsPath);
 
         if( docOpt.isEmpty()){
-            Logger.error("Issue in current settings.xml, aborting: " + settingsPath.toString());
+            Logger.error("Issue in current settings.xml, aborting: " + settingsPath);
             addTelnetServer();
             return;
         }
@@ -146,7 +146,6 @@ public class DAS implements Commandable{
 
         /* RealtimeValues */
         rtvals = new RealtimeValues( settingsPath, dQueue );
-        rtvals.setText("dcafs_version",version);
 
         /* Database manager */
         dbManager = new DatabaseManager(workPath,rtvals);
@@ -185,12 +184,12 @@ public class DAS implements Commandable{
         addI2CWorker();
 
         /* Forwards */
-        ForwardPool forwardPool = new ForwardPool(dQueue, settingsPath, rtvals, nettyGroup);
-        addCommandable(forwardPool,"filter","ff","filters");
-        addCommandable(forwardPool,"math","mf","maths");
-        addCommandable(forwardPool,"editor","ef","editors");
-        addCommandable(forwardPool,"paths","path","pf","paths");
-        addCommandable(forwardPool, "");
+        PathPool pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup);
+        addCommandable(pathPool,"filter","ff","filters");
+        addCommandable(pathPool,"math","mf","maths");
+        addCommandable(pathPool,"editor","ef","editors");
+        addCommandable(pathPool,"paths","path","pf","paths");
+        addCommandable(pathPool, "");
 
         /* Waypoints */
         waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
@@ -312,9 +311,9 @@ public class DAS implements Commandable{
     private void addStreamPool() {
 
         streampool = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
-        addCommandable(streampool,"ss","streams","");
+        addCommandable(streampool,"ss","streams");
         addCommandable(streampool,"s_","h_");
-        addCommandable(streampool,"rios","raw","stream","store");
+        addCommandable(streampool,"rios","raw","stream");
         addCommandable(streampool,"");
 
         if (debug) {
@@ -337,12 +336,9 @@ public class DAS implements Commandable{
      */
     private void addLabelWorker() {
         if (this.labelWorker == null)
-            labelWorker = new LabelWorker(settingsPath,dQueue,rtvals,dbManager);
+            labelWorker = new LabelWorker(settingsPath,dQueue,rtvals);
         labelWorker.setCommandReq(commandPool);
         labelWorker.setDebugging(debug);
-        labelWorker.setMqttWriter(mqttPool);
-
-        addCommandable(labelWorker,"gens");
     }
     public void addDatagramProcessor( DatagramProcessing rtvals ){
         labelWorker.addDatagramProcessing(rtvals);
