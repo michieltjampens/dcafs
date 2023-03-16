@@ -12,9 +12,9 @@ Note: Version numbering: x.y.z
 
 ## 2.0.0 (work in progress)
 
-This should probably be 2.0.0...
+This should still be fairly backwards compatible, but to much changes to api to stay on 1.x.y.  
 
-Main changes:
+**Main changes:**
 * Generics and rtvals overlapped to much, removed generics and store now handles both. 
 * Removed a lot of 'labels' that are now handled with store and hidden the rest from the user
 * Started changing commands to have the id first and the cmd secondary
@@ -48,6 +48,8 @@ But a rtvals node with name attribute and no childnodes will still be processed 
 ### Telnet 
 
 - Added the `>>prefix` command, to toggle having telnet add the id of incoming data as prefix, default false.
+- Changed it so errors/warnings returned are in orange (with a ! in front), just so it stands out
+more if something went wrong
 
 ## 1.2.1 (work in progress)
 
