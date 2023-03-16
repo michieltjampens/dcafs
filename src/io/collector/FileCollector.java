@@ -528,21 +528,19 @@ public class FileCollector extends AbstractCollector{
     }
     /**
      * Update the filename of the database currently used
-     * @return True if successful or not needed (if no rollover)
      */
-    public boolean updateFileName(LocalDateTime ldt){
+    public void updateFileName(LocalDateTime ldt){
         if( format==null)
-            return true;
+            return;
         try{
             if( ldt!=null ){
                 currentForm = ldt.format(format);
             }
         }catch( java.time.temporal.UnsupportedTemporalTypeException f ){
             Logger.error( id() + " -> Format given is unsupported! Database creation cancelled.");
-            return false;
+            return;
         }
         Logger.info("Updated filename after rollover to "+getPath());
-        return true;
     }
     private class DoRollOver implements Runnable {
         boolean renew;
