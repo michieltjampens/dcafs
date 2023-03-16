@@ -438,8 +438,10 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 		String[] cmds = request[1].split(",");
 
+		String cyan = html?"":TelnetCodes.TEXT_CYAN;
 		String green=html?"":TelnetCodes.TEXT_GREEN;
-		String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+		String reg=html?"":TelnetCodes.TEXT_BRIGHT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+		var or = html?"":TelnetCodes.TEXT_ORANGE;
 
 		switch(cmds[0]){
 			case "?":
@@ -461,7 +463,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			case "setup":case "status": return getSettings();
 			case "send":
 				if( cmds.length !=4 )
-					return "Not enough arguments send,ref/email,subject,content";
+					return "! Not enough arguments send,ref/email,subject,content";
 
 				// Check if the subject contains time request
 				cmds[2]=cmds[2].replace("{localtime}", TimeTools.formatNow("HH:mm"));
@@ -478,15 +480,15 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 					this.checkIntervalSeconds = (int)TimeTools.parsePeriodStringToSeconds(cmds[1]);
 					return "Interval changed to "+this.checkIntervalSeconds+" seconds (todo:save to settings.xml)";
 				}else{
-					return "Invalid number of parameters";
+					return "! Invalid number of parameters";
 				}
 			case "addallow":case "adddeny":
 				if( cmds.length <3 ){
-					return "Not enough arguments email:"+cmds[0]+",from,cmd(,isRegex)";
+					return "! Not enough arguments email:"+cmds[0]+",from,cmd(,isRegex)";
 				}
 				boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
 				permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
-				return writePermits()?"Permit added":"Failed to write to xml";
+				return writePermits()?"Permit added":"! Failed to write to xml";
 			default	:
 				return "unknown command";
 		}
