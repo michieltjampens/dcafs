@@ -252,8 +252,8 @@ public class CommandPool {
 		}else{
 			Logger.debug("Hidden response to " + question + ": " + result);
 		}
-		if( !html && wr!=null && wr.id().startsWith("telnet")&& result.startsWith("!"))
-			result = TelnetCodes.TEXT_ORANGE+result+TelnetCodes.TEXT_BRIGHT_YELLOW;
+		if( !html && wr!=null && wr.id().startsWith("telnet") )
+			result = result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN+result+TelnetCodes.TEXT_BRIGHT_YELLOW;
 
 		if( result.equalsIgnoreCase(UNKNOWN_CMD))
 			return result+" >>"+question+"|"+find+"|"+split[0]+"|"+split[1]+"<<";
