@@ -36,7 +36,11 @@ public class FileMonitor implements Commandable {
      * @return True if read properly
      */
     public boolean readFromXML( ){
-        var base = XMLtools.readXML(root.resolve("settings.xml")).get();
+
+        var baseOpt = XMLtools.readXML(root.resolve("settings.xml"));
+        if( baseOpt.isEmpty())
+            return false;
+        var base = baseOpt.get();
         var ele = XMLtools.getAllElementsByTag(base,"monitor");
         if( ele.length==0)
             return false;
@@ -87,6 +91,7 @@ public class FileMonitor implements Commandable {
             service.take();
             for (var event : wk.pollEvents()) {
                 WatchEvent.Kind<?> kind = event.kind();
+                @SuppressWarnings("unchecked")
                 WatchEvent<Path> ev = (WatchEvent<Path>) event;
 
                 String fileName = ev.context().toString();
@@ -96,7 +101,7 @@ public class FileMonitor implements Commandable {
                         Logger.info("File created: "+fileName);
                         var lines = new ArrayList<String>();
                         FileTools.readTxtFile(lines,mon.file.resolve(fileName));
-                        lines.forEach(line->mon.sendLine(line));
+                        lines.forEach(mon::sendLine);
                     }
                 }else if( kind == ENTRY_MODIFY && fileName.equals(mon.getFilename()) ){
                     if( mon.hasCmd() ) {
@@ -150,8 +155,6 @@ public class FileMonitor implements Commandable {
                 return "No such filemonitor";
             list.forEach( fm -> fm.addTarget(wr));
             return "Target added";
-        }else{
-
         }
         return null;
     }
@@ -172,7 +175,7 @@ public class FileMonitor implements Commandable {
         private String cmd="";
         private long position=-1;
         private boolean issue=false;
-        private ArrayList<Writable> targets=new ArrayList<>();
+        private final ArrayList<Writable> targets=new ArrayList<>();
 
         public ReactionInfo(String id,Path file, Function<String, Integer> action, boolean alteration) throws IOException {
             this.id=id;
@@ -194,12 +197,10 @@ public class FileMonitor implements Commandable {
         public void addTarget(Writable wr){
             targets.add(wr);
         }
-        public boolean updatePosition() throws IOException{
+        public void updatePosition() throws IOException{
             if( position==-1)
-                return false;
-            long old=position;
+                return;
             position = Files.size(file);
-            return old!=position;
         }
         public WatchKey register( WatchService ws ) throws IOException {
             if( isFolder()){
@@ -219,11 +220,10 @@ public class FileMonitor implements Commandable {
             targets.forEach(wr->wr.writeLine(rec));
             return action.apply(rec);
         }
-        public boolean sendLine(String line){
+        public void sendLine(String line){
             if( targets.isEmpty())
-                return false;
+                return;
             targets.forEach(wr->wr.writeLine(line));
-            return true;
         }
         public int handleNoRead(){
             return action.apply("");
