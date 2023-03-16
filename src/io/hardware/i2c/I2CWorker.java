@@ -340,21 +340,21 @@ public class I2CWorker implements Commandable {
                     var cmd = coms.get(a);
                     byte[] toWrite = cmd.write;
 
-                    switch( cmd.type ){ // Type of subcommand
-                        case READ:
+                    switch (cmd.type) { // Type of subcommand
+                        case READ -> {
                             byte[] b;
                             try {
                                 int rd = cmd.readCount;
-                                if( rd < 1 ){
+                                if (rd < 1) {
                                     rd *= -1; // index is stored as a negative number
-                                    if( rd < result.size()) {
+                                    if (rd < result.size()) {
                                         rd = result.get(rd).intValue();
-                                    }else{
-                                        Logger.warn("Used invalid index of "+rd+" because result size "+result.size());
+                                    } else {
+                                        Logger.warn("Used invalid index of " + rd + " because result size " + result.size());
                                         break;
                                     }
                                 }
-                                while( rd > 0 ) {
+                                while (rd > 0) {
                                     if (toWrite.length == 1) {
                                         // after writing the first byte, read readCount bytes and put in readBuffer
                                         b = new byte[Math.min(rd, 32)];
@@ -364,87 +364,77 @@ public class I2CWorker implements Commandable {
                                             device.writeBytes(toWrite); // write all the bytes in the array
                                         b = device.readBytes(Math.min(rd, 32));
                                     }
-                                    if( debug ){
-                                        Logger.info( "Read: "+Tools.fromBytesToHexString(b));
+                                    if (debug) {
+                                        Logger.info("Read: " + Tools.fromBytesToHexString(b));
                                     }
-                                    rd-=b.length;
-                                    convertBytesToInt(b,cmd.bits,cmd.isMsbFirst(),cmd.isSigned()).forEach(
-                                            x -> result.add(Tools.roundDouble((double)x,0)) );
+                                    rd -= b.length;
+                                    convertBytesToInt(b, cmd.bits, cmd.isMsbFirst(), cmd.isSigned()).forEach(
+                                            x -> result.add(Tools.roundDouble((double) x, 0)));
                                 }
-                            }catch( RuntimeIOException e ){
-                                Logger.error("Error trying to read from "+device.getAddr()+": "+e.getMessage());
+                            } catch (RuntimeIOException e) {
+                                Logger.error("Error trying to read from " + device.getAddr() + ": " + e.getMessage());
                                 continue;
                             }
-
-                            break;
-                        case WRITE:
-                            device.writeBytes( toWrite ) ;
-                            break;
-                        case ALTER_OR: // Read the register, alter it and write it again
+                        }
+                        case WRITE -> device.writeBytes(toWrite);
+                        case ALTER_OR -> { // Read the register, alter it and write it again
                             device.writeBytes(toWrite[0]);
                             toWrite[1] |= device.readByte();
                             device.writeBytes(toWrite);
-                            break;
-                        case ALTER_AND:
+                        }
+                        case ALTER_AND -> {
                             device.writeByte(toWrite[0]);
                             toWrite[1] &= device.readByte();
                             device.writeBytes(toWrite);
-                            break;
-                        case ALTER_NOT:
+                        }
+                        case ALTER_NOT -> {
                             device.writeByte(toWrite[0]);
                             toWrite[1] = device.readByte();
                             toWrite[1] ^= 0xFF;
                             device.writeBytes(toWrite);
-                            break;
-                        case ALTER_XOR:
+                        }
+                        case ALTER_XOR -> {
                             device.writeByte(toWrite[0]);
                             toWrite[1] ^= device.readByte();
                             device.writeBytes(toWrite);
-                            break;
-                        case WAIT:
+                        }
+                        case WAIT -> {
                             try {
                                 TimeUnit.MILLISECONDS.sleep(cmd.readCount);
                             } catch (InterruptedException e) {
                                 Logger.error(e);
                             }
-                            break;
-                        case WAIT_ACK: // Wait for an ack to be received up to x attempts
-                            boolean ok=false;
+                        }
+                        case WAIT_ACK -> { // Wait for an ack to be received up to x attempts
+                            boolean ok = false;
                             double tries;
                             int max = Tools.toUnsigned(toWrite[0]);
-                            Logger.info("Max attempts for ACK: "+max);
-                            for( tries=1;tries<max&&!ok;tries+=1)
-                                ok=device.probe(I2CDevice.ProbeMode.AUTO);
-
-                            if(ok){
-                                Logger.info("Wait ack ok after "+tries+" attempts of "+max);
+                            Logger.info("Max attempts for ACK: " + max);
+                            for (tries = 1; tries < max && !ok; tries += 1)
+                                ok = device.probe(I2CDevice.ProbeMode.AUTO);
+                            if (ok) {
+                                Logger.info("Wait ack ok after " + tries + " attempts of " + max);
                                 result.add(tries);
-                            }else{
+                            } else {
                                 result.add(0.0);
-                                Logger.info("Wait ack failed after "+tries+" attempts of "+max);
+                                Logger.info("Wait ack failed after " + tries + " attempts of " + max);
                                 return result;
                             }
-                            break;
-                        case MATH:
-                            result.set( cmd.index,cmd.fab.solveFor(result.toArray( new Double[0] )));
-                            break;
-                        case DISCARD:
-                            while( result.size() > cmd.readCount) {
+                        }
+                        case MATH -> result.set(cmd.index, cmd.fab.solveFor(result.toArray(new Double[0])));
+                        case DISCARD -> {
+                            while (result.size() > cmd.readCount) {
                                 result.remove(cmd.readCount);
                             }
-                            break;
-                        case REPEAT:
-                            repeat = cmd.readCount;
-                            break;
-                        case RETURN:
-                            if( repeat > 0){
-                                a=cmd.readCount;
-                                repeat --;
+                        }
+                        case REPEAT -> repeat = cmd.readCount;
+                        case RETURN -> {
+                            if (repeat > 0) {
+                                a = cmd.readCount;
+                                repeat--;
                             }
-                            break;
-                        default:
-                            Logger.error("Somehow managed to use an none existing type: "+cmd.type);
-                            break;
+                        }
+                        default -> Logger.error("Somehow managed to use an none existing type: " + cmd.type);
                     }
                 }
             if( result.size() != com.getTotalIntReturn())
@@ -494,117 +484,130 @@ public class I2CWorker implements Commandable {
     }
     @Override
     public String replyToCommand(String[] request, Writable wr, boolean html) {
-            String[] cmd = request[1].split(",");
-            String gr = html?"":TelnetCodes.TEXT_GREEN;
-            String cyan = html?"":TelnetCodes.TEXT_CYAN;
-            String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+        String[] cmd = request[1].split(",");
+        String cyan = html?"":TelnetCodes.TEXT_CYAN;
+        String gr=html?"":TelnetCodes.TEXT_GREEN;
+        String reg=html?"":TelnetCodes.TEXT_BRIGHT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+        var or = html?"":TelnetCodes.TEXT_ORANGE;
 
-            switch( cmd[0] ){
-                case "?":
-                    StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
-                    join.add( cyan+"Create/load devices/scripts"+reg)
-                                .add(gr+"  i2c:detect,bus"+reg+" -> Detect the devices connected on the given bus")
-                                .add(gr+"  i2c:adddevice,id,bus,address,script"+reg+" -> Add a device on bus at hex address that uses script")
-                                .add(gr+"  i2c:addblank,scriptname"+reg+" -> Adds a blank i2c script to the default folder")
-                                .add(gr+"  i2c:reload"+reg+" -> Reload the commandset file(s)")
-                            .add("").add( cyan+" Get info"+reg)
-                                .add(gr+"  i2c:list"+reg+" -> List all registered devices with commandsets")
-                                .add(gr+"  i2c:listeners"+reg+" -> List all the devices with their listeners")
-                            .add("").add( cyan+" Other"+reg)
-                                .add(gr+"  i2c:debug,on/off"+reg+" -> Enable or disable extra debug feedback in logs")
-                                .add(gr+"  i2c:device,commandset"+reg+" -> Use the given command on the device")
-                                .add(gr+"  i2c:id"+reg+" -> Request the data received from the given id (can be regex)");
-                    return join.toString();
-                case "list": return getDeviceList(true);
-                case "reload": return reloadSets();
-                case "listeners": return getListeners();
-                case "debug":
-                    if( cmd.length == 2){
-                        if( setDebug(cmd[1].equalsIgnoreCase("on")) )
-                            return "Debug"+cmd[1];
-                        return "Failed to set debug, maybe no i2cworker yet?";
-                    }else{
-                        return "Incorrect number of variables: i2c:debug,on/off";
-                    }
-                case "addblank":
-                    if( cmd.length != 2)
-                        return "Incorrect number of variables: i2c:addblank,scriptname";
-                    if( !Files.isDirectory(scriptsPath)) {
-                        try {
-                            Files.createDirectories(scriptsPath);
-                        }catch( IOException e){
-                            Logger.error(e);
-                        }
-                    }
-                    XMLfab.withRoot(scriptsPath.resolve(cmd[1]+".xml"),"commandset").attr("script",cmd[1])
-                            .addParentToRoot("command","An empty command to start with")
-                            .attr("id","cmdname").attr("info","what this does")
-                            .build();
-                    return "Blank added";
-                case "adddevice":
-                    if( cmd.length != 5)
-                        return "Incorrect number of variables: i2c:adddevice,id,bus,hexaddress,script";
-                    if( !Files.isDirectory(scriptsPath)) {
-                        try {
-                            Files.createDirectories(scriptsPath);
-                        }catch( IOException e){
-                            Logger.error(e);
-                        }
-                    }
-                    var opt =  addDevice(cmd[1],cmd[4],"void", NumberUtils.toInt(cmd[2]),Tools.parseInt(cmd[3],-1));
-                    if( opt.isEmpty())
-                        return "Probing "+cmd[3]+" on bus "+cmd[2]+" failed";
-                    opt.ifPresent( d -> d.storeInXml( XMLfab.withRoot(settingsPath,"dcafs","settings").digRoot("i2c")));
-
-                    // Check if the script already exists, if not build it
-                    var p = scriptsPath.resolve(cmd[4]+".xml");
-                    if( !Files.exists(p)){
-                        XMLfab.withRoot(p,"commandset").attr("script",cmd[4])
-                                .addParentToRoot("command","An empty command to start with")
-                                .attr("id","cmdname").attr("info","what this does")
-                                .build();
-                        readFromXML();
-                        return "Device added, created blank script at "+p;
-                    }else{
-                        return "Device added, using existing script";
-                    }
-                case "detect":
-                    if( cmd.length == 2){
-                        return I2CWorker.detectI2Cdevices( Integer.parseInt(cmd[1]) );
-                    }else{
-                        return "Incorrect number of variables: i2c:detect,bus";
-                    }
-                default:
-                    if( cmd.length!=2) {
-                        StringBuilder oks= new StringBuilder();
-                        for( var dev : devices.entrySet()){
-                            if( dev.getKey().matches(cmd[0])){
-                                dev.getValue().addTarget(wr);
-                                if(oks.length() > 0)
-                                    oks.append(", ");
-                                oks.append(dev.getKey());
-                            }
-                        }
-                        if(oks.length() > 0) {
-                            return "Request for i2c:"+cmd[0]+" accepted for "+oks;
-                        }else{
-                            Logger.error("No matches for i2c:"+cmd[0]+" requested by "+wr.id());
-                            return "No matches for i2c:"+cmd[0];
-                        }
-                    }
-                    if( wr!=null && wr.id().equalsIgnoreCase("telnet") ){
-                        if( cmd[0].isEmpty() ){
-                            removeWritable(wr);
-                        }else {
-                            addTarget(cmd[0], wr);
-                        }
-                    }
-                    if( addWork(cmd[0], cmd[1]) ){
-                        return "Command added to the queue.";
-                    }else{
-                        return "Failed to add command to the queue, probably wrong device or command";
-                    }
+        switch (cmd[0]) {
+            case "?" -> {
+                StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
+                join.add(cyan + "Create/load devices/scripts" + reg)
+                        .add(gr + "  i2c:detect,bus" + reg + " -> Detect the devices connected on the given bus")
+                        .add(gr + "  i2c:adddevice,id,bus,address,script" + reg + " -> Add a device on bus at hex address that uses script")
+                        .add(gr + "  i2c:addblank,scriptname" + reg + " -> Adds a blank i2c script to the default folder")
+                        .add(gr + "  i2c:reload" + reg + " -> Reload the commandset file(s)")
+                        .add("").add(cyan + " Get info" + reg)
+                        .add(gr + "  i2c:list" + reg + " -> List all registered devices with commandsets")
+                        .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
+                        .add("").add(cyan + " Other" + reg)
+                        .add(gr + "  i2c:debug,on/off" + reg + " -> Enable or disable extra debug feedback in logs")
+                        .add(gr + "  i2c:device,commandset" + reg + " -> Use the given command on the device")
+                        .add(gr + "  i2c:id" + reg + " -> Request the data received from the given id (can be regex)");
+                return join.toString();
             }
+            case "list" -> {
+                return getDeviceList(true);
+            }
+            case "reload" -> {
+                return reloadSets();
+            }
+            case "listeners" -> {
+                return getListeners();
+            }
+            case "debug" -> {
+                if (cmd.length == 2) {
+                    if (setDebug(cmd[1].equalsIgnoreCase("on")))
+                        return "Debug" + cmd[1];
+                    return "! Failed to set debug, maybe no i2cworker yet?";
+                } else {
+                    return "Incorrect number of variables: i2c:debug,on/off";
+                }
+            }
+            case "addblank" -> {
+                if (cmd.length != 2)
+                    return "! Incorrect number of arguments: i2c:addblank,scriptname";
+                if (!Files.isDirectory(scriptsPath)) {
+                    try {
+                        Files.createDirectories(scriptsPath);
+                    } catch (IOException e) {
+                        Logger.error(e);
+                    }
+                }
+                XMLfab.withRoot(scriptsPath.resolve(cmd[1] + ".xml"), "commandset").attr("script", cmd[1])
+                        .addParentToRoot("command", "An empty command to start with")
+                        .attr("id", "cmdname").attr("info", "what this does")
+                        .build();
+                return "Blank added";
+            }
+            case "adddevice" -> {
+                if (cmd.length != 5)
+                    return "! Incorrect number of arguments: i2c:adddevice,id,bus,hexaddress,script";
+                if (!Files.isDirectory(scriptsPath)) {
+                    try {
+                        Files.createDirectories(scriptsPath);
+                    } catch (IOException e) {
+                        Logger.error(e);
+                    }
+                }
+                var opt = addDevice(cmd[1], cmd[4], "void", NumberUtils.toInt(cmd[2]), Tools.parseInt(cmd[3], -1));
+                if (opt.isEmpty())
+                    return "Probing " + cmd[3] + " on bus " + cmd[2] + " failed";
+                opt.ifPresent(d -> d.storeInXml(XMLfab.withRoot(settingsPath, "dcafs", "settings").digRoot("i2c")));
+
+                // Check if the script already exists, if not build it
+                var p = scriptsPath.resolve(cmd[4] + ".xml");
+                if (!Files.exists(p)) {
+                    XMLfab.withRoot(p, "commandset").attr("script", cmd[4])
+                            .addParentToRoot("command", "An empty command to start with")
+                            .attr("id", "cmdname").attr("info", "what this does")
+                            .build();
+                    readFromXML();
+                    return "Device added, created blank script at " + p;
+                } else {
+                    return "Device added, using existing script";
+                }
+            }
+            case "detect" -> {
+                if (cmd.length == 2) {
+                    return I2CWorker.detectI2Cdevices(Integer.parseInt(cmd[1]));
+                } else {
+                    return "! Incorrect number of arguments: i2c:detect,bus";
+                }
+            }
+            default -> {
+                if (cmd.length != 2) {
+                    StringBuilder oks = new StringBuilder();
+                    for (var dev : devices.entrySet()) {
+                        if (dev.getKey().matches(cmd[0])) {
+                            dev.getValue().addTarget(wr);
+                            if (oks.length() > 0)
+                                oks.append(", ");
+                            oks.append(dev.getKey());
+                        }
+                    }
+                    if (oks.length() > 0) {
+                        return "Request for i2c:" + cmd[0] + " accepted for " + oks;
+                    } else {
+                        Logger.error("! No matches for i2c:" + cmd[0] + " requested by " + wr.id());
+                        return "! No matches for i2c:" + cmd[0];
+                    }
+                }
+                if (wr != null && wr.id().equalsIgnoreCase("telnet")) {
+                    if (cmd[0].isEmpty()) {
+                        removeWritable(wr);
+                    } else {
+                        addTarget(cmd[0], wr);
+                    }
+                }
+                if (addWork(cmd[0], cmd[1])) {
+                    return "Command added to the queue.";
+                } else {
+                    return "! Failed to add command to the queue, probably wrong device or command";
+                }
+            }
+        }
     }
     /**
      * Add work to the worker
