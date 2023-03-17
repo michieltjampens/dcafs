@@ -2,17 +2,19 @@ dcafs
 =========
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
 
-A Java tool (or can also be used as a library) that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database. Hence _data collect alter forward store_. If the device needs to be interrogated or any other sort of control, that's also possible (hidden under _forward_).   
+A Java tool that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database. Hence _data collect alter forward store_. If the device needs to be interrogated or any other sort of control, that's also possible (hidden under _forward_).   
 That is in broad terms what it is capable of.
 
+It doesn't use a lot of resources (around 15MB RAM incl JVM, 24MB install with all libs), works headless via SSH/Telnet but the downside is the lack of GUI.  
+So once it has been set up, projects like Graphana can be used to display data.
+
 ## Main features
-* Collect data from TCP, UDP, MQTT broker, serial/tty, I2C, SPI, email, ascii files
+* Collect data from TCP, UDP, MQTT broker, serial/tty, I2C, SPI, email, ascii files, Matrix
 * Alter with string and math operations, or filter out lines
 * Forward back to source/origin, to any other source, a hosted TCP server or email (ie. create a serial to tcp converter)
 * Store processed data in SQLite (dcafs will create the db), MariaDB, MySQL, InfluxDB, PostgreSQL and MSSQL (dcafs can create/read the table structure) while additionally raw/altered data can be kept in (timestamped) .log files
 * XML based scheduling engine capabable of interacting with all connected sources and respond to realtime data
 * Single control pipeline that can be accessed via telnet, email or the earlier mentioned scheduling engine
-* Update itself via email (linux only for now)
 
 ## Installation
 * Make sure you have _at least_ java17 installed. If not, [download and install java 17](https://adoptium.net/)
@@ -73,7 +75,7 @@ Back in the telnet client, add a data source:
 * `ss:addserial,serialsensor,COM1:19200`  --> adds a serial connection to a sensor called serialsensor that runs at 19200 Baud
 * `ss:addtcp,tcpsensor,localhost:4000`  --> adds a tcp connection to a sensor called tcpsensor with a locally hosted tcp server
 
-Assuming the data has the default eol sequence (check this by using: TODO), you'll receive the data in the window by typing
+Assuming the data has the default eol sequence, you'll receive the data in the window by typing
 * `raw:serialsensor` --> for the serial sensor
 * `raw:tcpsensor` --> for the tcp sensor
 
@@ -84,7 +86,7 @@ Meanwhile, in the background, the settings.xml was updated as follows:
   <settings>
     <mode>normal</mode>
     <!-- Settings related to the telnet server -->
-   <telnet port="23" title="dCafs"/>
+   <telnet port="23" title="dcafs"/>
   </settings>
   <streams>
     <!-- Defining the various streams that need to be read -->
@@ -103,20 +105,3 @@ Meanwhile, in the background, the settings.xml was updated as follows:
 Sending 'help' in the telnet interface should provide enough information for the next recommended steps but for more indepth and extensive information, check the docs/wiki.   
 
 Oh, and the command `sd` shuts it down.
-
-# History
-
-Although this repository is new, the project isn't. It has been in semi-active development since 2012 as an internal tool at a marine institute and has since grown from just another piece of data acquision software to what it is today... 
-
-The instance that started it all 8 years ago (and is still very active onboard the research vessel [RV Simon Stevin](https://www.vliz.be/en/rv-simon-stevin) ):
-* collects data from about 20 sensors (serial,tcp,polled,freerunning ...)
-* controls the calibration and verification process of scientific equipment for the [ICOS project](https://www.icos-belgium.be/)
-* sends out emails when the ships leaves or returns to the harbour
-* can be monitored from shore using email
-
-The above is the biggest project it's used for, here are some smaller ones:
-
-* The earlier mentioned 'calibration and verification process' is also used in a mobile setup build that has visited the RV James Cook.
-* Multiple Beaglebones are running dcafs to log salinity data for an experimental setup that tracks Enhanced silicate weathering
-* Inside an ROV (remotely operated underwater vehicle) control container: storing environmnental data and altering datastreams to prepare for use in other software
-* At home: running on a Neo Pi air and reading a BME280 sensor, storing the data on a local InfluxDB and presenting it with Grafana
