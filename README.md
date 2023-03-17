@@ -2,17 +2,19 @@ dcafs
 =========
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
 
-A Java tool (or can also be used as a library) that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database. Hence _data collect alter forward store_. If the device needs to be interrogated or any other sort of control, that's also possible (hidden under _forward_).   
+A Java tool that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database. Hence _data collect alter forward store_. If the device needs to be interrogated or any other sort of control, that's also possible (hidden under _forward_).   
 That is in broad terms what it is capable of.
 
+It doesn't use a lot of resources (around 15MB RAM incl JVM, 24MB install with all libs), works headless via SSH/Telnet but the downside is the lack of GUI.  
+So once it has been set up, projects like Graphana can be used to display data.
+
 ## Main features
-* Collect data from TCP, UDP, MQTT broker, serial/tty, I2C, SPI, email, ascii files
+* Collect data from TCP, UDP, MQTT broker, serial/tty, I2C, SPI, email, ascii files, Matrix
 * Alter with string and math operations, or filter out lines
 * Forward back to source/origin, to any other source, a hosted TCP server or email (ie. create a serial to tcp converter)
 * Store processed data in SQLite (dcafs will create the db), MariaDB, MySQL, InfluxDB, PostgreSQL and MSSQL (dcafs can create/read the table structure) while additionally raw/altered data can be kept in (timestamped) .log files
 * XML based scheduling engine capabable of interacting with all connected sources and respond to realtime data
 * Single control pipeline that can be accessed via telnet, email or the earlier mentioned scheduling engine
-* Update itself via email (linux only for now)
 
 ## Installation
 * Make sure you have _at least_ java17 installed. If not, [download and install java 17](https://adoptium.net/)
@@ -73,7 +75,7 @@ Back in the telnet client, add a data source:
 * `ss:addserial,serialsensor,COM1:19200`  --> adds a serial connection to a sensor called serialsensor that runs at 19200 Baud
 * `ss:addtcp,tcpsensor,localhost:4000`  --> adds a tcp connection to a sensor called tcpsensor with a locally hosted tcp server
 
-Assuming the data has the default eol sequence (check this by using: TODO), you'll receive the data in the window by typing
+Assuming the data has the default eol sequence, you'll receive the data in the window by typing
 * `raw:serialsensor` --> for the serial sensor
 * `raw:tcpsensor` --> for the tcp sensor
 
