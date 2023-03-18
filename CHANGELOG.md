@@ -26,6 +26,7 @@ The Getting started guid has been updated to use all these changes, making it ab
 ### Labels
 - Changed default label to an empty string, so streams no longer pass it on to the labelworker. Because of store,
 there wasn't a use for it anymore.
+- Slowly removing labels from user view
 
 ### StoreVal
 - Has a telnet interface through 'store:' commands. Differs from regular because this has the id
@@ -49,6 +50,7 @@ But a rtvals node with name attribute and no childnodes will still be processed 
 - Added the `>>prefix` command, to toggle having telnet add the id of incoming data as prefix, default false.
 - Changed it so errors/warnings returned are in orange (with a ! in front), just so it stands out
 more if something went wrong
+- If lines from different id's are received a dashed line is added at the end to show end of datablock 
 
 ### Waypoints
 - The travel check thread was only checked for existing or not, not for still being active.
