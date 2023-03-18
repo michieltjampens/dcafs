@@ -1006,40 +1006,24 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	/* 	--------------------------------------------------------------------	*/
 	public boolean addForwarding(String cmd, Writable writable) {
-
+		var remove = cmd.startsWith("!");
 		if( writable != null ){
-			Logger.info("Received data request from "+writable.id()+" for "+cmd);
+			Logger.info("Received "+(remove?"removal":"data request")+" from "+writable.id()+" for "+cmd);
 		}else if( cmd.startsWith("email") ){
 			Logger.info("Received request through email for "+cmd);
 		}
-		String[] items = cmd.split(":");
-		String type = items.length==2?items[0]:"id";
-		String search = items.length==2?items[1].toLowerCase():items[0].toLowerCase();
 
-		switch( type ){
-			case "label": case "ll":
-				return getStream( search ).filter( bs -> bs.getLabel().startsWith(search) ).map( bs -> bs.addTarget(writable) ).orElse(false);
-			case "generic": case "gen":
-				for( String item : items[1].split(",")){
-					streams.values().stream().filter( x -> x.getLabel().startsWith("generic:")||x.getLabel().startsWith("gen:")) // Label must start with generic
-							.filter( x -> x.getLabel().contains(item))	  	   // Label must contain the word
-							.forEach( x -> x.addTarget(writable) ); // add it, don't care about duplicates
-				}
-				break;
-			case "id":
-				if( !getStream(search).map( bs -> bs.addTarget(writable) ).orElse(false) ) {
-					var stream = streams.entrySet().stream().filter(set -> set.getKey().startsWith(search))
-							.map(Map.Entry::getValue).findFirst();
-					if(stream.isEmpty())
-						return false;
-					stream.get().addTarget(writable);
-				}
-				return true;
-			default:
-				Logger.warn("Unknown type: "+type+ " possible ones: id, label/ll, generic/gen");
-				return false;
+		if( remove ) {
+			getStream(cmd.substring(1)).ifPresent( bs -> bs.removeTarget(writable));
+		}else{
+			if( !getStream(cmd).map( bs -> bs.addTarget(writable) ).orElse(false) ) {
+				var stream = streams.entrySet().stream().filter(set -> set.getKey().startsWith(cmd))
+						.map(Map.Entry::getValue).findFirst();
+				if(stream.isEmpty())
+					return false;
+				stream.get().addTarget(writable);
+			}
 		}
-
 		return true;
 	}
 

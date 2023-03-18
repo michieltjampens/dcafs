@@ -93,11 +93,18 @@ public class PathPool implements Commandable {
                 return replyToPathCmd(request[1], wr, html);
             }
             case "path" -> {
-                var p = paths.get(request[1]);
-                if (p == null)
-                    return "No such path (yet): " + request[1];
-                p.addTarget(wr);
-                return "Request received.";
+                if( request[1].startsWith("!")){
+                    var p = paths.get(request[1].substring(1));
+                    if( p!=null)
+                        p.removeTarget(wr);
+                    return "Remove received";
+                }else {
+                    var p = paths.get(request[1]);
+                    if (p == null)
+                        return "No such path (yet): " + request[1];
+                    p.addTarget(wr);
+                    return "Request received.";
+                }
             }
             case "" -> {
                 paths.values().forEach( p->p.removeTarget(wr));

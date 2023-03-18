@@ -396,6 +396,7 @@ public class PathForward {
             }
         }
     }
+
     public void removeTarget( Writable wr){
         if( stepsForward==null||stepsForward.isEmpty() ) {
             targets.remove(wr);// Stop giving data
@@ -407,7 +408,17 @@ public class PathForward {
 
             if( lastStep().isEmpty() )
                 return;
-            if( lastStep().map(AbstractForward::noTargets).orElse(true) ){ // if the final step has no more targets, stop the first step
+
+            disableSource();
+        }
+    }
+    private void disableSource(){
+        if( lastStep().map(AbstractForward::noTargets).orElse(true) ) { // if the final step has no more targets, stop the first step
+            if (customs.isEmpty()) {
+                if (src.startsWith("raw:") || src.startsWith("path:")) {
+                    dQueue.add(Datagram.system(src.replace(":", ":!")).writable(stepsForward.get(0)));
+                }
+            } else {
                 customs.forEach(CustomSrc::stop);
             }
         }

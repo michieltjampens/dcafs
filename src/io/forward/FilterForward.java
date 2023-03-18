@@ -43,20 +43,18 @@ public class FilterForward extends AbstractForward {
 
         if( doFilter(data) ){
             targets.forEach(wr -> wr.writeLine( id(),data ) );
-            targets.removeIf(wr -> !wr.isConnectionValid() );
 
             if( log )
                 Logger.tag("RAW").info( "1\t" + id() + "\t" + data);
+
             if( store!=null)
                 store.apply(data,dQueue);
         }else{
-            reversed.removeIf( t-> !t.writeLine(data) );
+            reversed.forEach( t-> t.writeLine(data) );
         }
 
         if( noTargets() && reversed.isEmpty() && store==null){
             valid=false;
-            if( deleteNoTargets )
-                dQueue.add( Datagram.system("ff:remove,"+id));
             return false;
         }
         return true;
