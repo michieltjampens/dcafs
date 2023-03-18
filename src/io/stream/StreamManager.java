@@ -844,7 +844,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 			case "addtcp":
 				if( cmds.length < 3 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need at least 3 ss:addtcp,id,ip:port(,label)";
+					return "! Bad amount of arguments, need at least 3 ss:addtcp,id,ip:port";
 
 				if( streams.get(cmds[1].toLowerCase()) != null )// Make sure we don't overwrite an existing connection
 					return "! Stream exists with that id ("+cmds[1]+") not creating it";
@@ -852,13 +852,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if( !cmds[2].contains(":") )
 					return "! No port number specified";
 
-				String label = cmds.length==3?"void":"";
-				if( cmds.length>=4)
-					label=request.substring( request.indexOf(","+cmds[3])+1);
-
 				cmds[1]=cmds[1].toLowerCase();
 
-				TcpStream tcp = new TcpStream( cmds[1], cmds[2], dQueue, label, 1 );
+				TcpStream tcp = new TcpStream( cmds[1], cmds[2], dQueue, "", 1 );
 				tcp.addListener(this);
 				tcp.setEventLoopGroup(eventLoopGroup);
 				tcp.setBootstrap(bootstrapTCP);
@@ -877,7 +873,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "! Failed to update XML! Entry might exist already";
 			case "addudp":
 				if( cmds.length < 4 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need 4 ss:addudp,id,ip:port,label";
+					return "! Bad amount of arguments, need 4 ss:addudp,id,ip:port";
 
 				if( streams.get(cmds[1].toLowerCase()) != null )// Make sure we don't overwrite an existing connection
 					return "! Stream exists with that id ("+cmds[1]+") not creating it";
@@ -910,16 +906,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				break;
 			case "addserial":
 				if( cmds.length < 3 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need at least three ss:addserial,id,portname:baudrate(,label)";
+					return "! Bad amount of arguments, need at least three ss:addserial,id,portname:baudrate";
 
 				cmds[1]=cmds[1].toLowerCase();
 
 				if( streams.get(cmds[1].toLowerCase()) != null )// Make sure we don't overwrite an existing connection
 					return "! Stream exists with that id ("+cmds[1]+") not creating it";
-
-				String serLabel = cmds.length==3?"void":"";
-				if( cmds.length>=4)
-					serLabel=request.substring( request.indexOf(","+cmds[3])+1);
 
 				String[] portAndBaud = cmds[2].split(":");
 				String port = portAndBaud[0];
@@ -928,7 +920,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if( !SerialStream.portExists(port) && !port.contains("ttyGS") && !port.contains("printer"))
 					return "! No such port on this system. Options: "+ SerialStream.portList();
 				
-				SerialStream serial = new SerialStream( port, dQueue, serLabel, 1);
+				SerialStream serial = new SerialStream( port, dQueue, "", 1);
 				serial.setEventLoopGroup(eventLoopGroup);
 				serial.alterSerialSettings(baud+",8,1,none");
 
