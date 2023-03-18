@@ -6,7 +6,6 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - cmd !idle not used properly when disconnected/reconnected
-- integerval telnet interface?
 - Resolve #34
 - back up path for sqlite db etc?
 
@@ -55,6 +54,9 @@ more if something went wrong
 - The travel check thread was only checked for existing or not, not for still being active.
 - Added extra hourly check to see if the travel check is still alive
 - Added extra info to `wpts:list`, to inform on the state of both checks
+
+### Paths
+- Altered the `pf:id,debug,step` cmd to request all steps if none is specified
 
 ## 1.2.1 (work in progress)
 
