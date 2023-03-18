@@ -317,16 +317,19 @@ public class Waypoints implements Commandable {
      */
     private void checkWaypoints(){
         lastCheck = OffsetDateTime.now(ZoneOffset.UTC);
-        wps.values().forEach( wp -> {
-            if( wp == null ){
-                Logger.error("Invalid waypoint in the list!");
-            }else {
-                wp.checkIt(lastCheck, latitude.value(), longitude.value()).ifPresent(
-                        travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
-                );
-            }
-        });
-
+        try {
+            wps.values().forEach(wp -> {
+                if (wp == null) {
+                    Logger.error("Invalid waypoint in the list!");
+                } else {
+                    wp.checkIt(lastCheck, latitude.value(), longitude.value()).ifPresent(
+                            travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
+                    );
+                }
+            });
+        }catch( Throwable trow){
+            Logger.error(trow);
+        }
     }
 
     /**
