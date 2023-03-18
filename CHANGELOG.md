@@ -51,6 +51,11 @@ But a rtvals node with name attribute and no childnodes will still be processed 
 - Changed it so errors/warnings returned are in orange (with a ! in front), just so it stands out
 more if something went wrong
 
+### Waypoints
+- The travel check thread was only checked for existing or not, not for still being active.
+- Added extra hourly check to see if the travel check is still alive
+- Added extra info to `wpts:list`, to inform on the state of both checks
+
 ## 1.2.1 (work in progress)
 
 ### Fixes
