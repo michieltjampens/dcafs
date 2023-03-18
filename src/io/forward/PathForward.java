@@ -279,14 +279,23 @@ public class PathForward {
         }
     }
     public String debugStep( String step, Writable wr ){
+        var join = new StringJoiner(", ", "Request for ", " received");
+        join.setEmptyValue("No such step");
+        boolean ok=false;
         for( var sf : stepsForward ) {
             sf.removeTarget(wr);
-            if (sf.id.equalsIgnoreCase(step)) {
+            if( step.equals("*") || sf.id.equalsIgnoreCase(step)) {
                 sf.addTarget(wr);
-                return "Request for " + sf.getXmlChildTag() + ":" + sf.id + " received";
+                join.add(sf.id());
+                ok=true;
             }
         }
-        return "No such step";
+        if(ok) {
+            if (!targets.contains(stepsForward.get(0))) // Check if the first step is a target, if not
+                targets.add(stepsForward.get(0)); // add it
+            enableSource();
+        }
+        return join.toString();
     }
     public String debugStep( int step, Writable wr ){
         if( wr==null )
@@ -376,7 +385,9 @@ public class PathForward {
                 targets.add(stepsForward.get(0)); // add it
             stepsForward.get(stepsForward.size()-1).addTarget(wr); // Asking the path data is actually asking the last step
         }
-
+        enableSource();
+    }
+    private void enableSource(){
         if( targets.size()==1 ){
             if( customs.isEmpty()){
                 dQueue.add( Datagram.system(src).writable(stepsForward.get(0)));
