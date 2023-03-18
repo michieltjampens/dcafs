@@ -185,9 +185,6 @@ public class DAS implements Commandable{
 
         /* Forwards */
         PathPool pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup);
-        addCommandable(pathPool,"filter","ff","filters");
-        addCommandable(pathPool,"math","mf","maths");
-        addCommandable(pathPool,"editor","ef","editors");
         addCommandable(pathPool,"paths","path","pf","paths");
         addCommandable(pathPool, "");
 
