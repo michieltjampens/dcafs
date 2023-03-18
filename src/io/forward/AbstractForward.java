@@ -98,7 +98,11 @@ public abstract class AbstractForward implements Writable {
                 if( !inPath)
                     sources.stream().forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
             }
-            targets.add(target);
+            if( target.id().startsWith("telnet")) {
+                targets.add(0,target);
+            }else{
+                targets.add(target);
+            }
         }else{
             Logger.info(id+" -> Trying to add duplicate target "+target.id());
         }
