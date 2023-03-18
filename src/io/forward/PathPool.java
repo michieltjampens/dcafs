@@ -99,6 +99,10 @@ public class PathPool implements Commandable {
                 p.addTarget(wr);
                 return "Request received.";
             }
+            case "" -> {
+                paths.values().forEach( p->p.removeTarget(wr));
+                return "";
+            }
             default -> {
                 return "unknown command: " + request[0] + ":" + request[1];
             }
@@ -131,7 +135,7 @@ public class PathPool implements Commandable {
                         .add(green + " pf:reload/reloadall " + reg + "-> Reload all the paths")
                         .add(green + " pf:pathid,reload " + reg + "-> reload the path with the given id")
                         .add(green + " pf:list " + reg + "-> List all the currently loaded paths")
-                        .add(green + " pf:pathid,debug,stepnr/stepid " + reg + "-> Request the data from a single step in the path (nr:0=first; -1=custom src)")
+                        .add(green + " pf:pathid,debug<,stepnr/stepid> " + reg + "-> Request the data from a single step in the path (nr:0=first; -1=custom src)")
                         .add(green + " pf:clear " + reg + "-> Remove all the paths from XML!");
 
                 return help.toString();
@@ -174,8 +178,10 @@ public class PathPool implements Commandable {
                 var pp = paths.get(cmds[0]);
                 switch (cmds[1]) {
                     case "debug" -> {
+                        if( cmds.length==2)
+                            return pp.debugStep("*", wr);
                         if (cmds.length != 3)
-                            return "Incorrect number of arguments, needs to be pf:pathid,debug,stepnr/stepid (from 0 or -1 for customsrc)";
+                            return "Incorrect number of arguments, needs to be pf:pathid,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
                         if (pp == null)
                             return or+"! No such path: " + cmds[1]+reg;
                         int nr = NumberUtils.toInt(cmds[2], -2);
