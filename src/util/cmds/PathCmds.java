@@ -45,7 +45,11 @@ public class PathCmds {
             return join.toString();
         }
 
-        var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("paths");
+        var dig = XMLdigger.goIn(settingsPath,"dcafs");
+        if( !dig.peekAt("paths").hasValidPeek()){
+            XMLfab.alterDigger(dig).ifPresent(fab->fab.addChild("paths").build());
+        }
+        dig.goDown("paths");
         if( dig.isInvalid())
             return "! No paths yet";
 
