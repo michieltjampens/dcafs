@@ -8,6 +8,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.gis.Waypoint.Travel;
+import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
@@ -39,7 +40,9 @@ public class Waypoints implements Commandable {
     final static int CHECK_INTERVAL = 20;
     BlockingQueue<Datagram> dQueue;
     ScheduledFuture<?> checkTravel;
-
+    ScheduledFuture<?> checkThread;
+    OffsetDateTime lastCheck;
+    Instant lastThreadCheck;
     /* *************************** C O N S T R U C T O R *********************************/
     public Waypoints(Path settingsPath, ScheduledExecutorService scheduler, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
         this.settingsPath=settingsPath;
@@ -48,18 +51,26 @@ public class Waypoints implements Commandable {
 
         readFromXML(rtvals);
 
+        if( hasTravel() ){
+            Logger.info("Waypoints with travel found, enable hourly check thread");
+            checkThread = scheduler.scheduleAtFixedRate(this::checkThread,1, 1, TimeUnit.HOURS);
+        }
     }
     /* ****************************** A D D I N G ****************************************/
     /**
      * Adding a waypoint to the list
+     *
      * @param wp The waypoint to add
      */
-    public Waypoint addWaypoint( String id, Waypoint wp ) {
-        if(wp.hasTracelCmd()&&checkTravel==null)
+    public void addWaypoint(String id, Waypoint wp ) {
+        if( checkTravel!=null) {
+            if( checkTravel.isDone()||checkTravel.isCancelled() )
+                Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone());
+        }
+        if(wp.hasTravelCmd() && (checkTravel==null || (checkTravel.isDone()||checkTravel.isCancelled())))
             checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
         Logger.info("Adding waypoint: "+id);
     	wps.put(id,wp);
-    	return wp;
     }
     public void addWaypoint( String id, double lat, double lon, double range) {
         wps.put( id, Waypoint.build(id).lat(lat).lon(lon).range(range) );
@@ -115,7 +126,12 @@ public class Waypoints implements Commandable {
         		double lon = GisTools.convertStringToDegrees(el.getAttribute("lon")); // Get the longitude
                 double range = Tools.parseDouble( el.getAttribute("range"), -999); // Range that determines inside or outside
 
-                var wp = addWaypoint( id, Waypoint.build(id).lat(lat).lon(lon).range(range) );// Add it
+                if( id.isEmpty()){
+                    Logger.error("Waypoint without id not allowed, check settings.xml!");
+                    continue;
+                }
+
+                var wp = Waypoint.build(id).lat(lat).lon(lon).range(range);// Create it
 
                 Logger.debug("Checking for travel...");
 
@@ -134,13 +150,10 @@ public class Waypoints implements Commandable {
                                 );
                     }
                 }
+                addWaypoint( id, wp );// Add it
         	}else{
                 Logger.error( "Invalid waypoint in the node");
             }
-        }
-        if( wps.values().stream().anyMatch(Waypoint::hasTracelCmd) ) {
-            if( checkTravel == null) // If it doesn't exist yet
-                checkTravel =  scheduler.scheduleAtFixedRate(this::checkWaypoints, 5, CHECK_INTERVAL, TimeUnit.SECONDS);
         }
         return true;
     }
@@ -222,6 +235,22 @@ public class Waypoints implements Commandable {
             return false;
         return wp.isNear();
     }
+    public boolean checkThread(){
+        lastThreadCheck=Instant.now();
+        if( checkTravel!=null) {
+            if( checkTravel.isDone()||checkTravel.isCancelled() ) {
+                Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone());
+                checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
+                return false;
+            }else{
+                Logger.info("Waypoints travel checks still ok.");
+            }
+        }
+        return true;
+    }
+    public boolean hasTravel(){
+        return wps.values().stream().anyMatch(Waypoint::hasTravelCmd);
+    }
     /**
      * Get an overview off all the available waypoints
      * @param coords Whether to add coordinates
@@ -245,6 +274,15 @@ public class Waypoints implements Commandable {
         for( Waypoint wp : wps.values() ){
             b.add( wp.getInfo(newline) );
             b.add( wp.toString(false, true, sog.value()) ).add("");
+        }
+        var age = TimeTools.convertPeriodtoString(Duration.between(lastCheck,OffsetDateTime.now(ZoneOffset.UTC)).getSeconds(),TimeUnit.SECONDS);
+
+        b.add("Time since last travel check: "+age+" (check interval: "+CHECK_INTERVAL+"s)");
+        if( lastThreadCheck!=null) {
+            var ageThread = TimeTools.convertPeriodtoString(Duration.between(lastThreadCheck, Instant.now()).getSeconds(), TimeUnit.SECONDS);
+            b.add("Time since last thread check: " + ageThread + " (check interval: 1h)");
+        }else{
+            b.add("No thread check done yet (check interval: 1h)");
         }
         return b.toString();
     }
@@ -278,12 +316,17 @@ public class Waypoints implements Commandable {
      * Check the waypoints to see if any travel occurred, if so execute the commands associated with it
      */
     private void checkWaypoints(){
-        var now = OffsetDateTime.now(ZoneOffset.UTC);
+        lastCheck = OffsetDateTime.now(ZoneOffset.UTC);
         wps.values().forEach( wp -> {
-            wp.checkIt(now, latitude.value(), longitude.value()).ifPresent(
-                    travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
-            );
+            if( wp == null ){
+                Logger.error("Invalid waypoint in the list!");
+            }else {
+                wp.checkIt(lastCheck, latitude.value(), longitude.value()).ifPresent(
+                        travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
+                );
+            }
         });
+
     }
 
     /**
@@ -441,6 +484,8 @@ public class Waypoints implements Commandable {
                 
                 way.addTravel(cmd[5], cmd[4], cmd[2]);
                 return "Added travel "+cmd[5]+" to "+ cmd[1];
+            case "checktread":
+                return checkThread()?"Thread is fine":"Thread needed restart";
             default:
                 return "Unknown command";
         }
