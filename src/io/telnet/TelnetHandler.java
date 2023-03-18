@@ -50,6 +50,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 	CommandLineInterface cli;
 	ArrayList<String> onetime = new ArrayList<>();
+	ArrayList<String> ids = new ArrayList<>();
 	private boolean prefix=false;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
@@ -307,8 +308,17 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 	@Override
 	public boolean writeLine(String origin, String data) {
-		if(prefix)
-			return writeLine(TelnetCodes.TEXT_MAGENTA+origin+TelnetCodes.TEXT_BRIGHT_YELLOW+"  "+data);
+		if( data.equalsIgnoreCase("Clearing requests")) {
+			ids.clear();
+		}else if(!ids.contains(origin)) {
+			ids.add(origin);
+		}
+		if(prefix) {
+			var end = ids.get(ids.size()-1).equals(origin)?newLine+"------------- ("+ids.size()+")":"";
+			if( ids.size()==1)
+				end="";
+			return writeLine(TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_BRIGHT_YELLOW + "  " + data + end);
+		}
 		return writeLine(data);
 	}
 
