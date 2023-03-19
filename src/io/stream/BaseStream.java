@@ -259,8 +259,14 @@ public abstract class BaseStream {
             Logger.info(id +" -> Already has "+writable.id()+" as target, not adding.");
             return false;
         }
-        targets.removeIf( x -> x.id().equals(writable.id())&&writable.id().contains(":")); // if updated
-        targets.add( writable );
+
+        if( writable.id().startsWith("telnet")) {
+            targets.add(0,writable);
+        }else{
+            targets.removeIf( x -> x.id().equals(writable.id())&&writable.id().contains(":")); // if updated
+            targets.add(writable);
+        }
+
         Logger.info("Added request from "+writable.id()+ " to "+id);
         return true;
     }
