@@ -60,9 +60,8 @@ public abstract class BaseStream {
 
     protected EventLoopGroup eventLoopGroup;		    // Eventloop used by the netty stuff
 
-    protected BaseStream( String id, String label, BlockingQueue<Datagram> dQueue){
+    protected BaseStream( String id, BlockingQueue<Datagram> dQueue){
         this.id=id;
-        this.label=label;
         this.dQueue=dQueue;
     }
     protected BaseStream( BlockingQueue<Datagram> dQueue, Element stream ){

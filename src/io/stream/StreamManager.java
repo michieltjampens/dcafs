@@ -630,14 +630,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					.add("-> ss: and streams: do the same thing")
 					.add("-> Every stream has at least:")
 					.add("   - a unique id which is used to identify it")
-					.add("   - a label which is used to determine how the data is processed")
 					.add("   - an eol (end of line), the default is crlf")
 					.add("   - ...");
 				join.add("").add(cyan+"Add new streams"+reg)
-					.add(green+" ss:addtcp,id,ip:port<,label> "+reg+"-> Add a TCP stream to xml (optional label) and try to connect")
-					.add(green+" ss:addudp,id,ip:port<,label> "+reg+"-> Add a UDP stream to xml (optional label) and connect")
-					.add(green+" ss:addserial,id,port:baudrate<,label>"+reg+" -> Add a serial stream to xml (optional label) and try to connect" )
-					.add(green+" ss:addlocal,id,label,source "+reg+"-> Add a internal stream that handles internal data")
+					.add(green+" ss:addtcp,id,ip:port "+reg+"-> Add a TCP stream to xml and try to connect")
+					.add(green+" ss:addudp,id,ip:port "+reg+"-> Add a UDP stream to xml and connect")
+					.add(green+" ss:addserial,id,port:baudrate"+reg+" -> Add a serial stream to xml and try to connect" )
+					.add(green+" ss:addlocal,id,source "+reg+"-> Add a internal stream that handles internal data")
 				.add("").add(cyan+"Info about streams"+reg)
 					.add(green+" ss:labels "+reg+"-> get active labels.")
 					.add(green+" ss:buffers "+reg+"-> Get confirm buffers.")
@@ -854,7 +853,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 				cmds[1]=cmds[1].toLowerCase();
 
-				TcpStream tcp = new TcpStream( cmds[1], cmds[2], dQueue, "", 1 );
+				TcpStream tcp = new TcpStream( cmds[1], cmds[2], dQueue, 1 );
 				tcp.addListener(this);
 				tcp.setEventLoopGroup(eventLoopGroup);
 				tcp.setBootstrap(bootstrapTCP);
@@ -920,7 +919,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if( !SerialStream.portExists(port) && !port.contains("ttyGS") && !port.contains("printer"))
 					return "! No such port on this system. Options: "+ SerialStream.portList();
 				
-				SerialStream serial = new SerialStream( port, dQueue, "", 1);
+				SerialStream serial = new SerialStream( port, dQueue, 1);
 				serial.setEventLoopGroup(eventLoopGroup);
 				serial.alterSerialSettings(baud+",8,1,none");
 
@@ -933,8 +932,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return serial.connect()?"Connected to "+port:"Failed to connect to "+port;	
 			case "addlocal":
 				if( cmds.length != 4 ) // Make sure we got the correct amount of arguments
-					return "Bad amount of arguments, ss:addlocal,id,label,source";
-				LocalStream local = new LocalStream( cmds[1],cmds[2],cmds[3],dQueue);
+					return "Bad amount of arguments, ss:addlocal,id,source";
+				LocalStream local = new LocalStream( cmds[1],cmds[3],dQueue);
 				local.addListener(this);
 				streams.put( cmds[1].toLowerCase(), local);
 				addStreamToXML(cmds[1],true);

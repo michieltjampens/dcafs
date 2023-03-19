@@ -28,8 +28,8 @@ public class LocalStream extends BaseStream implements Writable {
         return false;
     }
 
-    public LocalStream( String id, String label, String source, BlockingQueue<Datagram> dQueue){
-        super(id,label,dQueue);
+    public LocalStream( String id,  String source, BlockingQueue<Datagram> dQueue){
+        super(id,dQueue);
         triggeredActions.add(new TriggerAction(TRIGGER.OPEN, source));
     }
     @Override

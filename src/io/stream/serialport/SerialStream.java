@@ -22,8 +22,8 @@ public class SerialStream extends BaseStream implements Writable {
     protected SerialPort serialPort;
     String port ="";
 
-    public SerialStream(String port, BlockingQueue<Datagram> dQueue, String label, int priority) {
-        super("", label, dQueue);
+    public SerialStream(String port, BlockingQueue<Datagram> dQueue, int priority) {
+        super("", dQueue);
         setPriority(priority);
         setPort(port);
     }
