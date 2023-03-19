@@ -294,6 +294,8 @@ public class PathForward {
             if (!targets.contains(stepsForward.get(0))) // Check if the first step is a target, if not
                 targets.add(stepsForward.get(0)); // add it
             enableSource();
+            if( step.equals("*"))
+                dQueue.add( Datagram.system(src).writable(wr));
         }
         return join.toString();
     }
