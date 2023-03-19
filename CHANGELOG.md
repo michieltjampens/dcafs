@@ -48,6 +48,7 @@ But a rtvals node with name attribute and no childnodes will still be processed 
 ### Telnet 
 
 - Added the `>>prefix` command, to toggle having telnet add the id of incoming data as prefix, default false.
+  - The prefix will be shown in magenta 
 - Changed it so errors/warnings returned are in orange (with a ! in front), just so it stands out
 more if something went wrong
 - If lines from different id's are received a dashed line is added at the end to show end of datablock 
@@ -59,6 +60,8 @@ more if something went wrong
 
 ### Paths
 - Altered the `pf:id,debug,step` cmd to request all steps if none is specified
+  - If used in combination with the telnet prefix, that prefix will het trailing spaces to match length of longest one.
+  - The source for the path will also be requested
 
 ## 1.2.1 (work in progress)
 
