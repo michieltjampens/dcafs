@@ -317,6 +317,8 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			var end = ids.get(ids.size()-1).equals(origin)?newLine+"------------- ("+ids.size()+")":"";
 			if( ids.size()==1)
 				end="";
+			var length = ids.stream().mapToInt(String::length).max().orElse(0);
+			origin = Tools.addTrailingSpaces(origin,length);
 			return writeLine(TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_BRIGHT_YELLOW + "  " + data + end);
 		}
 		return writeLine(data);

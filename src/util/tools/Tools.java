@@ -146,7 +146,18 @@ public class Tools {
             res.insert(0, "0");
         return res.toString();
     }
-
+    /**
+     * Adds zeros to the front of an integer till it has the specified length
+     * @param ori the string to alter
+     * @param length the requested length
+     * @return ori with spaces added to math the length (if ori was shorter)
+     */
+    public static String addTrailingSpaces(String ori, int length) {
+        StringBuilder res = new StringBuilder(ori);
+        while (res.length() < length)
+            res.append(" ");
+        return res.toString();
+    }
     /* ************************************** S T R I N G ******************************************************** */
 
     public static String getEOLString( String eol ){
