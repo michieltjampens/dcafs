@@ -180,7 +180,6 @@ public class CommandPool {
 			case "sd" -> doShutDown(split, wr, html);
 			case "serialports" -> Tools.getSerialPorts(html);
 			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
-			case "ts" -> doTimeStamping( split );
 			case "store" -> {
 				var ans = StoreCmds.replyToCommand(split[1],html,settingsPath);
 				if( !split[1].startsWith("?")) {
@@ -253,7 +252,7 @@ public class CommandPool {
 			Logger.debug("Hidden response to " + question + ": " + result);
 		}
 		if( !html && wr!=null && wr.id().startsWith("telnet") )
-			result = result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN+result+TelnetCodes.TEXT_BRIGHT_YELLOW;
+			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_BRIGHT_YELLOW;
 
 		if( result.equalsIgnoreCase(UNKNOWN_CMD))
 			return result+" >>"+question+"|"+find+"|"+split[0]+"|"+split[1]+"<<";
@@ -272,16 +271,6 @@ public class CommandPool {
 		return UNKNOWN_CMD+": No "+id+" available";
 	}
 	/* ********************************************************************************************/
-	/**
-	 * Updates or create a text val with the current timestamp
-	 * @param request Array with [0]=ts and [1]=id of the textval
-	 * @return Nothing useful
-	 */
-	public String doTimeStamping( String[] request){
-		String cmd = "tv:create,"+request[1]+","+TimeTools.formatShortUTCNow();
-		dQueue.add( Datagram.system(cmd) );
-		return "update attempted";
-	}
 	/**
 	 * Try to update a file received somehow (email or otherwise)
 	 * Current options: dcafs,script and settings (dcafs is wip)
