@@ -6,7 +6,9 @@ A Java tool that takes care of all the nitty-gritty that needs to be done when a
 That is in broad terms what it is capable of.
 
 It doesn't use a lot of resources (around 15MB RAM incl JVM, 24MB install with all libs), works headless via SSH/Telnet but the downside is the lack of GUI.  
-So once it has been set up, projects like Graphana can be used to display data.
+So once it has been set up, projects like Graphana can be used to display data.  
+
+The 'Getting Started' guide, can be read [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
 
 ## Main features
 * Collect data from TCP, UDP, MQTT broker, serial/tty, I2C, SPI, email, ascii files, Matrix
