@@ -52,6 +52,10 @@ But a rtvals node with name attribute and no childnodes will still be processed 
 - Changed it so errors/warnings returned are in orange (with a ! in front), just so it stands out
 more if something went wrong
 - If lines from different id's are received a dashed line is added at the end to show end of datablock 
+- Added three commands to have timestamping in front of data in orange:
+  - `>>ts`: add HH:mm:ss.SSS (UTC time including microseconds)
+  - `>>ts:format`: according to given format
+  - `>>ds`: add yyyy-MM-dd HH:mm:ss.SSS in front
 
 ### Waypoints
 - The travel check thread was only checked for existing or not, not for still being active.
