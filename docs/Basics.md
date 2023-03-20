@@ -41,6 +41,7 @@ The following is the recommended workspace layout for setting up dcafs in genera
   * Open PuTTY, select telnet as the protocol, use `localhost` as the ip, keep the default port.
      * Localhost means that dcafs is running on your PC/laptop 'locally'.
      * Type 'dcafs' in the saved session and click 'Save'.
+     * Click 'Open', to open the connection.
   * Once open, right-click on the title bar and select 'Duplicate instance'. The opens a second instance.
     * You'll probably want to make this window larger (or adjust it accordingly later)
     * There's no real limit to the amount of instances.
