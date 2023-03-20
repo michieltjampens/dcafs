@@ -51,7 +51,8 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	CommandLineInterface cli;
 	ArrayList<String> onetime = new ArrayList<>();
 	ArrayList<String> ids = new ArrayList<>();
-	private boolean prefix=false;
+	private boolean prefix=false,ts=false,ds=false;
+	private String format="HH:mm:ss.SSS";
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
@@ -204,16 +205,20 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			return;
 		}else if( d.getData().startsWith(">>")) {
 			var split = new String[2];
-			if( !d.getData().contains(":") && !d.getData().contains("prefix")){
+			String[] cmds={"prefix","ts","ds"};
+
+			String cmd = d.getData().substring(2);
+			if( !d.getData().contains(":") && !Arrays.asList(cmds).contains(cmd)){
 				writeLine("Missing ':'");
 				return;
 			}
-			String cmd = d.getData().substring(2);
+
 			if( cmd.contains(":")) {
 				split[0] = cmd.substring(0, cmd.indexOf(":"));
 				split[1] = cmd.substring(split[0].length() + 1);
 			}else{
 				split[0]=cmd;
+				split[1]="";
 			}
 
 			switch (split[0]) {
@@ -257,6 +262,19 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 									return "Macro " + ma[0] + " replaced with " + ma[1] + "\r\n>";
 								}).orElse("Couldn't find the node\r\n>"));
 					}
+				}
+				case "ts" -> {
+					ts = !ts;
+					if( !split[1].isEmpty()){
+						format=split[1];
+					}else{
+						format="HH:mm:ss.SSS";
+					}
+					writeLine("Time stamping " + (ts ? "enabled" : "disabled"));
+				}
+				case "ds" -> {
+					ds = !ds;
+					writeLine("Date stamping " + (ds ? "enabled" : "disabled"));
 				}
 				case "prefix" -> {
 					prefix = !prefix;
@@ -313,15 +331,20 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}else if(!ids.contains(origin)) {
 			ids.add(origin);
 		}
+		String time="";
+
+		if( ts || ds)
+			time = TelnetCodes.TEXT_ORANGE+TimeTools.formatUTCNow(ts?format:"yyyy-MM-dd HH:mm:ss.SSS")+"   "+TelnetCodes.TEXT_BRIGHT_YELLOW;
+
 		if(prefix) {
 			var end = ids.get(ids.size()-1).equals(origin)?newLine+"------------- ("+ids.size()+")":"";
 			if( ids.size()==1)
 				end="";
 			var length = ids.stream().mapToInt(String::length).max().orElse(0);
 			origin = Tools.addTrailingSpaces(origin,length);
-			return writeLine(TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_BRIGHT_YELLOW + "  " + data + end);
+			return writeLine(time+TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_BRIGHT_YELLOW + "  " + data + end);
 		}
-		return writeLine(data);
+		return writeLine(time+data);
 	}
 
 	/**
