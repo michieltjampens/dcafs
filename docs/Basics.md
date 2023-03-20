@@ -31,7 +31,7 @@ And some important commands:
 6. Start both the regular and dummy dcafs (double-click on their respective .jar files). If your firewall (Windows Defender, ...) ask permissions you'll have to grant them.
 > Note: If you get a JNI error message, this likely means that it's not using the correct version of Java
 7. A `settings.xml` should be generated in the regular folder. 
-8. Optional: Install an SQLite viewer like [DB Browser for SQLite](https://sqlitebrowser.org/dl/)
+
 > Note: Dummy can be accessed via telnet if needed, it is listening on port 24 instead of the standard 23. Dcafs refuses to start if there is a telnet active on port 23. This prevents duplicate instances running.
 
 ### Workspace layout
@@ -229,6 +229,8 @@ Or if not so certain on the name `rtvals:name,rol*` or actually using regex `rtv
 (.* means any amount of any character)
 
 ### 4. Store the last value in a database
+
+> Note: To look at a created sqlite database, install an SQLite viewer like [DB Browser for SQLite](https://sqlitebrowser.org/dl/)
 
 The code doesn't differ much between SQLite or a database server, so we'll go with SQLite.  
 For a full list of database related commands, use `dbm:?`
