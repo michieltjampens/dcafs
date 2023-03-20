@@ -592,7 +592,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		return switch( find ) {
 			case "ss", "streams" -> replyToStreamCommand(request[1], html);
 			case "rios" -> replyToStreamCommand("rios", html);
-			case "raw","stream" -> "Request for "+request[0]+":"+request[1]+" "+( addForwarding(request[1],wr)?"ok":"failed");
+			case "raw","stream" -> {
+				var res = addForwarding(request[1],wr);
+				yield (res?"":"! ")+"Request for "+request[0]+":"+request[1]+" "+(res?"ok":"failed");
+			}
 			case "s_","h_" -> doSorH( request);
 			case "","stop" -> removeWritable(wr)?"Ok.":"";
 			default -> "Unknown Command";
