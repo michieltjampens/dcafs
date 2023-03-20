@@ -9,19 +9,20 @@ Note: Version numbering: x.y.z
 - Resolve #34
 - back up path for sqlite db etc?
 
-## 2.0.0 (work in progress)
+## 2.0.0 (20/03/23)
 
-This should still be fairly backwards compatible, but to much changes to api to stay on 1.x.y.  
+This should still be fairly backwards compatible, but too much changes to api to stay on 1.x.y.  
 
 **Main changes:**
-* Generics and rtvals overlapped to much, removed generics and store now handles both. 
+* Generics and rtvals overlapped too much, removed generics and store now handles both. 
 * Removed a lot of 'labels' that are now handled with store and hidden the rest from the user
 * Started changing commands to have the id first and the cmd secondary
 * Started using childnodes in favour of id -> src references 
 * Removed functionality that either wasn't used anyway or had multiple ways of doing
   * filters,math,editors had their own node and cmd's outside of paths, this is no longer the case  
+* Added extra cmds to telnet to show prefixes to data received
 
-The Getting started guid has been updated to use all these changes, making it about 10% shorter.
+The Getting started guide has been updated to use all these changes, making it about 10% shorter.
 
 ### Labels
 - Changed default label to an empty string, so streams no longer pass it on to the labelworker. Because of store,
@@ -48,23 +49,25 @@ But a rtvals node with name attribute and no childnodes will still be processed 
 ### Telnet 
 
 - Added the `>>prefix` command, to toggle having telnet add the id of incoming data as prefix, default false.
-  - The prefix will be shown in magenta 
+  - The prefix will be shown in magenta
+  - This is set for the session that issued the command, so not for other sessions/windows
+  - If enabled and lines from different id's are received a dashed line is added at the end to show end of datablock 
 - Changed it so errors/warnings returned are in orange (with a ! in front), just so it stands out
 more if something went wrong
-- If lines from different id's are received a dashed line is added at the end to show end of datablock 
 - Added three commands to have timestamping in front of data in orange:
   - `>>ts`: add HH:mm:ss.SSS (UTC time including microseconds)
   - `>>ts:format`: according to given format
   - `>>ds`: add yyyy-MM-dd HH:mm:ss.SSS in front
-
+  - These are set for the session that issued the command, so not for other sessions/windows
+  
 ### Waypoints
 - The travel check thread was only checked for existing or not, not for still being active.
 - Added extra hourly check to see if the travel check is still alive
 - Added extra info to `wpts:list`, to inform on the state of both checks
 
 ### Paths
-- Altered the `pf:id,debug,step` cmd to request all steps if none is specified
-  - If used in combination with the telnet prefix, that prefix will het trailing spaces to match length of longest one.
+- Added `pf:id,debug` cmd to request all steps
+  - If used in combination with the telnet prefix, that prefix will get trailing spaces to match length of longest one.
   - The source for the path will also be requested
 
 ## 1.2.1 (work in progress)
