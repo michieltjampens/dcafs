@@ -18,7 +18,7 @@ So once it has been set up, projects like Graphana can be used to display data.
 
 ## Installation
 * Make sure you have _at least_ java17 installed. If not, [download and install java 17](https://adoptium.net/)
-* Either download the most recent (pre)release [here](https://github.com/vlizBE/dcafs/releases)
+* Either download the most recent (pre)release [here](https://github.com/michieltjampens/dcafs/releases)
   * Unpack to the working folder  
 * Or clone the repo and compile it in an IDE
   * copy the resulting dcafs*.jar and lib folder to a working dir
@@ -27,7 +27,7 @@ So once it has been set up, projects like Graphana can be used to display data.
 ### Windows
 * If you have java17+ installed properly, just doubleclick the dcafs*.jar
   * If extra folders and a settings.xml appear, this worked
-* If java 11+ isn't installed properly, check the installation step
+* If java 17+ isn't installed properly, check the installation step
    
 ### Linux
 * In a terminal
@@ -64,7 +64,7 @@ In the background, a fresh settings.xml was generated.
   <settings>
     <mode>normal</mode>
     <!-- Settings related to the telnet server -->
-    <telnet port="23" title="dCafs"/>
+    <telnet port="23" title="DCAFS"/>
   </settings>
   <streams>
     <!-- Defining the various streams that need to be read -->
