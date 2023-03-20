@@ -36,7 +36,7 @@ And some important commands:
 
 ### Workspace layout
 
-The following is the recommended setup for setting up dcafs in general:
+The following is the recommended workspace layout for setting up dcafs in general:
 * Have two dcafs telnet instances open
   * Open PuTTY, select telnet as the protocol, use `localhost` as the ip, keep the default port.
      * Localhost means that dcafs is running on your PC/laptop 'locally'.
