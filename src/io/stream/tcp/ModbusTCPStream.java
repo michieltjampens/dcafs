@@ -21,8 +21,8 @@ import java.util.concurrent.BlockingQueue;
 
 public class ModbusTCPStream extends TcpStream{
 
-    public ModbusTCPStream(String id, String ipport, BlockingQueue<Datagram> dQueue, String label, int priority) {
-        super(id, ipport, dQueue, label, priority);
+    public ModbusTCPStream(String id, String ipport, BlockingQueue<Datagram> dQueue, int priority) {
+        super(id, ipport, dQueue, priority);
     }
     public ModbusTCPStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);

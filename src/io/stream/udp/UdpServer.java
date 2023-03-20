@@ -25,8 +25,8 @@ public class UdpServer extends BaseStream {
     this.dQueue=dQueue;
     readFromXML(stream);
   }
-  public UdpServer( String id, int port, BlockingQueue<Datagram> dQueue, String label ){
-      super(id,label,dQueue);
+  public UdpServer( String id, int port, BlockingQueue<Datagram> dQueue ){
+      super(id,dQueue);
       this.port=port;
   }
   public void setEventLoopGroup( EventLoopGroup group ){

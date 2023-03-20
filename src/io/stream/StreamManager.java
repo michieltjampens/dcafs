@@ -879,7 +879,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 				if( cmds.length>4)
 					cmds[3]=request.substring( request.indexOf(","+cmds[3])+1);
-				UdpStream udp = new UdpStream(cmds[1], cmds[2], dQueue, cmds[3], 1 );
+				UdpStream udp = new UdpStream(cmds[1], cmds[2], dQueue,  1 );
 				udp.addListener(this);
 				udp.setEventLoopGroup(eventLoopGroup);
 				udp.setBootstrap(bootstrapUDP);
@@ -900,7 +900,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 				cmds[3]=request.substring( request.indexOf(","+cmds[3])+1);
 
-				new UdpServer(cmds[1],Integer.parseInt(cmds[2]),dQueue,cmds[3]);
+				new UdpServer(cmds[1],Integer.parseInt(cmds[2]),dQueue);
 
 				break;
 			case "addserial":
