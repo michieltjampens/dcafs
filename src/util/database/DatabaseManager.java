@@ -663,6 +663,18 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 if( buildInsert(cmds[1],cmds[2],macro) )
                     return "Wrote record";
                 return "! Failed to write record";
+            case "prep":
+                lites.values().forEach( x-> {
+                    join.add("SQLite: "+x.getID());
+                    x.tables.forEach((i,val) -> join.add("  "+i+" : "+val.getPrepCount()));
+                    join.add("");
+                });
+                sqls.values().forEach( x-> {
+                    join.add("SQL: "+x.getID());
+                    x.tables.forEach((i,val) -> join.add("  "+i+" : "+val.getPrepCount()));
+                    join.add("");
+                });
+                return join.toString();
             default:
                 return UNKNOWN_CMD+": "+request[0]+":"+request[1];
         }

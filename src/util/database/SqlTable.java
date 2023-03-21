@@ -4,7 +4,6 @@ import util.data.RealtimeValues;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.TextVal;
 import util.data.ValStore;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
@@ -35,6 +34,7 @@ public class SqlTable {
     String lastError="";
 
     private boolean readFromDatabase=false;
+    private long prepCount=0;
 
     public SqlTable(String name) {
         this.name = name;
@@ -42,7 +42,7 @@ public class SqlTable {
     }
 
     /**
-     * By default this assumes it's for sqlite, with this it's toggled to be for a server instead
+     * By default, this assumes it's for sqlite, with this it's toggled to be for a server instead
      */
     public void toggleServer(){
         server=true;
@@ -85,35 +85,30 @@ public class SqlTable {
                 String rtval = XMLtools.getStringAttribute(node,"rtval","");
 
                 switch (node.getNodeName()) {
-                    case "real":
-                        table.addReal(val, rtval);
-                        break;
-                    case "integer":case "int":
-                        table.addInteger(val, rtval);
-                        break;
-                    case "timestamp":
+                    case "real" -> table.addReal(val, rtval);
+                    case "integer", "int" -> table.addInteger(val, rtval);
+                    case "timestamp" -> {
                         if (rtval.isEmpty()) {
                             table.addTimestamp(val);
                         } else {
                             table.addText(val, rtval);
                         }
-                        break;
-                    case "millis":
+                    }
+                    case "millis" -> {
                         if (rtval.isEmpty()) {
                             table.addEpochMillis(val);
                         } else {
                             table.addInteger(val, rtval);
                         }
-                        break;
-                    case "text":
-                        table.addText(val, rtval);
-                        break;
-                    case "localdtnow": table.addLocalDateTime(val, rtval,true); break;
-                    case "utcdtnow": case "utcnow": table.addUTCDateTime(val, rtval,true); break;
-                    case "datetime": table.addLocalDateTime(val, rtval,false); break;
-                    default:
-                        Logger.error("Unknown column specified "+node.getNodeName()+" for "+table.getName());
+                    }
+                    case "text" -> table.addText(val, rtval);
+                    case "localdtnow" -> table.addLocalDateTime(val, rtval, true);
+                    case "utcdtnow", "utcnow" -> table.addUTCDateTime(val, rtval, true);
+                    case "datetime" -> table.addLocalDateTime(val, rtval, false);
+                    default -> {
+                        Logger.error("Unknown column specified " + node.getNodeName() + " for " + table.getName());
                         return Optional.empty();
+                    }
                 }
 
                 /* Setup of the column */
@@ -207,23 +202,12 @@ public class SqlTable {
     }
 
     /**
-     * Enable the 'if not exists' part of the build query
-     * @return The table
-     */
-    public SqlTable enableIfnotexists() {
-        ifnotexists = true;
-        return this;
-    }
-
-    /**
      * Add a column that contains integer data
-     * 
+     *
      * @param title The title of the oolumn
-     * @return This object
      */
-    public SqlTable addInteger(String title) {
-        addColumn(new Column(title, (name + "_" + title).toLowerCase(), COLUMN_TYPE.INTEGER));        
-        return this;
+    public void addInteger(String title) {
+        addColumn(new Column(title, (name + "_" + title).toLowerCase(), COLUMN_TYPE.INTEGER));
     }
 
     /**
@@ -232,95 +216,78 @@ public class SqlTable {
      *
      * @param title The title of the column
      * @param rtval The rtval to use to find the data
-     * @return This object
      */
-    public SqlTable addInteger(String title, String rtval) {
+    public void addInteger(String title, String rtval) {
         addColumn(new Column(title, rtval, COLUMN_TYPE.INTEGER));
-        return this;
     }
 
     /**
      * Add a column that contains real data
-     * 
+     *
      * @param title The title of the column
-     * @return This object
      */
-    public SqlTable addReal(String title) {
+    public void addReal(String title) {
         addColumn(new Column(title, (name + "_" + title).toLowerCase(), COLUMN_TYPE.REAL));
-        return this;
     }
 
     /**
      * Add a column that contains real data, using the given rtval to link to rtvals
-     * 
+     *
      * @param title The title of the column
      * @param rtval The rtval to use to find the data
-     * @return This object
      */
-    public SqlTable addReal(String title, String rtval) {
+    public void addReal(String title, String rtval) {
         addColumn(new Column(title, rtval, COLUMN_TYPE.REAL));
-        return this;
     }
 
     /**
      * Add a column that contains text data
-     * 
+     *
      * @param title The title of the column
-     * @return This object
      */
-    public SqlTable addText(String title) {
+    public void addText(String title) {
         addColumn(new Column(title, (name + "_" + title).toLowerCase(), COLUMN_TYPE.TEXT));
-        return this;
     }
 
     /**
      * Add a column that contains text data, using the given rtval to link to rtvals
-     * 
+     *
      * @param title The title of the column
      * @param rtval The rtval to use to find the data
-     * @return This object
      */
-    public SqlTable addText(String title, String rtval) {
+    public void addText(String title, String rtval) {
         addColumn(new Column(title, rtval, COLUMN_TYPE.TEXT));
-        return this;
     }
 
     /* Timestamp */
     /**
      * Add a column that contains timestamp data (in text format)
-     * 
+     *
      * @param title The title of the column
-     * @return This object
      */
-    public SqlTable addTimestamp(String title) {
+    public void addTimestamp(String title) {
         addColumn(new Column(title, (name + "_" + title).toLowerCase(), COLUMN_TYPE.TIMESTAMP));
-        return this;
     }
 
-    public SqlTable addLocalDateTime(String title, String rtval,boolean now) {
+    public void addLocalDateTime(String title, String rtval, boolean now) {
         addColumn(new Column(title, rtval, now?COLUMN_TYPE.LOCALDTNOW:COLUMN_TYPE.DATETIME));
-        return this;
     }
-    public SqlTable addUTCDateTime(String title, String rtval,boolean now) {
+    public void addUTCDateTime(String title, String rtval, boolean now) {
         addColumn(new Column(title, rtval, now?COLUMN_TYPE.UTCDTNOW:COLUMN_TYPE.DATETIME));
-        return this;
     }
 
     /**
      * Add a column that contains timestamp data (in integer format).
-     * 
+     *
      * @param title The title of the column
-     * @return This object
      */
-    public SqlTable addEpochMillis(String title) {
+    public void addEpochMillis(String title) {
         addColumn(new Column(title, (name + "_" + title).toLowerCase(), COLUMN_TYPE.EPOCH));
-        return this;
     }
 
-    public SqlTable withDefault(String def) {
+    public void withDefault(String def) {
         int index = columns.size() - 1;
         columns.get(index).setDefault(def);
-        return this;
     }
     /**
      * Add a column to the collection of columns, this also updates the PreparedStatement
@@ -332,25 +299,21 @@ public class SqlTable {
     }
     /**
      * Define whether the last created column is the primary key
-     * 
+     *
      * @param pk True if primary key, false if not
-     * @return This object
      */
-    public SqlTable setPrimaryKey(boolean pk) {
+    public void setPrimaryKey(boolean pk) {
         int index = columns.size() - 1;
         columns.get(index).primary = pk;
-        return this;
     }
     /**
      * Define whether the last created column is not allowed to be null
-     * 
+     *
      * @param nn True if not allowed to be null, false if so
-     * @return This object
      */
-    public SqlTable setNotNull(boolean nn) {
+    public void setNotNull(boolean nn) {
         int index = columns.size() - 1;
         columns.get(index).notnull = nn;
-        return this;
     }
 
     /**
@@ -670,8 +633,12 @@ public class SqlTable {
                 }
                 record[index] = val;
             }
-        }        
+        }
+        prepCount++;
         return prep.addData(record);
+    }
+    public long getPrepCount(){
+        return prepCount;
     }
     /**
      * Inner class that holds all the info regarding a single column
