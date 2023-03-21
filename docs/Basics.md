@@ -1,7 +1,7 @@
 ## Introduction
 
 The purpose of this (probably in the end very long) page is to slowly introduce the different components in dcafs and how to use them.
-The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This sensor wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
+The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
 
 The dummy sensor is in fact just dcafs running a purpose made settings.xml and script.  
 Nothing in the source code has been altered to make it possible, so it should be independent of the version used (unless because of new bugs).   
