@@ -71,28 +71,24 @@ public class Waypoint implements Comparable<Waypoint>{
 		lastDist = GisTools.roughDistanceBetween(lon, lat, this.lon, this.lat, 3)*1000;// From km to m				
 		bearing = GisTools.calcBearing( lon, lat, this.lon, this.lat, 2 );
 
-		switch( state ){
-			case INSIDE:
-				if( lastDist > range ){ // Was inside but went beyond the range
+		switch (state) {
+			case INSIDE -> {
+				if (lastDist > range) { // Was inside but went beyond the range
 					state = STATE.LEAVE;
-					leaveTime=when;
-					leaveDistance=lastDist;
+					leaveTime = when;
+					leaveDistance = lastDist;
 				}
-				break;
-			case OUTSIDE:
-				if( lastDist < range ){ // Was outside but came within the range
-					state=STATE.ENTER;
-					if( !active ){
-						enterTime=when;
+			}
+			case OUTSIDE -> {
+				if (lastDist < range) { // Was outside but came within the range
+					state = STATE.ENTER;
+					if (!active) {
+						enterTime = when;
 					}
 					active = true;
 				}
-				break;
-			case ENTER:
-			case LEAVE:
-			case UNKNOWN:
-				state = lastDist < range?STATE.INSIDE:STATE.OUTSIDE;
-				break;
+			}
+			case ENTER, LEAVE, UNKNOWN -> state = lastDist < range ? STATE.INSIDE : STATE.OUTSIDE;
 		}
 		if( state == STATE.OUTSIDE && lastDist > 600 && active){
 			active = false;
@@ -120,7 +116,7 @@ public class Waypoint implements Comparable<Waypoint>{
 				break;
 			case INSIDE:
 			default:
-				break;    		
+				break;
 		}
 		return Optional.empty();
 	}
@@ -165,22 +161,21 @@ public class Waypoint implements Comparable<Waypoint>{
 			nm += " ["+GisTools.fromDegrToDegrMin(lat,4,"°")+";"+GisTools.fromDegrToDegrMin(lon,4,"°")+"]";
 		}
 		if( simple ){
-			switch(state){
-				case ENTER: return "Entered in range to "+nm;
-				case INSIDE:return "Inside "+nm;			
-				case LEAVE: return "Left "+nm+" and "+leaveDistance+" from center.";
-				case OUTSIDE:return "Outside "+nm+" and "+m+" from center"+suffix;
-				default: return "Unknown state of "+nm+".";		
-			}
+			return switch (state) {
+				case ENTER -> "Entered in range to " + nm;
+				case INSIDE -> "Inside " + nm;
+				case LEAVE -> "Left " + nm + " and " + leaveDistance + " from center.";
+				case OUTSIDE -> "Outside " + nm + " and " + m + " from center" + suffix;
+				default -> "Unknown state of " + nm + ".";
+			};
 		}else{
-			String mess="";
-			switch(state){
-				case ENTER:   mess = "Entered "; break;
-				case INSIDE:  mess = "Inside ";  break;			
-				case LEAVE:   mess = "Left ";    break;
-				case OUTSIDE: mess = "Outside "; break;
-				default:      mess = "Unknown state of "+name+".";break;		
-			}			
+			String mess = switch (state) {
+				case ENTER -> "Entered ";
+				case INSIDE -> "Inside ";
+				case LEAVE -> "Left ";
+				case OUTSIDE -> "Outside ";
+				default -> "Unknown state of " + name + ".";
+			};
 			return mess + name+" at " +TimeTools.formatLongUTCNow()+ " and "+m+" from center, bearing "+bearing+"° "+suffix;
 		}
 	}
@@ -239,7 +234,7 @@ public class Waypoint implements Comparable<Waypoint>{
 		if( travel.isValid()) {
 			travels.add(travel);
 			Logger.info("Added travel named "+name+" to waypoint "+this.name);
-			return Optional.ofNullable(travel);
+			return Optional.of(travel);
 		}else{
 			Logger.error( id+" (wp)-> Failed to add travel, parsing bearing failed: "+bearing);
 			return Optional.empty();
@@ -269,10 +264,6 @@ public class Waypoint implements Comparable<Waypoint>{
 	public double distanceTo( double lat, double lon){
 		lastDist = GisTools.roughDistanceBetween(lon, lat, this.lon, this.lat, 3)*1000;// From km to m						
 		return lastDist;
-	}
-	public double bearingTo( double lat, double lon ) {
-		bearing = GisTools.calcBearing( lon, lat, this.lon, this.lat, 2 );
-		return bearing;
 	}
 	public class Travel{
 		String name="";
@@ -323,7 +314,7 @@ public class Waypoint implements Comparable<Waypoint>{
 		}
 		public String toString(){
 			String info = name +" = "+(direction==STATE.ENTER?" coming closer than "+range+"m":" going further away than "+range+"m");
-			return info+" with a bearing from"+minBearing+ " to "+maxBearing+"°";
+			return info+" with a bearing from "+minBearing+ " to "+maxBearing+"°";
 		}
 		public String getBearingString(){
 			return (minBearing+" -> "+maxBearing).replace(".0","");
