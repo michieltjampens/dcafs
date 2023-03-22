@@ -102,12 +102,14 @@ public class FileTools {
      * @return The amount of lines or -1 if failed
      */
     public static long getLineCount( Path file ){
-        try{
-            return Files.lines(file).parallel().count();
-        } catch (IOException ex) {
-            Logger.error(ex);
+        if( Files.notExists(file))
             return -1;
+        try( var lines = Files.lines(file)){
+            return lines.count();
+        }catch(IOException e){
+            Logger.error(e);
         }
+        return -1;
     }
     /**
      * Read amount of lines from a file starting at start
