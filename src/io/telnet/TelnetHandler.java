@@ -321,7 +321,18 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	 * @return True If nothing was wrong with the connection
 	 */
 	public synchronized boolean writeLine( String message ){
-		return writeString( message + newLine );
+		if( message.split("\r\n").length>25){
+			boolean toggle=false;
+			for( var m : message.split("\r\n")) {
+				var color = toggle?TelnetCodes.TEXT_BRIGHT_YELLOW:TelnetCodes.TEXT_YELLOW;
+				writeString(color + m + newLine);
+				toggle=!toggle;
+			}
+			writeString(TelnetCodes.TEXT_BRIGHT_YELLOW);
+			return true;
+		}else {
+			return writeString(message + newLine);
+		}
 	}
 
 	@Override
