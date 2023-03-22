@@ -35,7 +35,7 @@ public class HistoryCmds {
             join.add("").add(cyan+"Read error data"+reg)
                     .add(green+" history:error,age,period "+reg+"-> Get the errors (up to 1k lines) from the past period fe. 10m or 1h etc ")
                     .add(green+" history:error,today<,find> "+reg+"-> Get the last 1k lines of errors of today with optional filter on containing 'find'")
-                    .add(green+" history:error,day,yyMMdd "+reg+"-> Get the last 1k lines of errors of requested day");
+                    .add(green+" history:error,day,yyMMdd<,find> "+reg+"-> Get the last 1k lines of errors of requested day, optional filter on containing 'find");
             return join.toString();
         }
         var cmds = request.split(",");
@@ -127,7 +127,8 @@ public class HistoryCmds {
                         }
                     case "day":
                         if( cmds.length!=3 && day.isEmpty())
-                            return "! Not enough arguments: history:error,day,yyMMdd";
+                            return "! Not enough arguments: history:error,day,yyMMdd<,find>";
+                        filter = cmds.length==4?cmds[3]:filter;
                         var raw = workPath.resolve("logs").resolve("errors_"+(cmds.length==3?cmds[2]:day)+".log");
                         if(Files.notExists(raw))
                             return "! No such file: "+raw.getFileName();
