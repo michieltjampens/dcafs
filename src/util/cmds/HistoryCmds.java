@@ -34,7 +34,7 @@ public class HistoryCmds {
                     .add(green+" history:raw,find<,max> "+reg+"-> Check raw file of today for up to max lines containing 'find', default is 50");
             join.add("").add(cyan+"Read error data"+reg)
                     .add(green+" history:error,age,period "+reg+"-> Get the errors (up to 1k lines) from the past period fe. 10m or 1h etc ")
-                    .add(green+" history:error,today "+reg+"-> Get the last 1k lines of errors of today")
+                    .add(green+" history:error,today<,find> "+reg+"-> Get the last 1k lines of errors of today with optional filter on containing 'find'")
                     .add(green+" history:error,day,yyMMdd "+reg+"-> Get the last 1k lines of errors of requested day");
             return join.toString();
         }
@@ -75,6 +75,7 @@ public class HistoryCmds {
             case "error","errors" -> {
 
                 String day="";
+                String filter="";
                 switch (cmds[1]) {
                     case "age":
                         if (cmds.length < 3)
@@ -120,6 +121,10 @@ public class HistoryCmds {
                         return join.toString();
                     case "today":
                         day = TimeTools.formatNow("yyMMdd");
+                        if( cmds.length==3){
+                            filter=cmds[2];
+                            cmds[2]=day;
+                        }
                     case "day":
                         if( cmds.length!=3 && day.isEmpty())
                             return "! Not enough arguments: history:error,day,yyMMdd";
@@ -128,10 +133,11 @@ public class HistoryCmds {
                             return "! No such file: "+raw.getFileName();
                         long total = FileTools.getLineCount(raw);// Get the amount of lines in the file
                         try (var coll = Files.lines(raw) ){
-                            if( total > MAX_ERRORS) { // If the file has more than 1k lines
+                            String finalFilter = filter;
+                            if( total > MAX_ERRORS && filter.isEmpty()) { // If the file has more than 1k lines
                                 coll.skip(total - MAX_ERRORS).forEach(join::add);; //Skip so we only read last 1k
                             }else{
-                                coll.forEach(join::add); // write to stringjoiner
+                                coll.filter( l -> l.contains(finalFilter)).forEach(join::add); // write to stringjoiner
                             }
                             join.setEmptyValue("No errors yet (somehow)");
                             return join.toString();
