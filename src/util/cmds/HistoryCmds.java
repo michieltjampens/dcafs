@@ -1,5 +1,6 @@
 package util.cmds;
 
+import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.FileTools;
@@ -16,9 +17,26 @@ import java.util.concurrent.TimeUnit;
 
 
 public class HistoryCmds {
+    private static Integer MAX_ERRORS = 1000;
+
     public static String replyToCommand(String request, boolean html, Path workPath ) {
+        var join = new StringJoiner("\r\n");
+
         if( request.equals("?")){
-            return "";
+            String cyan = html?"": TelnetCodes.TEXT_CYAN;
+            String green=html?"":TelnetCodes.TEXT_GREEN;
+            String ora = html?"":TelnetCodes.TEXT_ORANGE;
+            String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+
+
+            join.add(ora+"Commands that read from the raw or log files");
+            join.add("").add(cyan+"Read raw data"+reg)
+                    .add(green+" history:raw,find<,max> "+reg+"-> Check raw file of today for up to max lines containing 'find', default is 50");
+            join.add("").add(cyan+"Read error data"+reg)
+                    .add(green+" history:error,age,period "+reg+"-> Get the errors (up to 1k lines) from the past period fe. 10m or 1h etc ")
+                    .add(green+" history:error,today "+reg+"-> Get the last 1k lines of errors of today")
+                    .add(green+" history:error,day,yyMMdd "+reg+"-> Get the last 1k lines of errors of requested day");
+            return join.toString();
         }
         var cmds = request.split(",");
         if( cmds.length < 2 )
@@ -32,10 +50,10 @@ public class HistoryCmds {
                 var list = FileTools.findByFileName(path, 1, regex);
                 if (list.isEmpty())
                     return "!No file found with regex: " + regex;
-                int lines = cmds.length == 3 ? NumberUtils.toInt(cmds[2]) : 25;
+                int lines = cmds.length == 3 ? NumberUtils.toInt(cmds[2]) : 50;
                 if (lines == -1)
                     lines = Integer.MAX_VALUE;
-                var join = new StringJoiner("\r\n");
+
                 var data = new ArrayList<String>();
                 for( var file : list ){
                     try ( var stream = Files.lines(file)){
@@ -55,7 +73,7 @@ public class HistoryCmds {
                 return join.toString();
             }
             case "error","errors" -> {
-                var join = new StringJoiner("\r\n");
+
                 String day="";
                 switch (cmds[1]) {
                     case "age":
@@ -88,7 +106,7 @@ public class HistoryCmds {
                                             if(ok)
                                                 data.add(line);
                                         }
-                                        if( data.size() > 500 )
+                                        if( data.size() > MAX_ERRORS )
                                             data.remove(0);
                                     }
                                 } catch (IOException | SecurityException e) {
@@ -110,8 +128,8 @@ public class HistoryCmds {
                             return "! No such file: "+raw.getFileName();
                         long total = FileTools.getLineCount(raw);// Get the amount of lines in the file
                         try (var coll = Files.lines(raw) ){
-                            if( total > 1000) { // If the file has more than 1k lines
-                                coll.skip(total - 1000).forEach(join::add);; //Skip so we only read last 1k
+                            if( total > MAX_ERRORS) { // If the file has more than 1k lines
+                                coll.skip(total - MAX_ERRORS).forEach(join::add);; //Skip so we only read last 1k
                             }else{
                                 coll.forEach(join::add); // write to stringjoiner
                             }
