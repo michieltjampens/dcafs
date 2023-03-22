@@ -9,6 +9,14 @@ Note: Version numbering: x.y.z
 - Resolve #34
 - back up path for sqlite db etc?
 
+## 2.0.1 (work in progress)
+
+Started a new set of commands 'history', that allows to look into raw/log files 
+
+### History
+- Added `history:raw,find<,lines>` looks in the last raw file for lines containing 'find' and returns the most recent 25 
+lines or at maximum the amount specified. (or -1 for all)
+
 ## 2.0.0 (20/03/23)
 
 This should still be fairly backwards compatible, but too much changes to api to stay on 1.x.y.  

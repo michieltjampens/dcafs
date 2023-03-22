@@ -8,6 +8,7 @@ import io.forward.FilterForward;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.cmds.HistoryCmds;
 import util.cmds.StoreCmds;
 import util.tools.FileTools;
 import util.tools.TimeTools;
@@ -191,6 +192,7 @@ public class CommandPool {
 				}
 				yield ans;
 			}
+			case "history" -> HistoryCmds.replyToCommand(split[1],html,settingsPath.getParent());
 			case "", "stop", "nothing" -> {
 				stopCommandable.forEach(c -> c.replyToCommand(new String[]{"", ""}, wr, false));
 				yield "Clearing requests";
