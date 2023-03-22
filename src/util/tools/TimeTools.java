@@ -7,6 +7,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
@@ -96,9 +97,15 @@ public class TimeTools {
         if( dt==null)
             return null;
         try {
-            return LocalDateTime.parse(dt, DateTimeFormatter.ofPattern(format));
+            DateTimeFormatter formatter =
+                    new DateTimeFormatterBuilder().appendPattern(format)
+                            .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+                            .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+                            .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+                            .toFormatter();
+            return LocalDateTime.parse(dt, formatter);
         }catch( DateTimeParseException e ){
-            Logger.error("Failed to parse "+dt);
+            Logger.error("Failed to parse "+dt+ " because "+e.getMessage());
             return null;
         }
     }
