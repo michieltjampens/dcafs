@@ -37,65 +37,91 @@ public class HistoryCmds {
                     lines = Integer.MAX_VALUE;
                 var join = new StringJoiner("\r\n");
                 var data = new ArrayList<String>();
-                try {
-                    int finalLines = lines;
-                    Files.lines(list.get(0)).filter(line -> line.contains(cmds[1]))
-                            .forEach(line -> {
-                                data.add(line);
-                                if (data.size() > finalLines)
-                                    data.remove(0);
-                            });
-                    data.forEach(join::add);
-                } catch (IOException e) {
-                    Logger.error(e);
+                for( var file : list ){
+                    try ( var stream = Files.lines(file)){
+                        int finalLines = lines;
+                        stream.filter(line -> line.contains(cmds[1]))
+                                .forEach(line -> {
+                                    data.add(line);
+                                    if (data.size() > finalLines)
+                                        data.remove(0);
+                                });
+                        data.forEach(join::add);
+                    } catch (IOException e) {
+                        Logger.error(e);
+                    }
                 }
+
                 return join.toString();
             }
-            case "error" -> {
+            case "error","errors" -> {
+                var join = new StringJoiner("\r\n");
+                String day="";
                 switch (cmds[1]) {
                     case "age":
                         if (cmds.length < 3)
                             return "! Not enough arguments: history:error,age,period fe.5h";
-                        var now = LocalDateTime.now();
+
                         var age = TimeTools.parsePeriodStringToSeconds(cmds[2]);
-                        var from = now.minus(age, TimeUnit.SECONDS.toChronoUnit());
-                        var day = DateTimeFormatter.ofPattern("yyMMdd").format(from);
+                        var from = LocalDateTime.now().minus(age, TimeUnit.SECONDS.toChronoUnit());
+                        day = DateTimeFormatter.ofPattern("yyMMdd").format(from);
+
                         var data = new ArrayList<String>();
 
-
-                            var path = workPath.resolve("logs");
-                            var list = FileTools.findByFileName(path, 1, "errors_.*" );
-                            for( Path p : list){
-                                var name = p.getFileName().toString().substring(7,13); // Get the date part
-                                var dt = TimeTools.parseDateTime(name,"yyMMdd");
-                                if( dt.isAfter(from)|| name.equals(day)){ // if the same date or newer
-                                    try {
-                                        boolean ok=false;
-                                        for( var line : Files.lines(p).toList() ){
-                                            var stamp = line.split(" ERROR")[0];
-                                            var ts = TimeTools.parseDateTime(stamp,"yyyy-MM-dd HH:mm:ss.SSS");
-                                            if( ts==null && ok ) {
-                                                data.add(line);
-                                            }else if( ts!=null && ts.isAfter(from)){
-                                                ok=true;
-                                                data.add(line);
-                                            }else{
-                                                ok=false;
-                                            }
-                                            if( data.size() > 200 )
-                                                data.remove(0);
+                        var list = FileTools.findByFileName( workPath.resolve("logs"), 1, "errors_.*" );
+                        for( Path p : list){
+                            var datePart = p.getFileName().toString().substring(7,13); // Get the date part
+                            if( datePart.compareTo(day) >= 0){ // if the same date or newer
+                                try ( var stream = Files.lines(p)){
+                                    boolean ok=false;
+                                    for( var line : stream.toList() ){
+                                        var split = line.split(" "); // Line starts with date and time with space between
+                                        if(split.length==1) {
+                                            data.add(line);
+                                            continue;
                                         }
-                                    } catch (IOException | SecurityException e) {
-                                        Logger.error(e);
+                                        var ts = TimeTools.parseDateTime(split[0]+" "+split[1],"yyyy-MM-dd HH:mm:ss.SSS");
+                                        if( ts==null && ok ) {
+                                            data.add(line);
+                                        }else{
+                                            ok = ts!=null && ts.isAfter(from);
+                                            if(ok)
+                                                data.add(line);
+                                        }
+                                        if( data.size() > 500 )
+                                            data.remove(0);
                                     }
+                                } catch (IOException | SecurityException e) {
+                                    Logger.error(e);
                                 }
                             }
-                            var join = new StringJoiner("\r\n");
-                            join.setEmptyValue("! Something went wrong");
-                            data.forEach(join::add);
+                        }
+
+                        join.setEmptyValue("! Something went wrong");
+                        data.forEach(join::add);
+                        return join.toString();
+                    case "today":
+                        day = TimeTools.formatNow("yyMMdd");
+                    case "day":
+                        if( cmds.length!=3 && day.isEmpty())
+                            return "! Not enough arguments: history:error,day,yyMMdd";
+                        var raw = workPath.resolve("logs").resolve("errors_"+(cmds.length==3?cmds[2]:day)+".log");
+                        if(Files.notExists(raw))
+                            return "! No such file: "+raw.getFileName();
+                        long total = FileTools.getLineCount(raw);// Get the amount of lines in the file
+                        try (var coll = Files.lines(raw) ){
+                            if( total > 1000) { // If the file has more than 1k lines
+                                coll.skip(total - 1000).forEach(join::add);; //Skip so we only read last 1k
+                            }else{
+                                coll.forEach(join::add); // write to stringjoiner
+                            }
+                            join.setEmptyValue("No errors yet (somehow)");
                             return join.toString();
+                        } catch (IOException | SecurityException e) {
+                            Logger.error(e);
+                        }
                     case "period":
-                        return "";
+                        return "! Todo";
                     default:
                         return "! No such subcommand: "+cmds[1];
                 }
