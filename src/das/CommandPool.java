@@ -253,7 +253,7 @@ public class CommandPool {
 		}else{
 			Logger.debug("Hidden response to " + question + ": " + result);
 		}
-		if( !html && wr!=null && wr.id().startsWith("telnet") )
+		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
 			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_BRIGHT_YELLOW;
 
 		if( result.equalsIgnoreCase(UNKNOWN_CMD))
