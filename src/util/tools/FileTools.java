@@ -424,4 +424,17 @@ public class FileTools {
         }
         return Optional.empty();
     }
+    public static List<Path> findByFileName(Path path, int deep, String regex){
+        try (Stream<Path> pathStream = Files.find(path,
+                deep==-1?Integer.MAX_VALUE:deep,
+                (p, basicFileAttributes) ->
+                        p.getFileName().toString().matches(regex))
+        ) {
+            return pathStream.sorted().collect(Collectors.toList());
+        }catch( Exception e){
+            Logger.error(e);
+        }
+        return new ArrayList<>();
+
+    }
 }
