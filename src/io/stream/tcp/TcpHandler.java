@@ -177,7 +177,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
 
             // Log anything and everything (except empty strings)
             if( !msg.isBlank() && log ) {        // If the message isn't an empty string and logging is enabled, store the data with logback
-               Logger.tag("RAW").warn(priority + "\t" + label+"|"+id + "\t" + msg);
+               Logger.tag("RAW").warn(priority + "\t" + id + "\t" + msg);
             }
             if(debug)
                Logger.info( id+" -> " + msg);
