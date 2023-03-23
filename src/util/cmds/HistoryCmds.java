@@ -124,7 +124,7 @@ public class HistoryCmds {
             var datePart = day;
             if( filename.length()>13)
                 datePart = p.getFileName().toString().substring(7,13); // Get the date part
-            if( datePart.compareTo(day) >= 0){ // if the same date or newer
+            if( !NumberUtils.isCreatable(datePart) || datePart.compareTo(day) >= 0){ // if the same date or newer
                 try ( var stream = Files.lines(p).filter(l->l.contains(filter))){
                     boolean ok=false;
                     for( var line : stream.toList() ){
@@ -150,11 +150,12 @@ public class HistoryCmds {
                     }
                 } catch (IOException | SecurityException e) {
                     Logger.error(e);
+                    return "! Something went wrong";
                 }
             }
         }
 
-        join.setEmptyValue("! Something went wrong");
+        join.setEmptyValue("! No results");
         data.forEach(join::add);
         return join.toString();
     }
