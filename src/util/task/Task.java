@@ -496,6 +496,14 @@ public class Task implements Comparable<Task>{
 				break;
 			case DELAY:
 				suffix = " after "+TimeTools.convertPeriodtoString(startDelay, unit);
+				if( future == null) {
+					suffix += " [Not started]";
+				}else if(future.isDone()){
+					suffix += " [Done]";
+				}else{
+					var delay = TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
+					suffix += " [Waiting... "+delay+"]";
+				}
 				break;
 			case INTERVAL:
 				suffix = " every "+ TimeTools.convertPeriodtoString(interval, unit) + (startDelay==0?".":" after initial delay "+TimeTools.convertPeriodtoString(startDelay, unit))
