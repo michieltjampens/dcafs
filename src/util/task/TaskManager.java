@@ -873,30 +873,39 @@ public class TaskManager implements CollectorFuture {
 	public String getTaskListing( String eol ){
 		if( tasks.isEmpty() )
 			return "Task list empty."+eol;
-			
-		StringJoiner b = new StringJoiner(eol,"-Runnable Tasks-"+eol,eol+eol);
-		StringJoiner intr = new StringJoiner(eol,"-Interval Tasks-"+eol,eol+eol);
-		StringJoiner clk = new StringJoiner(eol,"-Clock Tasks-"+eol,eol+eol);
-		StringJoiner other = new StringJoiner(eol,"-Other Tasks-"+eol,eol+eol);
+
+		var pre = eol.startsWith("\r")?TelnetCodes.TEXT_GREEN:"-";
+		var pos = eol.startsWith("\r")?TelnetCodes.TEXT_DEFAULT:"-";
+
+		StringJoiner runn = new StringJoiner(eol,pre+"Runnable Tasks"+pos+eol,eol+eol);
+		StringJoiner intr = new StringJoiner(eol,pre+"Interval Tasks"+pos+eol,eol+eol);
+		StringJoiner clk = new StringJoiner(eol,pre+"Clock Tasks-"+pos+eol,eol+eol);
+		StringJoiner other = new StringJoiner(eol,pre+"Other Tasks"+pos+eol,eol+eol);
+		boolean runnOk=false,clkOk=false,otherOk=false,intrOk=false;
 
 		Collections.sort(tasks);
 		for( Task task : tasks){
 			if(NumberUtils.isParsable(task.id) ){//Meaning the id is a randomly given number
 				if( task.triggerType==TRIGGERTYPE.CLOCK ) {
 					clk.add( task.toString() );
+					clkOk=true;
 				}else if( task.triggerType==TRIGGERTYPE.INTERVAL ) {
 					intr.add( task.toString() );
+					intrOk=true;
 				}else{
 					other.add(task.toString());
+					otherOk=true;
 				}
 			}else{
-				b.add(task.id + " -> " + task);
+				runnOk=true;
+				runn.add(task.id + " -> " + task);
 			}
 		}
 		Logger.info("clk;"+clk.length());
 		Logger.info("other;"+other.length());
 		Logger.info("intr;"+intr.length());
-		return b.toString()+ (clk.length()>19?clk:"") + intr + (other.length()>19?other:"");
+
+		return (runnOk?runn.toString():"") + (clkOk?clk.toString():"") + (intrOk?intr.toString():"") + (otherOk?other.toString():"");
 	}
 	/**
 	 * Get a listing of all the managed tasksets
@@ -905,9 +914,13 @@ public class TaskManager implements CollectorFuture {
 	 */
 	public String getTaskSetListing( String eol ){
 		if( tasksets.isEmpty() ){
-			return "No tasksets yet."+eol;
+			return "No task sets yet."+eol;
 		}
-		StringBuilder b = new StringBuilder("-Task sets-");
+
+		var pre = eol.startsWith("\r")?TelnetCodes.TEXT_GREEN:"-";
+		var pos = eol.startsWith("\r")?TelnetCodes.TEXT_DEFAULT:"-";
+
+		StringBuilder b = new StringBuilder(pre+"Task sets"+pos);
 		b.append(eol);
 		for( TaskSet set : tasksets.values()){
 			b.append((char) 27).append("[31m").append(set.getID()).append(" ==> ").append(set.getDescription()).append("(")
