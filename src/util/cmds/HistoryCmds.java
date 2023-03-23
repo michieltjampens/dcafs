@@ -6,11 +6,9 @@ import org.tinylog.Logger;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 
-import java.awt.image.TileObserver;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
