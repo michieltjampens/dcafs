@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<dcafs>
+  <settings>
+    <mode>normal</mode>
+    <!-- Settings related to the telnet server -->
+    <telnet port="23" title="DCAFS_pump_scenario"/>
+    <taskmanager id="pump">tmscripts\pump.xml</taskmanager>
+  </settings>
+  <!-- This is part of the dummy, don't change it -->
+  <streams>
+    <stream id="pump" type="local">
+    </stream>
+  </streams>
+</dcafs>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<tasklist>
+  <tasksets>
+    <!-- Below is an example taskset -->
+    <taskset id="rolld6s" info="Rolls a 6 sided dice every second">      
+      <task output="stream:dummy" trigger="interval:100ms,1s">d6:{rand6}</task>
+    </taskset>
+  </tasksets>
+  <!-- Tasks are single commands to execute -->
+  <tasks>
+    <!-- Single rolls -->
+	<task id="rolld6" output="stream:dummy" >d6:{rand6}</task>
+	<task id="rolld20" output="stream:dummy" >d20:{rand20}</task>
+	<task id="rolld100" output="stream:dummy" >d100:{rand100}</task>
+	
+	<!-- Multiple rolls -->
+	<task id="stopd20s" output="system">tm:dicer,stop</task>
+	<task id="rolld20s" output="stream:dummy" trigger="interval:1s">d20:{rand20}</task>
+  </tasks>
+</tasklist>
