@@ -6,10 +6,16 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - cmd !idle not used properly when disconnected/reconnected
-- Resolve #34
 - back up path for sqlite db etc?
 
-## 2.1.0 (work in progress)
+## 2.1.1 (work in progress)
+
+### Telnet
+
+### TaskManager
+- tmid:list now gives more info on the state of task with delay trigger
+
+## 2.1.0 (23/03/2023)
 
 Started a new set of commands 'history', that allows to look into raw/log files. 
 
@@ -19,7 +25,6 @@ Started a new set of commands 'history', that allows to look into raw/log files.
   - Tinylog: 2.5.0 -> 2.6.1
   - org.json: 20220924 -> 20230227
   - SQLite: 3.39.4.1 -> 3.40.1.0
-  - MariaDB: 3.0.10 -> 3.1.2
  
 ### Logging/Logger
 - Altered error and info log:

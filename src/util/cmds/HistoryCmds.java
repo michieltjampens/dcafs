@@ -26,7 +26,7 @@ public class HistoryCmds {
             String cyan = html?"": TelnetCodes.TEXT_CYAN;
             String green=html?"":TelnetCodes.TEXT_GREEN;
             String ora = html?"":TelnetCodes.TEXT_ORANGE;
-            String reg=html?"":TelnetCodes.TEXT_BRIGHT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+            String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
             join.add(ora+"Commands that read from the raw or log files");
             join.add("").add(cyan+"Read raw data"+reg)

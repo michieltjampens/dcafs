@@ -361,7 +361,7 @@ public class FilterForward extends AbstractForward {
     public static String getHelp(String eol){
         StringJoiner join = new StringJoiner(eol);
         var gr = TelnetCodes.TEXT_GREEN;
-        var re = TelnetCodes.TEXT_YELLOW;
+        var re = TelnetCodes.TEXT_DEFAULT;
         join.add(gr+"start"+re+" -> Which text the data should start with" )
                 .add("    fe. <filter type='start'>$</filter> --> The data must start with $");
         join.add(gr+"nostart"+re+" -> Which text the data can't start with")

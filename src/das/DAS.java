@@ -556,7 +556,7 @@ public class DAS implements Commandable{
         final String TEXT_GREEN = html?"":TelnetCodes.TEXT_GREEN;
         final String TEXT_CYAN = html?"":TelnetCodes.TEXT_CYAN;
         final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
-        final String TEXT_YELLOW = html?"":TelnetCodes.TEXT_YELLOW;
+        final String TEXT_YELLOW = html?"":TelnetCodes.TEXT_DEFAULT;
         final String TEXT_RED = html?"":TelnetCodes.TEXT_RED;
         final String TEXT_NB = html?"":TelnetCodes.TEXT_REGULAR;
         final String TEXT_BRIGHT = html?"":TelnetCodes.TEXT_BRIGHT;
@@ -629,7 +629,7 @@ public class DAS implements Commandable{
             if (html) {
                 b.append("<br><b>Buffers</b><br>");
             } else {
-                b.append(TelnetCodes.TEXT_CYAN).append("\r\nBuffers\r\n").append(TelnetCodes.TEXT_YELLOW)
+                b.append(TelnetCodes.TEXT_CYAN).append("\r\nBuffers\r\n").append(TelnetCodes.TEXT_DEFAULT)
                         .append(TelnetCodes.UNDERLINE_OFF);
             }
             b.append(getQueueSizes());
@@ -642,7 +642,7 @@ public class DAS implements Commandable{
         } else {
             b.append(TelnetCodes.TEXT_CYAN)
                     .append("\r\nDatabases\r\n")
-                    .append(TelnetCodes.TEXT_YELLOW).append(TelnetCodes.UNDERLINE_OFF);
+                    .append(TelnetCodes.TEXT_DEFAULT).append(TelnetCodes.UNDERLINE_OFF);
         }
         if (dbManager.hasDatabases()) {
             for( String l : dbManager.getStatus().split("\r\n") ){

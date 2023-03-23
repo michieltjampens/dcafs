@@ -112,7 +112,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
 
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
         String green=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_BRIGHT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
         var or = html?"":TelnetCodes.TEXT_ORANGE;
 
         Optional<FileCollector>  fco = Optional.ofNullable(cmds.length>2?fileCollectors.get(cmds[1]):null);

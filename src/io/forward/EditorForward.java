@@ -534,7 +534,7 @@ public class EditorForward extends AbstractForward{
     public static String getHelp(String eol) {
         StringJoiner join = new StringJoiner(eol);
         var gr = TelnetCodes.TEXT_GREEN;
-        var re = TelnetCodes.TEXT_YELLOW;
+        var re = TelnetCodes.TEXT_DEFAULT;
         join.add(TelnetCodes.TEXT_MAGENTA+"All examples will start from 16:25:12 as base data");
         join.add(TelnetCodes.TEXT_ORANGE+"--REGULAR--")
                 .add(gr+"resplit"+re+" -> Use the delimiter to split the data and combine according to the value")

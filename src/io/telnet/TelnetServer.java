@@ -91,7 +91,7 @@ public class TelnetServer implements Commandable {
                         messages.forEach(handler::addOneTime);
                         writables.add(handler.getWritable());
                         pipeline.addLast( handler );
-                        messages.forEach( m -> handler.writeLine(TelnetCodes.TEXT_RED+m+TelnetCodes.TEXT_YELLOW));
+                        messages.forEach( m -> handler.writeLine(TelnetCodes.TEXT_RED+m+TelnetCodes.TEXT_DEFAULT));
                     }
                 });	// Let clients connect to the DAS interface
 
@@ -128,7 +128,7 @@ public class TelnetServer implements Commandable {
             writables.remove(wr);
             return (s==writables.size())?"Failed to remove":"Removed from targets";
         }else {
-            String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+            String reg=html?"":TelnetCodes.TEXT_DEFAULT;
             switch (cmds[0]) {
                 case "?":
                     var join = new StringJoiner("\r\n");
@@ -143,7 +143,7 @@ public class TelnetServer implements Commandable {
                         return "Not enough arguments, telnet:error,message";
                     var error = request[1].substring(6);
                     messages.add(error);
-                    writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED+error+TelnetCodes.TEXT_YELLOW));
+                    writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED+error+TelnetCodes.TEXT_DEFAULT));
                     return "";
                 case "broadcast":
                     String send;
@@ -163,13 +163,13 @@ public class TelnetServer implements Commandable {
                         }
                     }
 
-                    writables.removeIf(w -> !w.writeLine(send+TelnetCodes.TEXT_YELLOW));
+                    writables.removeIf(w -> !w.writeLine(send+TelnetCodes.TEXT_DEFAULT));
                     return "";
                 case "write":
                     var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
                     if( wrs.isEmpty())
                         return "No such id";
-                    var mes = TelnetCodes.TEXT_MAGENTA+wr.id()+": "+request[1].substring(7+cmds[1].length())+TelnetCodes.TEXT_YELLOW;
+                    var mes = TelnetCodes.TEXT_MAGENTA+wr.id()+": "+request[1].substring(7+cmds[1].length())+TelnetCodes.TEXT_DEFAULT;
                     wrs.forEach( w->w.writeLine(mes));
                     return mes.replace(TelnetCodes.TEXT_MAGENTA,TelnetCodes.TEXT_ORANGE);
                 case "bt":

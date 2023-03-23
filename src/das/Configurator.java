@@ -79,10 +79,10 @@ public class Configurator {
         INTRO_COLOR = ERROR_COLOR;
     }
     private void baseYellowColoring(){
-        DEF_COLOR = TelnetCodes.TEXT_BRIGHT_YELLOW;
+        DEF_COLOR = TelnetCodes.TEXT_DEFAULT;
 
-        HINT_COLOR = TelnetCodes.TEXT_YELLOW;
-        INFO_COLOR = TelnetCodes.TEXT_YELLOW;
+        HINT_COLOR = TelnetCodes.TEXT_DEFAULT;
+        INFO_COLOR = TelnetCodes.TEXT_DEFAULT;
         FB_COLOR   = TelnetCodes.TEXT_GRAY  + ">> ";
 
         Q_COLOR    = TelnetCodes.TEXT_GREEN;

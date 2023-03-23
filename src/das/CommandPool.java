@@ -254,7 +254,7 @@ public class CommandPool {
 			Logger.debug("Hidden response to " + question + ": " + result);
 		}
 		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
-			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_BRIGHT_YELLOW;
+			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
 
 		if( result.equalsIgnoreCase(UNKNOWN_CMD))
 			return result+" >>"+question+"|"+find+"|"+split[0]+"|"+split[1]+"<<";
@@ -437,37 +437,37 @@ public class CommandPool {
 					join.add("help -> First use tips");
 				break;
 				case "":
-					join.add(TelnetCodes.TEXT_RED+"General commands"+TelnetCodes.TEXT_YELLOW);
+					join.add(TelnetCodes.TEXT_RED+"General commands"+TelnetCodes.TEXT_DEFAULT);
 					join.add("  st -> Get the current status of dcafs, lists streams, databases etc");
 					join.add("  cmds -> Get al list of all available commands").add("");
-					join.add(TelnetCodes.TEXT_RED+"General tips"+TelnetCodes.TEXT_YELLOW)
+					join.add(TelnetCodes.TEXT_RED+"General tips"+TelnetCodes.TEXT_DEFAULT)
 						.add("   -> Look at settings.xml file (in dcafs.jar folder) in a viewer to see what dcafs does")
 						.add("   -> Open two or more telnet instances fe. one for commands and other for live data").add("");
-					join.add(TelnetCodes.TEXT_RED+"Recommended workflow:"+TelnetCodes.TEXT_YELLOW);
-					join.add(TelnetCodes.TEXT_GREEN+"1) Connect to a data source"+TelnetCodes.TEXT_YELLOW)
+					join.add(TelnetCodes.TEXT_RED+"Recommended workflow:"+TelnetCodes.TEXT_DEFAULT);
+					join.add(TelnetCodes.TEXT_GREEN+"1) Connect to a data source"+TelnetCodes.TEXT_DEFAULT)
 						.add("   -> For udp, tcp and serial, use streams:? or ss:? for relevant commands")
 						.add("   -> For MQTT, use mqtt:? for relevant commands")
 						.add("   -> For I2C/SPI check the manual and then use i2c:?");
-					join.add(TelnetCodes.TEXT_GREEN+"2) Look at received data"+TelnetCodes.TEXT_YELLOW)
+					join.add(TelnetCodes.TEXT_GREEN+"2) Look at received data"+TelnetCodes.TEXT_DEFAULT)
 						.add("   -> raw:streamid -> Show the data received at the stream with the given id eg. raw:gps")
 						.add("   -> raw:label:streamlabel -> Show the data received at the streams with the given label")
 						.add("   -> mqtt:forward,id -> Show the data received from the mqtt broker with the given id")
 						.add("   -> i2c:forward,id -> Show the data received from the i2c device with the given id");
-					join.add(TelnetCodes.TEXT_GREEN+"3) Alter the data stream to a delimited set of values"+TelnetCodes.TEXT_YELLOW)
+					join.add(TelnetCodes.TEXT_GREEN+"3) Alter the data stream to a delimited set of values"+TelnetCodes.TEXT_DEFAULT)
 						.add("   -> Use MathForward to apply arithmetic operations on it, see mf:?")
 						.add("      See the result with math:id")
 						.add("   -> If the stream contains various messages, split it out using FilterForward, see ff:?")
 						.add("      See the result with filter:id");
-					join.add(TelnetCodes.TEXT_GREEN+"4) Collect the data after the optional math and filter"+TelnetCodes.TEXT_YELLOW)
+					join.add(TelnetCodes.TEXT_GREEN+"4) Collect the data after the optional math and filter"+TelnetCodes.TEXT_DEFAULT)
 						.add("   -> Use generics to store the data in memory, see gens:?")
 						.add("   -> Use MathCollector to calculate averages, standard deviation etc, see mc:? (todo:implementing commands)")
 						.add("   -> See a snapshot of the data in memory with rtvals or rtval:name to receive updates on a specific on")
 						.add("   -> Use ValMap to collect data that's formatted according to param,value (or any other delimiter)");
-					join.add(TelnetCodes.TEXT_GREEN+"5) Create/connect to a database"+TelnetCodes.TEXT_YELLOW);
+					join.add(TelnetCodes.TEXT_GREEN+"5) Create/connect to a database"+TelnetCodes.TEXT_DEFAULT);
 					join.add("   -> Send dbm:? for commands related to the database manager");
-					join.add(TelnetCodes.TEXT_GREEN+"6) Somehow get the data received in 1 into 5"+TelnetCodes.TEXT_YELLOW);
+					join.add(TelnetCodes.TEXT_GREEN+"6) Somehow get the data received in 1 into 5"+TelnetCodes.TEXT_DEFAULT);
 					join.add("   -> See the manual about how to use generics (Reference Guide -> Generics)");
-					join.add(TelnetCodes.TEXT_GREEN+"7) Do other things"+TelnetCodes.TEXT_YELLOW);
+					join.add(TelnetCodes.TEXT_GREEN+"7) Do other things"+TelnetCodes.TEXT_DEFAULT);
 					join.add("   -> For scheduling events, check taskmanager");
 					join.add("   -> ...").add("");
 				break;
@@ -587,7 +587,7 @@ public class CommandPool {
 				boolean wait = true;
 				StringJoiner j = new StringJoiner(html?"<br":"\r\n");
 				j.setEmptyValue("No "+cmd[0]+" yet");
-				String col=TelnetCodes.TEXT_YELLOW;
+				String col=TelnetCodes.TEXT_DEFAULT;
 				for( String d : data){
 					if( d.startsWith( "20") ) {
 						wait = false;
@@ -596,14 +596,14 @@ public class CommandPool {
 						}else if( d.contains(" WARN\t")){
 							col= TelnetCodes.TEXT_ORANGE;
 						}else if( d.contains(" INFO\t")){
-							col=TelnetCodes.TEXT_YELLOW;
+							col=TelnetCodes.TEXT_DEFAULT;
 						}
 					}
 					if(!wait) {
 						j.add(col+d);
 					}
 				}
-				return j+TelnetCodes.TEXT_YELLOW;
+				return j+TelnetCodes.TEXT_DEFAULT;
 			default: return UNKNOWN_CMD+" : "+request[1];
 		}
 	}

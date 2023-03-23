@@ -119,7 +119,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 				onetime.forEach(this::writeLine);
 				onetime.clear();
 			}
-			writeString(TelnetCodes.TEXT_BRIGHT_YELLOW + ">");
+			writeString(TelnetCodes.TEXT_DEFAULT + ">");
 			channel.flush();
 			if (!start.isEmpty()) {
 				dQueue.add(Datagram.build(start).label(LABEL).writable(this).origin("telnet:" + channel.remoteAddress().toString()));
@@ -173,7 +173,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 				return;
 			}
 			config=false;
-			writeLine( TelnetCodes.TEXT_BLUE+"Bye! Back to telnet mode..."+TelnetCodes.TEXT_YELLOW);
+			writeLine( TelnetCodes.TEXT_BLUE+"Bye! Back to telnet mode..."+TelnetCodes.TEXT_DEFAULT);
 			writeString(">");
 			return;
 		}else if( new String(rec).equalsIgnoreCase("cfg")){
@@ -324,11 +324,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		if( message.split("\r\n").length>25){
 			boolean toggle=false;
 			for( var m : message.split("\r\n")) {
-				var color = toggle?TelnetCodes.TEXT_BRIGHT_YELLOW:TelnetCodes.TEXT_YELLOW;
+				var color = toggle?TelnetCodes.TEXT_DEFAULT:TelnetCodes.TEXT_YELLOW;
 				writeString(color + m + newLine);
 				toggle=!toggle;
 			}
-			writeString(TelnetCodes.TEXT_BRIGHT_YELLOW);
+			writeString(TelnetCodes.TEXT_DEFAULT);
 			return true;
 		}else {
 			return writeString(message + newLine);
@@ -345,7 +345,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		String time="";
 
 		if( ts || ds)
-			time = TelnetCodes.TEXT_ORANGE+TimeTools.formatUTCNow(ts?format:"yyyy-MM-dd HH:mm:ss.SSS")+"   "+TelnetCodes.TEXT_BRIGHT_YELLOW;
+			time = TelnetCodes.TEXT_ORANGE+TimeTools.formatUTCNow(ts?format:"yyyy-MM-dd HH:mm:ss.SSS")+"   "+TelnetCodes.TEXT_DEFAULT;
 
 		if(prefix) {
 			var end = ids.get(ids.size()-1).equals(origin)?newLine+"------------- ("+ids.size()+")":"";
@@ -353,7 +353,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 				end="";
 			var length = ids.stream().mapToInt(String::length).max().orElse(0);
 			origin = Tools.addTrailingSpaces(origin,length);
-			return writeLine(time+TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_BRIGHT_YELLOW + "  " + data + end);
+			return writeLine(time+TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_DEFAULT + "  " + data + end);
 		}
 		return writeLine(time+data);
 	}

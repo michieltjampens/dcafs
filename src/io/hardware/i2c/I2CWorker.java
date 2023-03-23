@@ -117,7 +117,7 @@ public class I2CWorker implements Commandable {
             if( !last.equalsIgnoreCase(split[0])){
                 if( !last.isEmpty())
                     join.add("");
-                join.add(TelnetCodes.TEXT_GREEN+split[0]+TelnetCodes.TEXT_YELLOW);
+                join.add(TelnetCodes.TEXT_GREEN+split[0]+TelnetCodes.TEXT_DEFAULT);
                 last = split[0];
             }
             join.add("\t"+split[1]+" -> "+cmd.getInfo()+" ("+cmd.bits+"bits)");
@@ -452,7 +452,7 @@ public class I2CWorker implements Commandable {
     public static String detectI2Cdevices( int controller ){
 		StringJoiner b = new StringJoiner("\r\n");
         var gr = TelnetCodes.TEXT_GREEN;
-        var ye = TelnetCodes.TEXT_YELLOW;
+        var ye = TelnetCodes.TEXT_DEFAULT;
         var or = TelnetCodes.TEXT_ORANGE;
         var red = TelnetCodes.TEXT_RED;
 		for (int device_address = 0; device_address < 128; device_address++) {
@@ -487,7 +487,7 @@ public class I2CWorker implements Commandable {
         String[] cmd = request[1].split(",");
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
         String gr=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_BRIGHT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
         var or = html?"":TelnetCodes.TEXT_ORANGE;
 
         switch (cmd[0]) {

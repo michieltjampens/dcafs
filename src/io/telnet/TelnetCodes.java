@@ -77,6 +77,8 @@ public class TelnetCodes {
 	public static final String CURSOR_LEFT = ESCAPE + "[1D";
 	public static final String CURSOR_RIGHT = ESCAPE + "[1C";
 
+	public static final String TEXT_DEFAULT = TEXT_BRIGHT_YELLOW + UNDERLINE_OFF;
+
 	public static String cursorLeft( int steps ){
 		return ESCAPE + "["+steps+"D";
 	}

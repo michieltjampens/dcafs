@@ -435,7 +435,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
 
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
         String green=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_BRIGHT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
         var or = html?"":TelnetCodes.TEXT_ORANGE;
 
         switch( cmds[0] ){

@@ -121,7 +121,7 @@ public class TaskManagerPool implements Commandable {
         TaskManager tl;
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
         String green=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
         switch( cmd[0] ) {
             case "?":

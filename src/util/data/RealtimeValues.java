@@ -319,7 +319,7 @@ public class RealtimeValues implements Commandable {
 
 		// Switch between either empty string or the telnetcode because of htm not understanding telnet
 		String green=html?"":TelnetCodes.TEXT_GREEN;
-		String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 		String ora = html?"":TelnetCodes.TEXT_ORANGE;
 
 		String result;
@@ -395,7 +395,7 @@ public class RealtimeValues implements Commandable {
 			String cyan = html?"":TelnetCodes.TEXT_CYAN;
 			String green=html?"":TelnetCodes.TEXT_GREEN;
 			String ora = html?"":TelnetCodes.TEXT_ORANGE;
-			String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+			String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
 			var join = new StringJoiner(html?"<br>":"\r\n");
 			join.setEmptyValue("None yet");
@@ -497,7 +497,7 @@ public class RealtimeValues implements Commandable {
 				case "?" -> {
 					String cyan = html?"":TelnetCodes.TEXT_CYAN;
 					String green=html?"":TelnetCodes.TEXT_GREEN;
-					String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+					String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
 					var join = new StringJoiner(html?"<br>":"\r\n");
 					join.add(cyan + " Interact with XML" + reg)

@@ -1209,7 +1209,7 @@ public class TaskManager implements CollectorFuture {
 		String[] parts = request.split(",");
 
 		String green=(html?"":TelnetCodes.TEXT_GREEN)+"tm:";
-		String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
+		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
 		switch (parts[0]) {
 			case "?" -> {
