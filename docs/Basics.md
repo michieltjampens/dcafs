@@ -25,7 +25,7 @@ And some important commands:
 ### Setup & startup
 1. Download the latest release version of dcafs from the [dcafs releases page](https://github.com/michieltjampens/dcafs/releases). Pick the zip file that contains all files.
 2. Extract it to a working folder, make a second copy of it and rename that one to dummy. Keep the original.
-3. Download the [Diceroller]([examples/Diceroller.zip](https://github.com/michieltjampens/dcafs/raw/main/docs/examples/Diceroller.zip)) package
+3. Download the [Diceroller]([examples/Diceroller.zip](https://github.com/michieltjampens/dcafs/raw/main/examples/simulations/diceroller/diceroller.zip)) package
 4. Extract the content into the dummy folder (fe. settings.xml should be on the same level as the .jar)
 5. From now on, the dcafs version that generates the dummy (diceroller) data will be called "dummy", the other one we'll call "regular"
 6. Start both the regular and dummy dcafs (double-click on their respective .jar files). If your firewall (Windows Defender, ...) ask permissions you'll have to grant them.
