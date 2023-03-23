@@ -13,6 +13,19 @@ Note: Version numbering: x.y.z
 
 Started a new set of commands 'history', that allows to look into raw/log files. 
 
+### POM
+- Updated dependencies
+  - Netty: 4.1.88.Final -> 4.1.90.Final
+  - Tinylog: 2.5.0 -> 2.6.1
+  - org.json: 20220924 -> 20230227
+  - SQLite: 3.39.4.1 -> 3.40.1.0
+  - MariaDB: 3.0.10 -> 3.1.2
+ 
+### Logging/Logger
+- Altered error and info log:
+  - to also have the timstamp surrounded with [] like raw
+  - a tab between timestamp and level instead of space
+
 ### History
 - Added `history:raw,find<,lines>` looks in the last raw file for lines containing 'find' and returns the most recent 25 
 lines or at maximum the amount specified. (or -1 for all). Other files are compressed...
