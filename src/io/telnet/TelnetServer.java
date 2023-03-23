@@ -42,7 +42,7 @@ public class TelnetServer implements Commandable {
     ArrayList<Writable> writables = new ArrayList<>();
     private final Path settingsPath;
     private final ArrayList<String> messages=new ArrayList<>();
-
+    private String defColor = TelnetCodes.TEXT_BRIGHT_YELLOW;
 
     public TelnetServer( BlockingQueue<Datagram> dQueue, Path settingsPath, EventLoopGroup eventGroup ) {
         this.dQueue=dQueue;
@@ -64,6 +64,7 @@ public class TelnetServer implements Commandable {
                 port = XMLtools.getIntAttribute(ele, "port", 23);
                 title = XMLtools.getStringAttribute(ele, "title", "DCAFS");
                 ignore = XMLtools.getChildStringValueByTag(ele, "ignore", "");
+                defColor = TelnetCodes.colorToCode(XMLtools.getChildStringValueByTag(ele,"textcolor","yellow"),defColor);
             },()->addBlankTelnetToXML(settingsPath));
         }
     }
@@ -88,6 +89,7 @@ public class TelnetServer implements Commandable {
                         // and then business logic.
                         TelnetHandler handler = new TelnetHandler( dQueue,ignore,settingsPath ) ;
                         handler.setTitle(title);
+                        handler.setDefaultColor(defColor);
                         messages.forEach(handler::addOneTime);
                         writables.add(handler.getWritable());
                         pipeline.addLast( handler );

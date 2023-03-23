@@ -77,7 +77,7 @@ public class TelnetCodes {
 	public static final String CURSOR_LEFT = ESCAPE + "[1D";
 	public static final String CURSOR_RIGHT = ESCAPE + "[1C";
 
-	public static final String TEXT_DEFAULT = TEXT_BRIGHT_YELLOW + UNDERLINE_OFF;
+	public static final String TEXT_DEFAULT = "[tdc]";
 
 	public static String cursorLeft( int steps ){
 		return ESCAPE + "["+steps+"D";
@@ -97,6 +97,26 @@ public class TelnetCodes {
     	
     	return b.toString().replaceAll("-999.0", TEXT_RED+"-999"+TEXT_GREEN)+defaultTextColor;
     }
+	public static String colorToCode( String color, String error ){
+		return switch (color) {
+			case "yellow" -> TelnetCodes.TEXT_BRIGHT_YELLOW;
+			case "dimyellow" -> TelnetCodes.TEXT_YELLOW;
+			case "white" -> TelnetCodes.TEXT_WHITE;
+			case "orange" -> TelnetCodes.TEXT_ORANGE;
+			case "gray" -> TelnetCodes.TEXT_GRAY;
+			case "lightgray" -> TelnetCodes.TEXT_LIGHT_GRAY;
+			case "green" -> TelnetCodes.TEXT_GREEN;
+			case "cyan" -> TelnetCodes.TEXT_BRIGHT_CYAN;
+			case "dimcyan" -> TelnetCodes.TEXT_CYAN;
+			case "magenta" -> TelnetCodes.TEXT_BRIGHT_MAGENTA;
+			case "dimmagenta" -> TelnetCodes.TEXT_MAGENTA;
+			case "red" -> TelnetCodes.TEXT_RED;
+			case "dimblue" -> TelnetCodes.TEXT_BLUE; // hardly readable on black
+			case "blue" -> TelnetCodes.TEXT_BRIGHT_BLUE;
+			case "black" -> TelnetCodes.TEXT_BLACK;
+			default -> error;
+		};
+	}
 	public static String colorText( String defaultTextColor, String s, String text) {
 		StringBuilder b = new StringBuilder();
 		for( String line : s.split("\r\n")) {

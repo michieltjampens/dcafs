@@ -53,6 +53,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	ArrayList<String> ids = new ArrayList<>();
 	private boolean prefix=false,ts=false,ds=false;
 	private String format="HH:mm:ss.SSS";
+	private String default_text_color=TelnetCodes.TEXT_BRIGHT_YELLOW;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
@@ -250,6 +251,10 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 								}).orElse("Couldn't find the node"));
 					}
 				}
+				case "color" -> {
+					default_text_color = TelnetCodes.colorToCode(split[1],default_text_color);
+					writeString(default_text_color+"Color changed...?\r\n>");
+				}
 				case "macro" -> {
 					if (!split[1].contains("->")) {
 						writeLine("Missing ->");
@@ -314,6 +319,9 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			ctx.flush();
 		}
 	}
+	public void setDefaultColor( String color ){
+		default_text_color=color;
+	}
 	/* *************************************** W R I T A B L E  ******************************************************/
 	/**
 	 * Sending data that will be appended by the default newline string.
@@ -364,7 +372,8 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	 * @return True If nothing was wrong with the connection
 	 */
 	public synchronized boolean writeString( String message ){					
-		if( channel != null && channel.isActive()){			
+		if( channel != null && channel.isActive()){
+			message = message.replace(TelnetCodes.TEXT_DEFAULT,default_text_color);
 			channel.writeAndFlush(message.getBytes());
 			lastSendMessage = message;	// Store the message for future reference		
 			return true;

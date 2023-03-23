@@ -919,14 +919,16 @@ public class TaskManager implements CollectorFuture {
 
 		var pre = eol.startsWith("\r")?TelnetCodes.TEXT_GREEN:"-";
 		var pos = eol.startsWith("\r")?TelnetCodes.TEXT_DEFAULT:"-";
+		var red = eol.startsWith("\r")?TelnetCodes.TEXT_RED:"";
+		var mag = eol.startsWith("\r")?TelnetCodes.TEXT_MAGENTA:"";
 
 		StringBuilder b = new StringBuilder(pre+"Task sets"+pos);
 		b.append(eol);
 		for( TaskSet set : tasksets.values()){
-			b.append((char) 27).append("[31m").append(set.getID()).append(" ==> ").append(set.getDescription()).append("(")
-					.append(set.getTasks().size()).append(" items)").append("Run type:").append(set.getRunType()).append(eol);
+			b.append(red).append(set.getID()).append(" [").append(set.getRunType()).append("] : ").append(mag).append(set.getDescription()).append("(")
+					.append(set.getTasks().size()).append(" items)").append(eol);
 			for( Task s : set.getTasks() ) {
-				b.append((char) 27).append("[33m").append("\t-> ").append( s.toString()).append(eol);
+				b.append(pos).append("\t-> ").append( s.toString()).append(eol);
 			}			
 		}
 		return b.toString();
