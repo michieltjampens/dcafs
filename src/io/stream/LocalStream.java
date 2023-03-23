@@ -62,7 +62,7 @@ public class LocalStream extends BaseStream implements Writable {
                Logger.info( id() +" -> " + msg);
             // Log anything and everything (except empty strings)
             if( !msg.isBlank() && log )		// If the message isn't an empty string and logging is enabled, store the data with logback
-        	    Logger.tag("RAW").warn( priority + "\t" + label + "\t" + msg );
+        	    Logger.tag("RAW").warn( id() + "\t" + msg );
 
 			if( !targets.isEmpty() ){
                 targets.forEach(dt -> eventLoopGroup.submit( () -> dt.writeLine(id,msg)) );

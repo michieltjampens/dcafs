@@ -309,7 +309,7 @@ public class DebugWorker implements Readable {
 										line[3]=join.toString();
 									}
 									if (logRaw) {
-										Logger.tag("RAW").warn(d.getPriority() + "\t" + line[2] + "\t" + line[3]);
+										Logger.tag("RAW").warn( line[2] + "\t" + line[3]);
 									}
 									send = line[3];
 								} else {
@@ -432,7 +432,7 @@ public class DebugWorker implements Readable {
 								if( d !=null ){
 									dQueue.add(d);
 									if (logRaw) {
-										Logger.tag("RAW").warn(d.getPriority() + "\t" + line[2] + "\t" + line[3]);
+										Logger.tag("RAW").warn( line[2] + "\t" + line[3]);
 									}
 								}
 							break;

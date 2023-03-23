@@ -290,7 +290,7 @@ public class MathForward extends AbstractForward {
         targets.forEach(t->t.writeLine(id(),result));
 
         if( log )
-            Logger.tag("RAW").info( "1\t" + id() + "\t" + result);
+            Logger.tag("RAW").info( id() + "\t" + result);
         if( store!=null) {
             for( int a=0;a<bds.length;a++){
                 if( bds[a] != null){

@@ -89,7 +89,7 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
                
             // Log anything and everything (except empty strings)
             if( !chunk.isBlank())
-                Logger.tag("RAW").warn( priority + "\t" + label + "\t" + chunk );
+                Logger.tag("RAW").warn( id + "\t" + chunk );
                 
             pos = indexOf(l,buf,delim); // Get the position of the delimiter, incase there are multiple
         }

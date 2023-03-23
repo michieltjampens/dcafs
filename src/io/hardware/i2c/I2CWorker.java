@@ -672,6 +672,6 @@ public class I2CWorker implements Commandable {
             Logger.error(e);
         }
 
-        Logger.tag("RAW").warn( "1\t" + device.getID()+":"+device.getLabel() + "\t" + output );
+        Logger.tag("RAW").warn( device.getID() + "\t" + output );
     }
 }

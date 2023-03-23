@@ -69,7 +69,7 @@ public class EditorForward extends AbstractForward{
         targets.forEach(t->t.writeLine(id(),finalData));
 
         if( log )
-            Logger.tag("RAW").info( "1\t" + id() + "\t" + data);
+            Logger.tag("RAW").info( id() + "\t" + data);
 
         if( store != null )
             store.apply(data,dQueue);

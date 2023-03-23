@@ -319,12 +319,12 @@ public class MqttWorker implements MqttCallbackExtended {
 	public void messageArrived(String topic, MqttMessage message) {
 
 		String load = new String(message.getPayload());	// Get the payload
-		String label = subscriptions.get(topic.substring(defTopic.length()));
+		String topicName = subscriptions.get(topic.substring(defTopic.length()));
 
-		Logger.tag("RAW").warn("1\t"+label+"\t"+load);  // Store it like any other received data
+		Logger.tag("RAW").warn(topicName+"\t"+load);  // Store it like any other received data
 
 		if( dQueue != null ){	// If there's a valid BaseWorker queue
-			dQueue.add( Datagram.build(load).label(label).origin(id) );
+			dQueue.add( Datagram.build(load).label(topicName).origin(id) );
 
 			if( !targets.isEmpty() ){
                 targets.removeIf(dt -> !dt.writeLine( load ) );

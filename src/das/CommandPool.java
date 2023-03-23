@@ -152,7 +152,7 @@ public class CommandPool {
 		question = question.replace("html", "");
 
 		if (remember) // If to store commands in the raw log (to have a full simulation when debugging)
-			Logger.tag("RAW").info("1\tsystem\t" + question);
+			Logger.tag("RAW").info("system\t" + question);
 
 		int rtvals = question.indexOf(":");
 

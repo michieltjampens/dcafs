@@ -136,7 +136,7 @@ public class SerialStream extends BaseStream implements Writable {
     }
     protected void processListenerEvent( byte[] data ){
         Logger.debug(id+ " <-- "+Tools.fromBytesToHexString(data));
-        Logger.tag("RAW").warn(priority + "\t" + label+"|"+id + "\t" + Tools.fromBytesToHexString(data));
+        Logger.tag("RAW").warn(id() + "\t" + Tools.fromBytesToHexString(data));
 
         if( !targets.isEmpty() ){
             try {
@@ -164,7 +164,7 @@ public class SerialStream extends BaseStream implements Writable {
 
         // Log anything and everything (except empty strings)
         if( !msg.isBlank() && log ) {        // If the message isn't an empty string and logging is enabled, store the data with logback
-            Logger.tag("RAW").warn( label+"|"+id + "\t" + msg);
+            Logger.tag("RAW").warn( id + "\t" + msg);
         }
         if(debug) {
             Logger.info(id + " -> " + msg);
