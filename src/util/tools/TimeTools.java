@@ -351,10 +351,13 @@ public class TimeTools {
     /**
      * Parses the given time period to the equivalent amount of TimeUnits
      * @param period The period that needs to be parsed
-     * @return The equivalent amount of seconds
+     * @return The equivalent amount of seconds or 0 if empty period
      */
     private static long parsePeriodString( String period, TimeUnit unit ){
-               
+
+        if( period.isEmpty())
+            return 0;
+
         period = period.toUpperCase().replace("SEC", "S").replace("MIN", "M");
         period = period.replace("DAY","D").replace("DAYS","D");
         period = period.replace(" ",""); // remove spaces
@@ -701,5 +704,10 @@ public class TimeTools {
         }
         daysList.trimToSize();
         return daysList;
+    }
+    public static long secondsSinceMidnight(){
+        var now = LocalDateTime.now();
+        var midnight = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
+        return Duration.between(midnight, now).getSeconds();
     }
 }
