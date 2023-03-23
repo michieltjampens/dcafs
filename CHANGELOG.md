@@ -25,13 +25,14 @@ Started a new set of commands 'history', that allows to look into raw/log files.
 - Altered error and info log:
   - to also have the timstamp surrounded with [] like raw
   - a tab between timestamp and level instead of space
+- Raw log no longer mention priority nor label
 
 ### History
-- Added `history:raw,find<,lines>` looks in the last raw file for lines containing 'find' and returns the most recent 25 
+- Added `history:raw,filter<,lines>` looks in the last raw file for lines containing 'find' and returns the most recent 25 
 lines or at maximum the amount specified. (or -1 for all). Other files are compressed...
-- Added `history:error,age,period` to look for errors younger than the period. This is limited to the last 200 lines.
-- Added `history:error,today,<,find>` to get errors of today, optionally must contain 'find'
-- Added `history:error,day,yyMMdd<,find>` to get errors of a specific day, optionally must contain 'find'
+- Added `history:error/info,age,period<,filter>` to look for errors/info younger than the period. This is limited to the last 200 lines.
+- Added `history:error/info,today,<,filter>` to get errors/info of today, optionally must contain 'find'
+- Added `history:error,day,yyMMdd<,filter>` to get errors of a specific day, optionally must contain 'find'
 
 ## 2.0.0 (20/03/23)
 

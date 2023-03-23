@@ -28,8 +28,7 @@ public class HistoryCmds {
             String cyan = html?"": TelnetCodes.TEXT_CYAN;
             String green=html?"":TelnetCodes.TEXT_GREEN;
             String ora = html?"":TelnetCodes.TEXT_ORANGE;
-            String reg=html?"":TelnetCodes.TEXT_YELLOW+TelnetCodes.UNDERLINE_OFF;
-
+            String reg=html?"":TelnetCodes.TEXT_BRIGHT_YELLOW+TelnetCodes.UNDERLINE_OFF;
 
             join.add(ora+"Commands that read from the raw or log files");
             join.add("").add(cyan+"Read raw data"+reg)
@@ -46,7 +45,7 @@ public class HistoryCmds {
         }
         var cmds = request.split(",");
         if( cmds.length < 2 )
-            return "! Not enough arguments, need at least 2";
+            return "! Not enough arguments, need at least 2. Check history:? for options";
 
         return switch(cmds[0]){
             case "raw" -> {
@@ -102,6 +101,7 @@ public class HistoryCmds {
                     default -> "! No such subcommand: "+cmds[1]+", options: age,day,today";
                 };
             }
+            default -> "! No such cmd, check history:?";
         };
     }
     private static String readLogs( String period, String filter, Path workPath,String filename ){
