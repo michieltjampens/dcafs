@@ -2,14 +2,10 @@ package util.data;
 
 import io.forward.AbstractForward;
 import org.tinylog.Logger;
-import org.w3c.dom.Document;
 import util.xml.XMLtools;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Optional;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 
 import org.w3c.dom.Element;
@@ -20,6 +16,11 @@ public class ValStore {
     private String delimiter = ",";
     private String[] db={"",""}; // dbid,table
     private String id;
+
+    /* * MAPPED * */
+    private boolean map=false;
+    private final HashMap<String,AbstractVal> valMap = new HashMap<>();
+    private String lastKey=""; // Last key trigger db store
     public ValStore(String id){
         this.id=id;
     }
@@ -55,6 +56,7 @@ public class ValStore {
         var valStore = new ValStore(id);
 
         String groupID = XMLtools.getStringAttribute(store,"group",id);
+        valStore.mapFlag(XMLtools.getBooleanAttribute(store,"map",false));
         valStore.delimiter( XMLtools.getStringAttribute(store,"delimiter",valStore.delimiter())); // delimiter
         // Checking for database connection
         if ( store.hasAttribute("db")) {
@@ -68,28 +70,47 @@ public class ValStore {
 
         var vals = XMLtools.getChildElements(store);
 
-        ArrayList<AbstractVal> rtvals = new ArrayList<>();
-        for( var val : vals){
-            int i = XMLtools.getIntAttribute(val,"index",-1);
-            if( i != -1 ){
-                while( i>rtvals.size() )
-                    rtvals.add(null);
+        if(valStore.mapped()) { // key based
+            for (var val : vals) {
+                var key = XMLtools.getStringAttribute(val, "key","");
+                switch (val.getTagName()) {
+                    case "real" -> RealVal.build(val, groupID).ifPresent( v -> valStore.putAbstractVal(key,v));
+                    case "int" -> IntegerVal.build(val, groupID).ifPresent(v -> valStore.putAbstractVal(key,v));
+                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(v -> valStore.putAbstractVal(key,v));
+                    case "text" -> TextVal.build(val, groupID).ifPresent(v -> valStore.putAbstractVal(key,v));
+                    default -> {
+                    }
+                }
             }
-            var b = rtvals.size();
-            switch (val.getTagName()) {
-                case "real" -> RealVal.build(val, groupID).ifPresent(rtvals::add);
-                case "int" -> IntegerVal.build(val, groupID).ifPresent(rtvals::add);
-                case "flag","bool" -> FlagVal.build(val,groupID).ifPresent(rtvals::add);
-                case "ignore" -> rtvals.add(null);
-                case "text" -> TextVal.build(val,groupID).ifPresent(rtvals::add);
-                default -> {}
-            }
-            if( rtvals.size()==b) {
+            if(valStore.mapSize()!=vals.size()){
                 Logger.error("Failed to create an AbstractVal for " + groupID);
                 return Optional.empty();
             }
+        }else{ // index based
+            ArrayList<AbstractVal> rtvals = new ArrayList<>();
+            for (var val : vals) {
+                int i = XMLtools.getIntAttribute(val, "index", -1);
+                if (i != -1) {
+                    while (i > rtvals.size())
+                        rtvals.add(null);
+                }
+                var b = rtvals.size();
+                switch (val.getTagName()) {
+                    case "real" -> RealVal.build(val, groupID).ifPresent(rtvals::add);
+                    case "int" -> IntegerVal.build(val, groupID).ifPresent(rtvals::add);
+                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(rtvals::add);
+                    case "ignore" -> rtvals.add(null);
+                    case "text" -> TextVal.build(val, groupID).ifPresent(rtvals::add);
+                    default -> {
+                    }
+                }
+                if (rtvals.size() == b) {
+                    Logger.error("Failed to create an AbstractVal for " + groupID);
+                    return Optional.empty();
+                }
+            }
+            valStore.addVals(rtvals);
         }
-        valStore.addVals(rtvals);
         return Optional.of( valStore );
     }
     public static Optional<ValStore> build( Element parentNode ){
@@ -118,13 +139,31 @@ public class ValStore {
                     rtvals.set(index, rtv.getTextVal(val.id()).get());
             }
         }
+        for( var set : valMap.entrySet() ){
+            var val = set.getValue();
+            if( val instanceof RealVal ){
+                if( rtv.addRealVal((RealVal)val) == AbstractForward.RESULT.EXISTS)
+                    valMap.put(set.getKey(),rtv.getRealVal(val.id()).get());
+            }else if( val instanceof IntegerVal ){
+                if( rtv.addIntegerVal((IntegerVal)val) == AbstractForward.RESULT.EXISTS)
+                    valMap.put(set.getKey(), rtv.getIntegerVal(val.id()).get());
+            }else if( val instanceof  FlagVal ){
+                if( rtv.addFlagVal((FlagVal)val) == AbstractForward.RESULT.EXISTS)
+                    valMap.put(set.getKey(),rtv.getFlagVal(val.id()).get());
+            }else if( val instanceof TextVal ){
+                if( rtv.addTextVal((TextVal)val) == AbstractForward.RESULT.EXISTS)
+                    valMap.put(set.getKey(),rtv.getTextVal(val.id()).get());
+            }
+        }
     }
     public void removeRealtimeValues( RealtimeValues rtv){
         rtvals.forEach(rtv::removeVal);
+        valMap.values().forEach(rtv::removeVal);
     }
     public int size(){
         return rtvals.size();
     }
+
     public void addEmptyVal(){
         rtvals.add(null);
     }
@@ -168,19 +207,50 @@ public class ValStore {
         }
         return null;
     }
+    private void mapFlag( boolean state){
+        map=state;
+    }
+    /* ****************************** M A P P E D **************************************************** */
+    public boolean mapped(){
+        return map;
+    }
+    public boolean putAbstractVal( String key, AbstractVal val){
+        lastKey=key;
+        return valMap.put(key,val)==null;
+    }
+    public int mapSize(){
+        return valMap.size();
+    }
+    /* ************************************************************************************************ */
     public boolean apply( String line, BlockingQueue<Datagram> dQueue) {
         var items = line.split(delimiter);
-        if (items.length < rtvals.size()) {
-            Logger.warn(id + " -> Can't apply store, not enough data in the line received");
-            return false;
-        }
-        boolean parsed = true;
-        for (int a = 0; a < rtvals.size(); a++) {
-            if (rtvals.get(a) != null && parsed) {
-                parsed = rtvals.get(a).parseValue(items[a]);
+        boolean dbOk;
+        if( map ){
+            if( items.length<2) {
+                Logger.error( id+" -> Not enough arguments after splitting: "+line);
+                return false;
+            }
+            var val = valMap.get(items[0]);
+            if( val != null ){
+                String value = line.substring(items[0].length()+1);
+                val.parseValue(value);
+            }else{
+                Logger.warn(id+" -> No mapping found for "+items[0]);
+            }
+            dbOk = items[0].equalsIgnoreCase(lastKey);
+        }else {
+            if (items.length < rtvals.size()) {
+                Logger.warn(id + " -> Can't apply store, not enough data in the line received");
+                return false;
+            }
+            dbOk = true;
+            for (int a = 0; a < rtvals.size(); a++) {
+                if (rtvals.get(a) != null && dbOk) {
+                    dbOk = rtvals.get(a).parseValue(items[a]);
+                }
             }
         }
-        if (parsed) {
+        if (dbOk) {
             if (!db[0].isEmpty()) { // if a db is present
                 // dbm needs to retrieve everything
                 Arrays.stream(db[0].split(","))
@@ -190,8 +260,14 @@ public class ValStore {
         return true;
     }
     public void setValueAt(int index, BigDecimal d){
+        if( map)
+            return;
+        if( index>=rtvals.size() ) {
+            Logger.error(id + " -> Tried to set index "+index+" but only "+rtvals.size()+" items");
+            return;
+        }
         var val = rtvals.get(index);
-        if( val == null)
+        if( val == null )
             return;
         if( val instanceof RealVal) {
             ((RealVal) val).value(d.doubleValue());
@@ -202,8 +278,12 @@ public class ValStore {
         }
     }
     public void setValueAt(int index, String d){
-        if( index >= rtvals.size())
+        if( map)
             return;
+        if( index>=rtvals.size() ) {
+            Logger.error(id + " -> Tried to set index "+index+" but only "+rtvals.size()+" items");
+            return;
+        }
         var val = rtvals.get(index);
         if( val == null)
             return;
@@ -218,6 +298,9 @@ public class ValStore {
                 join.add("At index "+index+" -> "+val);
             }
             index++;
+        }
+        for( var val : valMap.entrySet()){
+            join.add( "At key "+val.getKey()+" -> "+val.getValue());
         }
         return join.toString();
     }
