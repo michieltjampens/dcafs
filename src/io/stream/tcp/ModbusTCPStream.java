@@ -72,7 +72,7 @@ public class ModbusTCPStream extends TcpStream{
 
                     if( handler != null )
                         handler.disconnect();
-                    handler = new ModbusTCP( id, label, dQueue, ModbusTCPStream.this );
+                    handler = new ModbusTCP( id, dQueue, ModbusTCPStream.this );
                     handler.setPriority(priority);
                     handler.setTargets(targets);
                     handler.setStreamListeners( listeners );

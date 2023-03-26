@@ -116,7 +116,7 @@ public class TcpStream extends BaseStream implements Writable {
                     }
                     if( handler != null )
                         handler.disconnect();	
-                    handler = new TcpHandler( id, label, dQueue, TcpStream.this );
+                    handler = new TcpHandler( id, dQueue, TcpStream.this );
                     handler.setPriority(priority);
                     handler.setTargets(targets);
                     handler.setStreamListeners( listeners );

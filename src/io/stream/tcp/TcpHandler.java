@@ -23,7 +23,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
 
     protected boolean idle=false;
     protected String id;
-    protected String label;
+    protected String label="";
     protected int priority = 1;
 
     protected List<StreamListener> listeners;
@@ -47,14 +47,12 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     String eol="\r\n";
     boolean udp=false;
 
-
-    public TcpHandler( String id,String label, BlockingQueue<Datagram> dQueue ){
+    public TcpHandler( String id,BlockingQueue<Datagram> dQueue ){
         this.id=id;
-        this.label=label;
         this.dQueue=dQueue;
     }
-    public TcpHandler( String id,String label, BlockingQueue<Datagram> dQueue, Writable writable ){
-        this(id,label,dQueue);
+    public TcpHandler( String id, BlockingQueue<Datagram> dQueue, Writable writable ){
+        this(id,dQueue);
         this.writable=writable;
     }
     public void setTargets(List<Writable> targets){

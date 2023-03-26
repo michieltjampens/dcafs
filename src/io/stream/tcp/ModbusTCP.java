@@ -17,11 +17,11 @@ public class ModbusTCP extends TcpHandler{
     byte[] header=new byte[]{0,1,0,0,0,0,0};
     String[] origin = new String[]{"","","","reg","AI",""};
 
-    public ModbusTCP(String id, String label, BlockingQueue<Datagram> dQueue) {
-        super(id, label, dQueue);
+    public ModbusTCP(String id, BlockingQueue<Datagram> dQueue) {
+        super(id, dQueue);
     }
-    public ModbusTCP( String id,String label, BlockingQueue<Datagram> dQueue, Writable writable ){
-        this(id,label,dQueue);
+    public ModbusTCP( String id,BlockingQueue<Datagram> dQueue, Writable writable ){
+        this(id,dQueue);
         this.writable=writable;
     }
     @Override

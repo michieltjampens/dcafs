@@ -88,7 +88,7 @@ public class UdpStream extends BaseStream implements Writable {
 
                 if( handler != null )
                     handler.disconnect();	
-                handler = new TcpHandler( id, label, dQueue, UdpStream.this );
+                handler = new TcpHandler( id, dQueue, UdpStream.this );
                 handler.setTargets(targets);
                 handler.setStreamListeners(listeners);
                 handler.toggleUDP();
