@@ -2,10 +2,10 @@ dcafs
 =========
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
 
-A Java tool that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database. Hence _data collect alter forward store_. If the device needs to be interrogated or any other sort of control, that's also possible (hidden under _forward_).   
+A tool that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database.  If the device needs to be interrogated or any other sort of control, that's also possible.   
 
-It doesn't use a lot of resources (around 15MB RAM incl JVM, 24MB install with all libs), works headless via SSH/Telnet but the downside is the lack of GUI.  
-But once it has been set up, projects like [Graphana](https://grafana.com/) can be used to display data.  
+It doesn't use a lot of resources (around 20MB RAM incl JVM, 24MB install with all libs), works headless via SSH/Telnet but lacka a GUI.  
+Once it has been set up, projects like [Graphana](https://grafana.com/) can be used to display data.  
 
 The 'Getting Started' guide, can be read [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
 
