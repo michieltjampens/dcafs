@@ -8,12 +8,46 @@ Note: Version numbering: x.y.z
 - cmd !idle not used properly when disconnected/reconnected
 - back up path for sqlite db etc?
 
-## 2.1.1 (work in progress)
+## 2.2.0 (work in progress)
 
 ### Telnet
+- Added the node 'textcolor' to change the default text color
+- Added the command `>>color:colorname` fe. `color:lightgray` to change the default text color of the session
 
 ### TaskManager
 - tmid:list now gives more info on the state of task with delay trigger
+
+### LabelWorker
+- Removed 'ValMap', replaced with store
+
+### Store
+- Added attribute 'map', that makes the store act as a ValMap instead of regular store. No telnet interface yet.
+````xml
+<!--
+d6:4
+d20:14
+d100:63
+-->
+<stream id="dice" type="tcp">
+  <address>localhost:4000</address>
+  <store map="true" delimiter=":">
+    <int key="d6" unit="">d6</int>
+    <int key="d20" unit="">d20</int>
+    <int key="d100" unit="">d100</int>
+  </store>
+</stream>
+````
+### RealtimeValues
+
+- Added parsing options to TextVal, this is used in combination with store. Mainly for decoding error-codes etc.
+````xml
+<textval index="1" name="test">
+  <parser key="012">No valid data</parser> <!-- So if there's a '012' at index 1, test will become 'No valid data' -->
+  <parser key="013">No known sample</parser>
+  <!-- or regex -->
+  <parser regex=".+12">No valid data</parser> <!-- regex matching, first match counts -->
+</textval>
+````
 
 ## 2.1.0 (23/03/2023)
 
