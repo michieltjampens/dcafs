@@ -512,7 +512,7 @@ public class SqlTable {
         Object[] record = new Object[columns.size()];
 
         if( stores.get(macro)==null) {
-            stores.put(macro, new ValStore());
+            stores.put(macro, new ValStore(id));
         }
         var store = stores.get(macro);
         int index=-1;

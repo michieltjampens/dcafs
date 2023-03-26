@@ -20,6 +20,9 @@ public class ValStore {
     private String delimiter = ",";
     private String[] db={"",""}; // dbid,table
     private String id;
+    public ValStore(String id){
+        this.id=id;
+    }
     public void delimiter( String del ){
         this.delimiter=del;
     }
@@ -49,8 +52,7 @@ public class ValStore {
             return Optional.empty();
         }
 
-        var valStore = new ValStore();
-        valStore.id(id);
+        var valStore = new ValStore(id);
 
         String groupID = XMLtools.getStringAttribute(store,"group",id);
         valStore.delimiter( XMLtools.getStringAttribute(store,"delimiter",valStore.delimiter())); // delimiter
