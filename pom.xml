@@ -84,12 +84,6 @@
 		  <artifactId>json</artifactId>
 		  <version>20230227</version>
 	  </dependency>
-	  <!-- https://mvnrepository.com/artifact/org.influxdb/influxdb-java -->
-	  <dependency>
-		  <groupId>org.influxdb</groupId>
-		  <artifactId>influxdb-java</artifactId>
-		  <version>2.23</version>
-	  </dependency>
 	<!-- https://mvnrepository.com/artifact/com.sun.mail/javax.mail -->
 	  <dependency>
 		  <groupId>com.sun.mail</groupId>
