@@ -1,17 +1,10 @@
 package worker;
 
 import io.telnet.TelnetCodes;
-import org.w3c.dom.Element;
-import io.Readable;
 import io.Writable;
 import das.CommandPool;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
 import util.tools.TimeTools;
-import util.xml.XMLfab;
-import util.xml.XMLtools;
-
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -24,15 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Michiel TJampens @vliz
  */
 public class LabelWorker implements Runnable {
-
-	private final Map<String, ValMap> mappers = new HashMap<>();
-	private final Map<String, Readable> readables = new HashMap<>();
-
 	private final ArrayList<DatagramProcessing> dgProc = new ArrayList<>();
-
 	private BlockingQueue<Datagram> dQueue;      // The queue holding raw data for processing
-	private final RealtimeValues rtvals;
-	private final Path settingsPath;
 	private boolean goOn=true;
 	protected CommandPool reqData;
 
@@ -62,15 +48,11 @@ public class LabelWorker implements Runnable {
 	 *
 	 * @param dQueue The queue to use
 	 */
-	public LabelWorker(Path settingsPath, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals) {
-		this.settingsPath=settingsPath;
+	public LabelWorker(BlockingQueue<Datagram> dQueue) {
 		this.dQueue = dQueue;
-		this.rtvals=rtvals;
 
 		Logger.info("Using " + Math.min(3, Runtime.getRuntime().availableProcessors()) + " threads");
 		debug.scheduleAtFixedRate(this::selfCheck,5,30,TimeUnit.MINUTES);
-
-		loadValMaps(true);
 	}
 
 	/**
@@ -92,61 +74,6 @@ public class LabelWorker implements Runnable {
 	public void addDatagramProcessing( DatagramProcessing dgp){
 		dgProc.add(dgp);
 	}
-	/* ****************************************** V A L M A P S *************************************************** */
-	private void addValMap(ValMap map) {
-		mappers.put(map.getID(), map);
-		Logger.info("Added generic " + map.getID());
-	}
-	public void loadValMaps(boolean clear){
-		var settingsDocOpt = XMLtools.readXML(settingsPath);
-		if( clear ){
-			mappers.clear();
-		}
-		if( settingsDocOpt.isEmpty()){
-			return;
-		}
-		var settingsDoc = settingsDocOpt.get();
-
-		XMLfab.getRootChildren(settingsDoc, "dcafs","valmaps","valmap")
-				.forEach( ele ->  addValMap( ValMap.readFromXML(ele) ) );
-
-		// Find the path ones?
-		XMLfab.getRootChildren(settingsPath, "dcafs","paths","path")
-				.forEach( ele -> {
-							String imp = ele.getAttribute("import");
-
-							int a=1;
-							if( !imp.isEmpty() ){ //meaning imported
-								var importPath = Path.of(imp);
-								if( !importPath.isAbsolute())
-									importPath = settingsPath.getParent().resolve(importPath);
-								String file = importPath.getFileName().toString();
-								file = file.substring(0,file.length()-4);//remove the .xml
-
-								for( Element vm : XMLfab.getRootChildren(importPath, "dcafs", "paths", "path", "valmap")){
-									if( !vm.hasAttribute("id")){ //if it hasn't got an id, give it one
-										vm.setAttribute("id",file+"_vm"+a);
-										a++;
-									}
-									if( !vm.hasAttribute("delimiter") ) //if it hasn't got an id, give it one
-										vm.setAttribute("delimiter",vm.getAttribute("delimiter"));
-									addValMap( ValMap.readFromXML(vm) );
-								}
-							}
-							String delimiter = XMLtools.getStringAttribute(ele,"delimiter","");
-							for( Element vm : XMLtools.getChildElements(ele,"valmap")){
-								if( !vm.hasAttribute("id")){ //if it hasn't got an id, give it one
-									vm.setAttribute("id",ele.getAttribute("id")+"_vm"+a);
-									a++;
-								}
-								if( !vm.hasAttribute("delimiter") && !delimiter.isEmpty()) //if it hasn't got an id, give it one
-									vm.setAttribute("delimiter",delimiter);
-								addValMap( ValMap.readFromXML(vm) );
-							}
-						}
-				);
-	}
-
 	/* ******************************** Q U E U E S **********************************************/
 	public int getWaitingQueueSize(){
 		return executor.getQueue().size();
@@ -240,7 +167,6 @@ public class LabelWorker implements Runnable {
 
 				if( d.label.contains(":") ){
 					switch (d.label.split(":")[0]) {
-						case "valmap" -> executor.execute(() -> processValmap(d));
 						case "telnet" -> executor.execute(() -> checkTelnet(d));
 						case "log" -> {
 							switch (d.label.split(":")[1]) {
@@ -302,29 +228,4 @@ public class LabelWorker implements Runnable {
 		readCount=0;
 		lastOrigin="";
 	}
-	public void processValmap(Datagram d) {
-		try {
-			String valMapIDs = d.label.split(":")[1];
-			String mes = d.getData();
-
-			if (mes.isBlank()) {
-				Logger.warn(valMapIDs + " -> Ignoring blank line");
-				return;
-			}
-			for (String valmapID : valMapIDs.split(",")) {
-				var map = mappers.get(valmapID);
-				if (map != null) {
-					map.apply(mes, rtvals);
-				}else{
-					Logger.error("ValMap requested but unknown id: " + valmapID + " -> Message: " + d.getData());
-				}
-			}
-		} catch (ArrayIndexOutOfBoundsException l) {
-			Logger.error("Generic requested (" + d.label + ") but no valid id given.");
-		} catch( Exception e){
-			Logger.error(e);
-		}
-		procCount.incrementAndGet();
-	}
-
 }

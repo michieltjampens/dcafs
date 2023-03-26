@@ -333,7 +333,7 @@ public class DAS implements Commandable{
      */
     private void addLabelWorker() {
         if (this.labelWorker == null)
-            labelWorker = new LabelWorker(settingsPath,dQueue,rtvals);
+            labelWorker = new LabelWorker(dQueue);
         labelWorker.setCommandReq(commandPool);
         labelWorker.setDebugging(debug);
     }
