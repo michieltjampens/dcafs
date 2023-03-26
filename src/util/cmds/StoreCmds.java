@@ -2,6 +2,7 @@ package util.cmds;
 
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
@@ -25,17 +26,18 @@ public class StoreCmds {
 
             join.add(TelnetCodes.TEXT_RESET+ora+"Notes"+reg)
                     .add("- a / in the command means both options are valid.")
-                    .add("- If no store exists yet, any command will create it first with default delimiter of ','");
-
+                    .add("- If no store exists yet, any command will create it first with default delimiter of ','")
+                    .add("- About the optional index/group/key: index if map=false and a number/group if map=false,not a number/key if map is true");
             join.add("").add(cyan+"Add new vals"+reg)
-                    .add(green+" store:streamid,addreal/addr,name<,index/group> "+reg+"-> Add a RealVal to the store, with optional index/group")
-                    .add(green+" store:streamid,addflag/addf,name<,index/group> "+reg+"-> Add a FlagVal to the store, with optional index/group")
-                    .add(green+" store:streamid,addtext/addt,name<,index/group> "+reg+"-> Add a TextVal to the store, with optional index/group")
-                    .add(green+" store:streamid,addint/addi,name<,index/group> "+reg+"-> Add a IntVal to the store, with optional index/group")
+                    .add(green+" store:streamid,addreal/addr,name<,index/group> "+reg+"-> Add a RealVal to the store, with optional index/group/key")
+                    .add(green+" store:streamid,addflag/addf,name<,index/group> "+reg+"-> Add a FlagVal to the store, with optional index/group/key")
+                    .add(green+" store:streamid,addtext/addt,name<,index/group> "+reg+"-> Add a TextVal to the store, with optional index/group/key")
+                    .add(green+" store:streamid,addint/addi,name<,index/group> "+reg+"-> Add a IntVal to the store, with optional index/group/key")
                     .add(green+" store:streamid,addb/addblank "+reg+"-> Add a blank spot (if index isn't used but a item needs to be skipped)");
             join.add("").add(cyan+"Alter attributes"+reg)
                     .add(green+" store:streamid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the store")
                     .add(green+" store:streamid,db,dbids:table "+reg+"-> Alter the database/table ")
+                    .add(green+" store:streamid,map,true/false"+reg+"-> Alter the map attribute")
                     .add(green+" store:streamid,group,newgroup"+reg+"-> Alter the default group used");
             return join.toString();
         }else if( id.isEmpty()){
@@ -134,6 +136,7 @@ public class StoreCmds {
     }
     private static String doCmd( String request, XMLfab fab, XMLdigger dig){
         var cmds = request.split(",");
+        boolean map = dig.attr("map",false);
 
         switch (cmds[1]) {
             case "addblank", "addb" -> { // Adds an ignore node
@@ -150,10 +153,14 @@ public class StoreCmds {
 
                 fab.addChild("real",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
-                    if(NumberUtils.isCreatable(cmds[3])) {
-                        fab.attr("index", cmds[3]);
-                    }else if( !cmds[3].isEmpty()){
-                        fab.attr("group", cmds[3]);
+                    if( map ){
+                        fab.attr("key",cmds[3]);
+                    }else {
+                        if (NumberUtils.isCreatable(cmds[3])) {
+                            fab.attr("index", cmds[3]);
+                        } else if (!cmds[3].isEmpty()) {
+                            fab.attr("group", cmds[3]);
+                        }
                     }
                 }
                 fab.build();
@@ -168,10 +175,14 @@ public class StoreCmds {
 
                 fab.addChild("int",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
-                    if(NumberUtils.isCreatable(cmds[3])) {
-                        fab.attr("index", cmds[3]);
-                    }else if( !cmds[3].isEmpty()){
-                        fab.attr("group", cmds[3]);
+                    if( map ){
+                        fab.attr("key",cmds[3]);
+                    }else {
+                        if (NumberUtils.isCreatable(cmds[3])) {
+                            fab.attr("index", cmds[3]);
+                        } else if (!cmds[3].isEmpty()) {
+                            fab.attr("group", cmds[3]);
+                        }
                     }
                 }
                 fab.build();
@@ -186,10 +197,14 @@ public class StoreCmds {
 
                 fab.addChild("text",cmds[2]);
                 if( cmds.length==4 ) {
-                    if(NumberUtils.isCreatable(cmds[3])) {
-                        fab.attr("index", cmds[3]);
-                    }else if( !cmds[3].isEmpty()){
-                        fab.attr("group", cmds[3]);
+                    if( map ){
+                        fab.attr("key",cmds[3]);
+                    }else {
+                        if (NumberUtils.isCreatable(cmds[3])) {
+                            fab.attr("index", cmds[3]);
+                        } else if (!cmds[3].isEmpty()) {
+                            fab.attr("group", cmds[3]);
+                        }
                     }
                 }
                 fab.build();
@@ -204,10 +219,14 @@ public class StoreCmds {
 
                 fab.addChild("flag",cmds[2]).attr("unit");
                 if( cmds.length==4 ) {
-                    if(NumberUtils.isCreatable(cmds[3])) {
-                        fab.attr("index", cmds[3]);
-                    }else if( !cmds[3].isEmpty()){
-                        fab.attr("group", cmds[3]);
+                    if( map ){
+                        fab.attr("key",cmds[3]);
+                    }else {
+                        if (NumberUtils.isCreatable(cmds[3])) {
+                            fab.attr("index", cmds[3]);
+                        } else if (!cmds[3].isEmpty()) {
+                            fab.attr("group", cmds[3]);
+                        }
                     }
                 }
                 fab.build();
@@ -220,6 +239,16 @@ public class StoreCmds {
                 fab.attr("delimiter", deli);
                 fab.build();
                 return "Set the delimiter to '"+deli+"'";
+            }
+            case "map", "mapped" -> {
+                if (cmds.length < 3)
+                    return "! Not enough arguments: store:id,map,true/false";
+                if( !Tools.validBool(cmds[2])){
+                    return "! Not a valid boolean: "+cmds[2];
+                }
+                fab.attr("map", cmds[2]);
+                fab.build();
+                return "Set map to '"+cmds[2]+"'";
             }
             case "group" -> {
                 if (cmds.length < 3)
