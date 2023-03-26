@@ -8,7 +8,7 @@ Note: Version numbering: x.y.z
 - cmd !idle not used properly when disconnected/reconnected
 - back up path for sqlite db etc?
 
-## 2.2.0 (work in progress)
+## 2.2.0 (26/03/23)
 
 ### Telnet
 - Added the node 'textcolor' to change the default text color
@@ -21,7 +21,8 @@ Note: Version numbering: x.y.z
 - Removed 'ValMap', replaced with store
 
 ### Store
-- Added attribute 'map', that makes the store act as a ValMap instead of regular store. No telnet interface yet.
+- Added attribute 'map', that makes the store act as a ValMap instead of regular store. 
+- Best is to start with `store:id,map,true`, and then continue as usual.
 ````xml
 <!--
 d6:4
