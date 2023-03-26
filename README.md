@@ -52,7 +52,7 @@ The 'Getting Started' guide, can be read [here](https://github.com/michieltjampe
   
 ## First steps
 
-It's recommended to follow [this](https://github.com/vlizBE/dcafs/wiki/Getting-to-know-dcafs) guide if it's your first time using it.
+It's recommended to follow [this](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md) guide if it's your first time using it.
 
 Once running and after opening a telnet connection to it, you'll be greeted with the following screen.
 
