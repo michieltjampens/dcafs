@@ -119,6 +119,10 @@ public class Tools {
             return error;
         }
     }
+    public static boolean validBool( String value ){
+        var valid = new String[]{"yes", "no", "true", "false", "1", "0"};
+        return Arrays.asList(valid).contains(value.toLowerCase().trim());
+    }
     public static boolean parseBool( String value, boolean error){
         value=value.toLowerCase().trim();
         if( value.equals("yes")||value.equals("true")||value.equals("1"))
