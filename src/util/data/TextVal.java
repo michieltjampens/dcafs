@@ -9,6 +9,7 @@ import worker.Datagram;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -17,7 +18,8 @@ public class TextVal extends AbstractVal{
     private String def="";
     private final ArrayList<String> history = new ArrayList<>();
     private final ArrayList<TriggeredCmd> triggered = new ArrayList<>();
-
+    private HashMap<String,String> parser = new HashMap<>();
+    private boolean regex=false;
     /* ********************************* Constructing ************************************************************ */
     /**
      * Constructs a new RealVal with the given group and name
@@ -72,6 +74,19 @@ public class TextVal extends AbstractVal{
             String trig = trigCmd.getAttribute("when");
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
+        }
+        for (Element parse : XMLtools.getChildElements(rtval, "parser")) {
+            var key = parse.getAttribute("key");
+            if( key.isEmpty() ){
+                key = parse.getAttribute("regex");
+                if( key.isEmpty()){
+                    Logger.error("Parser node without key/regex in "+id());
+                    continue;
+                }else{
+                    regex=true;
+                }
+            }
+            parser.put(key,parse.getTextContent());
         }
         return this;
     }
@@ -130,8 +145,28 @@ public class TextVal extends AbstractVal{
 
     @Override
     public boolean parseValue(String value) {
-        this.value=value;
-        return true;
+        if( parser.isEmpty()) { // If no parsing options are defined
+            value(value);
+            return true;
+        }else{ //If there are, look for match
+            if( regex ){
+                for( var entr : parser.entrySet()){
+                    if( value.matches(entr.getKey())) {
+                        value(entr.getValue());
+                        return true;
+                    }
+                }
+
+            }else{
+               var val = parser.get(value);
+               if( val != null){
+                   value(val);
+                   return true;
+               }
+            }
+            Logger.error(id() +" -> Failed to (regex) parse "+value);
+            return false;
+        }
     }
     private class TriggeredCmd{
         String cmd; // The cmd to issue
