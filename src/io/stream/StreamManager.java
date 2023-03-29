@@ -61,7 +61,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // scheduler for the connection attempts
 	private static final String XML_PARENT_TAG="streams";
 	private static final String XML_CHILD_TAG="stream";
-	private RealtimeValues rtvals;
+	private final RealtimeValues rtvals;
 
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
 		this.dQueue = dQueue;
@@ -71,10 +71,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	}
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, RealtimeValues rtvals) {
 		this(dQueue,issues, new NioEventLoopGroup(), rtvals);
-	}
-
-	public void enableDebug(){
-		debug=true;
 	}
 
 	/**
@@ -164,21 +160,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		return join.toString();
 	}
-	/**
-	 * Get a list of all currently active labels
-	 * 
-	 * @return A list of all currently active labels (fe. nmea,li7000...) separated
-	 *         by ','
-	 */
-	public String getActiveLabels() {
-		StringJoiner join = new StringJoiner(", ","Currently used labels: ","\r\n");
-		
-		streams.values().stream().filter( desc -> !join.toString().contains(desc.getLabel()) )
-								  .forEach( desc -> join.add( desc.getLabel() ) );			
-
-		return join.toString();
-	}
-
 	/**
 	 * Retrieve the contents of the confirm/reply buffer from the various streams
 	 * Mainly used for debugging
@@ -356,13 +337,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		Logger.info("Reloading "+id+ " from "+ settingsPath.toAbsolutePath());
 		if(Files.notExists(settingsPath)){
 			Logger.error("Failed to read xml file at "+ settingsPath.toAbsolutePath());
-			return "Failed to read xml";
+			return "! Failed to read xml";
 		}
 
 		var childOpt = XMLfab.withRoot(settingsPath,"dcafs","streams").getChild("stream","id",id);
 		var baseOpt = getStream(id);
 		if( childOpt.isEmpty() )
-			return "No stream named "+id+" found.";
+			return "! No stream named "+id+" found.";
 
 		if( baseOpt.isPresent() ){ // meaning reloading an existing one
 			var str = baseOpt.get();

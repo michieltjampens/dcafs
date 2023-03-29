@@ -61,7 +61,7 @@ public class DAS implements Commandable{
 
     private RealtimeValues rtvals;
     private CommandPool commandPool;
-    private Waypoints waypoints; // waypoints
+    private Waypoints waypoints;
 
     /* Managers & Pools */
     private DatabaseManager dbManager;
@@ -69,8 +69,6 @@ public class DAS implements Commandable{
     private TaskManagerPool taskManagerPool;
     private CollectorPool collectorPool;
 
-    private boolean debug = false;
-    private boolean log = false;
     private boolean bootOK = false; // Flag to show if booting went ok
     String sdReason = "Unwanted shutdown."; // Reason for shutdown of das, default is unwanted
 
@@ -132,15 +130,13 @@ public class DAS implements Commandable{
 
         XMLtools.getFirstElementByTag(settingsDoc, "settings").ifPresent( ele ->
                 {
-                    debug = XMLtools.getChildStringValueByTag(ele, "mode", "normal").equals("debug");
-                    log = XMLtools.getChildStringValueByTag(ele, "mode", "normal").equals("log");
                     System.setProperty("tinylog.directory", XMLtools.getChildStringValueByTag(ele,"tinylog",workPath) );
         });
 
         Logger.info("Program booting in NORMAL mode");
 
         /* CommandPool */
-        commandPool = new CommandPool( workPath, dQueue );
+        commandPool = new CommandPool( workPath );
         addCommandable(this,"st");
 
         /* RealtimeValues */
@@ -229,14 +225,6 @@ public class DAS implements Commandable{
     public Path getSettingsPath(){
         return settingsPath;
     }
-    /**
-     * Check if running in debug mode
-     * 
-     * @return True if running in debug
-     */
-    public boolean inDebug() {
-        return debug;
-    }
 
     public String getUptime() {
         return TimeTools.convertPeriodtoString(Duration.between(bootupTimestamp, LocalDateTime.now()).getSeconds(),
@@ -304,11 +292,7 @@ public class DAS implements Commandable{
         addCommandable(streampool,"raw","stream");
         addCommandable(streampool,"");
 
-        if (debug) {
-            streampool.enableDebug();
-        }else{
-            streampool.readSettingsFromXML(settingsPath);
-        }
+       streampool.readSettingsFromXML(settingsPath);
     }
     public StreamManager getStreampool(){
         return streampool;
@@ -541,7 +525,6 @@ public class DAS implements Commandable{
         b.append(TEXT_YELLOW).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")\r\n");
         b.append(TEXT_YELLOW).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append("\r\n");
         b.append(TEXT_YELLOW).append("Memory: ").append(TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
-        b.append(TEXT_YELLOW).append("Current mode: ").append(debug ? TEXT_RED + "debug" : TEXT_GREEN + "normal").append("\r\n");
         b.append(TEXT_YELLOW).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP());
         b.append(UNDERLINE_OFF).append("\r\n");
 

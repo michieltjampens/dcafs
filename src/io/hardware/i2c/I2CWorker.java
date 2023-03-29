@@ -662,9 +662,6 @@ public class I2CWorker implements Commandable {
                 output.add(line.toString());
             }
         }
-        if( !device.getLabel().equalsIgnoreCase("void") ){
-            dQueue.add( Datagram.build(output.toString()).label(device.getLabel()+":"+cmdID).origin(device.getID()).payload(altRes) );
-        }
         try {
             device.getTargets().forEach(wr -> wr.writeLine(output.toString()));
             device.getTargets().removeIf(wr -> !wr.isConnectionValid());

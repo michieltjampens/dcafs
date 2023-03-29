@@ -7,6 +7,10 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - cmd !idle not used properly when disconnected/reconnected
 - back up path for sqlite db etc?
+## 2.3.0 (wip)
+- Commands cleanup
+  - tried to improve consistency
+  - removed unused ones
 
 ## 2.2.0 (26/03/23)
 
@@ -68,7 +72,7 @@ Started a new set of commands 'history', that allows to look into raw/log files.
 - Raw log no longer mention priority nor label
 
 ### History
-- Added `history:raw,filter<,lines>` looks in the last raw file for lines containing 'find' and returns the most recent 25 
+- Added `history:raw,filter<,lines>` looks in the last raw file for lines containing 'filter' and returns the most recent 25 
 lines or at maximum the amount specified. (or -1 for all). Other files are compressed...
 - Added `history:error/info,age,period<,filter>` to look for errors/info younger than the period. This is limited to the last 200 lines.
 - Added `history:error/info,today,<,filter>` to get errors/info of today, optionally must contain 'find'

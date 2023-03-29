@@ -186,7 +186,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
                        .label(label)
                        .priority(priority)
                        .writable(writable)
-                       .timestamp() );
+                       );
             }
 
             // Implement the use of store

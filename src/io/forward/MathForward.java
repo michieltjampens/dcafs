@@ -12,7 +12,6 @@ import util.math.Calculations;
 import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.Tools;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -49,14 +48,6 @@ public class MathForward extends AbstractForward {
     public MathForward(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         super(dQueue,rtvals);
         valid = rtvals!=null;
-    }
-    /**
-     * Read a mathForward from an element in the xml
-     * @param ele The element containing the math info
-     * @return The MathForward created based on the xml element
-     */
-    public static MathForward fromXML(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
-        return new MathForward( ele,dQueue,rtvals );
     }
     /**
      * Alter the delimiter used
@@ -164,52 +155,6 @@ public class MathForward extends AbstractForward {
         if( !oldValid && valid )// If math specific things made it valid
             sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
         return true;
-    }
-    /**
-     * Store this object's setup to the xml referred to with the given fab
-     *
-     * @param fab The XMLfab pointing to where the parent xml should be
-     */
-    @Override
-    public void writeToXML(XMLfab fab) {
-        xml = fab.getXMLPath();
-        xmlOk=true;
-
-        fab.digRoot(getXmlChildTag()+"s"); // go down to <maths>
-        if( fab.selectChildAsParent(getXmlChildTag(),"id",id).isEmpty() ){
-            fab.comment("Some info on what the "+id+" "+getXmlChildTag()+" does");
-            fab.addParentToRoot(getXmlChildTag()).attr("id",id);
-        }
-
-        fab.attr("delimiter",delimiter);
-        fab.clearChildren(); // Remove any existing
-
-        if( sources.size()==1){
-            fab.attr("src",sources.get(0));
-        }else{
-            fab.removeAttr("src");
-            fab.comment("Sources go here");
-            sources.forEach( src -> fab.addChild("src", src) );
-        }
-        if( !defines.isEmpty() ){
-            defines.forEach((key, value) -> fab.addChild("def", value).attr("ref", key));
-        }
-        if( rulesString.size()==1 && sources.size()==1){
-            if( rulesString.get(0)[2].startsWith("i"+rulesString.get(0)[1]+"=")){
-                fab.content(rulesString.get(0)[2]);
-            }else{
-                fab.content("i"+rulesString.get(0)[1]+"="+rulesString.get(0)[2]);
-            }
-
-        }else{
-            fab.comment("Operations go here, possible types: complex (default) ,scale");
-            rulesString.forEach( rule -> {
-                fab.addChild("op",rule[2]);
-                if( !rule[0].equalsIgnoreCase("complex"))
-                    fab.attr("type",rule[0]);
-            } );
-        }
-        fab.build();
     }
     /**
      * Give data to this forward for processing

@@ -230,7 +230,7 @@ public abstract class BaseStream {
 		return listeners.remove(listener);
     }
 
-    public void setID( String id ){
+    public void id(String id ){
         this.id=id;
     }
     public String id(){
