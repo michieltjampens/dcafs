@@ -1,4 +1,4 @@
-package util.cmds;
+package io.stream;
 
 import io.stream.BaseStream;
 import io.telnet.TelnetCodes;
