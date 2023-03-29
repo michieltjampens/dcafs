@@ -21,8 +21,8 @@ import java.util.concurrent.BlockingQueue;
 
 public class ModbusTCPStream extends TcpStream{
 
-    public ModbusTCPStream(String id, String ipport, BlockingQueue<Datagram> dQueue, int priority) {
-        super(id, ipport, dQueue, priority);
+    public ModbusTCPStream(String id, String ipport, BlockingQueue<Datagram> dQueue) {
+        super(id, ipport, dQueue);
     }
     public ModbusTCPStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
@@ -66,7 +66,6 @@ public class ModbusTCPStream extends TcpStream{
             public void initChannel(SocketChannel ch) throws Exception {
                 try{
                     ch.pipeline().addLast("framer", new FixedLengthFrameDecoder(1) );
-
                     ch.pipeline().addLast( "decoder", new ByteArrayDecoder() );
                     ch.pipeline().addLast( "encoder", new ByteArrayEncoder() );
 

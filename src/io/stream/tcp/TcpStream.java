@@ -36,9 +36,8 @@ public class TcpStream extends BaseStream implements Writable {
     Bootstrap bootstrap;		// Bootstrap for TCP connections
     static int bufferSize = 2048; 	// How many bytes are stored before a dump
 
-    public TcpStream( String id, String ipport, BlockingQueue<Datagram> dQueue, int priority ){
+    public TcpStream( String id, String ipport, BlockingQueue<Datagram> dQueue ){
         super(id,dQueue);
-        this.priority=priority;
         this.id=id;
 
         String ip = ipport.substring(0,ipport.lastIndexOf(":"));
