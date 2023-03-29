@@ -59,7 +59,14 @@ public class CommandPool {
 			if( !stopCommandable.contains(cmdbl))
 				stopCommandable.add(cmdbl);
 		}else{
-			commandables.put(id,cmdbl);
+			// No use in having repeated commandables
+			var oldOpt = commandables.entrySet().stream().filter( ent -> ent.getValue().equals(cmdbl)).findFirst();
+			if(oldOpt.isPresent()){
+				var old = oldOpt.get();
+				commandables.remove(old.getKey());
+				id+=";"+old.getKey();
+			}
+			commandables.put(id, cmdbl);
 		}
 	}
 	public void addShutdownPreventing( ShutdownPreventing sdp){
