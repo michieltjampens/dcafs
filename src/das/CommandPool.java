@@ -186,10 +186,13 @@ public class CommandPool {
 		};
 
 		if( result.equals(UNKNOWN_CMD)) // Meaning bad first cmd
-			result = checkCommandables(split[0],question,wr,html);// Check the stored Commandables
+			result = checkCommandables(split[0],split[1],wr,html);// Check the stored Commandables
 
 		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
-			result = checkTaskManagers(split[0],question,wr,html);
+			result = checkTaskManagers(split[0],split[1],wr,html);
+
+		if( result.equals(UNKNOWN_CMD))
+			result = "! No such cmd group: "+ split[0];
 
 		if( wr!=null ) {
 			if( d.getLabel().startsWith("matrix")) {
@@ -202,10 +205,6 @@ public class CommandPool {
 				wr.writeLine(result);
 			}
 		}
-
-		if( result.equalsIgnoreCase(UNKNOWN_CMD))
-			return result+" >>"+question+"|"+split[0]+"|"+split[0]+"|"+split[1]+"<<";
-
 		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
 			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
 
@@ -240,7 +239,7 @@ public class CommandPool {
 			case "reload" -> doCmd("tm", "reload," + cmd, wr);
 			default -> doCmd("tm", "run," + cmd + ":" + question, wr);
 		};
-		if (!res.startsWith("! No such TaskManager") )
+		if (!res.toLowerCase().startsWith("! no such taskmanager") )
 			return res;
 		return UNKNOWN_CMD;
 	}
