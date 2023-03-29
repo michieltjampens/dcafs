@@ -591,7 +591,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		String find = cmd.toLowerCase().replaceAll("\\d+","_");
 		return switch( find ) {
 			case "ss", "streams" -> replyToStreamCommand(args, html);
-			case "rios" -> replyToStreamCommand("rios", html);
 			case "raw","stream" -> {
 				var res = addForwarding(args,wr);
 				yield (res?"":"! ")+"Request for "+cmd+":"+args+" "+(res?"ok":"failed");
@@ -611,17 +610,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		String nl = html?"<br>":"\r\n";
 
-		String[] cmds = request.replace(" ","").split(",");
-
-		String device="";
-		if( cmds.length > 1 ){				
-			device = cmds[1].replace(" ", "").toLowerCase(); // Remove spaces
-		}
-
-		String cyan = html?"":TelnetCodes.TEXT_CYAN;
-		String green=html?"":TelnetCodes.TEXT_GREEN;
-		String ora = html?"":TelnetCodes.TEXT_ORANGE;
-		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
+		String[] cmds = request.split(",");
 
 		StringJoiner join = new StringJoiner(nl);
 		BaseStream stream;
@@ -629,16 +618,21 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		switch( cmds[0] ){
 			case "?":
+				String cyan = html?"":TelnetCodes.TEXT_CYAN;
+				String green=html?"":TelnetCodes.TEXT_GREEN;
+				String ora = html?"":TelnetCodes.TEXT_ORANGE;
+				String reg=html?"":TelnetCodes.TEXT_DEFAULT;
+
 				join.add(TelnetCodes.TEXT_RESET+ora+"Notes"+reg)
 					.add("-> ss: and streams: do the same thing")
 					.add("-> Every stream has at least:")
-					.add("   - a unique id which is used to identify it")
+					.add("   - a unique id which is used to identify it, lowercase is enforced")
 					.add("   - an eol (end of line), the default is crlf")
 					.add("   - ...");
 				join.add("").add(cyan+"Add new streams"+reg)
 					.add(green+" ss:addtcp,id,ip:port "+reg+"-> Add a TCP stream to xml and try to connect")
 					.add(green+" ss:addudp,id,ip:port "+reg+"-> Add a UDP stream to xml and connect")
-					.add(green+" ss:addserial,id,port:baudrate"+reg+" -> Add a serial stream to xml and try to connect" )
+					.add(green+" ss:addserial,id,port,baudrate"+reg+" -> Add a serial stream to xml and try to connect" )
 					.add(green+" ss:addlocal,id,source "+reg+"-> Add a internal stream that handles internal data")
 				.add("").add(cyan+"Info about streams"+reg)
 					.add(green+" ss:labels "+reg+"-> get active labels.")
@@ -648,7 +642,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				.add("").add(cyan+"Interact with stream objects"+reg)
 					.add(green+" ss:recon,id "+reg+"-> Try reconnecting the stream")
 					.add(green+" ss:reload<,id> "+reg+"-> Reload the stream with the given id or all if no id is specified.")
-					.add(green+" ss:store,id "+reg+"-> Update the xml entry for this stream")
 					.add(green+" ss:alter,id,parameter:value "+reg+"-> Alter the given parameter options label,baudrate,ttl")
 					.add(green+" ss:addwrite,id,when:data "+reg+"-> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
 					.add(green+" ss:addcmd,id,when:data "+reg+"-> Add a triggered cmd, possible when are open,idle,!idle,close")
@@ -664,7 +657,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return join.toString();
 			case "send":
 					if( cmds.length < 3 ) // Make sure we got the correct amount of arguments
-						return "! Bad amount of arguments, need 3 send,id,data(,reply)";
+						return "! Wrong amount of arguments -> ss:send,id,data<,reply>";
 					if( getStream(cmds[1]).isEmpty() )
 						return "! No such stream: "+cmds[1];
 
@@ -673,19 +666,18 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 						return "! Failed to write data";
 					return "Data written: "+written;
 			case "buffers": return getConfirmBuffers();
-			case "labels" :case "rios": return this.getActiveLabels();
 			case "requests":
 				join.setEmptyValue("! No requests yet.");
 				streams.values().stream().filter( base -> base.getRequestsSize() !=0 )
 								.forEach( x -> join.add( x.id()+" -> "+x.listTargets() ) );
 				return join.toString();
-			case "cleartargets":
+			case "clearrequests":
 				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need 2 ss:clearrequests,id";
+					return "! Wrong amount of arguments -> ss:clearrequests,id";
 				return "Targets cleared:"+getStream(cmds[1]).map(BaseStream::clearTargets).orElse(0);
 			case "recon":
 				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need 2 ss:recon,id";
+					return "! Wrong amount of arguments -> ss:recon,id";
 				stream = streams.get(cmds[1].toLowerCase());
 
 				if( stream != null){
@@ -705,21 +697,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}else if(cmds.length == 2){
 					return reloadStream( cmds[1] );
 				}
-			case "store":
-				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
-					return "Bad amount of arguments, need 2 (store,id)";
-
-				stream = streams.get(cmds[1].toLowerCase());
-				if( stream == null )
-					return "! No such stream: "+cmds[1];
-				
-				if( this.addStreamToXML(cmds[1],false) )
-					return "Updated XML";
-				return "! Failed to update XML! Entry might exist already";
 			case "trigger":
 				stream = streams.get(cmds[1].toLowerCase());
 				if( cmds.length<4)
-					return "! Incorrect amount of arguments, expected ss:trigger,id,when,cmd";
+					return "! Wrong amount of arguments -> ss:trigger,id,when,cmd";
 				if( stream == null )
 					return "! No such stream: "+cmds[1];
 
@@ -736,7 +717,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return fab.build()?"Trigger added":"! Altering xml failed";
 			case "alter":
 				if( cmds.length != 3)
-					return "! Bad amount of arguments, should be ss:alter,id,param:value";
+					return "! Wrong amount of arguments -> ss:alter,id,param:value";
 				stream = streams.get(cmds[1].toLowerCase());
 
 				if( stream == null )
@@ -762,7 +743,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					}
 					case "baudrate" -> {
 						if (!(stream instanceof SerialStream))
-							return "Not a Serial port, no baudrate to change";
+							return "! Not a Serial port, no baudrate to change";
 						((SerialStream) stream).setBaudrate(Tools.parseInt(alter[1], -1));
 						fab.alterChild("serialsettings", ((SerialStream) stream).getSerialSettings());
 					}
@@ -782,17 +763,17 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 				if( fab.build() ){
 					if( reload )
-						this.reloadStream(device);	
+						reloadStream(cmds[1]);
 					return "Alteration applied";
 				}
 				return "! Failed to alter stream!";
 			case "addwrite":
 				if( cmds.length < 3 ){
-					return "! Bad amount of arguments, should be ss:addwrite,id,when:data";
+					return "! Wrong amount of arguments -> ss:addwrite,id,when:data";
 				}
 			case "addcmd":
 					if( cmds.length < 3 ){
-						return "! Bad amount of arguments, should be ss:addcmd,id,when:cmd";
+						return "! Wrong amount of arguments -> ss:addcmd,id,when:cmd";
 					}
 					if( cmds[2].split(":").length==1)
 						return "! Doesn't contain a proper when:data pair";
@@ -810,7 +791,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					}
 			case "echo":
 					if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
-						return "! Bad amount of arguments, need 2 (echo,id)";
+						return "! Wrong amount of arguments -> ss:echo,id";
 					BaseStream bs0 = streams.get(cmds[1].toLowerCase());	
 					if( bs0 == null || !bs0.isWritable() )
 						return "! No such writable stream: "+cmds[1];
@@ -823,7 +804,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					}
 			case "tunnel": case "connect":
 					if( cmds.length != 3 ) // Make sure we got the correct amount of arguments
-						return "! Bad amount of arguments, need 3 (tunnel,fromid,toid)";
+						return "! Wrong amount of arguments -> ss:tunnel,fromid,toid";
 
 					int s1Ok = getWritable(cmds[1]).map( wr-> addForwarding(cmds[2], wr)?1:0).orElse(-1);
 					if( s1Ok != 1 )
@@ -836,7 +817,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					return "Tunnel established between "+cmds[1]+" and "+cmds[2];
 			case "link": case "forward":
 				if( cmds.length != 3 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need 3 (link,fromid,toid)";
+					return "! Wrong amount of arguments -> ss:link,fromid,toid";
 				var wr = getWritable(cmds[2]);
 				if(wr.isPresent()){
 					dQueue.add( Datagram.system(cmds[1]).writable(wr.get()) );
@@ -846,17 +827,15 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 			case "addtcp":
 				if( cmds.length < 3 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need at least 3 ss:addtcp,id,ip:port";
-
-				if( streams.get(cmds[1].toLowerCase()) != null )// Make sure we don't overwrite an existing connection
+					return "! Wrong amount of arguments -> ss:addtcp,id,ip:port";
+				cmds[1]=cmds[1].toLowerCase();
+				if( streams.get(cmds[1]) != null )// Make sure we don't overwrite an existing connection
 					return "! Stream exists with that id ("+cmds[1]+") not creating it";
 
 				if( !cmds[2].contains(":") )
 					return "! No port number specified";
 
-				cmds[1]=cmds[1].toLowerCase();
-
-				TcpStream tcp = new TcpStream( cmds[1], cmds[2], dQueue, 1 );
+				TcpStream tcp = new TcpStream( cmds[1], cmds[2], dQueue );
 				tcp.addListener(this);
 				tcp.setEventLoopGroup(eventLoopGroup);
 				tcp.setBootstrap(bootstrapTCP);
@@ -875,14 +854,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "! Failed to update XML! Entry might exist already";
 			case "addudp":
 				if( cmds.length < 4 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need 4 ss:addudp,id,ip:port";
-
-				if( streams.get(cmds[1].toLowerCase()) != null )// Make sure we don't overwrite an existing connection
+					return "! Wrong amount of arguments -> ss:addudp,id,ip:port";
+				cmds[1]=cmds[1].toLowerCase();
+				if( streams.get(cmds[1]) != null )// Make sure we don't overwrite an existing connection
 					return "! Stream exists with that id ("+cmds[1]+") not creating it";
 
-				if( cmds.length>4)
-					cmds[3]=request.substring( request.indexOf(","+cmds[3])+1);
-				UdpStream udp = new UdpStream(cmds[1], cmds[2], dQueue,  1 );
+				UdpStream udp = new UdpStream(cmds[1], cmds[2], dQueue );
 				udp.addListener(this);
 				udp.setEventLoopGroup(eventLoopGroup);
 				udp.setBootstrap(bootstrapUDP);
@@ -894,9 +871,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					return "Trying to connect...";
 				}
 				return "! Failed to update XML! Entry might exist already";
-			case "udpserver":
+			case "addudpserver":
 				if( cmds.length < 4 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need 4 (addudpserver,id,port,label)";
+					return "! Wrong amount of arguments -> ss:addudpserver,id,port,label";
 
 				if( streams.get(cmds[1].toLowerCase()) != null )// Make sure we don't overwrite an existing connection
 					return "! Stream exists with that id ("+cmds[1]+") not creating it";
@@ -904,58 +881,51 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				cmds[3]=request.substring( request.indexOf(","+cmds[3])+1);
 
 				new UdpServer(cmds[1],Integer.parseInt(cmds[2]),dQueue);
-
-				break;
+				return "Started udp server (probably)";
 			case "addserial":
 				if( cmds.length < 3 ) // Make sure we got the correct amount of arguments
-					return "! Bad amount of arguments, need at least three ss:addserial,id,portname:baudrate";
+					return "! Wrong amount of arguments -> ss:addserial,id,portname<,baudrate>";
 
 				cmds[1]=cmds[1].toLowerCase();
 
-				if( streams.get(cmds[1].toLowerCase()) != null )// Make sure we don't overwrite an existing connection
+				if( streams.get(cmds[1]) != null )// Make sure we don't overwrite an existing connection
 					return "! Stream exists with that id ("+cmds[1]+") not creating it";
 
-				String[] portAndBaud = cmds[2].split(":");
-				String port = portAndBaud[0];
-				String baud = portAndBaud.length==2?portAndBaud[1]:"19200";
-				
-				if( !SerialStream.portExists(port) && !port.contains("ttyGS") && !port.contains("printer"))
+				if( !SerialStream.portExists(cmds[2]) && !cmds[2].contains("ttyGS") && !cmds[2].contains("printer"))
 					return "! No such port on this system. Options: "+ SerialStream.portList();
 				
-				SerialStream serial = new SerialStream( port, dQueue, 1);
+				SerialStream serial = new SerialStream( cmds[1],cmds[2], dQueue );
 				serial.setEventLoopGroup(eventLoopGroup);
-				serial.alterSerialSettings(baud+",8,1,none");
-
-				serial.setID(cmds[1]);
+				serial.alterSerialSettings( (cmds.length==4?cmds[3]:"19200")+",8,1,none");
 				serial.addListener(this);
 
-				streams.put(cmds[1].toLowerCase(), serial);
+				streams.put(cmds[1], serial);
 				addStreamToXML(cmds[1],true);
 
-				return serial.connect()?"Connected to "+port:"Failed to connect to "+port;	
+				return serial.connect()?"Connected to "+cmds[2]:"! Failed to connect to "+cmds[2];
 			case "addlocal":
 				if( cmds.length != 4 ) // Make sure we got the correct amount of arguments
-					return "Bad amount of arguments, ss:addlocal,id,source";
+					return "! Wrong amount of arguments -> ss:addlocal,id,source";
 				LocalStream local = new LocalStream( cmds[1],cmds[3],dQueue);
 				local.addListener(this);
 				streams.put( cmds[1].toLowerCase(), local);
 				addStreamToXML(cmds[1],true);
-				return "Local stream added";			
-			case "":
-				return "List of available streams:"+nl+this.getStreamList(html);
+				return "Local stream added";
 			case "status" :
 				return getStatus();
 			case "reloadstore":
 				if( cmds.length != 2 ) // Make sure we got the correct amount of arguments
-					return "Bad amount of arguments, ss:reloadstore,id";
+					return "! Wrong amount of arguments -> ss:reloadstore,id";
 				if( reloadStore(cmds[1])){
 					return "Reloaded the store of "+cmds[1];
 				}else{
 					return "! Failed to reload the store of "+cmds[1];
 				}
-			default: return "Unknown command: "+request;
+			case "":
+				return "List of available streams:"+nl+this.getStreamList(html);
+			default:
+				return "! No such subcommand in ss/streams: "+cmds[0];
 		}
-		return "";
 	}
 
 	/**
