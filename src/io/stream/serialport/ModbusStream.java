@@ -77,9 +77,6 @@ public class ModbusStream extends SerialStream{
 
             if( verifyCRC( rec, index ) ){
 
-                if(!label.equals("void"))
-                    dQueue.add(Datagram.build(rec).label(label).priority(priority).origin(id).timestamp().writable(this));
-
                 forwardData(Tools.fromBytesToHexString(rec,0,index-2));
 
                 readyForWorker=false;
