@@ -148,15 +148,15 @@ public class FileMonitor implements Commandable {
     }
 
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
-        if( request[0].equalsIgnoreCase("fm")){
-            var list = files.stream().filter( fm -> fm.id.equalsIgnoreCase(request[1])).toList();
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+        if( cmd.equalsIgnoreCase("fm")){
+            var list = files.stream().filter( fm -> fm.id.equalsIgnoreCase(args)).toList();
             if( list.isEmpty())
                 return "No such filemonitor";
             list.forEach( fm -> fm.addTarget(wr));
             return "Target added";
         }
-        return null;
+        return "! No such subcommand in "+cmd+": "+args;
     }
 
     @Override

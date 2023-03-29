@@ -42,9 +42,9 @@ public class CollectorPool implements Commandable, CollectorFuture {
     }
 
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
-        return switch( request[0] ) {
-            case "fc" -> doFileCollectorCmd(request, html);
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+        return switch( cmd ) {
+            case "fc" -> doFileCollectorCmd(args, html);
             case "mc" -> "No commands yet";
             default -> "Wrong commandable...";
         };
@@ -106,8 +106,8 @@ public class CollectorPool implements Commandable, CollectorFuture {
         fileCollectors.put(id, fc);
         return fc;
     }
-    private String doFileCollectorCmd(String[] request, boolean html ) {
-        String[] cmds = request[1].split(",");
+    private String doFileCollectorCmd( String args, boolean html ) {
+        String[] cmds = args.split(",");
         StringJoiner join = new StringJoiner(html?"<br":"\r\n");
 
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
@@ -180,11 +180,11 @@ public class CollectorPool implements Commandable, CollectorFuture {
                     return "! Not enough arguments given: fc:adcmd,id,trigger:cmd";
                 if (fco.isEmpty())
                     return "! No such fc: " + cmds[1];
-                String[] cmd = cmds[2].split(":");
-                if (fco.get().addTriggerCommand(cmd[0], cmd[1])) {
+                String[] sub = cmds[2].split(":");
+                if (fco.get().addTriggerCommand(sub[0], sub[1])) {
                     XMLfab.withRoot(settingsPath, "dcafs", "collectors")
                             .selectOrAddChildAsParent("file", "id", cmds[1])
-                            .addChild("cmd", cmd[1]).attr("trigger", cmd[0]).build();
+                            .addChild("cmd", sub[1]).attr("trigger", sub[0]).build();
                     return "Triggered command added to " + cmds[1];
                 }
                 return "Failed to add command, unknown trigger?";
@@ -261,7 +261,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
                 return "Tried to alter permissions";
             }
         }
-        return UNKNOWN_CMD+": "+request[0]+":"+request[1];
+        return "! No such subcommand in fc: "+cmds[0];
     }
     @Override
     public boolean removeWritable(Writable wr) {

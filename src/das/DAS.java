@@ -422,7 +422,7 @@ public class DAS implements Commandable{
         }
         Logger.info("Adding I2CWorker.");
         i2cWorker = new I2CWorker(settingsPath, dQueue);
-        addCommandable("i2c",i2cWorker);
+        addCommandable(i2cWorker,"i2c","i_c");
         addCommandable("stop",i2cWorker);
     }
     /* ******************************** R E A L T I M E  D A T A  ******************************************* */
@@ -444,7 +444,7 @@ public class DAS implements Commandable{
             @Override
             public void run() {
                 Logger.info("Dcafs shutting down!");
-                telnet.replyToCommand(new String[]{"telnet","broadcast,error,Dcafs shutting down!"},null,false);
+                telnet.replyToCommand( "telnet","broadcast,error,Dcafs shutting down!",null,false);
 
                 if( matrixClient!=null)
                     matrixClient.broadcast("Shutting down!");
@@ -675,8 +675,8 @@ public class DAS implements Commandable{
     }
 
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
-        return switch( request[0]){
+    public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
+        return switch( cmd ){
             case "st" -> getStatus(html);
             default -> "Unknown command";
         };

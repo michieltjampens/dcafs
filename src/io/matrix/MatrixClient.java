@@ -71,13 +71,13 @@ public class MatrixClient implements Writable, Commandable {
     boolean downloadAll=true;
     Path dlFolder=Path.of("downloads");
     Path settingsFile;
-    private HashMap<String,String> macros = new HashMap<>();
+    private final HashMap<String,String> macros = new HashMap<>();
 
     static final long RETRY_MAX = 90;
     static final long RETRY_STEP = 15;
     private long retry=RETRY_STEP;
 
-    private ArrayList<String[]> failedMessages = new ArrayList<>();
+    private final ArrayList<String[]> failedMessages = new ArrayList<>();
 
     public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, Path settingsFile ){
         this.dQueue=dQueue;
@@ -90,7 +90,7 @@ public class MatrixClient implements Writable, Commandable {
      * Reads the settings from the global settingsfile
      */
     private void readFromXML( ){
-        var matrixEle = XMLfab.withRoot(settingsFile,"dcafs","settings","matrix").getCurrentElement();
+        var matrixEle = XMLfab.withRoot(settingsFile,"dcafs","matrix").getCurrentElement();
         String u = XMLtools.getStringAttribute(matrixEle,"user","");
         if( u.isEmpty()) {
             Logger.error("Invalid matrix user");
@@ -142,6 +142,9 @@ public class MatrixClient implements Writable, Commandable {
                                         for( var room : roomSetups.values())
                                             joinRoom(room,null);
                                         return true;
+                                    }
+                                    if( res.statusCode()==302 ) {
+
                                     }
                                     Logger.warn("matrix -> Failed to login to the matrix network");
                                     processError(res);
@@ -530,7 +533,10 @@ public class MatrixClient implements Writable, Commandable {
         roomSetups.forEach( (k,v) -> sendMessage(v.url(),message) );
     }
     public void sendMessage( String room, String message ){
-
+        if(httpClient==null){
+            Logger.error("Can't send matrix message if httpClient is null");
+            return;
+        }
         String nohtml = message.replace("<br>","\r\n");
         nohtml = nohtml.replaceAll("<.?b>|<.?u>",""); // Alter bold
 
@@ -570,6 +576,10 @@ public class MatrixClient implements Writable, Commandable {
     private void processError( HttpResponse<String> res ){
         if( res.statusCode()==200)
             return;
+        if( res.statusCode()==302) {
+            Logger.error("Errorcode: 302 -> Redirect to SSO interface");
+            return;
+        }
         var body = new JSONObject(res.body());
         String error = body.getString("error");
 
@@ -629,12 +639,14 @@ public class MatrixClient implements Writable, Commandable {
             Logger.error("matrix -> No valid data received to send to "+url);
             return;
         }
+        var json = data.toString();
+        Logger.info(json);
         try{
             url=server+url;
             if( !accessToken.isEmpty())
                 url+="?access_token="+accessToken;
             var request = HttpRequest.newBuilder(new URI(url))
-                    .POST(HttpRequest.BodyPublishers.ofString(data.toString()))
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
                     .timeout(Duration.ofSeconds(30))
                     .build();
 
@@ -754,9 +766,9 @@ public class MatrixClient implements Writable, Commandable {
     }
 
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
 
-        var cmds = request[1].split(",");
+        var cmds = args.split(",");
 
         Path p;
         StringJoiner j = new StringJoiner("\r\n");
@@ -787,7 +799,7 @@ public class MatrixClient implements Writable, Commandable {
             case "say": case "txt":
                 if( cmds.length<3 )
                     return "Not enough arguments: matrix:say,roomid,message";
-                String what = request[1].substring(5+cmds[1].length());
+                String what = args.substring(5+cmds[1].length());
                 sendMessage(roomSetups.get(cmds[1]).url(),what);
                 return "Message send";
             /* *************** Files ********************* */

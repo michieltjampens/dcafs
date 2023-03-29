@@ -144,41 +144,26 @@ public class CommandPool {
 			html=true;
 		}
 		String result;
-		//question=question.trim();
-
-		if (!html) // if html is false, verify that the command doesn't imply the opposite
-			html = question.endsWith("html") ;
-
-		question = question.replace("html", "");
 
 		if (remember) // If to store commands in the raw log (to have a full simulation when debugging)
 			Logger.tag("RAW").info("system\t" + question);
 
-		int rtvals = question.indexOf(":");
-
 		String[] split = new String[]{"",""};
-		if( rtvals != -1){
+		if( question.contains(":")){ // might contain more than one ':' so split on the first one
 			split[0]=question.substring(0, question.indexOf(":"));
 			split[1]=question.substring(question.indexOf(":")+1);
 		}else{
 			split[0]=question;
 		}
 		split[0]=split[0].toLowerCase();
-		String find = split[0].replaceAll("[0-9]+", "_");
-		
-		if( find.equals("i_c") || find.length() > 3 ) // Otherwise, adding integrated circuits with their name is impossible
-			find = split[0];
-			
-		find = find.isBlank() ? "nothing" : find;
+		var eol = html ? "<br>" : "\r\n";
 
-		result = switch (find) {
+		result = switch (split[0]) {
 			case "admin" -> doADMIN(split, wr, html);
-			case "help", "h", "?" -> doHelp(split, html);
-			case "read" -> doREAD(split, wr);
-			case "upgrade" -> doUPGRADE(split, wr, html);
-			case "retrieve" -> doRETRIEVE(split, wr, html);
-			case "reqtasks" -> doREQTASKS(split);
-			case "sd" -> doShutDown(split, wr, html);
+			case "help", "h", "?" -> doHelp(split, eol);
+			case "upgrade" -> doUPGRADE(split, wr, eol);
+			case "retrieve" -> doRETRIEVE(split, wr, eol);
+			case "sd" -> doShutDown(split, wr, eol);
 			case "serialports" -> Tools.getSerialPorts(html);
 			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
 			case "store" -> {
@@ -194,50 +179,18 @@ public class CommandPool {
 			}
 			case "history" -> HistoryCmds.replyToCommand(split[1],html,settingsPath.getParent());
 			case "", "stop", "nothing" -> {
-				stopCommandable.forEach(c -> c.replyToCommand(new String[]{"", ""}, wr, false));
+				stopCommandable.forEach(c -> c.replyToCommand("","", wr, false));
 				yield "Clearing requests";
 			}
 			default -> UNKNOWN_CMD;
 		};
 
-		if( result.startsWith(UNKNOWN_CMD) ){
-			final String f = split[0].replaceAll("\\d+","_");
-			var cmdOpt = commandables.entrySet().stream()
-						.filter( ent -> {
-							String key = ent.getKey();
-							if( key.equals(split[0])||key.equals(f))
-								return true;
-							return Arrays.stream(key.split(";")).anyMatch(k->k.equals(split[0])||k.equals(f));
-						}).map(Map.Entry::getValue).findFirst();
+		if( result.equals(UNKNOWN_CMD)) // Meaning bad first cmd
+			result = checkCommandables(split[0],question,wr,html);// Check the stored Commandables
 
-			if( cmdOpt.isPresent()) {
-				result = cmdOpt.get().replyToCommand(split, wr, html);
-				if( result == null){
-					Logger.error("Got a null as response to "+question);
-				}else if( result.startsWith(UNKNOWN_CMD) ) {
-					Logger.warn("Found "+find+" but corresponding cmd to do: " + question);
-				}
-			}else{
-				String res;
-				if (split[1].equals("?") || split[1].equals("list")) {
-					var nl = html ? "<br>" : "\r\n";
-					res = doCmd("tm", split[0] + ",sets", wr) + nl + doCmd("tm", split[0] + ",tasks", wr);
-				}else if( split[1].equalsIgnoreCase("reload")){
-					res = doCmd("tm","reload,"+split[0],wr);
-				} else {
-					res = doCmd("tm", "run," + split[0] + ":" + split[1], wr);
-				}
-				if (!res.startsWith("No such") && !res.startsWith("Not "))
-					result = res;
-				if( result.startsWith(UNKNOWN_CMD) ) {
-					Logger.warn("Not defined:" + question + " because no method named " + find + ".");
-				}
-			}
-		}
-		if( result == null || result.isEmpty()) {
-			Logger.error( "Result shouldn't be null!");
-			return "Result is null or empty...";
-		}
+		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
+			result = checkTaskManagers(split[0],question,wr,html);
+
 		if( wr!=null ) {
 			if( d.getLabel().startsWith("matrix")) {
 				wr.writeLine(d.getOriginID()+"|"+result);
@@ -247,30 +200,60 @@ public class CommandPool {
 				wr.writeLine(result);
 			}else if(!d.isSilent()) {
 				wr.writeLine(result);
-			}else{
-				Logger.debug("Hidden response for " + wr.id() + ": " + result);
 			}
-		}else{
-			Logger.debug("Hidden response to " + question + ": " + result);
 		}
+
+		if( result.equalsIgnoreCase(UNKNOWN_CMD))
+			return result+" >>"+question+"|"+split[0]+"|"+split[0]+"|"+split[1]+"<<";
+
 		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
 			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
 
-		if( result.equalsIgnoreCase(UNKNOWN_CMD))
-			return result+" >>"+question+"|"+find+"|"+split[0]+"|"+split[1]+"<<";
-
 		return result + (html ? "<br>" : "\r\n");
+	}
+	private String checkCommandables(String cmd, String question, Writable wr,boolean html){
+		final String f = cmd.replaceAll("\\d+","_"); // For special ones like sending data
+		var cmdOpt = commandables.entrySet().stream()
+				.filter( ent -> {
+					String key = ent.getKey();
+					if( key.equals(cmd)||key.equals(f))
+						return true;
+					return Arrays.stream(key.split(";")).anyMatch(k->k.equals(cmd)||k.equals(f));
+				}).map(Map.Entry::getValue).findFirst();
+
+		if( cmdOpt.isPresent()) { // If requested cmd exists
+			String[] s = {cmd,question};
+			String result = cmdOpt.get().replyToCommand(cmd,question, wr, html);
+			if( result == null){
+				Logger.error("Got a null as response to "+question);
+				return "! Something went wrong processing: "+question;
+			}
+			return result;
+		}
+		return UNKNOWN_CMD;
+	}
+	private String checkTaskManagers(String cmd, String question, Writable wr,boolean html){
+		var nl = html ? "<br>" : "\r\n";
+
+		String res = switch (question) {
+			case "?", "list" -> doCmd("tm", cmd + ",sets", wr) + nl + doCmd("tm", cmd + ",tasks", wr);
+			case "reload" -> doCmd("tm", "reload," + cmd, wr);
+			default -> doCmd("tm", "run," + cmd + ":" + question, wr);
+		};
+		if (!res.startsWith("! No such TaskManager") )
+			return res;
+		return UNKNOWN_CMD;
 	}
 	/* ****************************************** C O M M A N D A B L E ********************************************* */
 	private String doCmd( String id, String command, Writable wr){
 		for( var cmd : commandables.entrySet() ){
 			var spl = cmd.getKey().split(";");
 			if( Arrays.stream(spl).anyMatch( x->x.equalsIgnoreCase(id)) ){
-				return cmd.getValue().replyToCommand(new String[]{id,command},wr,false);
+				return cmd.getValue().replyToCommand(id,command,wr,false);
 			}
 		}
 		Logger.error("No "+id+" available");
-		return UNKNOWN_CMD+": No "+id+" available";
+		return "! No "+id+" available";
 	}
 	/* ********************************************************************************************/
 	/**
@@ -279,10 +262,10 @@ public class CommandPool {
 	 * 
 	 * @param request The full command update:something
 	 * @param wr The 'writable' of the source of the command
-	 * @param html Whether to use html for newline etc
-	 * @return Descriptive result of the command, "Unknown command if not recognised
+	 * @param eol The eol to use
+	 * @return Descriptive result of the command
 	 */
-	public String doUPGRADE(String[] request, Writable wr, boolean html) {
+	public String doUPGRADE(String[] request, Writable wr, String eol) {
 		
 		Path p;
 		Path to;
@@ -292,19 +275,15 @@ public class CommandPool {
 
 		switch (spl[0]) {
 			case "?" -> {
-				StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
-				join.add("upgrade:dcafs -> Try to update dcafs (todo)")
-						.add("upgrade:tmscript,tm id -> Try to update the given taskmanagers script")
-						.add("upgrade:settings -> Try to update the settings.xml");
+				StringJoiner join = new StringJoiner(eol);
+				join.add(TelnetCodes.TEXT_GREEN+"upgrade:tmscript,tm id"+TelnetCodes.TEXT_DEFAULT+" -> Try to update the given taskmanagers script")
+						.add(TelnetCodes.TEXT_GREEN+"upgrade:settings"+TelnetCodes.TEXT_DEFAULT+" -> Try to update the settings.xml");
 				return join.toString();
-			}
-			case "dcafs" -> {
-				return "todo";
 			}
 			case "tmscript" -> {//fe. update:tmscript,tmid
 				var ori = doCmd("tm", "getpath," + spl[1], wr);
 				if (ori.isEmpty())
-					return "No such script";
+					return "! No such script";
 				p = Path.of(ori);
 				to = Path.of(ori.replace(".xml", "") + "_" + TimeTools.formatUTCNow("yyMMdd_HHmm") + ".xml");
 				refr = Path.of(workPath, "attachments", spl[1]);
@@ -317,10 +296,11 @@ public class CommandPool {
 						return doCmd("tm", "reload," + spl[1], wr);// Reloads based on id
 					} else {
 						Logger.warn("Didn't find the needed files.");
-						return "Couldn't find the correct files. (maybe check spelling?)";
+						return "! Couldn't find the correct files. (maybe check spelling?)";
 					}
 				} catch (IOException e) {
 					Logger.error(e);
+					return "! Error when trying to upgrade tmscript.";
 				}
 			}
 			case "settings" -> {
@@ -333,19 +313,20 @@ public class CommandPool {
 						Files.copy(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
 						shutdownReason = "Replaced settings.xml";    // restart das
 						System.exit(0);
+						return "Shutting down...";
 					} else {
 						Logger.warn("Didn't find the needed files.");
 						return "Couldn't find the correct files. (maybe check spelling?)";
 					}
 				} catch (IOException e) {
-					e.printStackTrace();
+					Logger.error(e);
+					return "! Error when trying to upgrade settings.";
 				}
 			}
 			default -> {
-				return UNKNOWN_CMD;
+				return "! No such subcommand in upgrade: " +spl[0];
 			}
 		}
-		return UNKNOWN_CMD;
 	}
 	/**
 	 * Command to retrieve a setup file, can be settings.xml or a script
@@ -353,10 +334,10 @@ public class CommandPool {
 	 * 
 	 * @param request The full command update:something
 	 * @param wr The 'writable' of the source of the command
-	 * @param html Whether to use html for newline etc
+	 * @param eol The eol to use
 	 * @return Descriptive result of the command, "Unknown command if not recognised
 	 */
-	public String doRETRIEVE(String[] request, Writable wr, boolean html) {
+	public String doRETRIEVE(String[] request, Writable wr, String eol) {
 		
 		if( sendEmail==null)
 			return "Can't retrieve without EmailWorker";
@@ -365,32 +346,32 @@ public class CommandPool {
 
 		switch (spl[0]) {
 			case "?" -> {
-				StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n", "", html ? "<br>" : "\r\n");
+				StringJoiner join = new StringJoiner(eol, "", eol);
 				join.add("retrieve:tmscript,tm id,<email/ref> -> Request the given taskmanager script through email")
 						.add("retrieve:settings,<email/ref> -> Request the current settings.xml through email");
 				return join.toString();
 			}
 			case "tmscript", "tmscripts" -> {
 				if (spl.length < 3)
-					return "Not enough arguments retrieve:type,tmid,email in " + request[0] + ":" + request[1];
+					return "! Not enough arguments retrieve:type,tmid,email in " + request[0] + ":" + request[1];
 				var p = doCmd("tm", "getpath," + spl[1], wr);
 				if (p.isEmpty())
-					return "No such script";
+					return "! No such script";
 				sendEmail.sendEmail(Email.to(spl[2]).subject("Requested tm script: " + spl[1]).content("Nothing to say").attachment(p));
 				return "Tried sending " + spl[1] + " to " + spl[2];
 			}
 			case "setup", "settings" -> {
 				Path set = Path.of(workPath, "settings.xml");
 				if (Files.notExists(set)) {
-					return "No such file: " + set;
+					return "! No such file: " + set;
 				}
 				if (spl.length != 2)
-					return "Not enough arguments, expected retrieve:setup,email/ref";
+					return "! Not enough arguments, expected retrieve:setup,email/ref";
 				sendEmail.sendEmail(Email.to(spl[1]).subject("Requested file: settings.xml").content("Nothing to say").attachment(workPath + File.separator + "settings.xml"));
 				return "Tried sending settings.xml to " + spl[1];
 			}
 			default -> {
-				return UNKNOWN_CMD + ":" + spl[0];
+				return "! No such subcommand in retrieve: " + spl[0];
 			}
 		}
 	}
@@ -401,10 +382,10 @@ public class CommandPool {
 	 * 
 	 * @param request The full command split on the first :
 	 * @param wr The 'writable' of the source of the command
-	 * @param html Whether to use html for newline etc
+	 * @param eol The eol to use
 	 * @return Descriptive result of the command, "Unknown command if not recognised
 	 */
-	public String doShutDown( String[] request, Writable wr, boolean html ){
+	private String doShutDown( String[] request, Writable wr, String eol ){
 		if( request[1].equals("?") )
 			return "sd:reason -> Shutdown the program with the given reason, use force as reason to skip checks";
 		String reason = request[1].isEmpty()?"Telnet requested shutdown":request[1];
@@ -413,24 +394,24 @@ public class CommandPool {
 				if (sdp.shutdownNotAllowed()) {
 					if (wr != null)
 						wr.writeLine("Shutdown prevented by " + sdp.getID());
-					return "Shutdown prevented by " + sdp.getID();
+					return "! Shutdown prevented by " + sdp.getID();
 				}
 			}
 		}
 		shutdownReason = reason;
 		System.exit(0);                    
-		return "Shutting down program..."+ (html?"<br>":"\r\n");
+		return "Shutting down program..."+ eol;
 	}
 	/**
 	 * Get some basic help info
 	 * 
 	 * @param request The full command split on the first :
-	 * @param html Whether to use html for newline etc
+	 * @param eol The eol to use
 	 * @return Content of the help.txt or 'No telnetHelp.txt found' if not found
 	 */
-	public String doHelp( String[] request, boolean html ){		
-		String nl = html?"<br":"\r\n";
-		StringJoiner join = new StringJoiner(nl,"",nl);
+	private String doHelp( String[] request, String eol ){
+
+		StringJoiner join = new StringJoiner(eol,"",eol);
 		join.setEmptyValue(UNKNOWN_CMD+": "+request[0]+":"+request[1]);
 		switch(request[1]){
 			case "?":
@@ -438,8 +419,7 @@ public class CommandPool {
 				break;
 				case "":
 					join.add(TelnetCodes.TEXT_RED+"General commands"+TelnetCodes.TEXT_DEFAULT);
-					join.add("  st -> Get the current status of dcafs, lists streams, databases etc");
-					join.add("  cmds -> Get al list of all available commands").add("");
+					join.add("  st -> Get the current status of dcafs, lists streams, databases etc").add("");
 					join.add(TelnetCodes.TEXT_RED+"General tips"+TelnetCodes.TEXT_DEFAULT)
 						.add("   -> Look at settings.xml file (in dcafs.jar folder) in a viewer to see what dcafs does")
 						.add("   -> Open two or more telnet instances fe. one for commands and other for live data").add("");
@@ -450,117 +430,107 @@ public class CommandPool {
 						.add("   -> For I2C/SPI check the manual and then use i2c:?");
 					join.add(TelnetCodes.TEXT_GREEN+"2) Look at received data"+TelnetCodes.TEXT_DEFAULT)
 						.add("   -> raw:streamid -> Show the data received at the stream with the given id eg. raw:gps")
-						.add("   -> raw:label:streamlabel -> Show the data received at the streams with the given label")
 						.add("   -> mqtt:forward,id -> Show the data received from the mqtt broker with the given id")
-						.add("   -> i2c:forward,id -> Show the data received from the i2c device with the given id");
-					join.add(TelnetCodes.TEXT_GREEN+"3) Alter the data stream to a delimited set of values"+TelnetCodes.TEXT_DEFAULT)
-						.add("   -> Use MathForward to apply arithmetic operations on it, see mf:?")
-						.add("      See the result with math:id")
-						.add("   -> If the stream contains various messages, split it out using FilterForward, see ff:?")
-						.add("      See the result with filter:id");
-					join.add(TelnetCodes.TEXT_GREEN+"4) Collect the data after the optional math and filter"+TelnetCodes.TEXT_DEFAULT)
-						.add("   -> Use generics to store the data in memory, see gens:?")
-						.add("   -> Use MathCollector to calculate averages, standard deviation etc, see mc:? (todo:implementing commands)")
-						.add("   -> See a snapshot of the data in memory with rtvals or rtval:name to receive updates on a specific on")
-						.add("   -> Use ValMap to collect data that's formatted according to param,value (or any other delimiter)");
-					join.add(TelnetCodes.TEXT_GREEN+"5) Create/connect to a database"+TelnetCodes.TEXT_DEFAULT);
+						.add("   -> i2c:id -> Show the data received from the i2c device with the given id");
+					join.add(TelnetCodes.TEXT_GREEN+"3) Build the path for the data"+TelnetCodes.TEXT_DEFAULT)
+						.add("   -> Check pf:? for relevant commands")
+						.add("   -> Use math to apply arithmetic operations on it")
+						.add("   -> Use editor to apply string operations on it")
+						.add("   -> Use filter to work on individual lines")
+						.add("   -> Finally use store to write values to memory or database");
+					join.add(TelnetCodes.TEXT_GREEN+"4) Create/connect to a database"+TelnetCodes.TEXT_DEFAULT);
 					join.add("   -> Send dbm:? for commands related to the database manager");
-					join.add(TelnetCodes.TEXT_GREEN+"6) Somehow get the data received in 1 into 5"+TelnetCodes.TEXT_DEFAULT);
-					join.add("   -> See the manual about how to use generics (Reference Guide -> Generics)");
-					join.add(TelnetCodes.TEXT_GREEN+"7) Do other things"+TelnetCodes.TEXT_DEFAULT);
+					join.add(TelnetCodes.TEXT_GREEN+"5) Do other things"+TelnetCodes.TEXT_DEFAULT);
 					join.add("   -> For scheduling events, check taskmanager");
 					join.add("   -> ...").add("");
 				break;
-			case "filter": return FilterForward.getHelp(nl);
+			case "filter": return FilterForward.getHelp(eol);
 			case "math": break;
-			case "editor": return EditorForward.getHelp(nl);
-			default:	return UNKNOWN_CMD+":"+request[1];
+			case "editor": return EditorForward.getHelp(eol);
+			default:	return "! No such subcommand in help: "+request[1];
 		}
 		return join.toString();
 	}
-
-
-	public String doREAD( String[] request, Writable wr ){
-		dQueue.add( Datagram.build("").writable(wr).label("read:"+request[1]) );
-		return "Request for readable "+request[1]+" from "+wr.id()+" issued";
-	}
-	public String doADMIN( String[] request, Writable wr, boolean html ){
+	private String doADMIN( String[] request, Writable wr, boolean html ){
 		String nl = html?"<br":"\r\n";
 		String[] cmd = request[1].split(",");
-		switch( cmd[0] ){
-			case "?":
+		switch (cmd[0]) {
+			case "?" -> {
+				String gre = html ? "" : TelnetCodes.TEXT_GREEN;
+				String reg = html ? "" : TelnetCodes.TEXT_DEFAULT;
 				StringJoiner join = new StringJoiner(nl);
-				join.add("admin:getlogs -> Get the latest logfiles")
-					.add("admin:gettasklog -> Get the taskmananger log")
-					.add("admin:adddebugnode -> Adds a debug node with default values")
-					.add("admin:clock -> Get the current timestamp")
-					.add("admin:regex,<regex>,<match> -> Test a regex")
-					.add("admin:ipv4 -> Get the IPv4 and MAC of all network interfaces")
-					.add("admin:ipv6 -> Get the IPv6 and MAC of all network interfaces")
-					.add("admin:gc -> Fore a java garbage collection")
-					.add("admin:lt -> Show all threads")
-					.add("admin:reboot -> Reboot the computer (linux only)")
-					.add("admin:sleep,x -> Sleep for x time (linux only")
-					.add("admin:info,x -> Return the last x lines of the infolog or 30 if no x given")
-					.add("admin:errors,x -> Return the last x lines of the errorlog or 30 if no x given");
+				join.add(gre + "admin:getlogs" + reg + " -> Send last/current info and error log to admin email")
+						.add(gre + "admin:adddebugnode" + reg + " -> Adds a debug node with default values")
+						.add(gre + "admin:clock" + reg + " -> Get the current timestamp")
+						.add(gre + "admin:regex,<regex>,<match>" + reg + " -> Test a regex")
+						.add(gre + "admin:ipv4" + reg + " -> Get the IPv4 and MAC of all network interfaces")
+						.add(gre + "admin:ipv6" + reg + " -> Get the IPv6 and MAC of all network interfaces")
+						.add(gre + "admin:gc" + reg + " -> Fore a java garbage collection")
+						.add(gre + "admin:lt" + reg + " -> Show all threads")
+						.add(gre + "admin:reboot" + reg + " -> Reboot the computer (linux only)")
+						.add(gre + "admin:sleep,x" + reg + " -> Sleep for x time (linux only");
 				return join.toString();
-			case "getlogs":
-				if( sendEmail != null ){
-					sendEmail.sendEmail( Email.toAdminAbout("Statuslog").subject("File attached (probably)")
-							.attachment( Path.of(workPath,"logs","info.log") ));
-					sendEmail.sendEmail( Email.toAdminAbout("Errorlog").subject("File attached (probably)")
-							.attachment(Path.of(workPath,"logs","errors.log" )) );
+			}
+			case "getlogs" -> {
+				if (sendEmail != null) {
+					sendEmail.sendEmail(Email.toAdminAbout("Statuslog").subject("File attached (probably)")
+							.attachment(Path.of(workPath, "logs", "info.log")));
+					sendEmail.sendEmail(Email.toAdminAbout("Errorlog").subject("File attached (probably)")
+							.attachment(Path.of(workPath, "logs", "errors.log")));
 					return "Sending logs (info,errors) to admin...";
 				}
 				return "No email functionality active.";
-			case "gettasklog":
-				if(sendEmail!=null){
-					sendEmail.sendEmail(Email.toAdminAbout("Taskmanager.log").subject("File attached (probably)")
-							.attachment(Path.of(workPath, "logs", "taskmanager.log")));
-					return "Trying to send taskmanager log";
-				}
-				return "No email functionality active.";
-
-			case "getlastraw":
-				Path it = Path.of(workPath,"raw",TimeTools.formatUTCNow("yyyy-MM"));
-				if( sendEmail==null)
-					return "No email functionality active.";
-				try (var list = Files.list(it) ){
-					var last = list.filter( f -> !Files.isDirectory(f)).max( Comparator.comparingLong( f -> f.toFile().lastModified()));
-					if( last.isPresent() ){
+			}
+			case "getlastraw" -> {
+				Path it = Path.of(workPath, "raw", TimeTools.formatUTCNow("yyyy-MM"));
+				if (sendEmail == null)
+					return "! No email functionality active.";
+				try (var list = Files.list(it)) {
+					var last = list.filter(f -> !Files.isDirectory(f)).max(Comparator.comparingLong(f -> f.toFile().lastModified()));
+					if (last.isPresent()) {
 						var path = last.get();
 						sendEmail.sendEmail(Email.toAdminAbout("Taskmanager.log").subject("File attached (probably)").attachment(path));
 						return "Tried sending " + path;
 					}
-					return "File not found";
+					return "! File not found";
 				} catch (IOException e) {
 					Logger.error(e);
-					return "Something went wrong trying to get the file";
+					return "! Something went wrong trying to get the file";
 				}
-			case "adddebugnode":
-				DebugWorker.addBlank(XMLfab.withRoot(settingsPath,"dcafs","settings"));
-				return "Tried to add node";
-			case "clock": return TimeTools.formatLongUTCNow();
-			case "regex":
-				if( cmd.length != 3 )
-					return "Invalid amount of parameters";
-				return "Matches? "+cmd[1].matches(cmd[2]);
-			case "ipv4": return Tools.getIP("", true);
-			case "ipv6": return Tools.getIP("", false);
-			case "sleep": return doSLEEP(cmd, wr);
-			case "lt": return Tools.listThreads(html);
-			case "gc":
+			}
+			case "clock" -> {
+				return TimeTools.formatLongUTCNow();
+			}
+			case "regex" -> {
+				if (cmd.length != 3)
+					return "! Invalid amount of parameters";
+				return "Matches? " + cmd[1].matches(cmd[2]);
+			}
+			case "ipv4" -> {
+				return Tools.getIP("", true);
+			}
+			case "ipv6" -> {
+				return Tools.getIP("", false);
+			}
+			case "sleep" -> {
+				return doSLEEP(cmd, wr);
+			}
+			case "lt" -> {
+				return Tools.listThreads(html);
+			}
+			case "gc" -> {
 				System.gc();
 				return "Tried to execute GC";
-			case "reboot":
-				if( !System.getProperty("os.name").toLowerCase().startsWith("linux")){
-					return "Only Linux supported for now.";
+			}
+			case "reboot" -> {
+				if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
+					return "! Only Linux supported for now.";
 				}
 				try {
-					ProcessBuilder pb = new ProcessBuilder("bash","-c","shutdown -r +1");
+					ProcessBuilder pb = new ProcessBuilder("bash", "-c", "shutdown -r +1");
 					pb.inheritIO();
 
-					Logger.error("Started restart attempt at "+TimeTools.formatLongUTCNow());
+					Logger.error("Started restart attempt at " + TimeTools.formatLongUTCNow());
 					pb.start();
 
 					System.exit(0); // shutting down das
@@ -568,66 +538,23 @@ public class CommandPool {
 					Logger.error(e);
 				}
 				try {
-					ProcessBuilder pb = new ProcessBuilder("sh","-c","reboot now");
+					ProcessBuilder pb = new ProcessBuilder("sh", "-c", "reboot now");
 					pb.inheritIO();
 
-					Logger.error("Started restart attempt at "+TimeTools.formatLongUTCNow());
+					Logger.error("Started restart attempt at " + TimeTools.formatLongUTCNow());
 					pb.start();
 
 					System.exit(0); // shutting down das
 				} catch (IOException e) {
 					Logger.error(e);
 				}
-				return "Never gonna happen?";
-			case "errors":
-				cmd[0]+= "_"+TimeTools.formatUTCNow("yyMMdd");
-			case "info":
-				int lines = cmd.length>1?NumberUtils.toInt(cmd[1],30):30;
-				var data = FileTools.readLastLines( Path.of(workPath).resolve("logs").resolve(cmd[0]+".log"),lines);
-				boolean wait = true;
-				StringJoiner j = new StringJoiner(html?"<br":"\r\n");
-				j.setEmptyValue("No "+cmd[0]+" yet");
-				String col=TelnetCodes.TEXT_DEFAULT;
-				for( String d : data){
-					if( d.startsWith( "20") ) {
-						wait = false;
-						if( d.contains(" ERROR\t")) {
-							col = TelnetCodes.TEXT_RED;
-						}else if( d.contains(" WARN\t")){
-							col= TelnetCodes.TEXT_ORANGE;
-						}else if( d.contains(" INFO\t")){
-							col=TelnetCodes.TEXT_DEFAULT;
-						}
-					}
-					if(!wait) {
-						j.add(col+d);
-					}
-				}
-				return j+TelnetCodes.TEXT_DEFAULT;
-			default: return UNKNOWN_CMD+" : "+request[1];
+				return "! Never gonna happen?";
+			}
+			default -> {
+				return "! No such subcommand in admin:" + request[1];
+			}
 		}
 	}
-
-	/**
-	 * Request the content of the tasks.csv file that contains info on taskset execution
-	 * @param request Array containing reqtasks at 0 and either ? or an email address at 1
-	 * @return Result of the request
-	 */
-	public String doREQTASKS( String[] request ){
-		if( request[1].equals("?") )
-			return ":x -> Send a list of all the taskset executions to x";
-
-		if(  request[1].equals("") )
-			return "No recipient given.";
-		
-		if( sendEmail==null )
-			return "No email functionality active";
-
-		sendEmail.sendEmail( Email.to(request[1]).subject("Executed tasksets").content("Nothing to add")
-				.attachment( Path.of(workPath,"logs","tasks.csv").toString() ) );
-		return "Sending log of taskset execution to "+request[1];
-	}
-
 	/**
 	 * Try to put the computer to sleep, only works on linux
 	 * @param cmd Array containing sleep,rtc nr, time (fe.5m for 5 minutes)
@@ -640,7 +567,7 @@ public class CommandPool {
 		}
 		String os = System.getProperty("os.name").toLowerCase();
 		if( !os.startsWith("linux")){
-			return "Only Linux supported for now.";
+			return "! Only Linux supported for now.";
 		}
 		
 		int seconds = (int) TimeTools.parsePeriodStringToSeconds(cmd[2]);
@@ -663,7 +590,7 @@ public class CommandPool {
 			// do wake up stuff
 			var tmCmd = commandables.get("tm");
 			if( tmCmd != null ){
-				tmCmd.replyToCommand(new String[]{"tm","run,*:wokeup"},wr,false);
+				tmCmd.replyToCommand("tm","run,*:wokeup",wr,false);
 			}
 		} catch (IOException | InterruptedException e) {
 			Logger.error(e);

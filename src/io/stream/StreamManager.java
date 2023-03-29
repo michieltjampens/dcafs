@@ -587,16 +587,16 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	/* ***************************************************************************************************** */
 	@Override
-	public String replyToCommand(String[] request, Writable wr, boolean html) {
-		String find = request[0].toLowerCase().replaceAll("\\d+","_");
+	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+		String find = cmd.toLowerCase().replaceAll("\\d+","_");
 		return switch( find ) {
-			case "ss", "streams" -> replyToStreamCommand(request[1], html);
+			case "ss", "streams" -> replyToStreamCommand(args, html);
 			case "rios" -> replyToStreamCommand("rios", html);
 			case "raw","stream" -> {
-				var res = addForwarding(request[1],wr);
-				yield (res?"":"! ")+"Request for "+request[0]+":"+request[1]+" "+(res?"ok":"failed");
+				var res = addForwarding(args,wr);
+				yield (res?"":"! ")+"Request for "+cmd+":"+args+" "+(res?"ok":"failed");
 			}
-			case "s_","h_" -> doSorH( request);
+			case "s_","h_" -> doSorH( cmd,args );
 			case "","stop" -> removeWritable(wr)?"Ok.":"";
 			default -> "Unknown Command";
 		};
@@ -1030,30 +1030,30 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	}
 
 
-	private String doSorH( String[] request ){
-		return switch( request[1] ){
+	private String doSorH( String cmd, String args ){
+		return switch( args ){
 			case "??" -> "Sx:y -> Send the string y to stream x";
 			case "" -> "No use sending an empty string";
 			default -> {
-				var stream = getStreamID( Tools.parseInt( request[0].substring(1), 0 ) -1);
+				var stream = getStreamID( Tools.parseInt( cmd.substring(1), 0 ) -1);
 				if( !stream.isEmpty()){
-					request[1] = request[1].replace("<cr>", "\r").replace("<lf>", "\n"); // Normally the delimiters are used that are chosen in settings file, extra can be added
+					args = args.replace("<cr>", "\r").replace("<lf>", "\n"); // Normally the delimiters are used that are chosen in settings file, extra can be added
 
 					var written = "";
-					if( request[0].startsWith("h")){
-						written = writeBytesToStream(stream, Tools.fromHexStringToBytes(request[1]) );
+					if( cmd.startsWith("h")){
+						written = writeBytesToStream(stream, Tools.fromHexStringToBytes(args) );
 					}else{
-						written = writeToStream(stream, request[1], "" );
+						written = writeToStream(stream, args, "" );
 					}
 					if( !written.isEmpty() )
 						yield "Sending '"+written+"' to "+stream;
-					yield "Failed to send "+request[1]+" to "+stream;
+					yield "! Failed to send "+args+" to "+stream;
 
 				}else{
 					yield switch( getStreamCount() ){
-						case 0 -> "No streams active to send data to.";
-						case 1 ->"Only one stream active. S1:"+getStreamID(0);
-						default -> "Invalid number chosen! Must be between 1 and "+getStreamCount();
+						case 0 -> "! No streams active to send data to.";
+						case 1 ->"! Only one stream active. S1:"+getStreamID(0);
+						default -> "! Invalid number chosen! Must be between 1 and "+getStreamCount();
 					};
 				}
 			}

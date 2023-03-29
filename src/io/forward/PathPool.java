@@ -85,23 +85,23 @@ public class PathPool implements Commandable {
         Logger.info("Finished loading paths");
     }
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
         // Regular ones
-        switch (request[0]) {
+        switch (cmd) {
             // Path
             case "paths", "pf" -> {
-                return replyToPathCmd(request[1], wr, html);
+                return replyToPathCmd(args, wr, html);
             }
             case "path" -> {
-                if( request[1].startsWith("!")){
-                    var p = paths.get(request[1].substring(1));
+                if( args.startsWith("!")){
+                    var p = paths.get(args.substring(1));
                     if( p!=null)
                         p.removeTarget(wr);
                     return "Remove received";
                 }else {
-                    var p = paths.get(request[1]);
+                    var p = paths.get(args);
                     if (p == null)
-                        return "No such path (yet): " + request[1];
+                        return "No such path (yet): " + args;
                     p.addTarget(wr);
                     return "Request received.";
                 }
@@ -111,7 +111,7 @@ public class PathPool implements Commandable {
                 return "";
             }
             default -> {
-                return "unknown command: " + request[0] + ":" + request[1];
+                return "! No such subcommand in "+cmd+": "+args;
             }
         }
     }

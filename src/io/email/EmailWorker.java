@@ -416,16 +416,16 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		return list.contains(address);
 	}
 	@Override
-	public String replyToCommand(String[] request, Writable wr, boolean html) {
+	public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
 
-		if( request[1].equalsIgnoreCase("addblank") ){
+		if( args.equalsIgnoreCase("addblank") ){
 			if( EmailWorker.addBlankEmailToXML(  XMLfab.withRoot(settingsPath, "settings"), true,true) )
 				return "Adding default email settings";
 			return "Failed to add default email settings";
 		}
 
 		if( !ready ){
-			if(request[1].equals("reload")
+			if(args.equals("reload")
 					&& XMLfab.withRoot(settingsPath, "dcafs","settings").getChild("email").isPresent() ){
 				if( !readFromXML() )
 					return "No proper email node yet";
@@ -434,9 +434,9 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			}
 		}
 		// Allow a shorter version to email to admin, replace it to match the standard command
-		request[1] = request[1].replace("toadmin,","send,admin,");
+		args = args.replace("toadmin,","send,admin,");
 
-		String[] cmds = request[1].split(",");
+		String[] cmds = args.split(",");
 
 		String cyan = html?"":TelnetCodes.TEXT_CYAN;
 		String green=html?"":TelnetCodes.TEXT_GREEN;
@@ -490,7 +490,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
 				return writePermits()?"Permit added":"! Failed to write to xml";
 			default	:
-				return "unknown command";
+				return "! No such subcommand in email: "+args;
 		}
 	}
 

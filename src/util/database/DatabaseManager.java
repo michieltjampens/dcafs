@@ -357,18 +357,18 @@ public class DatabaseManager implements QueryWriting, Commandable {
 
     /**
      * Execute a command related to databases
-     * @param request The command to execute
+
      * @param wr The writable the command originated from
      * @param html If the reply should be in html
      * @return The response or unknown command if no command was found
      */
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
 
-        if( request[0].equalsIgnoreCase("myd"))
-            return doMYsqlDump(request);
+        if( cmd.equalsIgnoreCase("myd"))
+            return doMYsqlDump(args);
 
-        String[] cmds = request[1].split(",");
+        String[] cmds = args.split(",");
 
         StringJoiner join = new StringJoiner(html?"<br":"\r\n");
 
@@ -616,17 +616,17 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 });
                 return join.toString();
             default:
-                return UNKNOWN_CMD+": "+request[0]+":"+request[1];
+                return "! No such subcommand in "+cmd+": "+cmds[0];
         }
     }
 
     /**
      * Respons to MySQLdump related commands
-     * @param request The command
+     * @param args The command
      * @return The response
      */
-    public String doMYsqlDump(String[] request ){
-        String[] cmds = request[1].split(",");
+    public String doMYsqlDump(String args ){
+        String[] cmds = args.split(",");
         switch (cmds[0]) {
             case "?" -> {
                 return " myd:run,dbid,path -> Run the mysqldump process for the given database";
@@ -681,7 +681,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 }
             }
             default -> {
-                return UNKNOWN_CMD + ": " + request[0] + ":" + request[1];
+                return "! No such subcommand in myd: "+cmds[0];
             }
         }
     }

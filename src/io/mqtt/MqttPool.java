@@ -173,15 +173,15 @@ public class MqttPool implements Commandable, MqttWriting {
 
 
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
-        String[] cmd = request[1].split(",");
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+        String[] cmds = args.split(",");
         String nl = html ? "<br>" : "\r\n";
 
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
         String green=html?"":TelnetCodes.TEXT_GREEN;
         String reg=html?"":TelnetCodes.TEXT_DEFAULT+TelnetCodes.UNDERLINE_OFF;
 
-        switch( cmd[0] ){
+        switch( cmds[0] ){
             case "?":
                 StringJoiner join = new StringJoiner(nl);
                 join.add(TelnetCodes.TEXT_RED+"Purpose"+reg);
@@ -202,23 +202,23 @@ public class MqttPool implements Commandable, MqttWriting {
                 return join.toString();
             case "brokers": return getMqttBrokersInfo();
             case "addbroker":
-                if( cmd.length!=4)
+                if( cmds.length!=4)
                     return "Wrong amount of arguments: mqtt:addbroker,id,address,deftopic";
-                if( addBroker(cmd[1],cmd[2],cmd[3]) )
+                if( addBroker(cmds[1],cmds[2],cmds[3]) )
                     return "Broker added";
                 return "Failed to add broker";
             case "subscribe":
-                if( cmd.length == 4){
-                    if( addMQTTSubscription(cmd[1], cmd[2], cmd[3]) )
-                        return nl+"Subscription added, send 'mqtt:store,"+cmd[1]+"' to save settings to xml";
+                if( cmds.length == 4){
+                    if( addMQTTSubscription(cmds[1], cmds[2], cmds[3]) )
+                        return nl+"Subscription added, send 'mqtt:store,"+cmds[1]+"' to save settings to xml";
                     return "Failed to add subscription";
                 }else{
                     return nl+"Incorrect amount of cmd: mqtt:subscribe,brokerid,label,topic";
                 }
             case "unsubscribe":
-                if( cmd.length == 3){
-                    if( removeMQTTSubscription(cmd[1], cmd[2]) ){
-                        return nl+"Subscription removed, send 'mqtt:store,"+cmd[1]+"' to save settings to xml";
+                if( cmds.length == 3){
+                    if( removeMQTTSubscription(cmds[1], cmds[2]) ){
+                        return nl+"Subscription removed, send 'mqtt:store,"+cmds[1]+"' to save settings to xml";
                     }else{
                         return nl+"Failed to remove subscription, probably typo?";
                     }
@@ -226,50 +226,50 @@ public class MqttPool implements Commandable, MqttWriting {
                     return nl+"Incorrect amount of cmd: mqtt:unsubscribe,brokerid,topic";
                 }
             case "reload":
-                if( cmd.length == 2){
-                    if( reloadMQTTsettings(cmd[1]))
-                        return nl+"Settings for "+cmd[1]+" reloaded.";
+                if( cmds.length == 2){
+                    if( reloadMQTTsettings(cmds[1]))
+                        return nl+"Settings for "+cmds[1]+" reloaded.";
                     return nl+"Failed to reload settings.";
                 }else{
                     return "Incorrect amount of cmd: mqtt:reload,brokerid";
                 }
             case "store":
-                if( cmd.length == 2){
-                    updateMQTTsettings(cmd[1]);
+                if( cmds.length == 2){
+                    updateMQTTsettings(cmds[1]);
                     return nl+"Settings updated";
                 }else{
                     return "Incorrect amount of cmd: mqtt:store,brokerid";
                 }
             case "forward":
-                if( cmd.length == 2){
-                    getMqttWorker(cmd[1]).ifPresent( x -> x.registerWritable(wr));
+                if( cmds.length == 2){
+                    getMqttWorker(cmds[1]).ifPresent( x -> x.registerWritable(wr));
                     return "Forward requested";
                 }else{
                     return "Incorrect amount of cmd: mqtt:forward,brokerid";
                 }
             case "send":
-                if( cmd.length != 3){
+                if( cmds.length != 3){
                     Logger.warn( "Not enough arguments, expected mqtt:send,brokerid,topic:value" );
                     return "Not enough arguments, expected mqtt:send,brokerid,topic:value";
-                }else if( !cmd[2].contains(":") ){
-                    return "No proper topic:value given, got "+cmd[2]+" instead.";
+                }else if( !cmds[2].contains(":") ){
+                    return "No proper topic:value given, got "+cmds[2]+" instead.";
                 }
-                if( getMqttWorker(cmd[1]).isEmpty() ){
-                    Logger.warn("No such mqttworker to so send command "+cmd[1]);
-                    return "No such MQTTWorker: "+cmd[1];
+                if( getMqttWorker(cmds[1]).isEmpty() ){
+                    Logger.warn("No such mqttworker to so send command "+cmds[1]);
+                    return "No such MQTTWorker: "+cmds[1];
                 }
-                String[] topVal = cmd[2].split(":");
+                String[] topVal = cmds[2].split(":");
                 double val = rtvals.getReal(topVal[1], -999);
-                getMqttWorker(cmd[1]).ifPresent( w -> w.addWork(topVal[0],""+val));
-                return "Data send to "+cmd[1];
+                getMqttWorker(cmds[1]).ifPresent( w -> w.addWork(topVal[0],""+val));
+                return "Data send to "+cmds[1];
             default:
-                if( getMqttWorker(cmd[1]).map( x -> {
+                if( getMqttWorker(cmds[1]).map( x -> {
                     x.registerWritable(wr);
                     return true;
                 }).orElse(false) ){
                     return "Request added";
                 }
-                return UNKNOWN_CMD+" +or id: "+cmd[0];
+                return "! No such subcommand in "+cmd+": "+cmds[0];
         }
     }
 
