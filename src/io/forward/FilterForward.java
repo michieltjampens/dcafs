@@ -171,7 +171,7 @@ public class FilterForward extends AbstractForward {
         Logger.info(id+" -> Adding rule "+type+" > "+value);
 
         switch (StringUtils.removeEnd(type, "s")) {
-            case "items" -> addItemCount(delimiter, Tools.parseInt(values[0],-1),Tools.parseInt(values[1],-1));
+            case "items" -> addItemCount(delimiter, Tools.parseInt(values[0],-1),Tools.parseInt(values.length==1?values[0]:values[1],-1));
             case "start" -> addStartsWith(value);
             case "nostart" -> addStartsNotWith(value);
             case "end" -> addEndsWith(value);
@@ -295,7 +295,8 @@ public class FilterForward extends AbstractForward {
         var gr = TelnetCodes.TEXT_GREEN;
         var re = TelnetCodes.TEXT_DEFAULT;
         join.add(gr+"items"+re+" -> How many items are  there after split on delimiter" )
-                .add("    fe. <filter type='items'>2,4</filter> --> Item count of two up to 4 (so 2,3,4 are ok)");
+                .add("    fe. <filter type='items' delimiter=';'>2,4</filter> --> Item count of two up to 4 (so 2,3,4 are ok)")
+                .add("    fe. <filter type='items'>2</filter> --> Item count of two using default delimiter");
         join.add(gr+"start"+re+" -> Which text the data should start with" )
                 .add("    fe. <filter type='start'>$</filter> --> The data must start with $");
         join.add(gr+"nostart"+re+" -> Which text the data can't start with")
