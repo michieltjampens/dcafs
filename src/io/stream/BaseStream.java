@@ -139,6 +139,9 @@ public abstract class BaseStream {
     public Optional<ValStore> getValStore(){
         return Optional.ofNullable(store);
     }
+    public ScheduledFuture connectFuture(){
+        return reconnectFuture;
+    }
     protected abstract boolean readExtraFromXML( Element stream );
     protected abstract boolean writeExtraToXML( XMLfab fab );
 
