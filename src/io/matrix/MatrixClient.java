@@ -79,7 +79,7 @@ public class MatrixClient implements Writable, Commandable {
     private long retry=RETRY_STEP;
 
     private final ArrayList<String[]> failedMessages = new ArrayList<>();
-
+    private String filterID="";
     public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, Path settingsFile ){
         this.dQueue=dQueue;
         this.settingsFile=settingsFile;
@@ -98,14 +98,14 @@ public class MatrixClient implements Writable, Commandable {
             return;
         }
 
-        server = "http://"+XMLtools.getChildStringValueByTag(matrixEle,"homeserver","");
+        server = "http://"+XMLtools.getChildStringValueByTag(matrixEle,"server","");
         if( !u.contains(":")) { // If the format is @xxx:yyyy.zzz
             Logger.error("Matrix user must be of @username:sever format");
             return;
         }
         userID=u;
         userName=u.substring(1,u.indexOf(":"));
-        if( server.isEmpty())
+        if( server.length()<8)
             server = "http://"+u.substring(u.indexOf(":")+1);
 
         server += server.endsWith("/")?"":"/";
@@ -141,6 +141,7 @@ public class MatrixClient implements Writable, Commandable {
                                         deviceID = j.getString("device_id");
 
                                         setupFilter();
+
                                         sync(true);
                                         for( var room : roomSetups.values())
                                             joinRoom(room,null);
@@ -160,15 +161,11 @@ public class MatrixClient implements Writable, Commandable {
     }
 
     public void hasFilter(){
-        asyncGET(user+userID+"/filter/1",
+        asyncGET(user+userID+"/filter/"+filterID,
                             res -> {
-                                    var body=new JSONObject(res.body());
                                     if( res.statusCode()!=200){
                                         retry=RETRY_STEP;
                                         Logger.warn("matrix -> No such filter yet.");
-                                        if( body.getString("error").equalsIgnoreCase("No such filter")) {
-                                            setupFilter();
-                                        }
                                         return false;
                                     }else{
                                         Logger.info("matrix -> Active filter:"+res.body());
@@ -188,10 +185,14 @@ public class MatrixClient implements Writable, Commandable {
         }
         if( filterOpt.isEmpty()){
             Logger.error("Couldn't find the filter resource");
+            return;
         }
         asyncPOST( user+userID+"/filter",new JSONObject(new JSONTokener(filterOpt.get())), res -> {
                                 if( res.statusCode() == 200 ) {
-                                    Logger.info("matrix -> Filters applied");
+                                    var body = new JSONObject(res.body());
+                                    filterID = body.getString("filter_id");
+                                    Logger.info("matrix -> Filter Uploaded, got id "+filterID);
+                                    hasFilter();
                                     return true;
                                 }
                                 processError(res);
@@ -220,8 +221,9 @@ public class MatrixClient implements Writable, Commandable {
 
 
     public void sync( boolean first){
+        String filter = filterID.isEmpty()?"":"&filter="+filterID;
         try {
-            String url = server+sync +"?access_token="+accessToken+"&timeout=10000&filter=1&set_presence=online";
+            String url = server+sync +"?access_token="+accessToken+"&timeout=10000"+filter+"&set_presence=online";
             var request = HttpRequest.newBuilder(new URI(url+(since.isEmpty()?"":("&since="+since))));
             try {
                 httpClient.sendAsync(request.build(), HttpResponse.BodyHandlers.ofString())
@@ -247,7 +249,7 @@ public class MatrixClient implements Writable, Commandable {
                                                 //  keyClaim();
                                             }
                                         }
-                                        getRoomEvents(body);
+                                        processRoomEvents(body);
                                     } catch (org.json.JSONException e) {
                                         Logger.error("Matrix -> Json error: " + e.getMessage());
                                     }
@@ -286,7 +288,8 @@ public class MatrixClient implements Writable, Commandable {
     }
     /**
      * Join a specific room (by room id not alias) and make it the active one
-     * @param room
+     * @param room The room to join
+     * @param wr The writable if any to output the result to
      */
     public void joinRoom( RoomSetup room, Writable wr ){
 
@@ -311,7 +314,7 @@ public class MatrixClient implements Writable, Commandable {
                 });
     }
 
-    public void getRoomEvents( JSONObject js){
+    public void processRoomEvents(JSONObject js){
 
         var join = getJSONSubObject(js,"rooms","join");
         if( join.isEmpty())
@@ -329,11 +332,14 @@ public class MatrixClient implements Writable, Commandable {
             return; // Return if no events
 
         for( var event :events ){
-            String eventID = event.getString("event_id");
+            String eventID="";
+            if( event.has("event_id") )
+                eventID = event.getString("event_id");
             String from = event.getString("sender");
-            confirmRead( originRoom, eventID); // Confirm received
+            if( !eventID.isEmpty())
+                confirmRead( originRoom, eventID); // Confirm received
 
-            if( from.equalsIgnoreCase(userID)){
+            if( from.equalsIgnoreCase(userID)){// Ignore echo?
                 continue;
             }
             switch (event.getString("type")) {
@@ -351,45 +357,46 @@ public class MatrixClient implements Writable, Commandable {
                         case "m.text" -> {
                             if (body.startsWith("das") || body.startsWith(userName)) { // check if message for us
                                 body = body.replaceAll("(" + userName + "|das):?", "").trim();
-                                var d = Datagram.build(body).label("matrix").origin(originRoom + "|" + from).writable(this);
-                                dQueue.add(d);
-                            } else if (body.matches(".+=[0-9]*$")) {
-                                var sp = body.split("=");
-                                double d = NumberUtils.toDouble(sp[1].trim(), Double.NaN);
-                                if (Double.isNaN(d)) {
-                                    sendMessage(originRoom, "Invalid number given, can't parse " + sp[1]);
-                                } else {
-                                    math.addNumericalRef(sp[0].trim(), d);
-                                    sendMessage(originRoom, "Stored " + sp[1] + " as " + sp[0]);
-                                }
-                            } else if (body.startsWith("solve ") || body.matches(".+=[a-zA-Z?]+?")) {
-
-                                var split = body.split("=");
-                                var op = split[0];
-                                if (op.startsWith("*"))
-                                    op.substring(2);
-                                op = op.replace("solve ", "").trim();
-
-                                var ori = op;
-                                op = Tools.alterMatches(op, "^[^{]+", "[{]?[a-zA-Z:]+", "{d:matrix_", "}");
-                                var dbl = math.solveOp(op);
-                                if (Double.isNaN(dbl)) {
-                                    sendMessage(originRoom, "Failed to process: " + ori);
-                                    continue;
-                                }
-
-                                var res = "" + dbl;
-                                if (res.endsWith(".0"))
-                                    res = res.substring(0, res.indexOf("."));
-                                if (split.length == 1 || split[1].equalsIgnoreCase("?")) {
-                                    if (res.length() == 1) {
-                                        sendMessage(originRoom, "No offense but... *raises " + res + " fingers*");
+                                if (body.matches(".+=[0-9]*$")) {
+                                    var sp = body.split("=");
+                                    double d = NumberUtils.toDouble(sp[1].trim(), Double.NaN);
+                                    if (Double.isNaN(d)) {
+                                        sendMessage(originRoom, "Invalid number given, can't parse " + sp[1]);
                                     } else {
-                                        sendMessage(originRoom, ori + " = " + res);
+                                        math.addNumericalRef(sp[0].trim(), d);
+                                        sendMessage(originRoom, "Stored " + sp[1] + " as " + sp[0]);
                                     }
-                                } else {
-                                    math.addNumericalRef(split[1], dbl);
-                                    sendMessage(originRoom, "Stored " + res + " as " + split[1]);
+                                } else if (body.startsWith("solve ") || body.matches(".+=[a-zA-Z?]+?")) {
+                                    var split = body.split("=");
+                                    var op = split[0];
+                                    if (op.startsWith("*"))
+                                        op=op.substring(2);
+                                    op = op.replace("solve ", "").trim();
+
+                                    var ori = op;
+                                    op = Tools.alterMatches(op, "^[^{]+", "[{]?[a-zA-Z:]+", "{d:matrix_", "}");
+                                    var dbl = math.solveOp(op);
+                                    if (Double.isNaN(dbl)) {
+                                        sendMessage(originRoom, "Failed to process: " + ori);
+                                        continue;
+                                    }
+
+                                    var res = "" + dbl;
+                                    if (res.endsWith(".0"))
+                                        res = res.substring(0, res.indexOf("."));
+                                    if (split.length == 1 || split[1].equalsIgnoreCase("?")) {
+                                        if (res.length() == 1) {
+                                            sendMessage(originRoom, "No offense but... *raises " + res + " fingers*");
+                                        } else {
+                                            sendMessage(originRoom, ori + " = " + res);
+                                        }
+                                    } else {
+                                        math.addNumericalRef(split[1], dbl);
+                                        sendMessage(originRoom, "Stored " + res + " as " + split[1]);
+                                    }
+                                }else { // Respond to commands
+                                    var d = Datagram.build(body).label("matrix").origin(originRoom + "|" + from).writable(this);
+                                    dQueue.add(d);
                                 }
                             } else if (body.equalsIgnoreCase("hello?")) {
                                 sendMessage(originRoom, "Yes?");
@@ -604,7 +611,7 @@ public class MatrixClient implements Writable, Commandable {
             var request = HttpRequest.newBuilder(new URI(url))
                     .build();
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenApply( res -> onCompletion.onCompletion(res) );
+                    .thenApply(onCompletion::onCompletion);
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
@@ -618,7 +625,7 @@ public class MatrixClient implements Writable, Commandable {
                     .POST(HttpRequest.BodyPublishers.ofString(data.toString()))
                     .build();
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenApply( res -> onCompletion.onCompletion(res) );
+                    .thenApply(onCompletion::onCompletion);
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
@@ -769,102 +776,113 @@ public class MatrixClient implements Writable, Commandable {
 
         Path p;
         StringJoiner j = new StringJoiner("\r\n");
-        switch(cmds[0]){
-            case "?":
-                String cyan = html?"": TelnetCodes.TEXT_CYAN;
-                String gre=html?"":TelnetCodes.TEXT_GREEN;
-                String reg=html?"":TelnetCodes.TEXT_DEFAULT+TelnetCodes.UNDERLINE_OFF;
-
-                j.add(cyan+"Rooms"+reg)
-                    .add( gre+"matrix:rooms"+reg+" -> Give a list of all the joined rooms")
-                    .add( gre+"matrix:leave,roomid"+reg+" -> Leave the given room")
-                    .add( gre+"matrix:join,roomid,url"+reg+" -> Join a room with the given id and url")
-                    .add( gre+"matrix:say,roomid,message"+reg+" -> Send the given message to the room");
-                j.add(cyan+"Files"+reg)
-                 .add( gre+"matrix:files"+reg+" -> Get a listing of all the file links received")
-                 .add( gre+"matrix:down,fileid"+reg+" -> Download the file with the given id to the downloads map")
-                 .add( gre+"matrix:upload,path"+reg+" -> Upload a file with the given path");
-                j.add(cyan+"Other"+reg)
-                 .add( gre+"matrix:restart"+reg+" -> Log out & reload");
-                j.add( gre+"matrix:share,roomid,path"+reg+" -> Upload a file with the given path and share the link in the room");
+        switch (cmds[0]) {
+            case "?" -> {
+                String cyan = html ? "" : TelnetCodes.TEXT_CYAN;
+                String gre = html ? "" : TelnetCodes.TEXT_GREEN;
+                String reg = html ? "" : TelnetCodes.TEXT_DEFAULT + TelnetCodes.UNDERLINE_OFF;
+                j.add(cyan + "Rooms" + reg)
+                        .add(gre + "matrix:rooms" + reg + " -> Give a list of all the joined rooms")
+                        .add(gre + "matrix:leave,roomid" + reg + " -> Leave the given room")
+                        .add(gre + "matrix:join,roomid,url" + reg + " -> Join a room with the given id and url")
+                        .add(gre + "matrix:say,roomid,message" + reg + " -> Send the given message to the room");
+                j.add(cyan + "Files" + reg)
+                        .add(gre + "matrix:files" + reg + " -> Get a listing of all the file links received")
+                        .add(gre + "matrix:down,fileid" + reg + " -> Download the file with the given id to the downloads map")
+                        .add(gre + "matrix:upload,path" + reg + " -> Upload a file with the given path");
+                j.add(cyan + "Other" + reg)
+                        .add(gre + "matrix:restart" + reg + " -> Log out & reload");
+                j.add(gre + "matrix:share,roomid,path" + reg + " -> Upload a file with the given path and share the link in the room");
                 return j.toString();
-            case "restart":
+            }
+            case "restart" -> {
                 readFromXML();
                 login();
                 return "Tried reloading";
-            case "rooms":
-                roomSetups.forEach( (key,val) -> j.add(key +" -> "+val.url()));
+            }
+            case "rooms" -> {
+                roomSetups.forEach((key, val) -> j.add(key + " -> " + val.url()));
                 return j.toString();
-            case "join":
-                if( cmds.length<3 )
+            }
+            case "join" -> {
+                if (cmds.length < 3)
                     return "! Not enough arguments: matrix:join,roomid,url";
                 var rs = RoomSetup.withID(cmds[1]).url(cmds[2]);
-                roomSetups.put(cmds[1],rs);
+                roomSetups.put(cmds[1], rs);
                 joinRoom(rs, wr);
                 return "Tried to join room";
-            case "say": case "txt":
-                if( cmds.length<3 )
+            }
+            case "say", "txt" -> {
+                if (cmds.length < 3)
                     return "! Not enough arguments: matrix:say,roomid,message";
-                String what = args.substring(5+cmds[1].length());
-                sendMessage(roomSetups.get(cmds[1]).url(),what);
+                String what = args.substring(5 + cmds[1].length());
+                sendMessage(roomSetups.get(cmds[1]).url(), what);
                 return "Message send";
+            }
             /* *************** Files ********************* */
-            case "files":
+            case "files" -> {
                 j.setEmptyValue("! No files yet");
-                files.keySet().forEach( k -> j.add(k));
+                files.keySet().forEach(k -> j.add(k));
                 return j.toString();
-            case "share":
-                if( cmds.length<3 )
+            }
+            case "share" -> {
+                if (cmds.length < 3)
                     return "! Not enough arguments: matrix:share,roomid,filepath";
-
                 p = Path.of(cmds[2]);
-                if( Files.exists( p ) ) {
-                    if( roomSetups.containsKey(cmds[1])){
-                        sendFile( roomSetups.get(cmds[1]).url(), p,wr);
-                        return "File shared with "+cmds[1];
+                if (Files.exists(p)) {
+                    if (roomSetups.containsKey(cmds[1])) {
+                        sendFile(roomSetups.get(cmds[1]).url(), p, wr);
+                        return "File shared with " + cmds[1];
                     }
-                    return "No such room (yet): "+cmds[1];
+                    return "No such room (yet): " + cmds[1];
                 }
                 return "! No such file";
-            case "upload":
-                if( cmds.length<2 )
+            }
+            case "upload" -> {
+                if (cmds.length < 2)
                     return "! Not enough arguments: matrix:upload,filepath";
                 p = Path.of(cmds[1]);
-                if( Files.exists( p ) ) {
-                    sendFile("", p,wr);
+                if (Files.exists(p)) {
+                    sendFile("", p, wr);
                     return "File uploaded.";
-                }else{
+                } else {
                     return "! No such file rest";
                 }
-            case "down":
-                if( cmds.length<2 )
+            }
+            case "down" -> {
+                if (cmds.length < 2)
                     return "! Not enough arguments: matrix:down,filepath";
-                if( downloadFile(cmds[1],wr,"") ){
+                if (downloadFile(cmds[1], wr, "")) {
                     return "Valid file chosen";
-                }else{
+                } else {
                     return "! No such file";
                 }
-            case "addblank":
-                var fab = XMLfab.withRoot(settingsFile,"dcafs","matrix");
+            }
+            case "addblank" -> {
+                var fab = XMLfab.withRoot(settingsFile, "dcafs", "matrix");
                 fab.attr("user").attr("pass").attr("homeserver")
                         .addChild("room").attr("id").down()
                         .addChild("url")
-                        .addChild("entering","Hello!")
-                        .addChild("leaving","Bye :(")
-                        .addChild("greet","Welcome");
+                        .addChild("entering", "Hello!")
+                        .addChild("leaving", "Bye :(")
+                        .addChild("greet", "Welcome");
                 return "Blank matrix node added";
-            case "addmacro":
-                if( cmds.length<2 )
+            }
+            case "addmacro" -> {
+                if (cmds.length < 2)
                     return "! Not enough arguments: matrix:addmacro,key,value";
-                var f = XMLfab.withRoot(settingsFile,"dcafs","settings","matrix");
-                f.addChild("macro",cmds[2]).attr("key",cmds[1]);
-                macros.put(cmds[1],cmds[2]);
+                var f = XMLfab.withRoot(settingsFile, "dcafs", "settings", "matrix");
+                f.addChild("macro", cmds[2]).attr("key", cmds[1]);
+                macros.put(cmds[1], cmds[2]);
                 return "Macro added to xml";
-            case "sync":
+            }
+            case "sync" -> {
                 sync(false);
                 return "Initiated sync";
-            default:
-                return "! No such subcommand in "+cmd+": "+cmds[0];
+            }
+            default -> {
+                return "! No such subcommand in " + cmd + ": " + cmds[0];
+            }
         }
     }
 
@@ -872,6 +890,5 @@ public class MatrixClient implements Writable, Commandable {
     public boolean removeWritable(Writable wr) {
         return false;
     }
-
 
 }
