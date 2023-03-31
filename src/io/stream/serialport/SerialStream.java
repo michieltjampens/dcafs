@@ -22,9 +22,8 @@ public class SerialStream extends BaseStream implements Writable {
     protected SerialPort serialPort;
     String port ="";
 
-    public SerialStream(String port, BlockingQueue<Datagram> dQueue, int priority) {
-        super("", dQueue);
-        setPriority(priority);
+    public SerialStream(String id, String port, BlockingQueue<Datagram> dQueue) {
+        super(id, dQueue);
         setPort(port);
     }
 
@@ -173,10 +172,7 @@ public class SerialStream extends BaseStream implements Writable {
 
         // Implement the use of labels
         if( !label.isEmpty() && dQueue !=null ) { // No use adding to queue without label
-            dQueue.add( Datagram.build(msg)
-                    .label(label)
-                    .priority(priority)
-                    .timestamp() );
+            dQueue.add( Datagram.build(msg).label(label).priority(priority) );
         }
 
         // Implement the use of store

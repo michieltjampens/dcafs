@@ -111,46 +111,6 @@ public class FilterForward extends AbstractForward {
         return "filter";
     }
     /**
-     * Write this object to the given Xmlfab
-     *
-     * @param fab The Xmlfab to which this should be written, pointing to the das root
-     */
-    public void writeToXML(XMLfab fab ){
-        xml = fab.getXMLPath();
-        xmlOk=true;
-
-        fab.digRoot(getXmlChildTag()+"s"); // go down to <filters>
-        if( fab.selectChildAsParent(getXmlChildTag(),"id",id).isEmpty() ){
-            fab.comment("Some info on what the "+id+" "+getXmlChildTag()+" does");
-            fab.addParentToRoot(getXmlChildTag()).attr("id",id); // adds a parent to the root
-        }
-
-        writeBasicsToXML(fab);
-
-        if( rules.isEmpty() ) {
-            fab.build();
-            return;
-        }
-
-        if( rules.size()==1 && sources.size()==1){
-            fab.attr("type",rulesString.get(0)[1]).content(rulesString.get(0)[2]);
-            if( !rulesString.get(0)[3].isEmpty() )
-                fab.attr("delimiter",rulesString.get(0)[3]);
-
-        }else{
-            fab.content("");
-            fab.removeAttr("type");
-            fab.comment("Rules go here, use ff:rules to know the types");
-            rulesString.forEach( rule -> {
-                fab.addChild("rule",rule[2]).attr("type",rule[1]);
-                if( !rule[3].isEmpty() )
-                    fab.attr("delimiter",rule[3]);
-            } );
-        }
-        fab.build();
-    }
-
-    /**
      * Read the FilterWritable setup from the xml element
      * @param filter The element containing the setup
      * @return True if all went fine
@@ -211,6 +171,7 @@ public class FilterForward extends AbstractForward {
         Logger.info(id+" -> Adding rule "+type+" > "+value);
 
         switch (StringUtils.removeEnd(type, "s")) {
+            case "items" -> addItemCount(delimiter, Tools.parseInt(values[0],-1),Tools.parseInt(values.length==1?values[0]:values[1],-1));
             case "start" -> addStartsWith(value);
             case "nostart" -> addStartsNotWith(value);
             case "end" -> addEndsWith(value);
@@ -233,42 +194,13 @@ public class FilterForward extends AbstractForward {
         return addRule(type,value,"");
     }
 
-    /**
-     * Remove the given rule from the set
-     * @param index The index of the rule to remove
-     * @return True if a rule was removed
-     */
-    public boolean removeRule( int index ){
-        if( index < rules.size() && index != -1 ){
-            rulesString.remove(index);
-            rules.remove(index);
-            return true;
-        }
-        return false;
-    }
-    /**
-     * Add a combined filter rule to the filter
-     * @param combined Add a rule that is in the type:value format
-     * @return -2 -> if the : is missing
-     */
-    public int addRule( String combined ){
-        if( combined.isEmpty())
-            return 0;
-        if( !combined.contains(":")){
-            Logger.error("Rule should be type:value, "+combined +" isn't like that.");
-            return -2;
-        }
-        String type=combined.substring(0, combined.indexOf(":"));
-        String val=combined.substring(combined.indexOf(":")+1);
-        String delim="";
-        if( type.equalsIgnoreCase("math")) {
-            delim = val.substring(val.indexOf(",")+1);
-            val = val.substring(0, val.indexOf(","));
-        }
-        return addRule(type,val,delim);
-    }
-
     /* Filters */
+    public void addItemCount( String deli, int min, int max ){
+        rules.add( p -> {
+            var items = p.split(deli);
+            return items.length >= min && items.length<= max;
+        });
+    }
     public void addStartsWith( String with ){
         rules.add( p -> p.startsWith(with) );
     }
@@ -362,6 +294,9 @@ public class FilterForward extends AbstractForward {
         StringJoiner join = new StringJoiner(eol);
         var gr = TelnetCodes.TEXT_GREEN;
         var re = TelnetCodes.TEXT_DEFAULT;
+        join.add(gr+"items"+re+" -> How many items are  there after split on delimiter" )
+                .add("    fe. <filter type='items' delimiter=';'>2,4</filter> --> Item count of two up to 4 (so 2,3,4 are ok)")
+                .add("    fe. <filter type='items'>2</filter> --> Item count of two using default delimiter");
         join.add(gr+"start"+re+" -> Which text the data should start with" )
                 .add("    fe. <filter type='start'>$</filter> --> The data must start with $");
         join.add(gr+"nostart"+re+" -> Which text the data can't start with")

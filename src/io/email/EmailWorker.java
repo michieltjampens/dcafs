@@ -416,32 +416,31 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		return list.contains(address);
 	}
 	@Override
-	public String replyToCommand(String[] request, Writable wr, boolean html) {
+	public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
 
-		if( request[1].equalsIgnoreCase("addblank") ){
+		if( args.equalsIgnoreCase("addblank") ){
 			if( EmailWorker.addBlankEmailToXML(  XMLfab.withRoot(settingsPath, "settings"), true,true) )
 				return "Adding default email settings";
-			return "Failed to add default email settings";
+			return "! Failed to add default email settings";
 		}
 
 		if( !ready ){
-			if(request[1].equals("reload")
+			if(args.equals("reload")
 					&& XMLfab.withRoot(settingsPath, "dcafs","settings").getChild("email").isPresent() ){
 				if( !readFromXML() )
-					return "No proper email node yet";
+					return "! No proper email node yet";
 			}else{
-				return "No EmailWorker initialized (yet), use email:addblank to add blank to xml.";
+				return "! No EmailWorker initialized (yet), use email:addblank to add blank to xml.";
 			}
 		}
 		// Allow a shorter version to email to admin, replace it to match the standard command
-		request[1] = request[1].replace("toadmin,","send,admin,");
+		args = args.replace("toadmin,","send,admin,");
 
-		String[] cmds = request[1].split(",");
+		String[] cmds = args.split(",");
 
 		String cyan = html?"":TelnetCodes.TEXT_CYAN;
 		String green=html?"":TelnetCodes.TEXT_GREEN;
 		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-		var or = html?"":TelnetCodes.TEXT_ORANGE;
 
 		switch(cmds[0]){
 			case "?":
@@ -456,14 +455,14 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 						.add(green+"email:interval,x "+reg+"-> Change the inbox check interval to x").toString();
 			case "reload":
 				if( settingsPath == null )
-					return "No xml defined yet...";
+					return "! No xml defined yet...";
 				readFromXML();
 				return "Settings reloaded";
 			case "refs": return getEmailBook();
 			case "setup":case "status": return getSettings();
 			case "send":
 				if( cmds.length !=4 )
-					return "! Not enough arguments send,ref/email,subject,content";
+					return "! Wrong amount of arguments -> email:send,ref/email,subject,content";
 
 				// Check if the subject contains time request
 				cmds[2]=cmds[2].replace("{localtime}", TimeTools.formatNow("HH:mm"));
@@ -476,21 +475,19 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				checker = scheduler.schedule( new Check(), 1, TimeUnit.SECONDS);
 				return "Will check emails asap.";
 			case "interval":
-				if( cmds.length==2){
-					this.checkIntervalSeconds = (int)TimeTools.parsePeriodStringToSeconds(cmds[1]);
-					return "Interval changed to "+this.checkIntervalSeconds+" seconds (todo:save to settings.xml)";
-				}else{
-					return "! Invalid number of parameters";
-				}
+				if( cmds.length!=2)
+					return "! Wrong amount of arguments -> email:interval,period (fe.5m for minutes)";
+				checkIntervalSeconds = (int)TimeTools.parsePeriodStringToSeconds(cmds[1]);
+				return "Interval changed to "+checkIntervalSeconds+" seconds (todo:save to settings.xml)";
 			case "addallow":case "adddeny":
 				if( cmds.length <3 ){
-					return "! Not enough arguments email:"+cmds[0]+",from,cmd(,isRegex)";
+					return "! Wrong amount of arguments -> email:"+cmds[0]+",from,cmd(,isRegex)";
 				}
 				boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
 				permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
 				return writePermits()?"Permit added":"! Failed to write to xml";
 			default	:
-				return "unknown command";
+				return "! No such subcommand in email: "+args;
 		}
 	}
 

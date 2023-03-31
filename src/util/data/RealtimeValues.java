@@ -315,7 +315,7 @@ public class RealtimeValues implements Commandable {
 	}
 	/* ************************** C O M M A N D A B L E ***************************************** */
 	@Override
-	public String replyToCommand(String[] request, Writable wr, boolean html) {
+	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
 
 		// Switch between either empty string or the telnetcode because of htm not understanding telnet
 		String green=html?"":TelnetCodes.TEXT_GREEN;
@@ -323,28 +323,28 @@ public class RealtimeValues implements Commandable {
 		String ora = html?"":TelnetCodes.TEXT_ORANGE;
 
 		String result;
-		switch (request[0]) {
+		switch (cmd) {
 			case "rv", "reals" -> {
-				if( request[1].equals("?"))
+				if( args.equals("?"))
 					return green + "  rv:update,id,value" + reg + " -> Update an existing real, do nothing if not found";
-				result = replyToNumericalCmd(request);
+				result = replyToNumericalCmd(cmd,args);
 			}
 			case "iv", "integers" -> {
-				if( request[1].equals("?"))
+				if( args.equals("?"))
 					return green + "  iv:update,id,value" + reg + " -> Update an existing int, do nothing if not found";
-				result = replyToNumericalCmd(request);
+				result = replyToNumericalCmd(cmd,args);
 			}
 			case "texts", "tv" -> {
-				result = replyToTextsCmd(request, html);
+				result = replyToTextsCmd(args);
 			}
 			case "flags", "fv" -> {
-				result = replyToFlagsCmd(request, html);
+				result = replyToFlagsCmd(args, html);
 			}
 			case "rtvals", "rvs" -> {
-				result = replyToRtvalsCmd(request, html);
+				result = replyToRtvalsCmd(args, html);
 			}
 			case "rtval", "real", "int", "integer" -> {
-				int s = addRequest(wr, request[0], request[1]);
+				int s = addRequest(wr, cmd, args);
 				result = s != 0 ? "Request added to " + s : "Request failed";
 			}
 			case "" -> {
@@ -352,19 +352,19 @@ public class RealtimeValues implements Commandable {
 				return "";
 			}
 			default -> {
-				return ora+"unknown command " + request[0] + ":" + request[1]+reg;
+				return "! No such subcommand in rtvals: "+args;
 			}
 		}
 		if( result.startsWith("!"))
 			return ora+result+reg;
 		return green+result+reg;
 	}
-	public String replyToNumericalCmd( String[] request ){
+	public String replyToNumericalCmd( String cmd, String args ){
 
-		var cmds = request[1].split(",");
+		var cmds = args.split(",");
 
 		NumericVal val;
-		if( request[0].startsWith("r")){ // so real, rv
+		if( cmd.startsWith("r")){ // so real, rv
 			var rOpt = getRealVal(cmds[0]);
 			if( rOpt.isEmpty() )
 				return "! No such real yet";
@@ -378,18 +378,18 @@ public class RealtimeValues implements Commandable {
 
 		if (cmds[0].equals("update")) {
 			if (cmds.length < 3)
-				return "! Not enough arguments, "+request[0]+":id,update,expression";
+				return "! Not enough arguments, "+cmd+":id,update,expression";
 			var result = ValTools.processExpression(cmds[2], this);
 			if (Double.isNaN(result))
 				return "! Unknown id(s) in the expression " + cmds[2];
 			val.updateValue(result);
 			return val.id()+" updated to " + result;
 		}
-		return "unknown command: " + request[0] + ":" + request[1];
+		return "! No such subcommand in "+cmd+": "+cmds[0];
 	}
-	public String replyToFlagsCmd( String[] request, boolean html ){
+	public String replyToFlagsCmd( String args, boolean html ){
 
-		var cmds = request[1].split(",");
+		var cmds = args.split(",");
 
 		if( cmds[0].equals("?")){
 			String cyan = html?"":TelnetCodes.TEXT_CYAN;
@@ -457,11 +457,11 @@ public class RealtimeValues implements Commandable {
 				return "Flag negated accordingly";
 			}
 		}
-		return "unknown command "+request[0]+":"+request[1];
+		return "! No such subcommand in fv: "+cmds[0];
 	}
-	public String replyToTextsCmd( String[] request,  boolean html ){
+	public String replyToTextsCmd( String args ){
 
-		var cmds = request[1].split(",");
+		var cmds = args.split(",");
 
 		// Get the TextVal if it exists
 		TextVal txt;
@@ -478,19 +478,18 @@ public class RealtimeValues implements Commandable {
 		if (cmds[0].equals("update")) {
 			if (cmds.length < 3)
 				return "! Not enough arguments: tv:id,update,value";
-			int start = request[1].indexOf(",update") + 8; // value can contain , so get position of start
-			txt.value(request[1].substring(start));
+			int start = args.indexOf(",update") + 8; // value can contain , so get position of start
+			txt.value(args.substring(start));
 			return "TextVal updated";
-		} else {
-			return "unknown command: " + request[0] + ":" + request[1];
 		}
+		return "! No such subcommand in tv: "+cmds[0];
 	}
-	public String replyToRtvalsCmd( String[] request, boolean html ){
+	public String replyToRtvalsCmd( String args, boolean html ){
 
-		if( request[1].isEmpty())
+		if( args.isEmpty())
 			return getRtvalsList(html,true,true,true, true);
 
-		String[] cmds = request[1].split(",");
+		String[] cmds = args.split(",");
 
 		if( cmds.length==1 ){
 			switch (cmds[0]) {
@@ -523,7 +522,7 @@ public class RealtimeValues implements Commandable {
 				return getRTValsGroupList(cmds[1], true, true, true, true, html);
 			}
 		}
-		return "unknown command: "+request[0]+":"+request[1];
+		return "! No such subcommand in rtvals: "+args;
 	}
 	/**
 	 * Get a listing of all stored variables that belong to a certain group

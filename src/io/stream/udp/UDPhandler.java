@@ -19,7 +19,6 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
 
     private Channel channel;
     BlockingQueue<Datagram> dQueue;
-    private final String label;
     private String id;
     private int priority=1;
     StringBuilder recData = new StringBuilder();
@@ -31,8 +30,7 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
     protected List<Writable> targets;
 
     /* Constructor */
-    public UDPhandler( BlockingQueue<Datagram> dQueue, String label, int priority ){
-        this.label = label;
+    public UDPhandler( BlockingQueue<Datagram> dQueue, int priority ){
         this.dQueue = dQueue;
         this.priority = priority;
     }
@@ -75,8 +73,6 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
             buf.discardReadBytes();                                 // Remove read bytes
             
             String chunk = process.toString(CharsetUtil.UTF_8);     // Convert the binary data to readable ascii
-            if(!label.isEmpty())
-                dQueue.add( Datagram.build(chunk).label(label).priority(priority).raw(process.array()).origin(id).timestamp() );  // Add it to the data queue
 
             // Targets
             if( !targets.isEmpty() ){

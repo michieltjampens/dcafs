@@ -373,20 +373,20 @@ public class Waypoints implements Commandable {
     /* ****************************************************************************************************/
     /**
      * Reply to requests made
-     * @param request The request
+     *
      * @param wr The writable of the origin of this request
      * @param html Determines if EOL should be <br> or crlf
      * @return Descriptive reply to the request
      */
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
+    public String replyToCommand(String cmd,String args, Writable wr, boolean html) {
         
-        String[] cmd = request[1].split(",");
+        String[] cmds = args.split(",");
         String cyan = html?"": TelnetCodes.TEXT_CYAN;
         String green=html?"":TelnetCodes.TEXT_GREEN;
         String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
-		switch( cmd[0] ){
+		switch( cmds[0] ){
             case "?":
                     StringJoiner b = new StringJoiner(html?"<br>":"\r\n");
                     b.add(cyan+"Add/remove/alter waypoints")
@@ -404,17 +404,17 @@ public class Waypoints implements Commandable {
                      .add( green+"wpts:reload "+reg+"-> Reloads the waypoints from the settings file.");
                     return b.toString();
 			case "list": return getWaypointList(html?"<br>":"\r\n");
-            case "exists": return isExisting(cmd[1])?"Waypoint exists":"No such waypoint";
+            case "exists": return isExisting(cmds[1])?"Waypoint exists":"No such waypoint";
             case "cleartemps":
                 clearTempWaypoints();
                 return "Temp waypoints cleared";
             case "distanceto":
-                if( cmd.length==1)
+                if( cmds.length==1)
                     return "No id given, must be wpts:distanceto,id";
-                var d = distanceTo(cmd[1]);
+                var d = distanceTo(cmds[1]);
                 if( d==-1)
                     return "No such waypoint";
-                return "Distance to "+cmd[1] +" is "+d+"m";
+                return "Distance to "+cmds[1] +" is "+d+"m";
             case "nearest": return "The nearest waypoint is "+getNearestWaypoint();
             case "states":
                 if( sog == null)
@@ -446,51 +446,51 @@ public class Waypoints implements Commandable {
                         .build();
                 return "Blank section added";
             case "add": //wpts:new,51.1253,2.2354,wrak
-                if( cmd.length < 4)
+                if( cmds.length < 4)
                     return "Not enough parameters given";
-                if( cmd.length > 5)
+                if( cmds.length > 5)
                     return "To many parameters given (fe. 51.1 not 51,1)";
 
-                double lat = GisTools.convertStringToDegrees(cmd[1]);
-                double lon = GisTools.convertStringToDegrees(cmd[2]);
-                String id = cmd[3];
+                double lat = GisTools.convertStringToDegrees(cmds[1]);
+                double lon = GisTools.convertStringToDegrees(cmds[2]);
+                String id = cmds[3];
                 double range = 50;
-                if( cmd.length == 5){
-                    id=cmd[4];
-                    range = Tools.parseDouble(cmd[3], 50);    
+                if( cmds.length == 5){
+                    id=cmds[4];
+                    range = Tools.parseDouble(cmds[3], 50);
                 }
                 
                 addWaypoint( id, lat, lon, range );
-                return "Added waypoint called "+cmd[3]+ " lat:"+lat+"°\tlon:"+lon+"°\tRange:"+range+"m";
+                return "Added waypoint called "+cmds[3]+ " lat:"+lat+"°\tlon:"+lon+"°\tRange:"+range+"m";
             case "update":
-                if( cmd.length < 4)
+                if( cmds.length < 4)
                     return "Not enough parameters given wpts:update,id,lat,lon";
-                var wpOpt = wps.get(cmd[1]);
+                var wpOpt = wps.get(cmds[1]);
                 if( wpOpt!=null) {
-                    wpOpt.updatePosition(Tools.parseDouble(cmd[2], -999), Tools.parseDouble(cmd[3], -999));
-                    return "Updated "+cmd[1];
+                    wpOpt.updatePosition(Tools.parseDouble(cmds[2], -999), Tools.parseDouble(cmds[3], -999));
+                    return "Updated "+cmds[1];
                 }
                 return "No such waypoint";
             case "remove":
-                if( removeWaypoint( cmd[1]) ) {
+                if( removeWaypoint( cmds[1]) ) {
                     return "Waypoint removed";
                 }else {
                     return "No waypoint found with the name.";
                 }
             case "addtravel":
-                Waypoint way = wps.get(cmd[1]);
+                Waypoint way = wps.get(cmds[1]);
                 if( way == null ){
-                    return "No such waypoint: "+cmd[1];
+                    return "No such waypoint: "+cmds[1];
                 }
-                if( cmd.length != 6)
+                if( cmds.length != 6)
                     return "Incorrect amount of parameters";
                 
-                way.addTravel(cmd[5], cmd[4], cmd[2]);
-                return "Added travel "+cmd[5]+" to "+ cmd[1];
+                way.addTravel(cmds[5], cmds[4], cmds[2]);
+                return "Added travel "+cmds[5]+" to "+ cmds[1];
             case "checktread":
                 return checkThread()?"Thread is fine":"Thread needed restart";
             default:
-                return "Unknown command";
+                return "! No such subcommand in "+cmd+": "+cmds[0];
         }
     }
     @Override

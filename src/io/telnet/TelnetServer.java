@@ -123,40 +123,42 @@ public class TelnetServer implements Commandable {
     }
 
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
-        var cmds = request[1].split(",");
-        if( request[0].equalsIgnoreCase("nb") || request[1].equalsIgnoreCase("nb")){
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+        var cmds = args.split(",");
+        if( cmd.equalsIgnoreCase("nb") || args.equalsIgnoreCase("nb")){
             int s = writables.size();
             writables.remove(wr);
             return (s==writables.size())?"Failed to remove":"Removed from targets";
         }else {
             String reg=html?"":TelnetCodes.TEXT_DEFAULT;
             switch (cmds[0]) {
-                case "?":
+                case "?" -> {
                     var join = new StringJoiner("\r\n");
-                    join.add( TelnetCodes.TEXT_GREEN+"telnet:broadcast,message "+reg+"-> Broadcast the message to all active telnet sessions at info level.")
-                        .add( TelnetCodes.TEXT_GREEN+"telnet:broadcast,!message "+reg+"-> Broadcast the message to all active telnet sessions at error level.")
-                        .add( TelnetCodes.TEXT_GREEN+"telnet:broadcast,level,message "+reg+"-> Broadcast the message to all active telnet sessions at the given level. (info,warn,error)")
-                        .add( TelnetCodes.TEXT_GREEN+"telnet:bt "+reg+"-> Get the broadcast target count")
-                        .add(TelnetCodes.TEXT_GREEN+"telnet:nb or nb "+reg+"-> Disable showing broadcasts" );
+                    join.add(TelnetCodes.TEXT_GREEN + "telnet:broadcast,message " + reg + "-> Broadcast the message to all active telnet sessions at info level.")
+                            .add(TelnetCodes.TEXT_GREEN + "telnet:broadcast,!message " + reg + "-> Broadcast the message to all active telnet sessions at error level.")
+                            .add(TelnetCodes.TEXT_GREEN + "telnet:broadcast,level,message " + reg + "-> Broadcast the message to all active telnet sessions at the given level. (info,warn,error)")
+                            .add(TelnetCodes.TEXT_GREEN + "telnet:bt " + reg + "-> Get the broadcast target count")
+                            .add(TelnetCodes.TEXT_GREEN + "telnet:nb or nb " + reg + "-> Disable showing broadcasts");
                     return join.toString();
-                case "error":
-                    if( cmds.length<2)
+                }
+                case "error" -> {
+                    if (cmds.length < 2)
                         return "Not enough arguments, telnet:error,message";
-                    var error = request[1].substring(6);
+                    var error = args.substring(6);
                     messages.add(error);
-                    writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED+error+TelnetCodes.TEXT_DEFAULT));
+                    writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
                     return "";
-                case "broadcast":
+                }
+                case "broadcast" -> {
                     String send;
-                    if( cmds.length < 2)
+                    if (cmds.length < 2)
                         return "Not enough arguments, telnet:broadcast,level,message or telnet:broadcast,message for info level";
                     switch (cmds[1]) {
-                        case "warn" -> send = TelnetCodes.TEXT_ORANGE + request[1].substring(15);
-                        case "error" -> send = TelnetCodes.TEXT_RED + request[1].substring(16);
-                        case "info" -> send = TelnetCodes.TEXT_GREEN + request[1].substring(15);
+                        case "warn" -> send = TelnetCodes.TEXT_ORANGE + args.substring(15);
+                        case "error" -> send = TelnetCodes.TEXT_RED + args.substring(16);
+                        case "info" -> send = TelnetCodes.TEXT_GREEN + args.substring(15);
                         default -> {
-                            var d = request[1].substring(10);
+                            var d = args.substring(10);
                             if (d.startsWith("!")) {
                                 send = TelnetCodes.TEXT_RED + d.substring(1);
                             } else {
@@ -164,21 +166,25 @@ public class TelnetServer implements Commandable {
                             }
                         }
                     }
-
-                    writables.removeIf(w -> !w.writeLine(send+TelnetCodes.TEXT_DEFAULT));
+                    writables.removeIf(w -> !w.writeLine(send + TelnetCodes.TEXT_DEFAULT));
                     return "";
-                case "write":
+                }
+                case "write" -> {
                     var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
-                    if( wrs.isEmpty())
+                    if (wrs.isEmpty())
                         return "No such id";
-                    var mes = TelnetCodes.TEXT_MAGENTA+wr.id()+": "+request[1].substring(7+cmds[1].length())+TelnetCodes.TEXT_DEFAULT;
-                    wrs.forEach( w->w.writeLine(mes));
-                    return mes.replace(TelnetCodes.TEXT_MAGENTA,TelnetCodes.TEXT_ORANGE);
-                case "bt":
+                    var mes = TelnetCodes.TEXT_MAGENTA + wr.id() + ": " + args.substring(7 + cmds[1].length()) + TelnetCodes.TEXT_DEFAULT;
+                    wrs.forEach(w -> w.writeLine(mes));
+                    return mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
+                }
+                case "bt" -> {
                     return "Currently has " + writables.size() + " broadcast targets.";
+                }
+                default -> {
+                    return "! No such subcommand in "+cmd+": "+cmds[0];
+                }
             }
         }
-        return "unknown command "+ String.join(":",request);
     }
 
     @Override

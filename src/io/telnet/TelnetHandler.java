@@ -25,7 +25,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	protected BlockingQueue<Datagram> dQueue;								// Queue that receives raw data for processing
 	
 	/* Pretty much the local descriptor */
-	protected static final String LABEL = "telnet";			// The label that determines what needs to be done with a message
+	protected static final String LABEL = "cmd";			// The label that determines what needs to be done with a message
 	protected Channel channel;	// The channel that is handled
 	protected String remoteIP = "";		// The ip of the handler
 	private InetSocketAddress remote;
@@ -188,7 +188,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 						.label(LABEL)
 						.writable(this)
 						.origin("telnet:"+channel.remoteAddress().toString())
-						.timestamp() );
+		);
 	}
 
 	public void distributeMessage( Datagram d ){

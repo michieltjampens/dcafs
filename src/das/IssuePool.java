@@ -70,8 +70,8 @@ public class IssuePool implements Commandable{
         return !issues.isEmpty();
     }
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
-        var cmds = request[1].split(",");
+    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+        var cmds = args.split(",");
         String nl = html?"<br>":"\r\n";
         Issue issue;
         StringJoiner join;
@@ -158,7 +158,7 @@ public class IssuePool implements Commandable{
             case "listall":
                 return getReport(html,false);
         }
-        return "unknown command: "+request[0]+":"+request[1];
+        return "! No such subcommand in issues: "+args;
     }
     public String getReport( boolean html, boolean clear ){
         String nl = html?"<br>":"\r\n";

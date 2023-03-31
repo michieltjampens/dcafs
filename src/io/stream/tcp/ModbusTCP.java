@@ -88,18 +88,6 @@ public class ModbusTCP extends TcpHandler{
             join.add(origin[data[7]]+reg+":"+(i0*256+i1));
             reg++;
         }
-        Logger.debug("Received "+join);
-        if( !label.equalsIgnoreCase("void")) {
-            var dg = Datagram.build(join.toString())
-                    .label(label)
-                    .priority(priority)
-                    .writable(writable)
-                    .timestamp();
-
-            if (!dQueue.add(dg)) {
-                Logger.error(id + " -> Failed to add data to the queue");
-            }
-        }
         if(debug)
             Logger.info( writable.id()+" -> " + Tools.fromBytesToHexString(rec,0,index));
 

@@ -42,7 +42,7 @@ import java.util.concurrent.*;
 
 public class DAS implements Commandable{
 
-    private static final String version = "2.2.0";
+    private static final String version = "2.3.0";
 
     private final Path settingsPath;
     private String workPath;
@@ -52,7 +52,6 @@ public class DAS implements Commandable{
     /* Workers */
     private EmailWorker emailWorker;
     private LabelWorker labelWorker;
-    private DebugWorker debugWorker;
     private I2CWorker i2cWorker;
 
     /* */
@@ -62,7 +61,7 @@ public class DAS implements Commandable{
 
     private RealtimeValues rtvals;
     private CommandPool commandPool;
-    private Waypoints waypoints; // waypoints
+    private Waypoints waypoints;
 
     /* Managers & Pools */
     private DatabaseManager dbManager;
@@ -70,8 +69,6 @@ public class DAS implements Commandable{
     private TaskManagerPool taskManagerPool;
     private CollectorPool collectorPool;
 
-    private boolean debug = false;
-    private boolean log = false;
     private boolean bootOK = false; // Flag to show if booting went ok
     String sdReason = "Unwanted shutdown."; // Reason for shutdown of das, default is unwanted
 
@@ -133,31 +130,25 @@ public class DAS implements Commandable{
 
         XMLtools.getFirstElementByTag(settingsDoc, "settings").ifPresent( ele ->
                 {
-                    debug = XMLtools.getChildStringValueByTag(ele, "mode", "normal").equals("debug");
-                    log = XMLtools.getChildStringValueByTag(ele, "mode", "normal").equals("log");
                     System.setProperty("tinylog.directory", XMLtools.getChildStringValueByTag(ele,"tinylog",workPath) );
         });
 
-        if (debug) {
-            Logger.info("Program booting in DEBUG mode");
-        } else {
-            Logger.info("Program booting in NORMAL mode");
-        }
+        Logger.info("Program booting in NORMAL mode");
+
+        /* CommandPool */
+        commandPool = new CommandPool( workPath );
+        addCommandable(this,"st");
 
         /* RealtimeValues */
         rtvals = new RealtimeValues( settingsPath, dQueue );
+        addCommandable(rtvals.getIssuePool(),"issue","issues");
+        addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer");
+        addCommandable(rtvals,"rtval","rtvals");
+        addCommandable(rtvals,"stop");
 
         /* Database manager */
         dbManager = new DatabaseManager(workPath,rtvals);
-
-        /* CommandPool */
-        commandPool = new CommandPool( workPath, dQueue );
-        addCommandable(rtvals.getIssuePool(),"issue","issues");
-        addCommandable("flags;fv;reals;real;rv;texts;tv;int;integer",rtvals);
-        addCommandable(rtvals,"rtval","rtvals");
-        addCommandable("stop",rtvals);
         addCommandable(dbManager,"dbm","myd");
-        addCommandable(this,"st");
 
         /* TransServer */
         addTransServer(-1);
@@ -171,15 +162,6 @@ public class DAS implements Commandable{
         /* StreamManager */
         addStreamPool();
 
-        /* EmailWorker */
-        if (XMLtools.hasElementByTag(settingsDoc, "email") ) {
-            addEmailWorker();
-        }
-        /* DebugWorker */
-        if (DebugWorker.inXML(settingsDoc)) {
-            addDebugWorker();
-        }
-
         /* I2C */
         addI2CWorker();
 
@@ -190,20 +172,25 @@ public class DAS implements Commandable{
 
         /* Waypoints */
         waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
-        addCommandable("wpts",waypoints);
+        addCommandable(waypoints,"wpts");
 
         /* Collectors */
         collectorPool = new CollectorPool(settingsPath.getParent(),dQueue,nettyGroup,rtvals);
         addCommandable(collectorPool,"fc");
         addCommandable(collectorPool,"mc");
 
+        var digger = XMLdigger.goIn(settingsPath,"dcafs");
+        /* EmailWorker */
+        if( digger.peekAt("email").hasValidPeek() ) {
+            addEmailWorker();
+        }
         /* File monitor */
-        if( XMLdigger.goIn(settingsPath,"dcafs").goDown("monitor").isValid() ) {
+        if( digger.peekAt("monitor").hasValidPeek() ) {
             fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
             addCommandable(fileMonitor,"fm","fms");
         }
         /* GPIO's */
-        if( XMLdigger.goIn(settingsPath,"dcafs").goDown("gpio").isValid() ){
+        if( digger.peekAt("gpio").hasValidPeek() ){
             Logger.info("Reading interrupt gpio's from settings.xml");
             isrs = new InterruptPins(dQueue,settingsPath);
         }else{
@@ -211,17 +198,19 @@ public class DAS implements Commandable{
         }
 
         /* Matrix */
-        if( XMLdigger.goIn(settingsPath,"dcafs").goDown("matrix").isValid() ){
+        if( digger.peekAt("matrix").hasValidPeek() ){
             Logger.info("Reading Matrix info from settings.xml");
             matrixClient = new MatrixClient( dQueue, rtvals, settingsPath );
-            addCommandable("matrix",matrixClient);
+            addCommandable(matrixClient,"matrix");
         }else{
             Logger.info("No matrix settings");
         }
 
         /* TaskManagerPool */
         addTaskManager();
-        nettyGroup.schedule(this::checkClock,1,TimeUnit.MINUTES);
+
+        /* Check if the system clock was changed */
+        nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
         bootOK = true;
 
         /* Telnet */
@@ -236,24 +225,17 @@ public class DAS implements Commandable{
     public Path getSettingsPath(){
         return settingsPath;
     }
-    /**
-     * Check if running in debug mode
-     * 
-     * @return True if running in debug
-     */
-    public boolean inDebug() {
-        return debug;
-    }
 
     public String getUptime() {
         return TimeTools.convertPeriodtoString(Duration.between(bootupTimestamp, LocalDateTime.now()).getSeconds(),
                 TimeUnit.SECONDS);
     }
     /**
-     Compares the stored timestamp with the current one
+     Compares the stored timestamp with the current one because this was used at startup to determine rollover of
+     databases etc.
      */
     private void checkClock(){
-        if( Duration.between(lastCheck, Instant.now()).toSeconds() > 65) { // Checks every minute, so shouldn't be much more than that
+        if( Duration.between(lastCheck, Instant.now()).toSeconds() > 305) { // Checks every 5 minutes, so shouldn't be much more than that
             var error = "System time change detected, last check (max 60s ago) " + TimeTools.LONGDATE_FORMATTER.format(lastCheck) + " is now " + TimeTools.formatLongUTCNow();
             Logger.error(error);
             if( emailWorker !=null )
@@ -277,9 +259,6 @@ public class DAS implements Commandable{
      * @param id The unique start command (so whatever is in front of the : )
      * @param cmd The commandable to add
      */
-    public void addCommandable( String id, Commandable cmd ){
-        commandPool.addCommandable(id,cmd);
-    }
     public void addCommandable( Commandable cmd, String... id  ){
         commandPool.addCommandable(String.join(";",id),cmd);
     }
@@ -296,7 +275,7 @@ public class DAS implements Commandable{
         if (emailWorker != null)
             taskManagerPool.setEmailSending(emailWorker.getSender());
         taskManagerPool.readFromXML();
-        addCommandable("tm", taskManagerPool);
+        addCommandable(taskManagerPool,"tm");
     }
     public TaskManagerPool getTaskManagerPool(){
         return taskManagerPool;
@@ -310,14 +289,10 @@ public class DAS implements Commandable{
         streampool = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
         addCommandable(streampool,"ss","streams");
         addCommandable(streampool,"s_","h_");
-        addCommandable(streampool,"rios","raw","stream");
+        addCommandable(streampool,"raw","stream");
         addCommandable(streampool,"");
 
-        if (debug) {
-            streampool.enableDebug();
-        }else{
-            streampool.readSettingsFromXML(settingsPath);
-        }
+       streampool.readSettingsFromXML(settingsPath);
     }
     public StreamManager getStreampool(){
         return streampool;
@@ -335,10 +310,6 @@ public class DAS implements Commandable{
         if (this.labelWorker == null)
             labelWorker = new LabelWorker(dQueue);
         labelWorker.setCommandReq(commandPool);
-        labelWorker.setDebugging(debug);
-    }
-    public void addDatagramProcessor( DatagramProcessing rtvals ){
-        labelWorker.addDatagramProcessing(rtvals);
     }
     public BlockingQueue<Datagram> getDataQueue() {
         addLabelWorker();
@@ -347,7 +318,7 @@ public class DAS implements Commandable{
     /* ***************************************** M Q T T ******************************************************** */
     private void addMqttPool(){
         mqttPool = new MqttPool(settingsPath,rtvals,dQueue);
-        addCommandable("mqtt", mqttPool);
+        addCommandable( mqttPool,"mqtt");
     }
     /* *****************************************  T R A N S S E R V E R ***************************************** */
     /**
@@ -362,8 +333,7 @@ public class DAS implements Commandable{
         trans.setServerPort(port);
         trans.setDataQueue(dQueue);
 
-        addCommandable("ts",trans);
-        addCommandable("trans",trans);
+        addCommandable(trans,"ts","trans");
     }
 
     /* **********************************  E M A I L W O R K E R *********************************************/
@@ -374,24 +344,11 @@ public class DAS implements Commandable{
         Logger.info("Adding EmailWorker");
         addLabelWorker();
         emailWorker = new EmailWorker(settingsPath, dQueue);
-        addCommandable("email",emailWorker);
+        addCommandable(emailWorker,"email");
         commandPool.setEmailSender(emailWorker);
     }
     public EmailSending getEmailSender(){
         return emailWorker;
-    }
-    /* *************************************  D E B U G W O R K E R ***********************************************/
-    /**
-     * Creates the DebugWorker
-     */
-    private void addDebugWorker() {
-        Logger.info("Adding DebugWorker");
-        addLabelWorker();
-
-        debugWorker = new DebugWorker(labelWorker.getQueue(), dbManager, XMLtools.readXML(settingsPath).get());
-
-        if (this.inDebug() && emailWorker != null) 
-            emailWorker.setSending(debugWorker.doEmails());            
     }
 
     /* ***************************************  T E L N E T S E R V E R ******************************************/
@@ -399,7 +356,6 @@ public class DAS implements Commandable{
      * Create the telnet server
      */
     private void addTelnetServer() {
-
         if( bootOK) {
             telnet = new TelnetServer(this.getDataQueue(), settingsPath, nettyGroup);
             addCommandable(telnet, "telnet", "nb");
@@ -422,8 +378,8 @@ public class DAS implements Commandable{
         }
         Logger.info("Adding I2CWorker.");
         i2cWorker = new I2CWorker(settingsPath, dQueue);
-        addCommandable("i2c",i2cWorker);
-        addCommandable("stop",i2cWorker);
+        addCommandable(i2cWorker,"i2c","i_c");
+        addCommandable(i2cWorker,"stop");
     }
     /* ******************************** R E A L T I M E  D A T A  ******************************************* */
     // Note: these are used when dcafs is used as a library
@@ -444,7 +400,7 @@ public class DAS implements Commandable{
             @Override
             public void run() {
                 Logger.info("Dcafs shutting down!");
-                telnet.replyToCommand(new String[]{"telnet","broadcast,error,Dcafs shutting down!"},null,false);
+                telnet.replyToCommand( "telnet","broadcast,error,Dcafs shutting down!",null,false);
 
                 if( matrixClient!=null)
                     matrixClient.broadcast("Shutting down!");
@@ -513,16 +469,7 @@ public class DAS implements Commandable{
             Logger.info("Starting LabelWorker...");
             new Thread(labelWorker, "LabelWorker").start();// Start the thread
         }
-        if (debug && debugWorker == null) {
-            Logger.info("Debug mode but no debug worker created...");
-        } else if (debugWorker != null) {
-            if (debug || log) {
-                Logger.info("Starting DebugWorker...");
-                debugWorker.start();// Start the thread
-            } else {
-                Logger.info("Not in debug mode, not starting debug worker...");
-            }
-        }
+
         if (trans != null && trans.isActive()) {
             trans.run(); // Start the server
         }
@@ -578,7 +525,6 @@ public class DAS implements Commandable{
         b.append(TEXT_YELLOW).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")\r\n");
         b.append(TEXT_YELLOW).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append("\r\n");
         b.append(TEXT_YELLOW).append("Memory: ").append(TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
-        b.append(TEXT_YELLOW).append("Current mode: ").append(debug ? TEXT_RED + "debug" : TEXT_GREEN + "normal").append("\r\n");
         b.append(TEXT_YELLOW).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP());
         b.append(UNDERLINE_OFF).append("\r\n");
 
@@ -675,8 +621,8 @@ public class DAS implements Commandable{
     }
 
     @Override
-    public String replyToCommand(String[] request, Writable wr, boolean html) {
-        return switch( request[0]){
+    public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
+        return switch( cmd ){
             case "st" -> getStatus(html);
             default -> "Unknown command";
         };

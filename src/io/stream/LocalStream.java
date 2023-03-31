@@ -55,7 +55,7 @@ public class LocalStream extends BaseStream implements Writable {
 	   }	
        if (msg != null && !(msg.isBlank() && clean)) { //make sure that the received data is not 'null' or an empty string           
             if(!label.isEmpty()) {
-                var d = Datagram.build(msg).priority(priority).label(label).writable(this).timestamp(Instant.now().toEpochMilli());
+                var d = Datagram.build(msg).priority(priority).label(label).writable(this);
                 dQueue.add(d);
             }
            if(debug)

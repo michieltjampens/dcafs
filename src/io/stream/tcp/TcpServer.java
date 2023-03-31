@@ -305,13 +305,13 @@ public class TcpServer implements StreamListener, Commandable {
 	}
 	/**
 	 * Execute and reply to commands given in as a readable string
-	 * @param request the command
+	 * @param cmd the command
 	 * @param wr the writable to send the answer to
 	 * @return the reply
 	 */
 	@Override
-	public String replyToCommand(String[] request, Writable wr, boolean html) {
-		String[] cmds = request[1].split(",");
+	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+		String[] cmds = args.split(",");
 
 		if( !active ) {
 			if(cmds[0].equalsIgnoreCase("start")&&cmds.length==2){
@@ -379,14 +379,18 @@ public class TcpServer implements StreamListener, Commandable {
 					return "Not enough arguments: trans:alter,id,ref:value";
 				String ref = cmds[2].substring(0,cmds[2].indexOf(":"));
 				String value =  cmds[2].substring(cmds[2].indexOf(":")+1);
-				switch( ref ){
-					case "label":
+				switch (ref) {
+					case "label" -> {
 						hOpt.get().setLabel(value);
-						return "Altered label to "+value;
-					case "id":
+						return "Altered label to " + value;
+					}
+					case "id" -> {
 						hOpt.get().setID(value);
-						return "Altered id to "+value;
-					default: return "Nothing called "+ref;
+						return "Altered id to " + value;
+					}
+					default -> {
+						return "Nothing called " + ref;
+					}
 				}
 			case "trans" :
 				if( cmds.length!=2)
@@ -414,8 +418,8 @@ public class TcpServer implements StreamListener, Commandable {
 				}).orElse(cmds[1]+" not active yet, but recorded request");
 			case "": case "list": 
 				return "Server running on port "+serverPort+"\r\n"+getClientList();
-			default: 
-				return "unknown command "+request[0]+":"+request[1];
+			default:
+				return "! No such subcommand in "+cmd+": "+args;
 		}
 	}
 

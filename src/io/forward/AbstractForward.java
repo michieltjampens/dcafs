@@ -29,8 +29,6 @@ public abstract class AbstractForward implements Writable {
     protected final ArrayList<String> sources = new ArrayList<>();  // The commands that provide the data to filter
     protected boolean valid = false;           // Flag that determines of data should be received or not
     protected boolean debug = false;           // Flag that outputs more in the console for debugging purposes
-    protected boolean xmlOk=false;             // There's a valid xml path available
-    protected boolean deleteNoTargets=false;   // Get this object to kill itself when targets is empty
     protected Path xml;                        // Path to the xml file containing the info
     protected int badDataCount=0;               // Keep track of the amount of bad data received
     protected boolean log = false;
@@ -73,8 +71,6 @@ public abstract class AbstractForward implements Writable {
                 Logger.info(id() +" -> Requesting data from "+source);
                 dQueue.add( Datagram.system( source ).writable(this) );
             }
-            if( xmlOk )
-                writeToXML( XMLfab.withRoot(xml, "dcafs"));
             return true;
         }
         return false;
@@ -186,22 +182,6 @@ public abstract class AbstractForward implements Writable {
         return true;
     }
 
-    /**
-     * Write the basics that are the same for each forward
-     * @param fab An XMLfab with the forward as the current parent
-     */
-    protected void writeBasicsToXML( XMLfab fab){
-        // Sources
-        if( sources.size()==1 ){
-            fab.attr("src",sources.get(0));
-        }else{
-            fab.content("");
-            fab.removeAttr("src"); // making sure there aren't any leftovers
-            fab.comment("Sources go here");
-            sources.forEach( src -> fab.addChild("src", src) );
-        }
-    }
-    public void setInvalid(){valid=false;}
     public void setStore( ValStore store){
         this.store=store;
         if( !valid && store!=null){
@@ -220,12 +200,6 @@ public abstract class AbstractForward implements Writable {
      * @return True if everything went fine
      */
     protected abstract boolean addData( String data );
-    /**
-     * Write all the settings for this to the given xml file
-     *
-     * @param fab The XMLfab pointing to where the parent xml should be
-     */
-    public abstract void writeToXML(XMLfab fab );
 
     /**
      * Read all the settings for this from the given xml element

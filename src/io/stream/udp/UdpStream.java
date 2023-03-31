@@ -35,9 +35,8 @@ public class UdpStream extends BaseStream implements Writable {
 
     static int bufferSize = 4096; 	// How many bytes are stored before a dump
 
-    public UdpStream( String id, String ipport, BlockingQueue<Datagram> dQueue, int priority ){
+    public UdpStream( String id, String ipport, BlockingQueue<Datagram> dQueue ){
         super(id,dQueue);
-        this.priority=priority;
         this.id=id;
 
         String ip = ipport.substring(0,ipport.lastIndexOf(":"));

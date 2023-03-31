@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>dev.iostuff</groupId>
   <artifactId>dcafs</artifactId>
-  <version>2.2.0</version>
+  <version>2.3.0</version>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -83,12 +83,6 @@
 		  <groupId>org.json</groupId>
 		  <artifactId>json</artifactId>
 		  <version>20230227</version>
-	  </dependency>
-	  <!-- https://mvnrepository.com/artifact/org.influxdb/influxdb-java -->
-	  <dependency>
-		  <groupId>org.influxdb</groupId>
-		  <artifactId>influxdb-java</artifactId>
-		  <version>2.23</version>
 	  </dependency>
 	<!-- https://mvnrepository.com/artifact/com.sun.mail/javax.mail -->
 	  <dependency>

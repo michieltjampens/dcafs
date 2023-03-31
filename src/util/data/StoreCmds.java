@@ -1,4 +1,4 @@
-package util.cmds;
+package util.data;
 
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;

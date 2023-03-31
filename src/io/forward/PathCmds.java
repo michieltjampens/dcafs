@@ -1,20 +1,22 @@
-package util.cmds;
+package io.forward;
 
 import io.telnet.TelnetCodes;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.data.StoreCmds;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import worker.Datagram;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
+import java.util.List;
 import java.util.StringJoiner;
+import java.util.stream.Stream;
 
 public class PathCmds {
+
+    private static String[] FILTERS = {"start","nostart","end","items","contain","c_start","c_end","min_length","max_length","nmea","regex","math"};
     public static String replyToCommand(String request, boolean html, Path settingsPath ){
 
         var cmds= request.split(",");
@@ -149,6 +151,10 @@ public class PathCmds {
                 var rule = cmds[2].split(":");
                 if( rule.length != 2)
                     return "! Need a type and a rule separated with : (pf:id,addfilter,type:rule)";
+
+                if(!List.of(FILTERS).contains(rule[0]))
+                    return "! No such filter type, valid: "+String.join(",",FILTERS);
+
                 // fab is pointing at path node, needs to know if last item is a filter or not
                 dig.goDown("*").toLastSibling();
                 var opt = dig.current();

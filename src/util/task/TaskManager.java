@@ -619,17 +619,17 @@ public class TaskManager implements CollectorFuture {
 					}
 					if (task.out == OUTPUT.SYSTEM || task.out == OUTPUT.STREAM ) {
 						var d = Datagram.build(fill.replace("cmd:", "").replace("\r\n", ""));
-						response = commandPool.createResponse( d, true);
+						response = commandPool.executeCommand( d, true);
 					} else if( task.out == OUTPUT.I2C ){
-						response = commandPool.createResponse( Datagram.build("i2c:"+task.value), true);
+						response = commandPool.executeCommand( Datagram.build("i2c:"+task.value), true);
 					}else if( task.out == OUTPUT.EMAIL ){
 						if( splits.length==2){
 							String it = splits[1]+(splits[1].contains(":")?"":"html");
-							response = commandPool.createResponse( Datagram.build(it), true);
+							response = commandPool.executeCommand( Datagram.build(it), true);
 						}
 					}else if( task.out != OUTPUT.LOG ){
 						String it = splits[splits.length - 1]+(splits[splits.length - 1].contains(":")?"":"html");
-						response = commandPool.createResponse( Datagram.build(it), true);
+						response = commandPool.executeCommand( Datagram.build(it), true);
 					}
 					if (response.toLowerCase().startsWith("unknown")) {
 						response = splits[splits.length - 1];
@@ -708,9 +708,9 @@ public class TaskManager implements CollectorFuture {
 						if( task.value.startsWith(""+'"')){
 							resp = task.value.replace(""+'"',"");
 						}else {
-							resp = commandPool.createResponse(Datagram.system(task.value), false, true);
+							resp = commandPool.executeCommand(Datagram.system(task.value), false, true);
 						}
-						commandPool.createResponse(Datagram.system("matrix:say,"+task.stream+","+resp),false,true);
+						commandPool.executeCommand(Datagram.system("matrix:say,"+task.stream+","+resp),false,true);
 						break;
 					case LOG: // Write the value in either status.log or error.log (and maybe send an email)
 						String[] spl = task.value.split(";");
@@ -736,7 +736,7 @@ public class TaskManager implements CollectorFuture {
 						break;
 					case TELNET:
 						var send = ValTools.parseRTline(task.value,"",rtvals);
-						commandPool.createResponse(Datagram.build("telnet:broadcast,"+task.outputRef+","+send),false);
+						commandPool.executeCommand(Datagram.build("telnet:broadcast,"+task.outputRef+","+send),false);
 						break;
 					case MANAGER:
 						String[] com = task.value.split(":");
