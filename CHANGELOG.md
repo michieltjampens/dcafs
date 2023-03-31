@@ -8,13 +8,19 @@ Note: Version numbering: x.y.z
 - cmd !idle not used properly when disconnected/reconnected
 - back up path for sqlite db etc?
 
+## 2.3.1 (wip)
+
 ## 2.3.0 (31/03/23)
 - Commands cleanup
   - tried to improve consistency
   - removed unused ones
   - Rewrote the StreamManager
+  - Changed order to have id in front if the cmd affects a single id (aka breaking changes)
   - Might introduce bugs
-- Removed 'configurator' attempt at alternative way of building the xml
+
+### Things removed
+- 'Configurator' attempt at alternative way of building the xml
+- InfluxDB support, wasn't complete anyway and didn't fit in with the rest of the code
 
 ### Path
 - Added a filter type 'items', this allows to filter on the amount of items after split on delimiter
