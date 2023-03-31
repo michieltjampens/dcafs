@@ -18,7 +18,6 @@ public class MqttPool implements Commandable, MqttWriting {
 
     Map<String, MqttWorker> mqttWorkers = new HashMap<>();
     Path settingsFile;
-    static final String UNKNOWN_CMD = "unknown command";
     RealtimeValues rtvals;
     BlockingQueue<Datagram> dQueue;
 
@@ -53,7 +52,7 @@ public class MqttPool implements Commandable, MqttWriting {
     /**
      * Get a list of all the MQTTWorker id's
      *
-     * @return List of all the id's
+     * @return Set of all the id's
      */
     public Set<String> getMqttWorkerIDs() {
         return mqttWorkers.keySet();
@@ -171,7 +170,6 @@ public class MqttPool implements Commandable, MqttWriting {
         return true;
     }
 
-
     @Override
     public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
         String[] cmds = args.split(",");
@@ -181,95 +179,89 @@ public class MqttPool implements Commandable, MqttWriting {
         String green=html?"":TelnetCodes.TEXT_GREEN;
         String reg=html?"":TelnetCodes.TEXT_DEFAULT+TelnetCodes.UNDERLINE_OFF;
 
-        switch( cmds[0] ){
-            case "?":
-                StringJoiner join = new StringJoiner(nl);
-                join.add(TelnetCodes.TEXT_RED+"Purpose"+reg);
-                join.add("The MQTT manager manages the workers that connect to brokers").add("");
-                join.add(cyan+"General"+reg)
-                        .add( green+"   mqtt:addbroker,brokerid,address "+reg+"-> Add a new broker with the given id found at the address")
-                        .add( green+"   mqtt:brokers "+reg+"-> Get a listing of the current registered brokers")
-                        .add( green+"   mqtt:reload,brokerid "+reg+"-> Reload the settings for the broker from the xml.")
-                        .add( green+"   mqtt:store,brokerid"+reg+" -> Store the current settings of the broker to the xml.")
-                        .add( green+"   mqtt:?"+reg+" -> Show this message");
-                join.add(cyan+"Subscriptions"+reg)
-                        .add( green+"   mqtt:subscribe,brokerid,label,topic "+reg+"-> Subscribe to a topic with given label on given broker")
-                        .add( green+"   mqtt:unsubscribe,brokerid,topic "+reg+"-> Unsubscribe from a topic on given broker")
-                        .add( green+"   mqtt:unsubscribe,brokerid,all "+reg+"-> Unsubscribe from all topics on given broker");
-                join.add(cyan+"Send & Receive"+reg)
-                        .add( green+"   mqtt:brokerid "+reg+"-> Forwards the data received from the given broker to the issuing writable")
-                        .add( green+"   mqtt:send,brokerid,topic:value "+reg+"-> Sends the value to the topic of the brokerid");
-                return join.toString();
-            case "brokers": return getMqttBrokersInfo();
-            case "addbroker":
-                if( cmds.length!=4)
-                    return "Wrong amount of arguments: mqtt:addbroker,id,address,deftopic";
-                if( addBroker(cmds[1],cmds[2],cmds[3]) )
-                    return "Broker added";
-                return "Failed to add broker";
-            case "subscribe":
-                if( cmds.length == 4){
-                    if( addMQTTSubscription(cmds[1], cmds[2], cmds[3]) )
-                        return nl+"Subscription added, send 'mqtt:store,"+cmds[1]+"' to save settings to xml";
-                    return "Failed to add subscription";
-                }else{
-                    return nl+"Incorrect amount of cmd: mqtt:subscribe,brokerid,label,topic";
+        if( cmds.length==1 ) {
+            switch (cmds[0]) {
+                case "?" -> {
+                    StringJoiner join = new StringJoiner(nl);
+                    join.add(TelnetCodes.TEXT_RED + "Purpose" + reg);
+                    join.add("The MQTT manager manages the workers that connect to brokers").add("");
+                    join.add(cyan + "General" + reg)
+                            .add(green + "   mqtt:?" + reg + " -> Show this message")
+                            .add(green + "   mqtt:addbroker,id,address " + reg + "-> Add a new broker with the given id found at the address")
+                            .add(green + "   mqtt:brokers " + reg + "-> Get a listing of the current registered brokers")
+                            .add(green + "   mqtt:id,reload " + reg + "-> Reload the settings for the broker from the xml.")
+                            .add(green + "   mqtt:id,store" + reg + " -> Store the current settings of the broker to the xml.");
+                    join.add(cyan + "Subscriptions" + reg)
+                            .add(green + "   mqtt:id,subscribe,label,topic " + reg + "-> Subscribe to a topic with given label on given broker")
+                            .add(green + "   mqtt:id,unsubscribe,topic " + reg + "-> Unsubscribe from a topic on given broker")
+                            .add(green + "   mqtt:id,unsubscribe,all " + reg + "-> Unsubscribe from all topics on given broker");
+                    join.add(cyan + "Send & Receive" + reg)
+                            .add(green + "   mqtt:id " + reg + "-> Forwards the data received from the given broker to the issuing writable")
+                            .add(green + "   mqtt:id,send,topic:value " + reg + "-> Sends the value to the topic of the brokerid");
+                    return join.toString();
                 }
-            case "unsubscribe":
-                if( cmds.length == 3){
-                    if( removeMQTTSubscription(cmds[1], cmds[2]) ){
-                        return nl+"Subscription removed, send 'mqtt:store,"+cmds[1]+"' to save settings to xml";
-                    }else{
-                        return nl+"Failed to remove subscription, probably typo?";
-                    }
-                }else{
-                    return nl+"Incorrect amount of cmd: mqtt:unsubscribe,brokerid,topic";
+                case "brokers" -> {
+                    return getMqttBrokersInfo();
                 }
-            case "reload":
-                if( cmds.length == 2){
-                    if( reloadMQTTsettings(cmds[1]))
-                        return nl+"Settings for "+cmds[1]+" reloaded.";
-                    return nl+"Failed to reload settings.";
-                }else{
-                    return "Incorrect amount of cmd: mqtt:reload,brokerid";
+                default -> {
+                    var worker = mqttWorkers.get(cmds[0]);
+                    if (worker == null)
+                        return "! Not a valid id or command: " + cmds[0];
+                    if (wr == null) {
+                        Logger.error("Not a valid writable asking for " + cmds[0]);
+                        return "! Not a valid writable asking for " + cmds[0];
+                    } worker.registerWritable(wr);
+                    return "Sending data from " + cmds[0] + " to " + wr.id();
                 }
-            case "store":
-                if( cmds.length == 2){
-                    updateMQTTsettings(cmds[1]);
-                    return nl+"Settings updated";
-                }else{
-                    return "Incorrect amount of cmd: mqtt:store,brokerid";
+            }
+        }else if( cmds[0].equalsIgnoreCase("addbroker")){
+            if (cmds.length != 4)
+                return "! Wrong amount of arguments -> mqtt:addbroker,id,address,deftopic";
+            return addBroker(cmds[1], cmds[2], cmds[3]) ? "Broker added" : "! Failed to add broker";
+        }else{
+            var worker = mqttWorkers.get(cmds[0]);
+            if( worker == null)
+                return "! Not a valid id: "+cmds[0];
+
+            switch (cmds[1]) {
+                case "subscribe" -> {
+                    if (cmds.length != 4)
+                        return "! Wrong amount of arguments -> mqtt:id,subscribe,label,topic";
+                    if( worker.addSubscription(cmds[3], cmds[2]) )
+                        return "Subscription added, send 'mqtt:store," + cmds[0] + "' to save settings to xml";
+                    return "! Failed to add subscription";
                 }
-            case "forward":
-                if( cmds.length == 2){
-                    getMqttWorker(cmds[1]).ifPresent( x -> x.registerWritable(wr));
-                    return "Forward requested";
-                }else{
-                    return "Incorrect amount of cmd: mqtt:forward,brokerid";
+                case "unsubscribe" -> {
+                    if (cmds.length != 3)
+                        return "! Wrong amount of arguments -> mqtt:unsubscribe,brokerid,topic";
+                    if( worker.removeSubscription(cmds[2]))
+                        return "Subscription removed, send 'mqtt:"+cmds[0]+",store' to save settings to xml";
+                    return "! Failed to remove subscription, probably typo?";
                 }
-            case "send":
-                if( cmds.length != 3){
-                    Logger.warn( "Not enough arguments, expected mqtt:send,brokerid,topic:value" );
-                    return "Not enough arguments, expected mqtt:send,brokerid,topic:value";
-                }else if( !cmds[2].contains(":") ){
-                    return "No proper topic:value given, got "+cmds[2]+" instead.";
+                case "reload" -> {
+                    if (reloadMQTTsettings(cmds[0]))
+                        return "Settings for " + cmds[0] + " reloaded.";
+                    return "! Failed to reload settings.";
                 }
-                if( getMqttWorker(cmds[1]).isEmpty() ){
-                    Logger.warn("No such mqttworker to so send command "+cmds[1]);
-                    return "No such MQTTWorker: "+cmds[1];
+                case "store" -> {
+                    updateMQTTsettings(cmds[0]);
+                    return "Settings updated";
                 }
-                String[] topVal = cmds[2].split(":");
-                double val = rtvals.getReal(topVal[1], -999);
-                getMqttWorker(cmds[1]).ifPresent( w -> w.addWork(topVal[0],""+val));
-                return "Data send to "+cmds[1];
-            default:
-                if( getMqttWorker(cmds[1]).map( x -> {
-                    x.registerWritable(wr);
-                    return true;
-                }).orElse(false) ){
-                    return "Request added";
+                case "send" -> {
+                    if (cmds.length != 3)
+                        return "! Wrong amount of arguments -> mqtt:id,send,topic:value";
+                    if (!cmds[2].contains(":"))
+                        return "! No proper topic:value given, got " + cmds[2] + " instead.";
+
+                    String[] topVal = cmds[2].split(":");
+                    double val = rtvals.getReal(topVal[1], -999);
+                    worker.addWork(topVal[0], "" + val);
+                    return "Data send to " + cmds[0];
                 }
-                return "! No such subcommand in "+cmd+": "+cmds[0];
+                default -> {
+                    return "! No such subcommand in " + cmd + ": " + cmds[0];
+                }
+            }
         }
     }
 
