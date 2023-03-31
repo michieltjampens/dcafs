@@ -255,7 +255,8 @@ public class CommandPool {
 			case "reload" -> doCmd("tm", "reload," + cmd, wr);
 			default -> doCmd("tm", "run," + cmd + ":" + question, wr);
 		};
-		if (!res.toLowerCase().startsWith("! no such taskmanager") )
+		if (!res.toLowerCase().startsWith("! no such taskmanager") &&
+				!(res.toLowerCase().startsWith("! no taskmanager") && question.split(":").length==1))
 			return res;
 		return UNKNOWN_CMD;
 	}
