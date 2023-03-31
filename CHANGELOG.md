@@ -7,10 +7,20 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - cmd !idle not used properly when disconnected/reconnected
 - back up path for sqlite db etc?
-## 2.3.0 (wip)
+
+## 2.3.0 (31/03/23)
 - Commands cleanup
   - tried to improve consistency
   - removed unused ones
+  - Rewrote the StreamManager
+  - Might introduce bugs
+- Removed 'configurator' attempt at alternative way of building the xml
+
+### Path
+- Added a filter type 'items', this allows to filter on the amount of items after split on delimiter
+  - `pf:id,addfilter,items:2` split with default delimiter should return two items
+  - `pf:id,addfilter,items:2,5` split with default delimiter should return 2-5 items (so 2,3,4 or 5)
+- `pf:id,addfilter,type:rule` now checks if the type actually exists
 
 ## 2.2.0 (26/03/23)
 
