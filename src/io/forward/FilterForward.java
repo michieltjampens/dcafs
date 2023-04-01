@@ -230,7 +230,7 @@ public class FilterForward extends AbstractForward {
     public void addMinimumLength( int length ){ rules.add( p -> p.length() >= length); }
     public void addMaximumLength( int length ){ rules.add( p -> p.length() <= length); }
 
-    public void addNMEAcheck( boolean ok ){ rules.add( p -> (/*p.startsWith("$")&&*/MathUtils.doNMEAChecksum(p))==ok ); }
+    public void addNMEAcheck( boolean ok ){ rules.add( p -> (MathUtils.doNMEAChecksum(p))==ok ); }
     /* Complicated ones? */
     public boolean addCheckBlock( String delimiter, String value){
 

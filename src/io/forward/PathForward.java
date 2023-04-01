@@ -122,8 +122,8 @@ public class PathForward {
         }
 
         FilterForward lastff=null;
-        boolean hasLabel=false;
-        int vals=1;
+        boolean hasStore=false;
+
         for( int a=0;a<steps.size();a++  ){
             Element step = steps.get(a);
             ValStore store=null;
@@ -135,35 +135,23 @@ public class PathForward {
                 continue;
             }
 
-            // Check if the next step is a generic/store, if so change the label attribute of the current step
+            // Check if the next step is a store, if so process it to apply to current step
             if( a<steps.size()-1 ){
                 var next = steps.get(a+1);
-                if(next.getTagName().equalsIgnoreCase("generic")
-                        ||next.getTagName().equalsIgnoreCase("store")){// Next element is a generic
+                if(next.getTagName().equalsIgnoreCase("store")){// Next element is a store
                     var storeOpt = ValStore.build(next,id);
                     if( storeOpt.isPresent()) {
                         store = storeOpt.get();
                         store.shareRealtimeValues(rtvals);
-                    }
-                }
-                if(next.getTagName().equalsIgnoreCase("valmap")){
-                    if( !step.hasAttribute("label")){
-                        var valid = next.getAttribute("id");
-                        valid = valid.isEmpty()?id+"_vm"+vals:valid;
-                        vals++;
-                        step.setAttribute("label","valmap:"+valid);
+                        hasStore=true;
                     }
                 }
             }
-            if( step.hasAttribute("label"))
-                hasLabel=true;
 
-            boolean lastGenMap = false; // Used to determine end of 'filter' and start of '!filter'
+            boolean lastStore = false; // Used to determine end of 'filter' and start of '!filter'
             if( !stepsForward.isEmpty() ) {
                 var prev = steps.get(a - 1);
-                lastGenMap = prev.getTagName().equalsIgnoreCase("generic")
-                                ||prev.getTagName().equalsIgnoreCase("store")
-                                ||prev.getTagName().equalsIgnoreCase("valmap");
+                lastStore = prev.getTagName().equalsIgnoreCase("store");
             }
 
             // If this step doesn't have a delimiter, alter it
@@ -182,8 +170,12 @@ public class PathForward {
                     FilterForward ff = new FilterForward(step, dQueue);
                     if (!src.isEmpty()) {
                         addAsTarget(ff, src);
-                    } else if (lastff != null && (!(lastStep().isPresent()&&lastStep().get() instanceof FilterForward) || lastGenMap)) {
-                        lastff.addReverseTarget(ff);
+                    } else{
+                        if( lastff!=null && lastStore ) {
+                            lastff.addReverseTarget(ff);
+                        }else if( !stepsForward.isEmpty()){
+                            addAsTarget(ff,"");
+                        }
                     }
                     if( store!=null)
                         ff.setStore(store);
@@ -194,11 +186,11 @@ public class PathForward {
                     MathForward mf = new MathForward(step, dQueue, rtvals);
                     mf.removeSources();
                     if( !mf.hasSrc() ) {
-                        if (lastff != null && lastGenMap)
+                        if (lastff != null && lastStore)
                             lastff.addReverseTarget(mf);
-                        addAsTarget(mf, src, !(lastff != null && lastGenMap));
+                        addAsTarget(mf, src, !(lastff != null && lastStore));
                     }else{
-                        addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastGenMap));
+                        addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastStore));
                     }
                     if( store!=null)
                         mf.setStore(store);
@@ -211,13 +203,13 @@ public class PathForward {
                         return error;
                     }
                     if( !ef.hasSrc() ) {
-                        if (lastff != null && lastGenMap) {
+                        if (lastff != null && lastStore) {
                             lastff.addReverseTarget(ef);
                         }
                         ef.removeSources();
-                        addAsTarget(ef, src,!(lastff!=null && lastGenMap));
+                        addAsTarget(ef, src,!(lastff!=null && lastStore));
                     }else{
-                        addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastGenMap));
+                        addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastStore));
                     }
                     if( store!=null)
                         ef.setStore(store);
@@ -229,7 +221,7 @@ public class PathForward {
         if( !oldTargets.isEmpty()&&!stepsForward.isEmpty()){ // Restore old requests
             oldTargets.forEach(this::addTarget);
         }
-        if( !lastStep().map(AbstractForward::noTargets).orElse(false) || hasLabel) {
+        if( !lastStep().map(AbstractForward::noTargets).orElse(false) || hasStore ) {
             if (customs.isEmpty() ) { // If no custom sources
                 if(stepsForward.isEmpty()) {
                     Logger.error(id+" -> No steps to take, this often means something went wrong processing it");
