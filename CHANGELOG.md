@@ -8,8 +8,32 @@ Note: Version numbering: x.y.z
 - cmd !idle not used properly when disconnected/reconnected
 - back up path for sqlite db etc?
 
-## 2.3.1 (wip)
+## 2.3.2 (wip)
 
+## 2.3.1 (01/04/23)
+
+### StreamManager
+- ss:add command didn't give correct element to next step
+
+### RealtimeValues
+- Added option to specify parsing of Flag,int and real
+````xml
+<stream id="dice" type="tcp">
+  <address>localhost:4000</address>
+  <store map="true" delimiter=":">
+    <int key="d6" name="d6" unit="">
+      <op>i0=i0+6</op> <!-- Value will be parsed to integer and then 6 added to it, instead of i0 just 'i' is also ok -->
+    </int>
+    <flag key="d20" name="d20" unit="">
+        <true>20</true><!-- default is a single value per node -->
+        <true>10</true>
+        <false delimiter=",">1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19</false> <!-- but delimiter can be specified -->
+      <!-- If no match is found, an error will be given -->
+    </flag>
+    <int key="d100" unit="">d100</int>
+  </store>
+</stream>
+````
 ## 2.3.0 (31/03/23)
 - Commands cleanup
   - tried to improve consistency
