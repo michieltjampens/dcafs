@@ -11,6 +11,7 @@ import worker.Datagram;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -25,7 +26,8 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
     /* Options */
     ArrayList<Boolean> history;
-
+    ArrayList<String> TRUE = new ArrayList<>(Arrays.asList("true","1","on","high"));
+    ArrayList<String> FALSE = new ArrayList<>(Arrays.asList("false","1","off","low"));
     private FlagVal(){}
 
     /**
@@ -65,6 +67,12 @@ public class FlagVal extends AbstractVal implements NumericVal{
             String trig = trigCmd.getAttribute("when");
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
+        }
+        for (Element parse : XMLtools.getChildElements(rtval, "true")) {
+            TRUE.add(parse.getTextContent());
+        }
+        for (Element parse : XMLtools.getChildElements(rtval, "false")) {
+            FALSE.add(parse.getTextContent());
         }
         return this;
     }
@@ -256,12 +264,10 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
     @Override
     public boolean parseValue(String state) {
-        if( state.equalsIgnoreCase("true")
-                || state.equalsIgnoreCase("1")
-                || state.equalsIgnoreCase("on")) {
+        state=state.toLowerCase();
+        if( TRUE.contains(state)) {
             setState(true);
-        }else if( state.equalsIgnoreCase("false")|| state.equalsIgnoreCase("0")
-                || state.equalsIgnoreCase("off")) {
+        }else if( FALSE.contains(state)){
             setState(false);
         }else{
             Logger.error( id() + " -> Couldn't parse "+state);
