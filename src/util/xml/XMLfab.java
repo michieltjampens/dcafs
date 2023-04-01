@@ -686,6 +686,9 @@ public class XMLfab {
     public Element getCurrentElement(){
         return last;
     }
+    public Element getCurrentParent(){
+        return parent;
+    }
     public String getAttribute( String attr ){
         return last.getAttribute(attr);
     }

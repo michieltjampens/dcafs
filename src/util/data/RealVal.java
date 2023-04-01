@@ -3,11 +3,10 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
-import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -38,6 +37,7 @@ public class RealVal extends AbstractVal implements NumericVal{
 
     /* Triggering */
     private ArrayList<TriggeredCmd> triggered;
+    private MathFab parseOp;
 
     private RealVal(){}
 
@@ -101,7 +101,19 @@ public class RealVal extends AbstractVal implements NumericVal{
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         }
+        String op = XMLtools.getChildStringValueByTag(rtval,"op","");
+        if( !op.isEmpty())
+            setParseOp(op);
+
         return this;
+    }
+    public void setParseOp( String op ){
+        parseOp = MathFab.newFormula(op);
+        if( !parseOp.isValid() ){
+            Logger.error(id() +" -> Tried to apply an invalid op for parsing "+op);
+        }else{
+            Logger.info(id()+" -> Applying "+op+" after parsing to real/double.");
+        }
     }
     /**
      * Set the name, this needs to be unique within the group
@@ -134,6 +146,11 @@ public class RealVal extends AbstractVal implements NumericVal{
     public boolean parseValue( String val ){
         var res = NumberUtils.toDouble(val,Double.NaN);
         if(!Double.isNaN(res)){
+            if( parseOp != null) {
+                res = parseOp.solveFor(res);
+                if( Double.isNaN(res))
+                    Logger.error(id()+" -> Failed to parse "+val+" with "+parseOp.getOri());
+            }
             value(res);
             return true;
         }else if( Double.isNaN(defVal) ){
