@@ -405,8 +405,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 * @param stream The element containing the channel information
 	 */
 	public BaseStream addStreamFromXML( Element stream ){
-
-		switch (stream.getAttribute("type").toLowerCase()) {
+		var type = stream.getAttribute("type").toLowerCase();
+		switch (type) {
 			case "tcp", "tcpclient" -> {
 				TcpStream tcp = new TcpStream(dQueue, stream);
 				tcp.setEventLoopGroup(eventLoopGroup);
@@ -476,7 +476,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				local.reconnectFuture = scheduler.schedule(new DoConnection(local), 0, TimeUnit.SECONDS);
 				return local;
 			}
-			default -> Logger.error("No such type defined");
+			default -> Logger.error("No such type defined: "+type);
 		}
 		return null;
 	}
@@ -688,7 +688,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					fab.addChild("address", cmds[2])
 							.build();
 
-					base = addStreamFromXML(fab.getCurrentElement());
+					base = addStreamFromXML(fab.getCurrentParent());
 				}
 				case "serial", "modbus" -> {
 					if (cmds.length < 3)
@@ -697,7 +697,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					fab.addChild("port", cmds[2]);
 					fab.addChild("serialsettings", (cmds.length == 4 ? cmds[3] : "19200") + ",8,1,none")
 							.build();
-					base = addStreamFromXML(fab.getCurrentElement());
+					base = addStreamFromXML(fab.getCurrentParent());
 				}
 				case "udpserver" -> {
 					if (cmds.length != 3) // Make sure we got the correct amount of arguments
