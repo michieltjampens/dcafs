@@ -3,6 +3,7 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -36,7 +37,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
 
     /* Triggering */
     private ArrayList<TriggeredCmd> triggered;
-
+    private MathFab parseOp;
     /**
      * Constructs a new RealVal with the given group and name
      *
@@ -94,7 +95,18 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         }
+        String op = XMLtools.getChildStringValueByTag(rtval,"op","");
+        if( !op.isEmpty())
+            setParseOp(op);
         return this;
+    }
+    public void setParseOp( String op ){
+        parseOp = MathFab.newFormula(op);
+        if( !parseOp.isValid() ){
+            Logger.error(id() +" -> Tried to apply an invalid op for parsing "+op);
+        }else{
+            Logger.info(id()+" -> Applying "+op+" after parsing to real/double.");
+        }
     }
     /**
      * Set the name, this needs to be unique within the group
@@ -180,6 +192,14 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         }
         try {
             var res = NumberUtils.createInteger(val.trim());
+            if( parseOp != null) {
+                var dres = parseOp.solveFor((double)res);
+                if( Double.isNaN(dres)) {
+                    Logger.error(id() + " -> Failed to parse " + val + " with " + parseOp.getOri());
+                }else{
+                    res = (int) dres;
+                }
+            }
             value(res);
             return true;
         }catch( NumberFormatException e ){

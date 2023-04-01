@@ -664,6 +664,7 @@ public class MathForward extends AbstractForward {
                 try {
                     String sub = ori.substring(ori.indexOf(":") + 1, ori.indexOf("}"));
 
+                    String val = ori.substring(ori.indexOf(":") + 1, ori.indexOf("}") + 1);
                     if (ori.startsWith("{r")||ori.startsWith("{d")) {
                         rtvals.getRealVal(sub)
                                 .ifPresent(dv -> {
@@ -671,7 +672,7 @@ public class MathForward extends AbstractForward {
                                     doUpdate = true;
                                 });
                         if (!doUpdate)
-                            Logger.error("Asking to update {r:" + ori.substring(ori.indexOf(":") + 1, ori.indexOf("}") + 1) + " but doesn't exist");
+                            Logger.error("Asking to update {r:" + val + " but doesn't exist");
                     } else if (ori.startsWith("{i")) {
                         rtvals.getIntegerVal(sub)
                                 .ifPresent(iv -> {
@@ -679,7 +680,7 @@ public class MathForward extends AbstractForward {
                                     doUpdate = true;
                                 });
                         if (!doUpdate)
-                            Logger.error("Asking to update {i:" + ori.substring(ori.indexOf(":") + 1, ori.indexOf("}") + 1) + " but doesn't exist");
+                            Logger.error("Asking to update {i:" + val + " but doesn't exist");
                     }else{
                         Logger.error( "No idea what to do with "+ori);
                     }

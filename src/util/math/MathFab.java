@@ -186,7 +186,12 @@ public class MathFab {
             bds[a]=BigDecimal.valueOf(val[a]);
         var bdOpt = solve(bds);
 
-        return bdOpt.map(bd ->bd.doubleValue()).orElse(Double.NaN);
+        return bdOpt.map(BigDecimal::doubleValue).orElse(Double.NaN);
+    }
+    public double solveFor( double val ){
+        BigDecimal[] bd = {BigDecimal.valueOf(val)};
+        var bdOpt = solve( bd );
+        return bdOpt.map(BigDecimal::doubleValue).orElse(Double.NaN);
     }
     /**
      * Solve the build equation using the given bigdecimals
