@@ -5,10 +5,27 @@ Note: Version numbering: x.y.z
   -> z goes up for minor additions and bugfixes
 
 ### To do/fix
-- cmd !idle not used properly when disconnected/reconnected
 - back up path for sqlite db etc?
 
 ## 2.3.2 (wip)
+
+### StreamManager
+- General code cleanup (remove unused, add comments etc)
+- Fixed idle state after disconnect/reconnect
+  - Idle code now the same for serial and tcp (tcp used to be netty built in)  
+
+### Store
+- Added 'idlereset' attribute to a store inside a stream. This will cause the store vals to be reset
+to default if the stream goes idle.
+
+### Realtimevalus
+- Added `rtvals:resetgroup,id` command that resets the vals in the group to their default value.
+Use this with cmd option of a stream to reset groups on idle. 
+`````xml
+<stream>
+  <cmd when="idle">rtvals:resetgroup,id</cmd>  
+</stream>
+`````
 
 ## 2.3.1 (01/04/23)
 
