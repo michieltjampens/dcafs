@@ -8,19 +8,16 @@ import util.data.*;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public abstract class BaseStream {
@@ -45,7 +42,6 @@ public abstract class BaseStream {
     protected boolean reconnecting=false;
     protected int connectionAttempts=0;
 
-    protected boolean debug=false;
     protected boolean clean=true;
     protected boolean log=true;
     protected boolean echo=false;
@@ -67,8 +63,6 @@ public abstract class BaseStream {
         this.dQueue=dQueue;
         readFromXML(stream);
     }
-    protected BaseStream(){}
-
     public void setEventLoopGroup( EventLoopGroup eventLoopGroup ){
         this.eventLoopGroup = eventLoopGroup;
     }
@@ -119,92 +113,35 @@ public abstract class BaseStream {
         }
         return readExtraFromXML(stream);
     }
+
+    /**
+     * If the store exists, remove its vals from rtvals. Then read the store from the xml
+     * @param settingsPath The path to the settings.xml
+     * @param rtvals The rtvals to update
+     * @return True if ok
+     */
     protected boolean reloadStore(Path settingsPath, RealtimeValues rtvals){
-        if( store !=null)
-            store.removeRealtimeValues(rtvals);
+        if( store != null) // If this already exists
+            store.removeRealtimeValues(rtvals); // Remove the 'old' rtvals
 
         var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("streams").goDown("stream","id",id);
         var eleOpt = dig.current();
-        if( eleOpt.isPresent()){
-            var ele = eleOpt.get();
-            var storeOpt = ValStore.build(ele);
-            if( storeOpt.isPresent()) {
-                store = storeOpt.get();
-                store.shareRealtimeValues(rtvals);
-                return true;
-            }
-        }
-        return false;
+        if( eleOpt.isEmpty())
+            return false;
+
+        var ele = eleOpt.get();
+        return ValStore.build(ele).map( st -> {
+            store=st;
+            store.shareRealtimeValues(rtvals);
+            return true;
+        }).orElseGet(()->false);
+
     }
     public Optional<ValStore> getValStore(){
         return Optional.ofNullable(store);
     }
 
-    public ScheduledFuture connectFuture(){
-        return reconnectFuture;
-    }
     protected abstract boolean readExtraFromXML( Element stream );
-    protected abstract boolean writeExtraToXML( XMLfab fab );
-
-    /**
-     * Write the stream to xml using an XMLfab
-     * @param fab XMLfab with parent pointing to streams node
-     * @return True if ok
-     */
-    protected boolean writeToXML( XMLfab fab ){
-        // Look through the child nodes for one that matches tag,id,value
-        if( fab.selectChildAsParent("stream", "id", id).isEmpty() ){
-            // Not found so create it, taken in account we create a child to get a parent...
-            fab.addChild("stream").attr("id",id).attr("type",getType())
-                    .down(); //make it the parent
-        }
-
-        var list = fab.getChildren("*");
-
-
-        if( !label.equalsIgnoreCase("void")) {
-            fab.alterChild("label", label);
-        }else{
-            fab.removeChild(label);
-        }
-        if( list.stream().anyMatch( x -> x.getNodeName().equalsIgnoreCase("ttl") ) ){
-            if( readerIdleSeconds ==-1){
-                fab.removeChild("ttl");
-            }
-        }
-        if( readerIdleSeconds != -1 ){
-            fab.addChild("ttl",TimeTools.convertPeriodtoString(readerIdleSeconds, TimeUnit.SECONDS));
-        }
-
-        if( list.stream().anyMatch( x -> x.getNodeName().equalsIgnoreCase("log") ) ){
-            fab.alterChild("log",log?"yes":"no");
-        }else if( !log ){
-            fab.addChild("log","no");
-        }
-        
-        if( list.stream().anyMatch( x -> x.getNodeName().equalsIgnoreCase("priority") ) ){
-            fab.alterChild("priority", String.valueOf(priority));
-        }else if( priority!=1 ){
-            fab.addChild("priority", String.valueOf(priority));
-        }
-        if( echo )
-            fab.alterChild("echo", "yes");
-        fab.alterChild("eol", Tools.getEOLString(eol) );
-
-        fab.clearChildren("cmd"); // easier to just remove first instead of checking if existing
-        for( var tr : triggeredActions){
-            switch (tr.trigger) {
-                case OPEN, IDLE, CLOSE, IDLE_END -> fab.addChild("cmd", tr.data);
-                case HELLO, WAKEUP -> fab.addChild("write", tr.data);
-            }
-            if( tr.trigger==TRIGGER.IDLE_END){
-                fab.attr("when","!idle");
-            }else{
-                fab.attr("when",tr.trigger.toString().toLowerCase());
-            }
-        }
-        return writeExtraToXML(fab);
-    }
 
     // Abstract methods
     public abstract boolean connect();
@@ -227,9 +164,6 @@ public abstract class BaseStream {
     
     public void addListener( StreamListener listener ){
 		listeners.add(listener);
-    }
-    public boolean removeListener( StreamListener listener ){
-		return listeners.remove(listener);
     }
 
     public void id(String id ){
@@ -305,9 +239,6 @@ public abstract class BaseStream {
             targets.removeIf(r -> r.id().equalsIgnoreCase(id));
         }
     }
-    public boolean hasEcho(){
-        return echo;
-    }
     /* ******************************** TRIGGERED ACTIONS *****************************************************/
     public void flagAsIdle(){
         applyTriggeredAction(BaseStream.TRIGGER.IDLE);
@@ -324,12 +255,11 @@ public abstract class BaseStream {
     public boolean isIdle(){
         return readerIdle;
     }
-    public boolean addTriggeredAction(String when, String action ){
+    public void addTriggeredAction(String when, String action ){
         var t = new TriggerAction(when, action);
         if( t.trigger==null)
-            return false;
+            return;
         triggeredActions.add(t);
-        return true;
     }
     public void applyTriggeredAction(TRIGGER trigger ){
         for( TriggerAction cmd : triggeredActions){

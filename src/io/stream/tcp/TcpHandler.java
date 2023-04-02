@@ -7,13 +7,11 @@ import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import org.tinylog.Logger;
-import util.data.AbstractVal;
 import util.data.ValStore;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
@@ -22,6 +20,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     protected BlockingQueue<Datagram> dQueue;
 
     protected boolean idle=false;
+
     protected String id;
     protected String label="";
     protected int priority = 1;
@@ -29,16 +28,12 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     protected List<StreamListener> listeners;
 
     protected Channel channel;
-    protected boolean clean=true;
-    protected boolean debug=false;
     protected boolean log=true;
 
     protected Long timeStamp=-1L;
-    protected Long passed;
 
     protected InetSocketAddress remote;
     protected Writable writable;
-
     protected List<Writable> targets;
 
     protected EventLoopGroup eventLoopGroup;
@@ -61,9 +56,6 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     public void setValStore(ValStore store){
         this.store=store;
     }
-	public String getIP(){
-		return remote.getAddress().getHostAddress();
-    }
     public long getTimestamp(){
         return timeStamp;
     }
@@ -75,16 +67,12 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     public void setStreamListeners( List<StreamListener> listeners ){
         this.listeners=listeners;
     }
-    public void addStreamListener( StreamListener listener ){
-        if( listeners == null)
-            listeners = new ArrayList<>();
-        listeners.add(listener);
-    }
+
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
     	if (evt instanceof IdleStateEvent e) {
             if (e.state() == IdleState.READER_IDLE ) {
-
+                Logger.error( "READER IDLE for "+id);
             }else if (e.state() == IdleState.WRITER_IDLE) {
             	Logger.error( "WRITER IDLE for "+id);
             }else {
@@ -161,20 +149,16 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
 		    idle=false;
 		    listeners.forEach( l-> l.notifyActive(id));
 	   }	
-       if ( !(msg.isBlank() && clean)) { //make sure that the received data is not 'null' or an empty string           
-            if( clean ){
-                msg = msg.replace("\n", "");   // Remove newline characters
-                msg = msg.replace("\r", "");   // Remove carriage return characters
-                msg = msg.replace("\0","");    // Remove null characters
-                //msg = msg.trim();
-            }
+       if ( !msg.isBlank() ){ //make sure that the received data is not 'null' or an empty string
+
+            msg = msg.replace("\n", "");   // Remove newline characters
+            msg = msg.replace("\r", "");   // Remove carriage return characters
+            msg = msg.replace("\0","");    // Remove null characters
 
             // Log anything and everything (except empty strings)
             if( !msg.isBlank() && log ) {        // If the message isn't an empty string and logging is enabled, store the data with logback
                Logger.tag("RAW").warn( id + "\t" + msg);
             }
-            if(debug)
-               Logger.info( id+" -> " + msg);
 
             // Implement the use of labels
             if( !label.isEmpty() && dQueue !=null ) { // No use adding to queue without label
@@ -185,7 +169,6 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
                        );
             }
 
-            // Implement the use of store
            // Implement the use of store
            if( store!=null )
                store.apply(new String(data),dQueue);
@@ -197,11 +180,6 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
                 targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
 			}
 
-            // Keep track of the time between messages
-            long p = Instant.now().toEpochMilli() - timeStamp;	// Calculate the time between 'now' and when the previous message was received
-            if( p > 0 ){	// If this time is valid
-                passed = p; // Store it
-            }
             // Keep the timestamp of the last message
             timeStamp = Instant.now().toEpochMilli();    		// Store the timestamp of the received message
         }

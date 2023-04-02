@@ -12,10 +12,11 @@ import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
 public class ModbusTCP extends TcpHandler{
-    int index=0;
-    byte[] rec = new byte[512];
-    byte[] header=new byte[]{0,1,0,0,0,0,0};
-    String[] origin = new String[]{"","","","reg","AI",""};
+    private int index=0;
+    private final byte[] rec = new byte[512];
+    private final byte[] header=new byte[]{0,1,0,0,0,0,0};
+    private final String[] origin = new String[]{"","","","reg","AI",""};
+    private Long passed;
 
     public ModbusTCP(String id, BlockingQueue<Datagram> dQueue) {
         super(id, dQueue);
@@ -25,7 +26,7 @@ public class ModbusTCP extends TcpHandler{
         this.writable=writable;
     }
     @Override
-    public void channelRead0(ChannelHandlerContext ctx, byte[] data) throws Exception {
+    public void channelRead0(ChannelHandlerContext ctx, byte[] data) {
 
         if( idle ){
             idle=false;
@@ -37,8 +38,6 @@ public class ModbusTCP extends TcpHandler{
             passed = p; // Store it
         }
         if( passed > 10 ){
-            if( debug )
-                Logger.info("delay passed: "+passed+" rec:"+data.length);
             index=0;
         }
         timeStamp = Instant.now().toEpochMilli();    		    // Store the timestamp of the received message
@@ -88,9 +87,6 @@ public class ModbusTCP extends TcpHandler{
             join.add(origin[data[7]]+reg+":"+(i0*256+i1));
             reg++;
         }
-        if(debug)
-            Logger.info( writable.id()+" -> " + Tools.fromBytesToHexString(rec,0,index));
-
         if( !targets.isEmpty() ){
             targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine(join.toString())));
             targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive

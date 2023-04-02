@@ -21,9 +21,6 @@ import java.util.concurrent.BlockingQueue;
 
 public class ModbusTCPStream extends TcpStream{
 
-    public ModbusTCPStream(String id, String ipport, BlockingQueue<Datagram> dQueue) {
-        super(id, ipport, dQueue);
-    }
     public ModbusTCPStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
 
@@ -63,7 +60,7 @@ public class ModbusTCPStream extends TcpStream{
 
         bootstrap.handler(new ChannelInitializer<SocketChannel>() {
             @Override
-            public void initChannel(SocketChannel ch) throws Exception {
+            public void initChannel(SocketChannel ch){
                 try{
                     ch.pipeline().addLast("framer", new FixedLengthFrameDecoder(1) );
                     ch.pipeline().addLast( "decoder", new ByteArrayDecoder() );
@@ -90,7 +87,7 @@ public class ModbusTCPStream extends TcpStream{
         f = bootstrap.connect(ipsock).awaitUninterruptibly();
         f.addListener((FutureListener<Void>) future -> {
             if (!f.isSuccess()) {
-                String cause = ""+future.cause();
+                String cause = String.valueOf(future.cause());
                 Logger.error( "Failed to connect to "+id+" : "+cause.substring(cause.indexOf(":")+1));
             }
         });

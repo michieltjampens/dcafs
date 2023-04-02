@@ -14,19 +14,15 @@ import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.FixedLengthFrameDecoder;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
-import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.tools.TimeTools;
 import util.tools.Tools;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 public class TcpStream extends BaseStream implements Writable {
 
@@ -36,26 +32,16 @@ public class TcpStream extends BaseStream implements Writable {
     Bootstrap bootstrap;        // Bootstrap for TCP connections
     static int bufferSize = 2048;     // How many bytes are stored before a dump
 
-    public TcpStream( String id, String ipport, BlockingQueue<Datagram> dQueue ){
-        super(id,dQueue);
-        this.id=id;
-
-        String ip = ipport.substring(0,ipport.lastIndexOf(":"));
-        int port = Tools.parseInt( ipport.substring(ipport.lastIndexOf(":")+1) , -1);
-    
-        ipsock = new InetSocketAddress( ip,port );
-        deli = new ByteBuf[]{ Unpooled.copiedBuffer( eol.getBytes())};
-    }
     public TcpStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
     }
-    public String getType(){
+    protected String getType(){
         return "tcp";
     }
     public Bootstrap setBootstrap( Bootstrap strap ){
         if( strap == null ){
             if(eventLoopGroup==null){
-                Logger.error("No eventloopgroup yet");
+                Logger.error(id+" -> No eventloopgroup yet");
                 return null;
             }
             bootstrap = new Bootstrap();
@@ -82,10 +68,10 @@ public class TcpStream extends BaseStream implements Writable {
         ChannelFuture f;
 
         if( eventLoopGroup==null){
-            Logger.error("Event loop group still null, can't connect to "+id);
+            Logger.error(id+ " -> Event loop group still null, can't connect");
             return false;
         }
-        Logger.info("Trying to connect to tcp: "+id);
+        Logger.info(id+" -> Trying to connect");
         if( bootstrap == null ){
             bootstrap = new Bootstrap();
             bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
@@ -104,7 +90,7 @@ public class TcpStream extends BaseStream implements Writable {
                         ch.pipeline().addLast("framer",  new DelimiterBasedFrameDecoder(bufferSize,deli) );
 
                     }else{
-                        Logger.error("Deli still null, assuming fixed size...");
+                        Logger.error(id + " -> Deli still null, assuming fixed size...");
                         ch.pipeline().addLast("framer", new FixedLengthFrameDecoder(3) );
                     }
                     ch.pipeline().addLast( "decoder", new ByteArrayDecoder() );
@@ -112,8 +98,9 @@ public class TcpStream extends BaseStream implements Writable {
                     boolean idle=false;
                     if( handler != null ) {
                         handler.disconnect();
-                        idle= handler.isIdle();
+                        idle= handler.isIdle(); // Keep this so it survives
                     }
+                    // For some reason the handler needs to be remade in order to restore the connection...
                     handler = new TcpHandler( id, dQueue, TcpStream.this );
                     handler.setPriority(priority);
                     handler.setTargets(targets);
@@ -124,20 +111,20 @@ public class TcpStream extends BaseStream implements Writable {
                         handler.flagAsIdle();
                     ch.pipeline().addLast( handler );
                 }catch( io.netty.channel.ChannelPipelineException e ){
-                    Logger.error("Issue trying to use handler for "+id);
+                    Logger.error(id + " -> Issue trying to use handler");
                     Logger.error( e );
                 }
             }
         });
         if( ipsock == null ){
-            Logger.error("No proper ipsock");
+            Logger.error(id+" -> No proper ipsock");
             return false;
         }
         f = bootstrap.connect(ipsock).awaitUninterruptibly();
         f.addListener((FutureListener<Void>) future -> {
             if (!f.isSuccess()) {
                 String cause = String.valueOf(future.cause());
-                Logger.error( "Failed to connect to "+id+" : "+cause.substring(cause.indexOf(":")+1));
+                Logger.error( id+" -> Failed to connect: "+cause.substring(cause.indexOf(":")+1));
             }
         });
         if (f.isCancelled()) {
@@ -146,6 +133,10 @@ public class TcpStream extends BaseStream implements Writable {
         return f.isSuccess();
     }
 
+    /**
+     * Disconnect the stream
+      * @return True if disconnected
+     */
     @Override
     public boolean disconnect() {
         if( handler!=null ){
@@ -153,6 +144,10 @@ public class TcpStream extends BaseStream implements Writable {
         } 
         return true;
     }
+
+    /**
+     * Flag this stream as idle
+     */
     protected void flagIdle(){
         if( handler!=null)
             handler.flagAsIdle();
@@ -167,7 +162,7 @@ public class TcpStream extends BaseStream implements Writable {
         // Address
         String address = XMLtools.getChildStringValueByTag( stream, "address", "");
         if( !address.contains(":") ){
-            Logger.error("Not proper ip:port for "+id+" -> "+address);
+            Logger.error(id+" -> Not proper ip:port -> "+address);
             return false;
         }else{
             ipsock = new InetSocketAddress( address.substring(0,address.lastIndexOf(":")),
@@ -176,18 +171,17 @@ public class TcpStream extends BaseStream implements Writable {
 
         // Alter eol
         if( eol.isEmpty() ){
-            Logger.error("No EOL defined for "+id);
+            Logger.error(id + " -> No EOL defined");
             return false;
         }
         deli = new ByteBuf[]{ Unpooled.copiedBuffer( eol.getBytes())};
         return true;
     }
 
-    @Override
-    public boolean writeExtraToXML(XMLfab fab) {
-        fab.alterChild("address",ipsock.getHostName()+":"+ipsock.getPort());
-        return true;
-    }
+    /**
+     * Get the timestamp of when the last data was received
+     * @return The time in epoch milles or -1 if invalid handler
+     */
     @Override
     public long getLastTimestamp() {
         return handler==null?-1:handler.timeStamp;

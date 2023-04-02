@@ -57,9 +57,6 @@ public class TcpServer implements StreamListener, Commandable {
 	public boolean isActive(){
 		return active;
 	}
-	public TcpServer(Path xml) {
-		this(xml, new NioEventLoopGroup());
-	}
 
 	/**
 	 * Change the port of the server

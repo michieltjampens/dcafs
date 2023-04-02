@@ -22,11 +22,6 @@ public class SerialStream extends BaseStream implements Writable {
     protected SerialPort serialPort;
     String port ="";
 
-    public SerialStream(String id, String port, BlockingQueue<Datagram> dQueue) {
-        super(id, dQueue);
-        setPort(port);
-    }
-
     public SerialStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
     }
@@ -172,10 +167,6 @@ public class SerialStream extends BaseStream implements Writable {
         // Log anything and everything (except empty strings)
         if( !msg.isBlank() && log ) {        // If the message isn't an empty string and logging is enabled, store the data with logback
             Logger.tag("RAW").warn( id + "\t" + msg);
-        }
-        if(debug) {
-            Logger.info(id + " -> " + msg);
-            Logger.info(Tools.fromBytesToHexString(msg.getBytes()));
         }
 
         // Implement the use of labels
@@ -376,15 +367,8 @@ public class SerialStream extends BaseStream implements Writable {
         return true;
     }
     @Override
-    protected boolean writeExtraToXML(XMLfab fab) {
-        fab.alterChild("serialsettings",getSerialSettings());
-        fab.alterChild("port",serialPort.getSystemPortName());
-        return true;
-    }
-    @Override
     public long getLastTimestamp() {
         return timestamp;
     }
-
 
 }

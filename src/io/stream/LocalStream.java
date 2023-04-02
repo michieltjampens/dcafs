@@ -1,9 +1,11 @@
 package io.stream;
 
 import io.Writable;
+import org.json.XML;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLfab;
+import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.time.Instant;
@@ -15,6 +17,11 @@ public class LocalStream extends BaseStream implements Writable {
 
     public LocalStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
+        if( stream!=null){
+            var src = XMLtools.getStringAttribute(stream,"src","");
+            if( !src.isEmpty())
+                triggeredActions.add(new TriggerAction(TRIGGER.OPEN, src));
+        }
     }
 
     @Override
@@ -22,15 +29,6 @@ public class LocalStream extends BaseStream implements Writable {
         return false;
     }
 
-    @Override
-    protected boolean writeExtraToXML(XMLfab fab) {
-        return false;
-    }
-
-    public LocalStream( String id,  String source, BlockingQueue<Datagram> dQueue){
-        super(id,dQueue);
-        triggeredActions.add(new TriggerAction(TRIGGER.OPEN, source));
-    }
     @Override
     public boolean writeString(String data) {
         return processData(data);
@@ -57,8 +55,6 @@ public class LocalStream extends BaseStream implements Writable {
                 var d = Datagram.build(msg).priority(priority).label(label).writable(this);
                 dQueue.add(d);
             }
-           if(debug)
-               Logger.info( id() +" -> " + msg);
             // Log anything and everything (except empty strings)
             if( !msg.isBlank() && log )		// If the message isn't an empty string and logging is enabled, store the data with logback
         	    Logger.tag("RAW").warn( id() + "\t" + msg );
