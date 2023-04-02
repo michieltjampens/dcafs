@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<dcafs>
+  <!-- GPS -->
+  <path delimiter="," id="gps">
+        <!-- Global filter, check if data received is valid nmea  -->
+      <filter id="nmea" type="nmea"/>
+	  
+      <!-- First process GGA string -->
+      <filter id="gga" type="start">$GPGGA</filter>
+      <editor>
+        <!-- In: $GPGGA,204418.00,5113.583474,N,00256.13867,E,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
+        <edit from="HHmmss.SS" index="1" type="retime">HH:mm:ss.SSS</edit>
+        <edit find="[NE]" type="rexreplace">1</edit>
+        <edit find="[SW]" type="rexreplace">-1</edit>
+        <edit type="listreplace" index="6">None,GPS,DGPS,PPS,RTK,fRTK,Estimated,Manual,Unknown</edit>
+        <!-- Out: $GPGGA,20:44:18.000,51.22639123,1,2.93564450,1,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
+      </editor>
+      <math>
+        <!-- In: $GPGGA,204418.00,5113.583474,N,00256.13867,E,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
+        <op scale="8">i2=i3*((i2-(i2%100))/100+(i2%100)/60)</op>
+        <op scale="8">i4=i5*((i4-(i4%100))/100+(i4%100)/60)</op>
+        <!-- Out: $GPGGA,20:44:18.000,5113.583474,1,00256.13867,1,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
+      </math>
+      <store> <!-- Store without group specified, so group will be 'rtk' (id of the path) -->
+        <text index="1">fixtime</text> <!-- Timestamp of last gps fix -->
+        <real index="2" def="0" unit="°">latitude</real> <!-- latitude with unit ° -->
+        <real index="4" def="0" unit="°">longitude</real><!-- longitude with unit ° -->
+        <text index="6" def="None">fix</text> <!-- Type of GPS fix if any -->
+      </store>
+      <!-- Store also means the end of the gga filter, next item gets discarded data -->
+
+    <!-- Process ZDA line -->
+    <filter type="start">$GPZDA</filter>
+    <editor>
+      <!-- In: $GPZDA,204418.00,16,05,2021,,*6E -->
+      <edit from="HHmmss.SS" index="1" type="retime">HH:mm:ss.SSS</edit>
+      <edit leftover="remove" type="resplit">i4-i3-i2 i1</edit>
+      <!-- Out:  2021-05-16 20:44:18.000 -->
+    </editor>
+    <store>
+      <text index="0">timestamp</text>
+    </store>
+	<!-- Store also means the end of the zda filter, next item gets discarded data -->
+	
+    <!-- Process GPVTG line-->
+    <filter type="start">$GPVTG</filter>
+    <store>
+      <real def="0" index="1" unit="°">cog</real>
+      <real def="0" index="5" unit="kn">sogknots</real>
+      <real def="0" index="7" unit="m/s">sogms</real>
+    </store>
+   
+  </path>
+</dcafs>
