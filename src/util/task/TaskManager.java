@@ -1266,7 +1266,7 @@ public class TaskManager implements CollectorFuture {
 		public void run() {
 			if( !waitForRestore.isEmpty() ){				
 				for( String channel : waitForRestore ){					
-					if( streams.isStreamOk(channel) ){
+					if( streams.isStreamOk(channel,false) ){
 						waitForRestore.remove(channel);						
 						Logger.tag(TINY_TAG).info("'"+channel+"' restored, checking interval tasks");
 						recheckIntervalTasks();

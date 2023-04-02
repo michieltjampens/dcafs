@@ -20,6 +20,8 @@ public class ValStore {
     /* * MAPPED * */
     private boolean map=false;
     private final HashMap<String,AbstractVal> valMap = new HashMap<>();
+    private boolean idleReset=false;
+
     private String lastKey=""; // Last key trigger db store
     public ValStore(String id){
         this.id=id;
@@ -46,6 +48,9 @@ public class ValStore {
     public void addVals( ArrayList<AbstractVal> rtvals){
         this.rtvals.addAll(rtvals);
     }
+    public void setIdleReset( boolean state){
+        this.idleReset=state;
+    }
     public static Optional<ValStore> build( Element store, String id){
 
         if( id.isEmpty() && !store.hasAttribute("group"))  {
@@ -58,6 +63,8 @@ public class ValStore {
         String groupID = XMLtools.getStringAttribute(store,"group",id);
         valStore.mapFlag(XMLtools.getBooleanAttribute(store,"map",false));
         valStore.delimiter( XMLtools.getStringAttribute(store,"delimiter",valStore.delimiter())); // delimiter
+        valStore.setIdleReset( XMLtools.getBooleanAttribute(store,"idlereset",false));
+
         // Checking for database connection
         if ( store.hasAttribute("db")) {
             var db = store.getAttribute("db").split(":");
@@ -214,9 +221,9 @@ public class ValStore {
     public boolean mapped(){
         return map;
     }
-    public boolean putAbstractVal( String key, AbstractVal val){
+    public void putAbstractVal(String key, AbstractVal val){
         lastKey=key;
-        return valMap.put(key,val)==null;
+        valMap.put(key, val);
     }
     public int mapSize(){
         return valMap.size();
@@ -288,6 +295,18 @@ public class ValStore {
         if( val == null)
             return;
         val.parseValue(d);
+    }
+    public void resetValues(){
+        for( var val : rtvals ){
+            val.resetValue();
+        }
+        for( var val : valMap.values() ){
+            val.resetValue();
+        }
+    }
+    public void doIdle(){
+        if( idleReset )
+            resetValues();
     }
     public String toString(){
         var join = new StringJoiner("\r\n");

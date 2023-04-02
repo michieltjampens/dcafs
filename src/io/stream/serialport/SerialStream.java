@@ -22,11 +22,6 @@ public class SerialStream extends BaseStream implements Writable {
     protected SerialPort serialPort;
     String port ="";
 
-    public SerialStream(String id, String port, BlockingQueue<Datagram> dQueue) {
-        super(id, dQueue);
-        setPort(port);
-    }
-
     public SerialStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
     }
@@ -99,7 +94,7 @@ public class SerialStream extends BaseStream implements Writable {
             serialPort.addDataListener(new MessageListener(eol));
         }
     }
-
+    protected void flagIdle(){}
     private final class MessageListener implements SerialPortMessageListenerWithExceptions {
 
         byte[] deli;
@@ -137,6 +132,11 @@ public class SerialStream extends BaseStream implements Writable {
         Logger.debug(id+ " <-- "+Tools.fromBytesToHexString(data));
         Logger.tag("RAW").warn(id() + "\t" + Tools.fromBytesToHexString(data));
 
+        if( readerIdle ){
+            listeners.forEach( l -> l.notifyActive(id));
+            readerIdle=false;
+        }
+
         if( !targets.isEmpty() ){
             try {
                 targets.forEach(dt -> eventLoopGroup.submit(()-> {
@@ -160,14 +160,13 @@ public class SerialStream extends BaseStream implements Writable {
     }
     protected void processMessageEvent(byte[] data){
         String msg = new String(data).replace(eol, "");
-
+        if( readerIdle ){
+            listeners.forEach( l -> l.notifyActive(id));
+            readerIdle=false;
+        }
         // Log anything and everything (except empty strings)
         if( !msg.isBlank() && log ) {        // If the message isn't an empty string and logging is enabled, store the data with logback
             Logger.tag("RAW").warn( id + "\t" + msg);
-        }
-        if(debug) {
-            Logger.info(id + " -> " + msg);
-            Logger.info(Tools.fromBytesToHexString(msg.getBytes()));
         }
 
         // Implement the use of labels
@@ -265,20 +264,6 @@ public class SerialStream extends BaseStream implements Writable {
         serialPort.setBaudRate(baudrate);
     }
 
-    public static boolean portExists( String port ){
-        for( SerialPort p : SerialPort.getCommPorts() ){
-            if( p.getSystemPortName().equalsIgnoreCase(port))
-                return true;
-        }
-        return false;
-    }
-    public static String portList( ){
-        StringJoiner join = new StringJoiner(", ");
-        join.setEmptyValue("No serial ports found.");        
-        for( SerialPort p : SerialPort.getCommPorts() )
-            join.add(p.getSystemPortName());
-        return join.toString();
-    }
     /* ************************************** W R I T I N G ************************************************************/
     /**
      * Sending data that will be appended by the default newline string.
@@ -313,16 +298,6 @@ public class SerialStream extends BaseStream implements Writable {
     @Override
     public synchronized boolean writeBytes(byte[] data) {
          return write(data);
-    }
-    /**
-     * Sending a hexidecimal value
-     * 
-     * @param value The hex to send
-     * @return True If nothing was wrong with the connection
-     */
-    public synchronized boolean writeHex(int value) {
-        byte[] ar = { (byte) value };
-        return write(ar);
     }
 
     /**
@@ -392,15 +367,8 @@ public class SerialStream extends BaseStream implements Writable {
         return true;
     }
     @Override
-    protected boolean writeExtraToXML(XMLfab fab) {
-        fab.alterChild("serialsettings",getSerialSettings());
-        fab.alterChild("port",serialPort.getSystemPortName());
-        return true;
-    }
-    @Override
     public long getLastTimestamp() {
         return timestamp;
     }
-
 
 }

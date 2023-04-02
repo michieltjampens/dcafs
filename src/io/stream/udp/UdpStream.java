@@ -4,8 +4,6 @@ import io.stream.BaseStream;
 import io.Writable;
 import io.stream.tcp.TcpHandler;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -17,7 +15,6 @@ import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.Tools;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -26,30 +23,21 @@ import java.util.concurrent.BlockingQueue;
 
 public class UdpStream extends BaseStream implements Writable {
 
-    TcpHandler handler;
-    InetSocketAddress ipsock;
+    private TcpHandler handler;
+    private InetSocketAddress ipsock;
+    private Bootstrap bootstrapUDP;		// Bootstrap for TCP connections
+    private EventLoopGroup group;		    // Eventloop used by the netty stuff
 
-    ByteBuf[] deli = new ByteBuf[]{ Unpooled.copiedBuffer(new byte[]{13,10}), Unpooled.copiedBuffer(new byte[]{10,13}) };
-    Bootstrap bootstrapUDP;		// Bootstrap for TCP connections
-    EventLoopGroup group;		    // Eventloop used by the netty stuff
-
-    static int bufferSize = 4096; 	// How many bytes are stored before a dump
-
-    public UdpStream( String id, String ipport, BlockingQueue<Datagram> dQueue ){
-        super(id,dQueue);
-        this.id=id;
-
-        String ip = ipport.substring(0,ipport.lastIndexOf(":"));
-        int port = Tools.parseInt( ipport.substring(ipport.lastIndexOf(":")+1) , -1);
-    
-        ipsock = new InetSocketAddress( ip,port );
-    }
     public UdpStream( BlockingQueue<Datagram> dQueue, Element stream  ){
-        this.dQueue=dQueue;
-        readFromXML(stream);
+        super(dQueue,stream);
     }
     protected String getType(){
         return "udp";
+    }
+
+    @Override
+    protected void flagIdle() {
+
     }
     public Bootstrap setBootstrap( Bootstrap strap ){
         if( strap == null ){
@@ -102,7 +90,7 @@ public class UdpStream extends BaseStream implements Writable {
             if (f.isSuccess()) {
                 Logger.info("Operation complete");
             } else {
-                String cause = ""+future.cause();
+                String cause = String.valueOf(future.cause());
                 Logger.error( "ISSUE TRYING TO CONNECT to "+id+" : "+cause);
             }
         });
@@ -139,16 +127,8 @@ public class UdpStream extends BaseStream implements Writable {
             Logger.error("No EOL defined for "+id);
             return false;
         }
-        deli = new ByteBuf[]{ Unpooled.copiedBuffer( eol.getBytes())};
         return true;
     }
-
-    @Override
-    protected boolean writeExtraToXML(XMLfab fab) {
-        fab.alterChild("address",ipsock.getHostName()+":"+ipsock.getPort());
-        return true;
-    }
-
     @Override
     public long getLastTimestamp() {
         return handler==null?-1:handler.getTimestamp();

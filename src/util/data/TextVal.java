@@ -104,6 +104,12 @@ public class TextVal extends AbstractVal{
         this.def=def;
     }
     public String stringValue(){ return value;}
+
+    @Override
+    public void resetValue() {
+        value=def;
+    }
+
     public TextVal value( String val){
 
         /* Keep history of passed values */

@@ -42,38 +42,35 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	private final BlockingQueue<Datagram> dQueue; // Holds the data for the DataWorker
 
-	// Netty 
-	private Bootstrap bootstrapTCP;		// Bootstrap for TCP connections
-	private Bootstrap bootstrapUDP;	  	// Bootstrap for UDP connections
+	// Netty
+	private Bootstrap bootstrapTCP;        // Bootstrap for TCP connections
+	private Bootstrap bootstrapUDP;          // Bootstrap for UDP connections
 
-	private final EventLoopGroup eventLoopGroup;	// Event loop used by the netty stuff
+	private final EventLoopGroup eventLoopGroup;    // Event loop used by the netty stuff
 
-	private final IssuePool issues;			// Handles the issues/problems that arise
-	private int retryDelayMax = 30;			// The minimum time between reconnection attempts
-	private int retryDelayIncrement = 5;	// How much the delay increases between attempts
+	private final IssuePool issues;            // Handles the issues/problems that arise
+	private int retryDelayMax = 30;            // The minimum time between reconnection attempts
+	private int retryDelayIncrement = 5;    // How much the delay increases between attempts
 
 	private final HashMap<String, ConfirmCollector> confirmCollectors = new HashMap<>();
 
 	private final LinkedHashMap<String,BaseStream> streams = new LinkedHashMap<>();
 
 	private Path settingsPath = Path.of("settings.xml"); // Path to the xml file
-	private boolean debug = false; // Whether in debug mode, gives more feedback
-
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // scheduler for the connection attempts
-	private static final String XML_PARENT_TAG="streams";
-	private static final String XML_CHILD_TAG="stream";
+
 	private final RealtimeValues rtvals;
 
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
-	static String[] SERIAL={"serial","modbus"};
 	static String[] NEWSTREAM={"addserial","addmodbus","addtcp","addudpclient","addlocal","addudpserver"};
 
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
 		this.dQueue = dQueue;
-		this.issues = issues;	
+		this.issues = issues;
 		this.eventLoopGroup = nettyGroup;
 		this.rtvals=rtvals;
 	}
+
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, RealtimeValues rtvals) {
 		this(dQueue,issues, new NioEventLoopGroup(), rtvals);
 	}
@@ -96,6 +93,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		// Get the stream, check if it's writable if so get the writable and has a valid connection or return an empty optional
 		return Optional.ofNullable( streams.get(id.toLowerCase()) ).filter( bs -> bs.isWritable() && bs.isConnectionValid() );
 	}
+
 	/**
 	 * Get the Writable of the stream associated with the id as an optional
 	 * @param id The stream to look for
@@ -104,13 +102,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public Optional<Writable> getWritable(String id ){
 		// Get the stream, check if it's writable if so get the writable or return an empty optional if not
 		return getStream(id).filter(BaseStream::isWritable).map(bs -> (Writable) bs);
-		//TODO Check if this still works
 	}
 
 	/* **************************** S T A T U S ************************************************************************/
+
 	/**
 	 * Request a string holding info regarding the status of each connection
-	 * 
+	 *
 	 * @return A string holding info regarding the status of each connection.
 	 */
 	public String getStatus() {
@@ -138,13 +136,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	/**
 	 * Request information regarding the settings of all the connections, this is
 	 * very rudimentary.
-	 * 
+	 *
 	 * @return The label, id, address and TTL of each stream
 	 */
 	public String getSettings() {
 		StringJoiner join = new StringJoiner("\r\n");
 		streams.values().forEach(
-			stream -> join.add( stream.getInfo() + " Max. TTL:" + TimeTools.convertPeriodtoString(stream.readerIdleSeconds,TimeUnit.SECONDS))
+				stream -> join.add( stream.getInfo() + " Max. TTL:"
+						+ TimeTools.convertPeriodtoString(stream.readerIdleSeconds,TimeUnit.SECONDS))
 		);
 		return join.toString();
 	}
@@ -165,9 +164,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		return join.toString();
 	}
+
 	/**
 	 * Retrieve the contents of the confirm/reply buffer from the various streams
-	 * Mainly used for debugging
 	 * @return Contents of the confirm/reply buffer from the various streams
 	 */
 	public String getConfirmBuffers() {
@@ -175,9 +174,31 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.id()).add( cw.getStored().length() == 0 ? " empty" : cw.getStored()));
 		return join.toString();
 	}
-	/* *************************************  S E T U P **************************************************************/
+
 	/**
-	 * Disconnect all connections
+	 * Request the amount of registered streams
+	 *
+	 * @return Amount of registered streams
+	 */
+	public int getStreamCount() {
+		return streams.size();
+	}
+
+	/**
+	 * Get the id of the stream based on the index in the hashmap
+	 *
+	 * @param index The index in the hashmap to retrieve
+	 * @return The ID of the stream on the index position or empty of bad index
+	 */
+	public String getStreamID( int index ) {
+		if( index ==-1 || index >= streams.size() )
+			return "";
+		return (String)streams.keySet().toArray()[index];
+	}
+	/* *************************************  S E T U P **************************************************************/
+
+	/**
+	 * Disconnect all streams
 	 */
 	public void disconnectAll() {
 		streams.forEach((k,v) -> v.disconnect() );
@@ -185,6 +206,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	}
 
 	/* ********************************** W R I T I N G **************************************************************/
+
 	/**
 	 * Send bytes over a specified stream
 	 * @param id The name/title of the stream
@@ -204,9 +226,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				reloadStream(id);
 				return "";
 			}
-			if( debug )
-				Logger.info("Sending '"+Tools.fromBytesToHexString(txt) + "' to " + stream );
-
 			Writable wr = (Writable)stream;
 			wr.writeBytes( txt );
 			return new String(txt);
@@ -228,6 +247,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public boolean writeWithReply(CollectorFuture wf, String ref, String id, String txt, String reply){
 		return writeWithReply(wf,ref,id,txt,reply,3,3);
 	}
+
 	public boolean writeWithReply(CollectorFuture wf, String ref, String id, String txt, String reply,long replyWait,int replyTries){
 		BaseStream stream = this.streams.get( id.toLowerCase() );
 
@@ -235,7 +255,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			Logger.error( "Stream still null, not writable or no valid connection (looking for "+id+")");
 			return false;
 		}
-		
+
 		ConfirmCollector cw = confirmCollectors.get(ref+"_"+id);
 		if( cw==null ){
 			cw = new ConfirmCollector( ref+"_"+id,replyTries,(int)replyWait, (Writable)stream, eventLoopGroup);
@@ -246,6 +266,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		cw.addConfirm(txt.split(";"), reply);
 		return true;
 	}
+
 	/**
 	 * Standard way of writing ascii data to a channel, with or without requesting a certain reply
 	 * @param id The id of the stream to write to
@@ -311,29 +332,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			return "";
 		}
 	}
-	/**
-	 * Request the amount of registered streams
-	 * 
-	 * @return Amount of registered streams
-	 */
-	public int getStreamCount() {
-		return streams.size();
-	}
-	/**
-	 * Get the id of the stream based on the index in the hashmap
-	 * 
-	 * @param index The index in the hashmap to retrieve
-	 * @return The ID of the stream on the index position or empty of bad index
-	 */
-	public String getStreamID( int index ) {
-		if( index ==-1 || index >= streams.size() )
-			return "";
-		return (String)streams.keySet().toArray()[index];
-	}
+
 	/* ************************************************************************************************* */
+
 	/**
 	 * Reload the settings of a stream and re-initialize
-	 * 
+	 *
 	 * @param id ID of the stream to reload
 	 * @return True if reload was successful
 	 */
@@ -364,15 +368,21 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			return "Loading new stream.";
 		}
 	}
+
+	/**
+	 * Reload the store of the specified stream, if it exists
+	 * @param id The id of the stream that might contain a store
+	 * @return True if reloaded
+	 */
 	public boolean reloadStore( String id ){
-		var baseOpt = getStream(id);
 		// meaning reloading an existing one
-		return baseOpt.map(baseStream -> baseStream.reloadStore(settingsPath, rtvals)).orElse(false);
+		return getStream(id).map(baseStream -> baseStream.reloadStore(settingsPath, rtvals)).orElse(false);
 	}
-	/* ***************************** A D D I N G C H A N N E L S ******************************************/
+	/* ***************************** A D D I N G  S T R E A M S  ******************************************/
+
 	/**
 	 * Add the streams by reading the settings.xml
-	 * 
+	 *
 	 * @param settingsPath The path to the settings.xml
 	 */
 	public void readSettingsFromXML( Path settingsPath ) {
@@ -390,19 +400,20 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		XMLtools.getFirstElementByTag( settingsPath, "streams").ifPresent( ele -> {
 			retryDelayIncrement = XMLtools.getChildIntValueByTag(ele, "retrydelayincrement", 5);
-			retryDelayMax = XMLtools.getChildIntValueByTag(ele, "retrydelaymax", 60);
+			retryDelayMax = XMLtools.getChildIntValueByTag(ele, "retrydelaymax", 90);
 
-			for( Element el : XMLtools.getChildElements( ele, XML_CHILD_TAG)){
+			for( Element el : XMLtools.getChildElements( ele, "stream")){
 				BaseStream bs = addStreamFromXML(el);
 				bs.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
 				streams.put(bs.id().toLowerCase(), bs);
 			}
 		});
 	}
+
 	/**
-	 * Add a single channel from an XML element
-	 * 
-	 * @param stream The element containing the channel information
+	 * Add a single stream from an XML element
+	 *
+	 * @param stream The element containing the stream information
 	 */
 	public BaseStream addStreamFromXML( Element stream ){
 		var type = stream.getAttribute("type").toLowerCase();
@@ -412,6 +423,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				tcp.setEventLoopGroup(eventLoopGroup);
 				tcp.addListener(this);
 				bootstrapTCP = tcp.setBootstrap(bootstrapTCP);
+				if (tcp.getReaderIdleTime() != -1) {
+					scheduler.schedule(new ReaderIdleTimeoutTask(tcp), tcp.getReaderIdleTime(), TimeUnit.SECONDS);
+				}
 				tcp.reconnectFuture = scheduler.schedule(new DoConnection(tcp), 0, TimeUnit.SECONDS);
 				return tcp;
 			}
@@ -433,8 +447,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "serial" -> {
 				SerialStream serial = new SerialStream(dQueue, stream);
 				serial.setEventLoopGroup(eventLoopGroup);
-				if (serial.readerIdleSeconds != -1) {
-					scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.readerIdleSeconds, TimeUnit.SECONDS);
+				if (serial.getReaderIdleTime() != -1) {
+					scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
 				}
 				serial.addListener(this);
 				serial.reconnectFuture = scheduler.schedule(new DoConnection(serial), 0, TimeUnit.SECONDS);
@@ -480,45 +494,22 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		return null;
 	}
-	/**
-	 * Stores the settings of a stream to the settings.xml. Writing isn't done if the address is already in use by a different stream.
-	 * If a stream with the name is already present, unless overwrite = true writing is aborted
-	 * @param id The id of the stream to write
-	 * @param overwrite If true an existing element with that id will be removed
-	 * @return True if ok, false if failed or aborted
-	 */
-	public boolean addStreamToXML( String id, boolean overwrite ){
-		BaseStream stream = streams.get(id.toLowerCase());
-		if( stream == null){
-			Logger.warn("No such stream to write to xml "+id);
-			return false;
-		}
-
-		// Check if it already exists (based on id and address?)
-		XMLfab fab = XMLfab.withRoot(settingsPath, "dcafs",XML_PARENT_TAG);
-		boolean exists = fab.hasChild(XML_CHILD_TAG, "id", stream.id() ).isPresent();
-
-		if( exists && !overwrite ){
-			Logger.warn("Already such stream ("+id+") in the settings.xml, not overwriting");
-			return false;
-		}
-		stream.writeToXML(fab);
-		return fab.build();
-	}
 	/* ************************************************************************************************* **/
+
 	/**
 	 * Class that handles making a connection to a channel
 	 */
 	public class DoConnection implements Runnable {
-		
+
 		BaseStream base;
 
 		public DoConnection( BaseStream base ){
 			this.base = base;
 			base.reconnecting=true;
-		}		
+		}
+
 		@Override
-		public void run() {	
+		public void run() {
 			try{
 				if( base==null) {
 					Logger.error("Can't reconnect if the object isn't valid");
@@ -528,8 +519,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if( base.connect() ){
 					base.reconnecting=false;
 					return; //if Ok, nothing else to do?
-				} 
-			
+				}
+
 				int delay = retryDelayIncrement*(base.connectionAttempts+1);
 				if( delay > retryDelayMax )
 					delay = retryDelayMax;
@@ -538,18 +529,19 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if( issues!=null )
 					issues.addIfNewAndStart(device+".conlost", "Connection lost to "+base.id());
 				base.reconnectFuture = scheduler.schedule( new DoConnection( base ), delay, TimeUnit.SECONDS );
-			} catch (Exception ex) {		
+			} catch (Exception ex) {
 				Logger.error( "Connection thread interrupting while trying to connect to "+base.id());
 				Logger.error( ex );
 			}
 		}
 	}
 	/* ************************** * C H E C K I N G   S T R E A M S  ************************************/
+
 	/**
 	 * Check if the stream is still ok/connected and maybe reconnect
 	 * @param id The stream to check
 	 * @param reconnect If true and not connected, a reconnect attempt will be made
-	 * @return True if ok 
+	 * @return True if ok
 	 */
 	public boolean isStreamOk( String id, boolean reconnect ){
 		BaseStream base = streams.get(id.toLowerCase());
@@ -562,15 +554,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			this.reloadStream(id);
 		return alive;
 	}
-	/**
-	 * Check if the stream is still ok/connected
-	 * @param id The stream to check
-	 * @return True if the stream is ok/connected
-	 */
-	public boolean isStreamOk( String id ){
-		return isStreamOk(id,false);
-	}
-
 	/* ***************************************************************************************************** */
 	@Override
 	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
@@ -578,7 +561,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		return switch( find ) {
 			case "ss", "streams" -> replyToStreamCommand(args, html);
 			case "raw","stream" -> {
-				var res = addForwarding(args,wr);
+				var res = addTargetRequest(args,wr);
 				yield (res?"":"! ")+"Request for "+cmd+":"+args+" "+(res?"ok":"failed");
 			}
 			case "s_","h_" -> doSorH( cmd,args );
@@ -586,10 +569,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			default -> "Unknown Command";
 		};
 	}
+
 	private static void addBaseToXML( XMLfab fab, String id, String type ){
 		fab.addChild("stream").attr("id", id).attr("type", type).down();
 		fab.addChild("eol", "crlf");
 	}
+
 	/**
 	 * The streampool can give replies to certain predetermined questions
 	 * @param request The question to ask
@@ -630,6 +615,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 							.add(green + " ss:addserial,id,port,baudrate" + reg + " -> Add a serial stream to xml and try to connect")
 							.add(green + " ss:addlocal,id,source " + reg + "-> Add a internal stream that handles internal data");
 					join.add("").add(cyan + "Info about all streams" + reg)
+							.add(green + " ss "+reg+"-> Get a list of all streams with indexes for sending data")
 							.add(green + " ss:buffers " + reg + "-> Get confirm buffers.")
 							.add(green + " ss:status " + reg + "-> Get streamlist.")
 							.add(green + " ss:requests " + reg + "-> Get an overview of all the datarequests held by the streams");
@@ -662,6 +648,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				case "status" -> {
 					return getStatus();
 				}
+				case "" ->{
+					return getStreamList(html);
+				}
 				default -> {
 					return "! No such cmd in ss: " + cmds[0];
 				}
@@ -679,16 +668,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			fab = fabOpt.get();
 			var type = cmds[0].substring(3);
 
-			BaseStream base;
 			switch (type) {
 				case "tcp", "udpclient" -> {
 					if (cmds.length != 3)
 						return "! Not enough arguments: ss:" + cmds[0] + ",id,ip:port";
 					addBaseToXML(fab, cmds[1], type);
-					fab.addChild("address", cmds[2])
-							.build();
-
-					base = addStreamFromXML(fab.getCurrentParent());
+					fab.addChild("address", cmds[2]).build();
 				}
 				case "serial", "modbus" -> {
 					if (cmds.length < 3)
@@ -697,7 +682,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					fab.addChild("port", cmds[2]);
 					fab.addChild("serialsettings", (cmds.length == 4 ? cmds[3] : "19200") + ",8,1,none")
 							.build();
-					base = addStreamFromXML(fab.getCurrentParent());
+				}
+				case "local"->{
+					addBaseToXML(fab, cmds[1], type);
+					if( cmds.length==3)
+						fab.attr("src",cmds[2]);
+					fab.build();
 				}
 				case "udpserver" -> {
 					if (cmds.length != 3) // Make sure we got the correct amount of arguments
@@ -705,24 +695,15 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					new UdpServer(cmds[1], Integer.parseInt(cmds[2]), dQueue);
 					return "Started udp server (probably)";
 				}
-				case "local"->{
-					if (cmds.length != 3) // Make sure we got the correct amount of arguments
-						return "! Wrong amount of arguments -> ss:addlocal,id,source";
-					LocalStream local = new LocalStream(cmds[1], cmds[2], dQueue);
-					local.addListener(this);
-					streams.put(cmds[1], local);
-					addStreamToXML(cmds[1], true);
-					return "Local stream added";
-				}
 				default -> {
 					return "! Invalid option";
 				}
 			}
+			var base = addStreamFromXML(fab.getCurrentParent());
 			if( base != null){
 				try{
 					base.reconnectFuture.get(2,TimeUnit.SECONDS);
 					streams.put( cmds[1], base );
-					addStreamToXML(cmds[1],true);
 				}catch(CancellationException | ExecutionException | InterruptedException | TimeoutException e){
 					return "! Failed to connect.";
 				}
@@ -847,11 +828,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					if (cmds.length != 3) // Make sure we got the correct amount of arguments
 						return "! Wrong amount of arguments -> ss:fromid,tunnel,toid";
 
-					int s1_ok = getWritable(cmds[1]).map(wr -> addForwarding(cmds[2], wr) ? 1 : 0).orElse(-1);
+					int s1_ok = getWritable(cmds[1]).map(wr -> addTargetRequest(cmds[2], wr) ? 1 : 0).orElse(-1);
 					if (s1_ok != 1)
 						return s1_ok == -1 ? "! No writable " + cmds[1] : "! No such source " + cmds[2];
 
-					int s2_ok = getWritable(cmds[2]).map(wr -> addForwarding(cmds[0], wr) ? 1 : 0).orElse(-1);
+					int s2_ok = getWritable(cmds[2]).map(wr -> addTargetRequest(cmds[0], wr) ? 1 : 0).orElse(-1);
 					if (s2_ok != 1)
 						return s2_ok == -1 ? "! No writable " + cmds[1] : "! No such source " + cmds[1];
 
@@ -860,7 +841,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				case "link" -> {
 					if (cmds.length != 3) // Make sure we got the correct amount of arguments
 						return "! Wrong amount of arguments -> ss:id,link,toid";
-					dQueue.add(Datagram.system(cmds[2]).writable(getWritable(cmds[0]).get()));
+					getWritable(cmds[0]).ifPresent( wr -> dQueue.add(Datagram.system(cmds[2]).writable(wr)));
 					return "Tried enabling the forward from " + cmds[0] + " to " + cmds[2];
 				}
 				default -> {
@@ -871,67 +852,28 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	}
 
 	/**
-	 * Listener stuff
-	 *
+	 * Checks for a stream that starts with id and adds the given writable to its targets
+	 * @param id The (start of) the stream id
+	 * @param writable The target to write to
+	 * @return True if ok
 	 */
-	@Override
-	public void notifyIdle( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStart(device+".conidle", "TTL passed for "+id);
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.IDLE));
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.WAKEUP));
-	}
-	@Override
-	public boolean notifyActive(String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStop(device+".conidle", "TTL passed for "+id);
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.IDLE_END));
-		return true;
-	}
-	@Override
-	public void notifyOpened( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStop(device+".conlost", "Connection lost to "+id);
-
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.HELLO));
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.OPEN));
-
-	}
-	@Override
-	public void notifyClosed( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStart(device+".conlost", "Connection lost to "+id);
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.CLOSE));
-	}
-	@Override
-	public boolean requestReconnection( String id ) {
-		BaseStream bs = streams.get(id.toLowerCase());
-		if( bs == null){
-			Logger.error("Bad id given for reconnection request: "+id);
+	public boolean addTargetRequest(String id, Writable writable) {
+		var remove = id.startsWith("!"); // Remove a writable instead of adding it
+		if( writable==null){
+			Logger.error("Received request for "+id+" but writable is null");
 			return false;
 		}
-		Logger.error("Requesting reconnect for "+bs.id());
-		if( bs.reconnectFuture==null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0 ){
-			bs.reconnectFuture = scheduler.schedule( new DoConnection( bs ), 5, TimeUnit.SECONDS );
-			return true;
-		}
-		return false;
-	}
 
-	/* 	--------------------------------------------------------------------	*/
-	public boolean addForwarding(String cmd, Writable writable) {
-		var remove = cmd.startsWith("!");
-		if( writable != null ){
-			Logger.info("Received "+(remove?"removal":"data request")+" from "+writable.id()+" for "+cmd);
-		}else if( cmd.startsWith("email") ){
-			Logger.info("Received request through email for "+cmd);
+		Logger.info("Received "+(remove?"removal":"data request")+" from "+writable.id()+" for "+id);
+		if(writable.id().startsWith("email") ){
+			Logger.info("Received request through email for "+id);
 		}
 
 		if( remove ) {
-			getStream(cmd.substring(1)).ifPresent( bs -> bs.removeTarget(writable));
+			getStream(id.substring(1)).ifPresent( bs -> bs.removeTarget(writable));
 		}else{
-			if( !getStream(cmd).map( bs -> bs.addTarget(writable) ).orElse(false) ) {
-				var stream = streams.entrySet().stream().filter(set -> set.getKey().startsWith(cmd))
+			if( !getStream(id).map( bs -> bs.addTarget(writable) ).orElse(false) ) {
+				var stream = streams.entrySet().stream().filter(set -> set.getKey().startsWith(id))
 						.map(Map.Entry::getValue).findFirst();
 				if(stream.isEmpty())
 					return false;
@@ -940,7 +882,22 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		return true;
 	}
+	/**
+	 * Remove the given writable from the various sources
+	 * @param wr The writable to remove
+	 * @return True if any were removed
+	 */
+	public boolean removeWritable(Writable wr) {
+		if( wr==null)
+			return false;
 
+		boolean removed=false;
+		for( BaseStream bs : streams.values() ){
+			if( bs.removeTarget(wr) )
+				removed=true;
+		}
+		return removed;
+	}
 
 	private String doSorH( String cmd, String args ){
 		return switch( args ){
@@ -972,22 +929,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		};
 	}
 
-	/**
-	 * Remove the given writable from the various sources
-	 * @param wr The writable to remove
-	 * @return True if any were removed
-	 */
-	public boolean removeWritable(Writable wr) {
-		if( wr==null)
-			return false;
 
-		boolean removed=false;
-		for( BaseStream bs : streams.values() ){
-			if( bs.removeTarget(wr) )
-				removed=true;
-		}
-		return removed;
-	}
+
 	@Override
 	public void collectorFinished(String id, String message, Object result) {
 		String[] ids = id.split(":");
@@ -1013,6 +956,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			Logger.info("ConfirmCollector not found: "+id);
 		}
 	}
+
 	/**
 	 * Class that checks if age of last data is higher than ttl, if so issue the idle cmds.
 	 * Reschedule the task for either ttl time or difference between ttl and time since last data
@@ -1028,32 +972,73 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		@Override
 		public void run() {
-
-			if( stream==null) // No use scheduling timeout checks if the stream isn' valid
-				return;
-
-			if (!stream.isConnectionValid()) { // No use scheduling timeout if there's no connection
-				Logger.warn(stream.id()+" -> Connection invalid, waiting for reconnect");
-				requestReconnection(stream.id());
-				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
-				return;
-			}
 			long currentTime = Instant.now().toEpochMilli();
 			long lastReadTime = stream.getLastTimestamp();
-			long nextDelay = stream.readerIdleSeconds *1000 - (currentTime - lastReadTime);
+			long nextDelay = stream.getReaderIdleTime()*1000 - (currentTime - lastReadTime);
 
-			// If the next delay is less than longer ago than a previous idle
-			if (nextDelay <= 0 ){
-				// Reader is idle - set a new timeout and notify the callback.
-				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
-				if( nextDelay > -1000*stream.readerIdleSeconds) { // only apply this the first time
-					Logger.warn(stream.id()+" is idle for "+stream.readerIdleSeconds+"s");
-					notifyIdle(stream.id());
-				}
-			} else {
-				// Read occurred before the timeout - set a new timeout with shorter delay.
+			if (nextDelay <= 0 ) {// If the next delay is less than longer ago than a previous idle
+				notifyIdle(stream);// Reader is idle notify the callback.
+			}else { // Don't schedule check when idle
 				scheduler.schedule(this, nextDelay, TimeUnit.MILLISECONDS);
 			}
 		}
 	}
+
+	/**
+	 * Listener stuff
+	 *
+	 */
+	@Override
+	public void notifyIdle( BaseStream stream ) {
+		Logger.warn(stream.id() + " is idle for " + stream.getReaderIdleTime() + "s");
+		issues.addIfNewAndStart(stream.id()+".conidle", "TTL passed for "+stream.id());
+		stream.flagAsIdle();
+	}
+
+	@Override
+	public boolean notifyActive(String id ) {
+		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
+		issues.addIfNewAndStop(device+".conidle", "TTL passed for "+id);
+
+		getStream(id.toLowerCase()).ifPresent( s -> {
+			s.flagAsActive();
+			scheduler.schedule(new ReaderIdleTimeoutTask(s), s.getReaderIdleTime(), TimeUnit.SECONDS);
+		});
+		return true;
+	}
+
+	@Override
+	public void notifyOpened( String id ) {
+		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
+		issues.addIfNewAndStop(device+".conlost", "Connection lost to "+id);
+
+		getStream(id.toLowerCase()).ifPresent( b -> {
+			b.applyTriggeredAction(BaseStream.TRIGGER.HELLO);
+			b.applyTriggeredAction(BaseStream.TRIGGER.OPEN);
+		});
+	}
+
+	@Override
+	public void notifyClosed( String id ) {
+		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
+		issues.addIfNewAndStart(device+".conlost", "Connection lost to "+id);
+		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.CLOSE));
+	}
+
+	@Override
+	public boolean requestReconnection( String id ) {
+		BaseStream bs = streams.get(id.toLowerCase());
+		if( bs == null){
+			Logger.error("Bad id given for reconnection request: "+id);
+			return false;
+		}
+		if( bs.reconnectFuture==null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0 ){
+			Logger.error("Requesting reconnect for "+bs.id());
+			bs.reconnectFuture = scheduler.schedule( new DoConnection( bs ), 5, TimeUnit.SECONDS );
+			return true;
+		}
+		return false;
+	}
+
+	/* 	--------------------------------------------------------------------	*/
 }

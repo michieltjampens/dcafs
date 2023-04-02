@@ -36,8 +36,6 @@ public class ModbusStream extends SerialStream{
             passed = p; // Store it
         }   
         if( passed > 10 ){  // Maximum allowed time is 3.5 characters which is 5ms at 9600
-            if( debug )
-                Logger.info("delay passed: "+passed+" rec:"+data.length);
             index=0;
         }
         timestamp = Instant.now().toEpochMilli();    		    // Store the timestamp of the received message
@@ -68,21 +66,13 @@ public class ModbusStream extends SerialStream{
         }
         
         if( readyForWorker ){
-            if(debug)
-                Logger.debug(id+"(mb) -> "+Tools.fromBytesToHexString(rec,0,index));
-
             // Log anything and everything (except empty strings)
             if( log )		// If the message isn't an empty string and logging is enabled, store the data with logback
                 Logger.tag("RAW").warn( id + "\t[hex] " + Tools.fromBytesToHexString(rec,0,index) );
 
             if( verifyCRC( rec, index ) ){
-
                 forwardData(Tools.fromBytesToHexString(rec,0,index-2));
-
                 readyForWorker=false;
-                if(debug)
-                    Logger.info( id+"(mb) -> " + Tools.fromBytesToHexString(rec));
-
             }else{
                 Logger.error(id+"(mb) -> Message failed CRC check: "+Tools.fromBytesToHexString(rec,0,index));
             }

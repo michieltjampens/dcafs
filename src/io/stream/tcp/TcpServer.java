@@ -1,5 +1,6 @@
 package io.stream.tcp;
 
+import io.stream.BaseStream;
 import io.stream.StreamListener;
 import io.Writable;
 import das.Commandable;
@@ -55,9 +56,6 @@ public class TcpServer implements StreamListener, Commandable {
 	}
 	public boolean isActive(){
 		return active;
-	}
-	public TcpServer(Path xml) {
-		this(xml, new NioEventLoopGroup());
 	}
 
 	/**
@@ -187,7 +185,7 @@ public class TcpServer implements StreamListener, Commandable {
 
 	/* ******************** * D E F A U L T  */
 	@Override
-	public void notifyIdle(String title) {
+	public void notifyIdle(BaseStream stream) {
 		// Not used for server
 	}
 

@@ -8,7 +8,6 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.util.concurrent.Future;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -22,8 +21,7 @@ public class UdpServer extends BaseStream {
   Future<?> serverFuture;
 
   public UdpServer(BlockingQueue<Datagram> dQueue, Element stream ) {
-    this.dQueue=dQueue;
-    readFromXML(stream);
+    super(dQueue,stream);
   }
   public UdpServer( String id, int port, BlockingQueue<Datagram> dQueue ){
       super(id,dQueue);
@@ -59,12 +57,6 @@ public class UdpServer extends BaseStream {
   }
 
   @Override
-  protected boolean writeExtraToXML(XMLfab fab) {
-    fab.addChild("port",""+port);
-    return false;
-  }
-
-  @Override
   public boolean connect() {
     serverFuture = group.submit(new RunServer());
     return true;
@@ -93,5 +85,10 @@ public class UdpServer extends BaseStream {
   @Override
   protected String getType() {
     return "udpserver";
+  }
+
+  @Override
+  protected void flagIdle() {
+
   }
 }

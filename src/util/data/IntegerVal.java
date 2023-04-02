@@ -175,6 +175,9 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         }
         return this;
     }
+    public void resetValue(){
+        value=defVal;
+    }
     @Override
     public void updateValue( double val ) {
         value(((Double)val).intValue());
