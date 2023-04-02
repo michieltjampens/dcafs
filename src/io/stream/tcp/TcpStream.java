@@ -33,8 +33,8 @@ public class TcpStream extends BaseStream implements Writable {
     TcpHandler handler;
     InetSocketAddress ipsock;
     ByteBuf[] deli;
-    Bootstrap bootstrap;		// Bootstrap for TCP connections
-    static int bufferSize = 2048; 	// How many bytes are stored before a dump
+    Bootstrap bootstrap;        // Bootstrap for TCP connections
+    static int bufferSize = 2048;     // How many bytes are stored before a dump
 
     public TcpStream( String id, String ipport, BlockingQueue<Datagram> dQueue ){
         super(id,dQueue);
@@ -59,9 +59,9 @@ public class TcpStream extends BaseStream implements Writable {
                 return null;
             }
             bootstrap = new Bootstrap();
-			bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
-					.option(ChannelOption.SO_KEEPALIVE, true)
-					.option(ChannelOption.TCP_NODELAY, true)
+            bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
+                    .option(ChannelOption.SO_KEEPALIVE, true)
+                    .option(ChannelOption.TCP_NODELAY, true)
                     .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
         }else{
             this.bootstrap=strap;
@@ -86,67 +86,64 @@ public class TcpStream extends BaseStream implements Writable {
             return false;
         }
         Logger.info("Trying to connect to tcp: "+id);
-		if( bootstrap == null ){
-			bootstrap = new Bootstrap();
-			bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
-					.option(ChannelOption.SO_KEEPALIVE, true)
-					.option(ChannelOption.TCP_NODELAY, true)
-					.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
+        if( bootstrap == null ){
+            bootstrap = new Bootstrap();
+            bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
+                    .option(ChannelOption.SO_KEEPALIVE, true)
+                    .option(ChannelOption.TCP_NODELAY, true)
+                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
         }
 
         connectionAttempts++;
 
-		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-	        @Override
-	        public void initChannel(SocketChannel ch) {
-				try{
-					if( deli != null ){
-						ch.pipeline().addLast("framer",  new DelimiterBasedFrameDecoder(bufferSize,deli) );
+        bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+            @Override
+            public void initChannel(SocketChannel ch) {
+                try{
+                    if( deli != null ){
+                        ch.pipeline().addLast("framer",  new DelimiterBasedFrameDecoder(bufferSize,deli) );
 
-					}else{
+                    }else{
                         Logger.error("Deli still null, assuming fixed size...");
-						ch.pipeline().addLast("framer", new FixedLengthFrameDecoder(3) );
-					}	        	 	
-					ch.pipeline().addLast( "decoder", new ByteArrayDecoder() );
-					ch.pipeline().addLast( "encoder", new ByteArrayEncoder() );
-					if( readerIdleSeconds !=-1 ) {
-						Logger.info( "Adding idle state handler at "+ TimeTools.convertPeriodtoString(readerIdleSeconds, TimeUnit.SECONDS) +" to "+id);
-						ch.pipeline().addLast( "idleStateHandler", new IdleStateHandler((int) readerIdleSeconds, 0, 0));
+                        ch.pipeline().addLast("framer", new FixedLengthFrameDecoder(3) );
                     }
-                    if( handler != null )
-                        handler.disconnect();	
+                    ch.pipeline().addLast( "decoder", new ByteArrayDecoder() );
+                    ch.pipeline().addLast( "encoder", new ByteArrayEncoder() );
+                    boolean idle=false;
+                    if( handler != null ) {
+                        handler.disconnect();
+                        idle= handler.isIdle();
+                    }
                     handler = new TcpHandler( id, dQueue, TcpStream.this );
                     handler.setPriority(priority);
                     handler.setTargets(targets);
                     handler.setStreamListeners( listeners );
                     handler.setEventLoopGroup(eventLoopGroup);
                     handler.setValStore(store);
-					ch.pipeline().addLast( handler );	   
-				}catch( io.netty.channel.ChannelPipelineException e ){
-					Logger.error("Issue trying to use handler for "+id);
-					Logger.error( e );
-				}                 
-	        }
-		});
+                    if( idle )
+                        handler.flagAsIdle();
+                    ch.pipeline().addLast( handler );
+                }catch( io.netty.channel.ChannelPipelineException e ){
+                    Logger.error("Issue trying to use handler for "+id);
+                    Logger.error( e );
+                }
+            }
+        });
         if( ipsock == null ){
             Logger.error("No proper ipsock");
             return false;
         }
-		f = bootstrap.connect(ipsock).awaitUninterruptibly();
-		f.addListener((FutureListener<Void>) future -> {
+        f = bootstrap.connect(ipsock).awaitUninterruptibly();
+        f.addListener((FutureListener<Void>) future -> {
             if (!f.isSuccess()) {
-                String cause = ""+future.cause();
+                String cause = String.valueOf(future.cause());
                 Logger.error( "Failed to connect to "+id+" : "+cause.substring(cause.indexOf(":")+1));
             }
         });
-		if (f.isCancelled()) {
-		    return false;
-		 } else if (!f.isSuccess()) {
-			Logger.error( "Failed to connect to "+id );
-		 } else {
-		    return true;
-		 }
-		 return false;
+        if (f.isCancelled()) {
+            return false;
+        }
+        return f.isSuccess();
     }
 
     @Override
@@ -156,7 +153,10 @@ public class TcpStream extends BaseStream implements Writable {
         } 
         return true;
     }
-
+    protected void flagIdle(){
+        if( handler!=null)
+            handler.flagAsIdle();
+    }
     @Override
     public boolean isConnectionValid() {
         return handler!=null && handler.isConnectionValid();

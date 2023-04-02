@@ -13,6 +13,7 @@ import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -53,12 +54,10 @@ public abstract class BaseStream {
     protected ArrayList<TriggerAction> triggeredActions = new ArrayList<>();
 
     protected ValStore store;
-
-    private static final String XML_PRIORITY_TAG="priority";
-    private static final String XML_STREAM_TAG="stream";
     protected enum TRIGGER{OPEN,IDLE,CLOSE,HELLO,WAKEUP, IDLE_END}
 
     protected EventLoopGroup eventLoopGroup;		    // Eventloop used by the netty stuff
+    protected boolean readerIdle=false;
 
     protected BaseStream( String id, BlockingQueue<Datagram> dQueue){
         this.id=id;
@@ -83,7 +82,7 @@ public abstract class BaseStream {
 
         id = XMLtools.getStringAttribute( stream, "id", ""); 
         label = XMLtools.getChildStringValueByTag( stream, "label", "");    // The label associated fe. nmea,sbe38 etc
-        priority = XMLtools.getChildIntValueByTag( stream, XML_PRIORITY_TAG, 1);	 // Determine priority of the sensor
+        priority = XMLtools.getChildIntValueByTag( stream, "priority", 1);	 // Determine priority of the sensor
         
         log = XMLtools.getChildStringValueByTag(stream, "log", "yes").equals("yes");
 
@@ -127,7 +126,8 @@ public abstract class BaseStream {
         var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("streams").goDown("stream","id",id);
         var eleOpt = dig.current();
         if( eleOpt.isPresent()){
-            var storeOpt = ValStore.build(eleOpt.get());
+            var ele = eleOpt.get();
+            var storeOpt = ValStore.build(ele);
             if( storeOpt.isPresent()) {
                 store = storeOpt.get();
                 store.shareRealtimeValues(rtvals);
@@ -139,6 +139,7 @@ public abstract class BaseStream {
     public Optional<ValStore> getValStore(){
         return Optional.ofNullable(store);
     }
+
     public ScheduledFuture connectFuture(){
         return reconnectFuture;
     }
@@ -151,12 +152,10 @@ public abstract class BaseStream {
      * @return True if ok
      */
     protected boolean writeToXML( XMLfab fab ){
-        Optional<Element> stream = fab.getChild(XML_STREAM_TAG, "id", id); // look for a child node based on id
-
         // Look through the child nodes for one that matches tag,id,value
-        if( fab.selectChildAsParent(XML_STREAM_TAG, "id", id).isEmpty() ){
+        if( fab.selectChildAsParent("stream", "id", id).isEmpty() ){
             // Not found so create it, taken in account we create a child to get a parent...
-            fab.addChild(XML_STREAM_TAG).attr("id",id).attr("type",getType())
+            fab.addChild("stream").attr("id",id).attr("type",getType())
                     .down(); //make it the parent
         }
 
@@ -183,10 +182,10 @@ public abstract class BaseStream {
             fab.addChild("log","no");
         }
         
-        if( list.stream().anyMatch( x -> x.getNodeName().equalsIgnoreCase(XML_PRIORITY_TAG) ) ){
-            fab.alterChild(XML_PRIORITY_TAG,""+priority);
+        if( list.stream().anyMatch( x -> x.getNodeName().equalsIgnoreCase("priority") ) ){
+            fab.alterChild("priority", String.valueOf(priority));
         }else if( priority!=1 ){
-            fab.addChild(XML_PRIORITY_TAG,""+ priority );
+            fab.addChild("priority", String.valueOf(priority));
         }
         if( echo )
             fab.alterChild("echo", "yes");
@@ -250,7 +249,9 @@ public abstract class BaseStream {
     public void setReaderIdleTime(long seconds){
         this.readerIdleSeconds = seconds;
     }
-
+    public long getReaderIdleTime(){
+        return readerIdleSeconds;
+    }
     /* Requesting data */
     public synchronized boolean addTarget(Writable writable ){
         if( writable == null){
@@ -308,6 +309,21 @@ public abstract class BaseStream {
         return echo;
     }
     /* ******************************** TRIGGERED ACTIONS *****************************************************/
+    public void flagAsIdle(){
+        applyTriggeredAction(BaseStream.TRIGGER.IDLE);
+        applyTriggeredAction(BaseStream.TRIGGER.WAKEUP);
+        getValStore().ifPresent(ValStore::resetValues);
+        flagIdle();
+        readerIdle=true;
+    }
+    public void flagAsActive(){
+        applyTriggeredAction(BaseStream.TRIGGER.IDLE_END);
+        readerIdle=false;
+    }
+    protected abstract void flagIdle();
+    public boolean isIdle(){
+        return readerIdle;
+    }
     public boolean addTriggeredAction(String when, String action ){
         var t = new TriggerAction(when, action);
         if( t.trigger==null)

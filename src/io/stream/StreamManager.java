@@ -412,6 +412,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				tcp.setEventLoopGroup(eventLoopGroup);
 				tcp.addListener(this);
 				bootstrapTCP = tcp.setBootstrap(bootstrapTCP);
+				if (tcp.getReaderIdleTime() != -1) {
+					scheduler.schedule(new ReaderIdleTimeoutTask(tcp), tcp.getReaderIdleTime(), TimeUnit.SECONDS);
+				}
 				tcp.reconnectFuture = scheduler.schedule(new DoConnection(tcp), 0, TimeUnit.SECONDS);
 				return tcp;
 			}
@@ -433,8 +436,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "serial" -> {
 				SerialStream serial = new SerialStream(dQueue, stream);
 				serial.setEventLoopGroup(eventLoopGroup);
-				if (serial.readerIdleSeconds != -1) {
-					scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.readerIdleSeconds, TimeUnit.SECONDS);
+				if (serial.getReaderIdleTime() != -1) {
+					scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
 				}
 				serial.addListener(this);
 				serial.reconnectFuture = scheduler.schedule(new DoConnection(serial), 0, TimeUnit.SECONDS);
@@ -630,6 +633,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 							.add(green + " ss:addserial,id,port,baudrate" + reg + " -> Add a serial stream to xml and try to connect")
 							.add(green + " ss:addlocal,id,source " + reg + "-> Add a internal stream that handles internal data");
 					join.add("").add(cyan + "Info about all streams" + reg)
+							.add(green + " ss "+reg+"-> Get a list of all streams with indexes for sending data")
 							.add(green + " ss:buffers " + reg + "-> Get confirm buffers.")
 							.add(green + " ss:status " + reg + "-> Get streamlist.")
 							.add(green + " ss:requests " + reg + "-> Get an overview of all the datarequests held by the streams");
@@ -661,6 +665,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 				case "status" -> {
 					return getStatus();
+				}
+				case "" ->{
+					return getStreamList(html);
 				}
 				default -> {
 					return "! No such cmd in ss: " + cmds[0];
@@ -870,55 +877,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 	}
 
-	/**
-	 * Listener stuff
-	 *
-	 */
-	@Override
-	public void notifyIdle( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStart(device+".conidle", "TTL passed for "+id);
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.IDLE));
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.WAKEUP));
-	}
-	@Override
-	public boolean notifyActive(String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStop(device+".conidle", "TTL passed for "+id);
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.IDLE_END));
-		return true;
-	}
-	@Override
-	public void notifyOpened( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStop(device+".conlost", "Connection lost to "+id);
 
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.HELLO));
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.OPEN));
-
-	}
-	@Override
-	public void notifyClosed( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStart(device+".conlost", "Connection lost to "+id);
-		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.CLOSE));
-	}
-	@Override
-	public boolean requestReconnection( String id ) {
-		BaseStream bs = streams.get(id.toLowerCase());
-		if( bs == null){
-			Logger.error("Bad id given for reconnection request: "+id);
-			return false;
-		}
-		Logger.error("Requesting reconnect for "+bs.id());
-		if( bs.reconnectFuture==null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0 ){
-			bs.reconnectFuture = scheduler.schedule( new DoConnection( bs ), 5, TimeUnit.SECONDS );
-			return true;
-		}
-		return false;
-	}
-
-	/* 	--------------------------------------------------------------------	*/
 	public boolean addForwarding(String cmd, Writable writable) {
 		var remove = cmd.startsWith("!");
 		if( writable != null ){
@@ -1029,31 +988,72 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		@Override
 		public void run() {
 
-			if( stream==null) // No use scheduling timeout checks if the stream isn' valid
+			if( stream==null) // No use scheduling timeout checks if the stream isn't valid
 				return;
 
-			if (!stream.isConnectionValid()) { // No use scheduling timeout if there's no connection
-				Logger.warn(stream.id()+" -> Connection invalid, waiting for reconnect");
-				requestReconnection(stream.id());
-				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
-				return;
-			}
 			long currentTime = Instant.now().toEpochMilli();
 			long lastReadTime = stream.getLastTimestamp();
-			long nextDelay = stream.readerIdleSeconds *1000 - (currentTime - lastReadTime);
+			long nextDelay = stream.getReaderIdleTime()*1000 - (currentTime - lastReadTime);
 
-			// If the next delay is less than longer ago than a previous idle
-			if (nextDelay <= 0 ){
-				// Reader is idle - set a new timeout and notify the callback.
-				scheduler.schedule(this, stream.readerIdleSeconds, TimeUnit.SECONDS);
-				if( nextDelay > -1000*stream.readerIdleSeconds) { // only apply this the first time
-					Logger.warn(stream.id()+" is idle for "+stream.readerIdleSeconds+"s");
-					notifyIdle(stream.id());
-				}
-			} else {
-				// Read occurred before the timeout - set a new timeout with shorter delay.
+			if (nextDelay <= 0 ) {// If the next delay is less than longer ago than a previous idle
+				// Reader is idle notify the callback.
+				Logger.warn(stream.id() + " is idle for " + stream.getReaderIdleTime() + "s");
+				notifyIdle(stream);
+			}else {
 				scheduler.schedule(this, nextDelay, TimeUnit.MILLISECONDS);
 			}
 		}
 	}
+	/**
+	 * Listener stuff
+	 *
+	 */
+	@Override
+	public void notifyIdle( BaseStream stream ) {
+		issues.addIfNewAndStart(stream.id()+".conidle", "TTL passed for "+stream.id());
+		stream.flagAsIdle();
+	}
+	@Override
+	public boolean notifyActive(String id ) {
+		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
+		issues.addIfNewAndStop(device+".conidle", "TTL passed for "+id);
+
+		getStream(id.toLowerCase()).ifPresent( s -> {
+			s.flagAsActive();
+			scheduler.schedule(new ReaderIdleTimeoutTask(s), s.getReaderIdleTime(), TimeUnit.SECONDS);
+		});
+		return true;
+	}
+	@Override
+	public void notifyOpened( String id ) {
+		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
+		issues.addIfNewAndStop(device+".conlost", "Connection lost to "+id);
+
+		getStream(id.toLowerCase()).ifPresent( b -> {
+			b.applyTriggeredAction(BaseStream.TRIGGER.HELLO);
+			b.applyTriggeredAction(BaseStream.TRIGGER.OPEN);
+		});
+	}
+	@Override
+	public void notifyClosed( String id ) {
+		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
+		issues.addIfNewAndStart(device+".conlost", "Connection lost to "+id);
+		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.CLOSE));
+	}
+	@Override
+	public boolean requestReconnection( String id ) {
+		BaseStream bs = streams.get(id.toLowerCase());
+		if( bs == null){
+			Logger.error("Bad id given for reconnection request: "+id);
+			return false;
+		}
+		if( bs.reconnectFuture==null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0 ){
+			Logger.error("Requesting reconnect for "+bs.id());
+			bs.reconnectFuture = scheduler.schedule( new DoConnection( bs ), 5, TimeUnit.SECONDS );
+			return true;
+		}
+		return false;
+	}
+
+	/* 	--------------------------------------------------------------------	*/
 }

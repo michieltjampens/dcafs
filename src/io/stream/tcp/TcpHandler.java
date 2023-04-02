@@ -84,11 +84,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
     	if (evt instanceof IdleStateEvent e) {
             if (e.state() == IdleState.READER_IDLE ) {
-            	if( !idle) {
-					Logger.error( "IdleNotify for "+id+" "+label);
-					listeners.forEach( l-> l.notifyIdle(id));
-					idle=true;
-            	}
+
             }else if (e.state() == IdleState.WRITER_IDLE) {
             	Logger.error( "WRITER IDLE for "+id);
             }else {
@@ -230,11 +226,16 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     }
     public boolean disconnect(){
         if( channel != null ){
-           // channel.close();
             channel.disconnect();
             return true;
         }
         return false;
+    }
+    public void flagAsIdle(){
+        idle=true;
+    }
+    public boolean isIdle(){
+        return idle;
     }
     public boolean isConnectionValid(){
         return channel!=null&&channel.isActive();

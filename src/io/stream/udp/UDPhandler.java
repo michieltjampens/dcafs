@@ -21,13 +21,13 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
     BlockingQueue<Datagram> dQueue;
     private String id;
     private int priority=1;
-    StringBuilder recData = new StringBuilder();
     private final ByteBuf buf = Unpooled.buffer(128);
     private ByteBuf delim =  Unpooled.copiedBuffer(new byte[]{13,10});
     private boolean debug = false;
     private long timestamp=-1L;
     
     protected List<Writable> targets;
+    private boolean readerIdle=false;
 
     /* Constructor */
     public UDPhandler( BlockingQueue<Datagram> dQueue, int priority ){
@@ -57,6 +57,9 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
             DatagramPacket p = packet.duplicate();  // Create a copy because asking content = removing it
             Logger.info("REC UDP_"+id+": "+p.content().toString(CharsetUtil.UTF_8)+"<EOM");
             Logger.info("FULL UDP_"+id+": "+buf.toString(CharsetUtil.UTF_8).substring(0,buf.writerIndex())+"<EOM");
+        }
+        if( readerIdle ){
+            readerIdle=false;
         }
         timestamp = Instant.now().toEpochMilli();
         int l = buf.writerIndex();              // No need to look in the bytes that were already in there

@@ -51,6 +51,12 @@ public class UdpStream extends BaseStream implements Writable {
     protected String getType(){
         return "udp";
     }
+
+    @Override
+    protected void flagIdle() {
+
+    }
+
     public Bootstrap setBootstrap( Bootstrap strap ){
         if( strap == null ){
             if(group==null){

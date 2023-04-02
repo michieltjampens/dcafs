@@ -10,8 +10,7 @@ import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 
 public class LocalStream extends BaseStream implements Writable {
-    
-    boolean idle = false;
+
     boolean valid=true;
 
     public LocalStream(BlockingQueue<Datagram> dQueue, Element stream) {
@@ -49,8 +48,8 @@ public class LocalStream extends BaseStream implements Writable {
         return processData(data);
     }
     private boolean processData( String msg ){
-        if( idle ){
-		    idle=false;
+        if( readerIdle ){
+            readerIdle=false;
 		    listeners.forEach( l-> l.notifyActive(id));
 	   }	
        if (msg != null && !(msg.isBlank() && clean)) { //make sure that the received data is not 'null' or an empty string           
@@ -116,5 +115,10 @@ public class LocalStream extends BaseStream implements Writable {
     protected String getType() {
         return "local";
     }
-    
+
+    @Override
+    protected void flagIdle() {
+
+    }
+
 }

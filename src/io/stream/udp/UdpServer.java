@@ -94,4 +94,9 @@ public class UdpServer extends BaseStream {
   protected String getType() {
     return "udpserver";
   }
+
+  @Override
+  protected void flagIdle() {
+
+  }
 }
