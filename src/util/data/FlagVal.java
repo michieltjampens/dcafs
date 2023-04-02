@@ -237,6 +237,9 @@ public class FlagVal extends AbstractVal implements NumericVal{
         loweredList.clear();
         super.reset(); // This resets common options like keep time
     }
+    public void resetValue(){
+        state=defState;
+    }
     /* ******************************** T R I G G E R E D ********************************************************** */
     /**
      * Tries to add a cmd with given trigger, will warn if no valid queue is present to actually execute them

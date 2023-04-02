@@ -505,7 +505,8 @@ public class RealtimeValues implements Commandable {
 						.add(cyan + " Get info" + reg)
 						.add(green + "  rtvals" + reg + " -> Get a listing of all rtvals")
 						.add(green + "  rtvals:groups" + reg + " -> Get a listing of all the available groups")
-						.add(green + "  rtvals:group,groupid" + reg + " -> Get a listing of all rtvals belonging to the group");
+						.add(green + "  rtvals:group,groupid" + reg + " -> Get a listing of all rtvals belonging to the group")
+						.add(green + "  rtvals:resetgroup,groupid" + reg + " -> Reset the values in the group to the defaults");
 					return join.toString();
 				}
 				case "reload" -> {
@@ -516,13 +517,42 @@ public class RealtimeValues implements Commandable {
 					String groups = String.join(html ? "<br>" : "\r\n", getGroups());
 					return groups.isEmpty() ? "No groups yet" : groups;
 				}
+
 			}
 		}else if(cmds.length==2){
 			if (cmds[0].equals("group")) {
 				return getRTValsGroupList(cmds[1], true, true, true, true, html);
+			}else if( cmds[0].equals("resetgroup")){
+				var vals = getGroupVals(cmds[1]);
+				if( vals.isEmpty()) {
+					Logger.error( "No vals found in group "+cmds[1]);
+					return "No vals with that group";
+				}
+				getGroupVals(cmds[1]).forEach(AbstractVal::resetValue);
+				return "Values reset";
 			}
 		}
 		return "! No such subcommand in rtvals: "+args;
+	}
+	public ArrayList<AbstractVal> getGroupVals( String group ){
+		var vals = new ArrayList<AbstractVal>();
+		for( var val : realVals.values() ) {
+			if (val.group().equalsIgnoreCase(group))
+				vals.add(val);
+		}
+		for( var val : integerVals.values() ) {
+			if (val.group().equalsIgnoreCase(group))
+				vals.add(val);
+		}
+		for( var val : flagVals.values() ) {
+			if (val.group().equalsIgnoreCase(group))
+				vals.add(val);
+		}
+		for( var val : textVals.values() ) {
+			if (val.group().equalsIgnoreCase(group))
+				vals.add(val);
+		}
+		return vals;
 	}
 	/**
 	 * Get a listing of all stored variables that belong to a certain group

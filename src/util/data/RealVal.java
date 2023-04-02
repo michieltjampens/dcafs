@@ -160,6 +160,9 @@ public class RealVal extends AbstractVal implements NumericVal{
         Logger.error(id() + " -> Failed to parse "+val);
         return false;
     }
+    public void resetValue(){
+        value=defVal;
+    }
     /**
      * Update the value, this will -depending on the options set- also update related variables
      * @param val The new value
