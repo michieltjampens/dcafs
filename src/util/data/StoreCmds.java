@@ -26,8 +26,10 @@ public class StoreCmds {
 
             join.add(TelnetCodes.TEXT_RESET+ora+"Notes"+reg)
                     .add("- a / in the command means both options are valid.")
+                    .add("- after a command is processed, the store will be reloaded and changes applied, to reload manually ss:reloadstore,id")
                     .add("- If no store exists yet, any command will create it first with default delimiter of ','")
-                    .add("- About the optional index/group/key: index if map=false and a number/group if map=false,not a number/key if map is true");
+                    .add("- Regular mode works with indexes after split on the delimiter")
+                    .add("- Map is when the data consists of a key, value pair with the given delimiter");
             join.add("").add(cyan+"Add new vals"+reg)
                     .add(green+" store:streamid,addreal/addr,name<,index/group> "+reg+"-> Add a RealVal to the store, with optional index/group/key")
                     .add(green+" store:streamid,addflag/addf,name<,index/group> "+reg+"-> Add a FlagVal to the store, with optional index/group/key")
