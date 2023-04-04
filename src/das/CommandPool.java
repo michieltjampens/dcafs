@@ -173,9 +173,9 @@ public class CommandPool {
 				var ans = StoreCmds.replyToCommand(split[1],html,settingsPath);
 				if( !split[1].startsWith("?")) {
 					if( split[1].equalsIgnoreCase("global")) {
-						doCmd("ss", "reloadstore," + split[1].split(",")[0], wr);
-					}else{
 						doCmd("rtvals","reload",wr);// reload the global rtvals
+					}else{
+						doCmd("ss", "reloadstore," + split[1].split(",")[0], wr);
 					}
 				}
 				yield ans;
