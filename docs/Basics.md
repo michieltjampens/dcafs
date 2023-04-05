@@ -228,7 +228,52 @@ Another option is`rtvals:name,rolled` which list those with the name rolled (onc
 Or if not so certain on the name `rtvals:name,rol*` or actually using regex `rtvals:name,rol.*`
 (.* means any amount of any character)
 
-### 4. Store the last value in a database
+### 4. Simple alterations
+
+There are two ways to alter raw data before it's written to memory (rtvals). The main one is 'paths', which will be
+explained later. But store itself also has a couple -limited- options.
+
+As mentioned earlier, store takes care of parsing the string data to the relevant rtval. But this parsing can be changed.
+The options are:
+- real/int -> apply an operation to the value before storing it
+- text -> replace one value with another
+- flag -> use other values for true/false (instead of the default like 1,yes,true,high for true)
+
+Altering the store to increase the roll with 5: (for now, there's no command to do this)
+````xml
+<store delimiter=":">
+      <int index="1" name="rolled" unit=""> <!-- because the content will contain the op, the name becomes an attribute -->
+        <op>i0=i0+5</op>
+        <!-- i0 because int receives a single value, i by itself is fine to -->
+        <!-- After parsing to an integer, the value will get 5 added before being stored in the rtval -->
+      </int> 
+</store>
+````
+Or if the roll was stored as a text instead. The node below replaces some bad rolls with better ones
+````xml
+<store delimiter=":">
+      <text index="1" name="rolled" unit=""> 
+        <parser key="1">11</parser>
+        <parser key="2">12</parser>
+        <parser key="3">13</parser>
+        <parser key="4">14</parser>
+        <parser key="5">15</parser>
+        <parser key="6">16</parser>
+        <keep regex=".*"/> <!-- Don't alter the other values -->
+      </text> 
+</store>
+````
+Or if you just want to keep track of a bad or good roll
+````xml
+<store delimiter=":">
+      <flag index="1" name="rolled" unit="">
+        <true delimiter=",">16,17,18,19,20</true>
+        <false delimiter=",">1,2,3,4,5,6,7,8,9,10,11,12,13,14,15</false>
+      </flag> 
+</store>
+````
+
+### 5. Store the last value in a database
 
 > Note: To look at a created sqlite database, install an SQLite viewer like [DB Browser for SQLite](https://sqlitebrowser.org/dl/)
 
@@ -296,11 +341,11 @@ And `st` (for status) also got updated:
 > Databases  
 > diceresults : db\diceresults.sqlite -> 0/30 (NC)
 
-So now there's a database ready (go ahead and open the sqlite db in a viewer).
+So now there's a database ready (go ahead and open the sqlite db in a viewer). But no connection is active (NC).  
 It is, however, still empty as no data gets written to it... yet.
 
 In order to actually get data in it, the store must know about where the data needs to go to.  
-With `store:id,db,dbid:table` which becomes `store:dice,db,diceresults:dice`.
+Issue `store:id,db,dbid:table` which becomes `store:dice,db,diceresults:dice`.
 
 The result:
 ```xml
@@ -430,7 +475,7 @@ This should serve as a broad, toplevel overview of what happens and what goes wh
     * Each "field" that results from the split can be given a name and type (int, text ...)
     * One of the attributes of a `store` is the group. This allows you to group incoming data (shown using `rtvals`).
 
-## B. Altering the raw data (=paths)
+## B. Altering the raw data
 
 Restore the settings.xml to restart from a clean slate.
 ````xml
@@ -463,7 +508,7 @@ Restore the settings.xml to restart from a clean slate.
 
 Then use the `sd` command to shut down dcafs and start a new instance (launch the `.jar`).
 
-### 0. Creating a path
+### 1. Creating a path
 
 As the name implies, a path defines how the data is processed in dcafs.
 
@@ -884,7 +929,7 @@ Which has the advantage of being easy to explain, but it's not the most performa
 
 Next a couple of alternative scenario's will be shown.
 
-#### What if there are multiple tables/generics?
+#### What if there are multiple tables?
 
 We are also interested in the results of rolling a d6 (6 sided dice) and want to store that in another table.  
 So first close dcafs and dummy, delete the diceresults.sqlite file and overwrite the xml to match the one below.  
@@ -964,7 +1009,7 @@ But suppose the table actually looked like this.
 
 Then the groups of the stores need to be altered.
 ````xml
-        <path id="sort" src="raw:dice" delimiter=":">
+<path id="sort" src="raw:dice" delimiter=":">
     <filter type="start">d20</filter> <!-- redirect the d20's -->
     <store db="diceresults:rolls" group="rolls">
         <integer index="1">rolld20</integer>
@@ -983,9 +1028,21 @@ timestamp will refer to the roll that initiated the trigger!
 So if triggered by the d20 roll, the timestamp in the database is the timestamp of the d20 roll, the d6
 entry will just be whatever is in rtvals at that time.
 
-> **Note:** If multiple stores should be used for the same table with data from the same sensor it's not guaranteed
-> that the order the data arrives is the order that the stores are triggered if the processing of one message takes
-> longer than the other one because processing happens multithreaded.
+There's an alternative way to accomplish the same but slightly simpler. A stream can contain a store but can't filter.  
+But if the data format is easy, mapping can be used instead. The requirement is that the data consists of a single key and value  
+pair.
+
+````xml
+<stream id="dice" type="tcp">
+  <address>localhost:4000</address>
+  <write when="hello">dicer:rolld6s</write> <!-- We also want to receive d6 results -->
+  <store group="rolls" delimiter=":" db="dbresults:rolls" map="true"> 
+        <integer key="d20">rolld20</integer> <!-- First element of the split should be d20 and second element is the value -->
+        <integer key="d6">rolld6</integer>
+  </store>
+</stream>
+````
+When working mapped, the database insert is triggered on processing the last key (so after a d6:x line is received). 
 
 #### What if the column needs a value that isn't always present?
 
