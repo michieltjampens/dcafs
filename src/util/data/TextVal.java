@@ -3,7 +3,6 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -19,6 +18,7 @@ public class TextVal extends AbstractVal{
     private final ArrayList<String> history = new ArrayList<>();
     private final ArrayList<TriggeredCmd> triggered = new ArrayList<>();
     private HashMap<String,String> parser = new HashMap<>();
+    private String keepOrignal;
     private boolean regex=false;
     /* ********************************* Constructing ************************************************************ */
     /**
@@ -77,17 +77,27 @@ public class TextVal extends AbstractVal{
         }
         for (Element parse : XMLtools.getChildElements(rtval, "parser")) {
             var key = parse.getAttribute("key");
-            if( key.isEmpty() ){
+            if (key.isEmpty()) {
                 key = parse.getAttribute("regex");
-                if( key.isEmpty()){
-                    Logger.error("Parser node without key/regex in "+id());
+                if (key.isEmpty()) {
+                    Logger.error("Parser node without key/regex in " + id());
                     continue;
-                }else{
-                    regex=true;
+                } else {
+                    regex = true;
                 }
             }
-            parser.put(key,parse.getTextContent());
+            parser.put(key, parse.getTextContent());
         }
+        var keepOpt = XMLtools.getFirstChildByTag(rtval,"keep");
+        keepOpt.ifPresent( keep -> {
+            if( keep.hasAttribute("regex")) {
+                keepOrignal = keep.getAttribute("regex");
+            }else{
+                keepOrignal = keep.getTextContent();
+                if( keepOrignal.isEmpty())
+                    keepOrignal=".*";
+            }
+        });
         return this;
     }
 
@@ -155,20 +165,25 @@ public class TextVal extends AbstractVal{
             value(value);
             return true;
         }else{ //If there are, look for match
-            if( regex ){
+            if( regex ){ // If the parser option contain atleast one regex, trait all as regex (this is slightly slower)
                 for( var entr : parser.entrySet()){
                     if( value.matches(entr.getKey())) {
                         value(entr.getValue());
                         return true;
                     }
                 }
-
             }else{
                var val = parser.get(value);
                if( val != null){
                    value(val);
                    return true;
                }
+            }
+            if( keepOrignal !=null){
+                if( value.matches(keepOrignal)) {
+                    value(value);
+                    return true;
+                }
             }
             Logger.error(id() +" -> Failed to (regex) parse "+value);
             return false;
