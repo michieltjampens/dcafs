@@ -17,6 +17,8 @@ Note: Version numbering: x.y.z
 ### Store
 - Added 'idlereset' attribute to a store inside a stream. This will cause the store vals to be reset
 to default if the stream goes idle.
+- Fixed auto reload not working, if/else was swapped...
+- Fixed, reloading of a store in the tcp didn't replace the store in the handler
 
 ### Realtimevalus
 - Added `rtvals:resetgroup,id` command that resets the vals in the group to their default value.
@@ -26,6 +28,24 @@ Use this with cmd option of a stream to reset groups on idle.
   <cmd when="idle">rtvals:resetgroup,id</cmd>  
 </stream>
 `````
+- TextVal's parse functionality required all possible cases to be given, to remove that the 'keep' node was added
+````xml
+<text index="1" name="test">
+  <parser key="012">No valid data</parser> <!-- So if there's a '012' at index 1, test will become 'No valid data' -->
+  <parser key="013">No known sample</parser>
+  <!-- To cover all other values -->
+  <keep>.*</keep> <!-- Keep all that match the regex text content-->
+  <!-- or -->
+  <keep regex=".*"/> <!-- Keep all that match the regex attribute -->
+  <!-- or -->
+  <keep/> <!-- wille be the same as the above, default is the .* regex -->
+</text>
+````
+- FlagVal
+  - parse functionality was additive instead of replacing, changed this.
+  - delimiter attribute wasn't actually implemented...?
+  - added option to use regex instead of fixed values, can't combine
+  - a match is still a requirement, so all cases need to be covered
 
 ## 2.3.1 (01/04/23)
 
@@ -103,12 +123,12 @@ d100:63
 
 - Added parsing options to TextVal, this is used in combination with store. Mainly for decoding error-codes etc.
 ````xml
-<textval index="1" name="test">
+<text index="1" name="test">
   <parser key="012">No valid data</parser> <!-- So if there's a '012' at index 1, test will become 'No valid data' -->
   <parser key="013">No known sample</parser>
   <!-- or regex -->
   <parser regex=".+12">No valid data</parser> <!-- regex matching, first match counts -->
-</textval>
+</text>
 ````
 
 ## 2.1.0 (23/03/2023)
