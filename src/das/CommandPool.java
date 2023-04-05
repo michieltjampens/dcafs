@@ -175,7 +175,7 @@ public class CommandPool {
 					if( split[1].equalsIgnoreCase("global")) {
 						doCmd("rtvals","reload",wr);// reload the global rtvals
 					}else{
-						doCmd("ss", "reloadstore," + split[1].split(",")[0], wr);
+						doCmd("ss", split[1].split(",")[0]+",reloadstore", wr);
 					}
 				}
 				yield ans;
