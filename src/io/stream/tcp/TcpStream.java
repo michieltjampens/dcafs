@@ -132,7 +132,10 @@ public class TcpStream extends BaseStream implements Writable {
         }
         return f.isSuccess();
     }
-
+    public void updateHandlerStore(){
+        if( handler !=null)
+            handler.setValStore(store);
+    }
     /**
      * Disconnect the stream
       * @return True if disconnected

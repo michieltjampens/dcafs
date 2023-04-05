@@ -2,6 +2,7 @@ package io.stream;
 
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
+import io.stream.tcp.TcpStream;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.*;
@@ -121,21 +122,31 @@ public abstract class BaseStream {
      * @return True if ok
      */
     protected boolean reloadStore(Path settingsPath, RealtimeValues rtvals){
-        if( store != null) // If this already exists
-            store.removeRealtimeValues(rtvals); // Remove the 'old' rtvals
 
         var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("streams").goDown("stream","id",id);
         var eleOpt = dig.current();
         if( eleOpt.isEmpty())
             return false;
 
-        var ele = eleOpt.get();
-        return ValStore.build(ele).map( st -> {
-            store=st;
-            store.shareRealtimeValues(rtvals);
-            return true;
-        }).orElseGet(()->false);
-
+        if( store != null) { // If this already exists
+            dig.goDown("store");
+            if( dig.current().isEmpty()){ // doesn't exist anymore
+                store=null;
+            }else{
+                store.reload(dig.current().get(),rtvals); // Remove the 'old' rtvals
+            }
+        }else{
+            var ele = eleOpt.get();
+            return ValStore.build(ele).map( st -> {
+                store=st;
+                store.shareRealtimeValues(rtvals);
+                if( this instanceof TcpStream){
+                    ((TcpStream)this).updateHandlerStore();
+                }
+                return true;
+            }).orElseGet(()->false);
+        }
+        return true;
     }
     public Optional<ValStore> getValStore(){
         return Optional.ofNullable(store);
