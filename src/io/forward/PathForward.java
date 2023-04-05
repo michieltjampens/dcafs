@@ -139,10 +139,9 @@ public class PathForward {
             if( a<steps.size()-1 ){
                 var next = steps.get(a+1);
                 if(next.getTagName().equalsIgnoreCase("store")){// Next element is a store
-                    var storeOpt = ValStore.build(next,id);
+                    var storeOpt = ValStore.build(next,id,rtvals);
                     if( storeOpt.isPresent()) {
                         store = storeOpt.get();
-                        store.shareRealtimeValues(rtvals);
                         hasStore=true;
                     }
                 }
