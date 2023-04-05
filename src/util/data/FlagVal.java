@@ -26,9 +26,9 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
     /* Options */
     ArrayList<Boolean> history;
-    private final ArrayList<String> TRUE = new ArrayList<>(Arrays.asList("true","1","on","high"));
+    private final ArrayList<String> TRUE = new ArrayList<>();
     private String trueRegex;
-    private final ArrayList<String> FALSE = new ArrayList<>(Arrays.asList("false","1","off","low"));
+    private final ArrayList<String> FALSE = new ArrayList<>();
     private String falseRegex;
     private FlagVal(){}
 
@@ -83,7 +83,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
                 TRUE.add(parse.getTextContent());
             }
         }
-        if( !TRUE.isEmpty() && !trueRegex.isEmpty() ){
+        if( !TRUE.isEmpty() && trueRegex!=null ){
             Logger.error(id()+" -> Can't combine both fixed and regex based for true flag");
         }
         if( XMLtools.hasChildByTag(rtval,"false"))
@@ -98,7 +98,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
                 FALSE.add(parse.getTextContent());
             }
         }
-        if( !FALSE.isEmpty() && !falseRegex.isEmpty() ){
+        if( !FALSE.isEmpty() && falseRegex!=null ){
             Logger.error(id()+" -> Can't combine both fixed and regex based for false flag");
         }
         return this;
@@ -290,6 +290,12 @@ public class FlagVal extends AbstractVal implements NumericVal{
         state = defState;
         raisedList.clear();
         loweredList.clear();
+        trueRegex=null;
+        falseRegex=null;
+        FALSE.clear();
+        FALSE.addAll(Arrays.asList("false","1","off","low"));
+        TRUE.clear();
+        TRUE.addAll(Arrays.asList("true","1","on","high"));
         super.reset(); // This resets common options like keep time
     }
     public void resetValue(){
