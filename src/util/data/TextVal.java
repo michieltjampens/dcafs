@@ -122,6 +122,8 @@ public class TextVal extends AbstractVal{
 
     public TextVal value( String val){
 
+        value=val;
+
         /* Keep history of passed values */
         if( keepHistory!=0 ) {
             history.add(val);
@@ -165,7 +167,7 @@ public class TextVal extends AbstractVal{
             value(value);
             return true;
         }else{ //If there are, look for match
-            if( regex ){ // If the parser option contain atleast one regex, trait all as regex (this is slightly slower)
+            if( regex ){ // If the parser option contain at least one regex, treat all as regex (this is slightly slower)
                 for( var entr : parser.entrySet()){
                     if( value.matches(entr.getKey())) {
                         value(entr.getValue());
