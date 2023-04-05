@@ -51,7 +51,7 @@ public class ValStore {
     public void setIdleReset( boolean state){
         this.idleReset=state;
     }
-    public static Optional<ValStore> build( Element store, String id){
+    public static Optional<ValStore> build( Element store, String id, RealtimeValues rtvals){
 
         if( id.isEmpty() && !store.hasAttribute("group"))  {
             Logger.error("No id/group found");
@@ -59,39 +59,62 @@ public class ValStore {
         }
 
         var valStore = new ValStore(id);
+        if( valStore.reload(store,rtvals) ){
+            return Optional.of( valStore );
+        }
+        return Optional.empty();
+    }
+    public static Optional<ValStore> build( Element parentNode ){
+        var storeOpt = XMLtools.getFirstChildByTag(parentNode,"store");
+
+        if( storeOpt.isEmpty())
+            return Optional.empty();
+        String id = parentNode.getAttribute("id");
+
+        return ValStore.build(storeOpt.get(),id,null);
+    }
+    public boolean reload(Element store, RealtimeValues rtv){
+        if( rtv!=null)
+            removeRealtimeValues(rtv);
+
+        rtvals.clear();
 
         String groupID = XMLtools.getStringAttribute(store,"group",id);
-        valStore.mapFlag(XMLtools.getBooleanAttribute(store,"map",false));
-        valStore.delimiter( XMLtools.getStringAttribute(store,"delimiter",valStore.delimiter())); // delimiter
-        valStore.setIdleReset( XMLtools.getBooleanAttribute(store,"idlereset",false));
+        delimiter( XMLtools.getStringAttribute(store,"delimiter",delimiter())); // delimiter
+        setIdleReset( XMLtools.getBooleanAttribute(store,"idlereset",false));
 
         // Checking for database connection
         if ( store.hasAttribute("db")) {
             var db = store.getAttribute("db").split(":");
             if( db.length==2 ) {
-                valStore.db(db[0],db[1]);
+                db(db[0],db[1]);
             }else{
                 Logger.error( id+" -> Failed to read db tag, must contain dbids:table, multiple dbids separated with ','");
             }
+        }else{
+            db[0]="";
+            db[1]="";
         }
 
         var vals = XMLtools.getChildElements(store);
 
-        if(valStore.mapped()) { // key based
+        // Map
+        mapFlag(XMLtools.getBooleanAttribute(store,"map",false));
+        if(mapped()) { // key based
             for (var val : vals) {
                 var key = XMLtools.getStringAttribute(val, "key","");
                 switch (val.getTagName()) {
-                    case "real" -> RealVal.build(val, groupID).ifPresent( v -> valStore.putAbstractVal(key,v));
-                    case "int" -> IntegerVal.build(val, groupID).ifPresent(v -> valStore.putAbstractVal(key,v));
-                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(v -> valStore.putAbstractVal(key,v));
-                    case "text" -> TextVal.build(val, groupID).ifPresent(v -> valStore.putAbstractVal(key,v));
+                    case "real" -> RealVal.build(val, groupID).ifPresent( v -> putAbstractVal(key,v));
+                    case "int" -> IntegerVal.build(val, groupID).ifPresent(v -> putAbstractVal(key,v));
+                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(v -> putAbstractVal(key,v));
+                    case "text" -> TextVal.build(val, groupID).ifPresent(v -> putAbstractVal(key,v));
                     default -> {
                     }
                 }
             }
-            if(valStore.mapSize()!=vals.size()){
+            if(mapSize()!=vals.size()){
                 Logger.error("Failed to create an AbstractVal for " + groupID);
-                return Optional.empty();
+                return false;
             }
         }else{ // index based
             ArrayList<AbstractVal> rtvals = new ArrayList<>();
@@ -113,21 +136,14 @@ public class ValStore {
                 }
                 if (rtvals.size() == b) {
                     Logger.error("Failed to create an AbstractVal for " + groupID);
-                    return Optional.empty();
+                    return false;
                 }
             }
-            valStore.addVals(rtvals);
+            addVals(rtvals);
         }
-        return Optional.of( valStore );
-    }
-    public static Optional<ValStore> build( Element parentNode ){
-        var storeOpt = XMLtools.getFirstChildByTag(parentNode,"store");
-
-        if( storeOpt.isEmpty())
-            return Optional.empty();
-        String id = parentNode.getAttribute("id");
-
-        return ValStore.build(storeOpt.get(),id);
+        if( rtv!=null)
+            shareRealtimeValues(rtv);
+        return true;
     }
     public void shareRealtimeValues(RealtimeValues rtv){
         for( int index=0;index<rtvals.size();index++){
