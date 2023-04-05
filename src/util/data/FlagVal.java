@@ -26,8 +26,10 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
     /* Options */
     ArrayList<Boolean> history;
-    ArrayList<String> TRUE = new ArrayList<>(Arrays.asList("true","1","on","high"));
-    ArrayList<String> FALSE = new ArrayList<>(Arrays.asList("false","1","off","low"));
+    private final ArrayList<String> TRUE = new ArrayList<>(Arrays.asList("true","1","on","high"));
+    private String trueRegex;
+    private final ArrayList<String> FALSE = new ArrayList<>(Arrays.asList("false","1","off","low"));
+    private String falseRegex;
     private FlagVal(){}
 
     /**
@@ -68,11 +70,36 @@ public class FlagVal extends AbstractVal implements NumericVal{
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         }
+        if( XMLtools.hasChildByTag(rtval,"true"))
+            TRUE.clear();
         for (Element parse : XMLtools.getChildElements(rtval, "true")) {
-            TRUE.add(parse.getTextContent());
+            if( parse.hasAttribute("delimiter")){
+                var trues = parse.getTextContent().split(parse.getAttribute("delimiter"));
+                TRUE.addAll(Arrays.asList(trues));
+            }else if( parse.hasAttribute("regex")){
+                trueRegex=parse.getAttribute("regex");
+                break;
+            }else {
+                TRUE.add(parse.getTextContent());
+            }
         }
+        if( !TRUE.isEmpty() && !trueRegex.isEmpty() ){
+            Logger.error(id()+" -> Can't combine both fixed and regex based for true flag");
+        }
+        if( XMLtools.hasChildByTag(rtval,"false"))
+            FALSE.clear();
         for (Element parse : XMLtools.getChildElements(rtval, "false")) {
-            FALSE.add(parse.getTextContent());
+            if( parse.hasAttribute("delimiter")){
+                var falses = parse.getTextContent().split(parse.getAttribute("delimiter"));
+                FALSE.addAll(Arrays.asList(falses));
+            }else if( parse.hasAttribute("regex")){
+                falseRegex=parse.getAttribute("regex");
+            }else {
+                FALSE.add(parse.getTextContent());
+            }
+        }
+        if( !FALSE.isEmpty() && !falseRegex.isEmpty() ){
+            Logger.error(id()+" -> Can't combine both fixed and regex based for false flag");
         }
         return this;
     }
@@ -161,6 +188,34 @@ public class FlagVal extends AbstractVal implements NumericVal{
         if( count > 0) // only valid if above 0, so no need to init if not
             history=new ArrayList<>();
         return super.enableHistory(count);
+    }
+    @Override
+    public boolean parseValue(String state) {
+        state=state.toLowerCase();
+        if( TRUE.isEmpty() ){
+            if( !trueRegex.isEmpty() ) {
+                if (state.matches(trueRegex)) {
+                    setState(true);
+                    return true;
+                }
+            }
+        }else if( TRUE.contains(state) ) {
+            setState(true);
+            return true;
+        }
+        if( FALSE.isEmpty() ){
+            if( !falseRegex.isEmpty() ) {
+                if (state.matches(falseRegex)) {
+                    setState(false);
+                    return true;
+                }
+            }
+        }else if( FALSE.contains(state)) {
+            setState(false);
+            return true;
+        }
+        Logger.error( id() + " -> Couldn't parse "+state);
+        return false;
     }
     /* *************************************** U S I N G *********************************************************** */
 
@@ -265,19 +320,6 @@ public class FlagVal extends AbstractVal implements NumericVal{
         return !loweredList.isEmpty()||!raisedList.isEmpty();
     }
 
-    @Override
-    public boolean parseValue(String state) {
-        state=state.toLowerCase();
-        if( TRUE.contains(state)) {
-            setState(true);
-        }else if( FALSE.contains(state)){
-            setState(false);
-        }else{
-            Logger.error( id() + " -> Couldn't parse "+state);
-            return false;
-        }
-        return true;
-    }
     private String getOptions(){
         var join = new StringJoiner(",");
         if( keepTime )
