@@ -52,6 +52,11 @@ The following is the recommended workspace layout for setting up dcafs in genera
   *  Working with xml is made a lot easier by installing the XML tools plugin
      * Plugins -> Plugin Admin -> search for 'XML tools' (click next) -> click checkbox -> install
      * This will auto-close nodes (something that's easily forgotten)
+  * In case you read the markdown docs locally, install the Markdown panel plugin
+    * Plugins -> Plugin Admin -> search for 'Markdown panel' (click next) -> click checkbox -> install
+    * To enable: 
+      * Plugins -> NppMarkdownPanel -> Toggle Markdown Panel
+      * Or find the small purple icon on the toolbar and click it (near the end about six from the eye)
 
 
 ## Interacting with Regular
