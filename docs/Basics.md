@@ -106,11 +106,11 @@ If there's something wrong there are three options:
   [-1s], so disabled)
 * **No data yet** at the end, means that no data has been received since the connection was made
 
-Some properties of the stream can be changed via telnet commands. To do this, the command is like `ss:alter,id,ref:value`.  
+Some properties of the stream can be changed via telnet commands. To do this, the command is like `ss:id,ref,value`.  
 Some examples:
-* `ss:alter,dice,ttl:3s` would change the ttl for the connection to 3 seconds, do note that 3000ms is also allowed
+* `ss:dice,ttl,3s` would change the ttl for the connection to 3 seconds, do note that 3000ms is also allowed
   (as well as 1m10s, 1h etc.)
-* `ss:alter,dice,eol:cr` would change the eol (end-of-line) character(s) to carriage return (\xD would also be accepted)
+* `ss:dice,eol,cr` would change the eol (end-of-line) character(s) to carriage return (\xD would also be accepted)
   from the default crlf (or \xD\xA)
 > **Note:** If you try them, this will change the settings you'll see below.
 > Make sure to correct the settings file to match the one below before proceeding any further.
@@ -121,9 +121,10 @@ What we did so far (starting up dcafs and connecting to a stream) generated a `s
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
   <settings>
-    <mode>normal</mode>
     <!-- Settings related to the telnet server -->
-    <telnet port="23" title="dcafs"/> <!-- The telnet server is available on port 23 and the title presented is dcafs -->
+    <telnet port="23" title="dcafs"> <!-- The telnet server is available on port 23 and the title presented is dcafs -->
+        <textcolor>lightgray</textcolor> <!-- default color of standard text in telnet -->
+    </telnet>
   </settings>
   <streams>
     <!-- Defining the various streams that need to be read -->
@@ -139,18 +140,19 @@ Some basic information about xml to start:
     * The first such node is called the rootnode, so <dcafs> ... </dcafs>
     * A node inside another node is called a childnode, so settings is a childnode of dcafs and so on
 * A node can have content, so like eol has crlf as content
-    * A node without content and without childnodes can be closed with just a / like, so like telnet
+    * A node without content and without childnodes can be closed with just a / fe. <stream id="hello" />
         * This is not mandatory, just makes it a bit shorter
 * A node can have attributes, the telnet node has port and title as attributes
 
 Everything in a stream node of the `settings.xml` file (except the ID) can be altered while running and will be applied
-without restart. To reload a stream after changing something in the `streams` node use `ss:reload,id` or in our case `ss:reload,dice`.  
+without restart. To reload a stream after changing something in the `streams` node use `ss:id,reload` or in our case `ss:dice,reload`.  
 Or all at once with `ss:reload`.
 >**Note:** To connect to other datasources (like serial or modbus), the command `ss:?` shows a list of options.
 
 ### 2. Look at the received data
 
-To see the data as it's coming in, use the `raw:streamid` command, so `raw:dice`.
+To see the data as it's coming in, use the `raw:streamid` command, so `raw:dice`. Alternatively 
+`stream:streamid` is also valid, just a bit longer.
 >**Note:** You don't need to type the full id, just make sure it at least 'starts with' and is the only option.
 > So `raw:dic` would have worked  or even `raw:d`. Because no other stream id's start with dic or d.
 
