@@ -7,7 +7,7 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.3.2 (wip)
+## 2.3.2 (05/04/23)
 
 ### StreamManager
 - General code cleanup (remove unused, add comments etc)
