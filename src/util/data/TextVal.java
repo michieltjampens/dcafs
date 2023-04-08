@@ -49,18 +49,18 @@ public class TextVal extends AbstractVal{
             Logger.error("Tried to create a TextVal without id/name, group "+group);
             return Optional.empty();
         }
-        return Optional.of(TextVal.newVal(group,name).alter(rtval));
+        return Optional.of(TextVal.newVal(group,name).reload(rtval));
     }
 
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
      */
-    public TextVal alter( Element rtval){
+    public TextVal reload(Element rtval){
         reset();
-        name(name)
-                .group(XMLtools.getChildStringValueByTag(rtval, "group", group()))
-                .defValue(XMLtools.getStringAttribute(rtval, "default", def));
+        name(name).group(XMLtools.getChildStringValueByTag(rtval, "group", group()));
+        defValue(XMLtools.getStringAttribute(rtval, "def", def));
+        defValue(XMLtools.getStringAttribute(rtval, "default", def));
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
