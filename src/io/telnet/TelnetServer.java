@@ -42,7 +42,7 @@ public class TelnetServer implements Commandable {
     ArrayList<Writable> writables = new ArrayList<>();
     private final Path settingsPath;
     private final ArrayList<String> messages=new ArrayList<>();
-    private String defColor = TelnetCodes.TEXT_BRIGHT_YELLOW;
+    private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
 
     public TelnetServer( BlockingQueue<Datagram> dQueue, Path settingsPath, EventLoopGroup eventGroup ) {
         this.dQueue=dQueue;
@@ -71,6 +71,7 @@ public class TelnetServer implements Commandable {
     public static void addBlankTelnetToXML(Path xmlPath ){
         XMLfab.withRoot(xmlPath, "settings")
                 .addParentToRoot(XML_PARENT_TAG, "Settings related to the telnet server").attr("title", "DCAFS").attr("port", 23)
+                .addChild("textcolor","lightgray")
                 .build();
     }
     public void run(){
