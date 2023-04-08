@@ -1,10 +1,8 @@
 package util.data;
 
-import org.json.XML;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -54,15 +52,26 @@ public class FlagVal extends AbstractVal implements NumericVal{
             Logger.error("Tried to create a FlagVal without id/name, group " + group);
             return Optional.empty();
         }
-        return Optional.of(FlagVal.newVal(group,name).alter(rtval));
+        return Optional.of(FlagVal.newVal(group,name).reload(rtval));
     }
-    public FlagVal alter( Element rtval){
+    public FlagVal reload(Element rtval){
         reset(); // reset is needed if this is called because of reload
         name(name)
                 .group(XMLtools.getChildStringValueByTag(rtval, "group", group()))
                 .defState(XMLtools.getBooleanAttribute(rtval, "default", defState));
-        if (XMLtools.getBooleanAttribute(rtval, "keeptime", false))
-            keepTime();
+                defState(XMLtools.getBooleanAttribute(rtval, "def", defState));
+
+        String options = XMLtools.getStringAttribute(rtval, "options", "");
+        for (var opt : options.split(",")) {
+            var arg = opt.split(":");
+            switch (arg[0]) {
+                case "time" -> keepTime();
+                case "order" -> order(NumberUtils.toInt(arg[1], -1));
+                case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
+            }
+        }
+
+        // Triggered Commands
         if (!XMLtools.getChildElements(rtval, "cmd").isEmpty())
             enableTriggeredCmds(dQueue);
         for (Element trigCmd : XMLtools.getChildElements(rtval, "cmd")) {
@@ -70,6 +79,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         }
+        // Parsing
         if( XMLtools.hasChildByTag(rtval,"true"))
             TRUE.clear();
         for (Element parse : XMLtools.getChildElements(rtval, "true")) {
