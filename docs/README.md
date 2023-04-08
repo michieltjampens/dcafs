@@ -4,5 +4,9 @@
 Tries to teach the basics of using dcafs with the use of a dice rolling simulator.
 This simulator can be found in the examples sub folder.
 
+### Rtvals (updated to 2.3.2)
+
+All the info about the various rtvals, except integration in store.
+
 ### TaskManager (to update for 2.0.0)
 Explains how to use taskmanager.
