@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>dev.iostuff</groupId>
   <artifactId>dcafs</artifactId>
-  <version>2.3.2</version>
+  <version>2.3.3</version>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -162,7 +162,7 @@
 		<groupId>org.mariadb.jdbc</groupId>
 		<artifactId>mariadb-java-client</artifactId>
 		<version>3.0.10</version>
-		<!-- Sticking to this version till there's a reason to update, because it adds 4MB to libs -->
+		<!-- Sticking to this version till there's a reason to update, because latest adds 4MB to libs -->
 	</dependency>
 	<!-- https://mvnrepository.com/artifact/org.eclipse.paho/org.eclipse.paho.client.mqttv3 -->
 	<dependency>

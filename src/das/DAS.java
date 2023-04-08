@@ -42,7 +42,7 @@ import java.util.concurrent.*;
 
 public class DAS implements Commandable{
 
-    private static final String version = "2.3.2";
+    private static final String version = "2.3.3";
 
     private final Path settingsPath;
     private String workPath;

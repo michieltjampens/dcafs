@@ -6,6 +6,17 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc?
+## 2.3.3 (wip)
+
+### Store
+- Added cmd `store:streamid,alterval,valname,attribute,value` to alter the attributes of a val in a store.
+
+### RealtimeValues
+- Flag didn't support the 'options' attribute like the other three do
+
+### Telnet
+- When starting a new settings file, the text color for telnet will be light gray by default instead of yellow.
+Because this node wasn't created before, this doesn't affect existing uses.
 
 ## 2.3.2 (05/04/23)
 
