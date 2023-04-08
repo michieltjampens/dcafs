@@ -8,9 +8,14 @@ import util.xml.XMLfab;
 import util.xml.XMLtools;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringJoiner;
 
 public class StoreCmds {
+
+    private static ArrayList<String> VALS = new ArrayList<>(List.of("real","int","text","flag"));
+    private static ArrayList<String> VAL_ATTR = new ArrayList<>(List.of("unit","group","options","def"));
     public static String replyToCommand(String request, boolean html, Path settingsPath ){
 
         var cmds =request.split(",");
@@ -41,6 +46,8 @@ public class StoreCmds {
                     .add(green+" store:streamid,db,dbids:table "+reg+"-> Alter the database/table ")
                     .add(green+" store:streamid,map,true/false"+reg+"-> Alter the map attribute")
                     .add(green+" store:streamid,group,newgroup"+reg+"-> Alter the default group used");
+            join.add("").add(cyan+"Alter val attributes"+reg)
+                    .add(green+" store:streamid,alterval,valname,unit,value "+reg+"-> Set the unit attribute of the given val");
             return join.toString();
         }else if( id.isEmpty()){
             return "! Empty id is not valid";
@@ -266,6 +273,24 @@ public class StoreCmds {
                 fab.attr("db", request.substring(start));
                 fab.build();
                 return "Set the db to "+request.substring(start);
+            }
+            case "alterval" -> {
+                if (cmds.length < 5 && !( cmds.length==4 && request.endsWith(",")))
+                    return "! Wrong amount of arguments -> store:id,alterval,valname,attr,value";
+                if( !VAL_ATTR.contains(cmds[3]))
+                    return "! Not a valid attribute, accepted: "+String.join(", ",VAL_ATTR);
+                // Find the val referenced?
+                for( var valtype : VALS){
+                    if( dig.peekAt(valtype,"name",cmds[2]).hasValidPeek() ){
+                        dig.goDown(valtype,"name",cmds[2]);
+                    }else if( dig.peekAtContent(valtype,cmds[2]).hasValidPeek() ){ // Found a flag
+                        dig.goDown(valtype,cmds[2]);
+                    }else{
+                        continue;
+                    }
+                    XMLfab.alterDigger(dig).ifPresent( x -> x.attr(cmds[3],cmds.length==5?cmds[4]:"").build());
+                    return "Attribute altered";
+                }
             }
         }
         return "Unknown command: store:"+request;
