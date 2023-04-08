@@ -145,3 +145,72 @@ By default, if the val is used inside a store, the string is just stored. But th
     <keep/>            <!-- Same as previous line -->
 </text>
 ````
+
+## Flag
+
+### Basics attributes
+The most basic node, this is the absolute minimum required:
+````xml
+<flag>name</flag>
+<!-- or -->
+<flag name="name">
+    <!-- add subnodes -->
+</flag>
+````
+````xml
+<flag group="outdoor" >raining</flag>
+````
+The added attributes:
+- `group` The group the val belongs to, this is a way to combine different parameters from the same sensor/location etc
+- `def` or `default` The default state (true/false) to use if something went wrong or to start with
+
+### Advanced attributes
+
+At the moment there's only one `options`.
+This attribute can be a list of other options to enable.
+
+These are:
+- `time` Store the timestamp of the last update
+- `history:x` Keep the last x values in memory, nothing is done with this for now except stdev calculations
+- `order:x` Just the position this val should get in the listing of the group
+
+### Triggered Actions
+
+It's possible to issue commands if a condition is met, this is the same for int and real.
+````xml
+<flag group="outdoor" name="raining" >
+    <!-- Always do this on an update -->
+    <cmd when="always">cmd:arg1,$</cmd> <!-- $ will be replaced with the new value --> 
+    <cmd>command_to_execute</cmd>
+    <!-- Only do this if the value changed -->
+    <cmd when="changed">command_to_execute</cmd>
+</flag>
+````
+
+### Parsing
+
+By default, if the val is used inside a store, the parsing is like this:
+- Convert to lowercase 
+   - true,1,yes,high becomes true
+   - false,0,no,low becomes false
+
+This can be altered. Do note that:
+- conversion to lower case is still applied
+- true is always checked first and thus has priority.
+
+So if true is a specific value, then false can be 'all' values which would be 'all except the one that's true'
+
+Just like text earlier, all cases must be covered.  
+Some examples:
+````xml
+<flag key="d20" name="d20" unit="">
+    <!-- All rolls on a 20 sided die of at least 15 is true, rest are false -->
+    <true>20</true><!-- default is a single value per node -->
+    <true delimiter=",">15,16,17,18,19</true> <!-- but delimiter can be specified -->
+    <false regex=".*"/> <!-- is also valid -->
+    
+    <!-- Or all rolls below 10 are false and above are true-->
+    <true regex="\d{2}"/> <!-- Two digits -->
+    <false regex="\d"/>   <!-- Single digit -->
+</flag>
+````
