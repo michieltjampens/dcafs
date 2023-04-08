@@ -79,7 +79,16 @@ public class XMLdigger {
         var eleOpt = XMLtools.getChildElements(last==null?root:last, tag).stream().filter(x ->
                 x.getAttribute(attr).equalsIgnoreCase(value)).findFirst();
 
-        eleOpt.ifPresentOrElse( ele -> stepDown(ele),()->invalidate());
+        eleOpt.ifPresentOrElse(this::stepDown, this::invalidate);
+        siblings.clear();
+        return this;
+    }
+    public XMLdigger goDown( String tag, String content ){
+        if(!valid)
+            return this;
+        var eleOpt = XMLtools.getChildElements(last==null?root:last, tag).stream().filter(x ->
+                x.getTextContent().equalsIgnoreCase(content)).findFirst();
+        eleOpt.ifPresentOrElse(this::stepDown, this::invalidate);
         siblings.clear();
         return this;
     }
