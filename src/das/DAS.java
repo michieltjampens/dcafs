@@ -248,7 +248,6 @@ public class DAS implements Commandable{
     private void createXML() {
        XMLfab.withRoot(settingsPath, "dcafs")
                 .addParentToRoot("settings")
-                    .addChild("mode","normal")
                 .addParentToRoot("streams")
                     .comment("Defining the various streams that need to be read")
                 .build();
