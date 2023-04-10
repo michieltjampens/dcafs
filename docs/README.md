@@ -1,6 +1,6 @@
 ## Content of the files in this folder
 
-### Basics (updated to 2.1.0)
+### Basics (updated to 2.3.2)
 Tries to teach the basics of using dcafs with the use of a dice rolling simulator.
 This simulator can be found in the examples sub folder.
 
@@ -8,7 +8,7 @@ This simulator can be found in the examples sub folder.
 
 All the info about the various rtvals, except integration in store.
 
-### Store (updated to 2.3.2)
+### Store (updated to 2.3.3)
 
 All the info about the uses of store, only inside a stream for now.
 

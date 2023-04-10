@@ -14,8 +14,8 @@ import java.util.StringJoiner;
 
 public class StoreCmds {
 
-    private static ArrayList<String> VALS = new ArrayList<>(List.of("real","int","text","flag"));
-    private static ArrayList<String> VAL_ATTR = new ArrayList<>(List.of("unit","group","options","def"));
+    private static final ArrayList<String> VALS = new ArrayList<>(List.of("real","int","text","flag"));
+    private static final ArrayList<String> VAL_ATTR = new ArrayList<>(List.of("unit","group","options","def"));
     public static String replyToCommand(String request, boolean html, Path settingsPath ){
 
         var cmds =request.split(",");
@@ -95,7 +95,7 @@ public class StoreCmds {
             request=String.join(",",cmds);
         }
         // At this point 'store' certainly exists in memory and dig is pointing to it
-        return doCmd(request,fab,dig);
+        return doCmd("store:id,",request,fab,dig);
     }
     public static String replyToPathCmd(String request, Path xmlPath ){
 
@@ -138,12 +138,12 @@ public class StoreCmds {
             fab.down(); // make the store the parent
             //fab.build();
             dig = XMLdigger.goIn(fab.getCurrentElement()); // reset the digger
-            return doCmd(request,fab,dig);
+            return doCmd("path:id,store,",request,fab,dig);
         } // Work in existing one at the end
-        return doCmd(request,fab,dig);
+        return doCmd("path:id,store,",request,fab,dig);
 
     }
-    private static String doCmd( String request, XMLfab fab, XMLdigger dig){
+    private static String doCmd( String prefix, String request, XMLfab fab, XMLdigger dig){
         var cmds = request.split(",");
         boolean map = dig.attr("map",false);
 
@@ -155,7 +155,7 @@ public class StoreCmds {
             }
             case "addreal","addr" -> {
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,addreal,name<,index/group>";
+                    return "! Wrong amount of arguments -> "+prefix+"addreal,name<,index/group>";
                 if( dig.peekAt("real","name",cmds[2]).hasValidPeek()
                         || dig.peekAtContent("real",cmds[2]).hasValidPeek() )
                     return "! Already a real with that id, try something else?";
@@ -177,7 +177,7 @@ public class StoreCmds {
             }
             case "addint","addi" -> {
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,addint,name<,index/group>";
+                    return "! Wrong amount of arguments -> "+prefix+"addint,name<,index/group>";
                 if( dig.peekAt("int","name",cmds[2]).hasValidPeek()
                         || dig.peekAtContent("int",cmds[2]).hasValidPeek() )
                     return "! Already an int with that id, try something else?";
@@ -199,7 +199,7 @@ public class StoreCmds {
             }
             case "addtext","addt" -> {
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,addtext,name<,index/group>";
+                    return "! Wrong amount of arguments -> "+prefix+"addtext,name<,index/group>";
                 if( dig.peekAt("text","name",cmds[2]).hasValidPeek()
                     || dig.peekAtContent("text",cmds[2]).hasValidPeek() )
                     return "! Already a text with that id, try something else?";
@@ -221,7 +221,7 @@ public class StoreCmds {
             }
             case "addflag","addf" -> {
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,addflag,name<,index/group>";
+                    return "! Wrong amount of arguments -> "+prefix+"addflag,name<,index/group>";
                 if( dig.peekAt("flag","name",cmds[2]).hasValidPeek()
                     || dig.peekAtContent("flag",cmds[2]).hasValidPeek() )
                     return "! Already a flag with that id, try something else?";
@@ -243,7 +243,7 @@ public class StoreCmds {
             }
             case "delim", "delimiter" -> {
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,delim,newdelimiter";
+                    return "! Wrong amount of arguments -> "+prefix+"delim,newdelimiter";
                 var deli = cmds.length == 4 ? "," : cmds[2];
                 fab.attr("delimiter", deli);
                 fab.build();
@@ -251,7 +251,7 @@ public class StoreCmds {
             }
             case "map", "mapped" -> {
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,map,true/false";
+                    return "! Wrong amount of arguments -> "+prefix+"map,true/false";
                 if( !Tools.validBool(cmds[2])){
                     return "! Not a valid boolean: "+cmds[2];
                 }
@@ -261,14 +261,14 @@ public class StoreCmds {
             }
             case "group" -> {
                 if (cmds.length < 3)
-                    return "! Not enough arguments: store:id,group,newgroup";
+                    return "! Wrong amount of arguments -> "+prefix+"group,newgroup";
                 fab.attr("group", cmds[2]);
                 fab.build();
                 return "Set the group to '"+cmds[2]+"'";
             }
             case "db" -> {
                 if (cmds.length < 3 || !cmds[2].contains(":"))
-                    return "! Not enough arguments or missing table: store:id,db,dbids:table";
+                    return "! Wrong amount of arguments or missing table: "+prefix+"db,dbids:table";
                 int start = request.indexOf(",db,")+4;
                 fab.attr("db", request.substring(start));
                 fab.build();
@@ -276,7 +276,7 @@ public class StoreCmds {
             }
             case "alterval" -> {
                 if (cmds.length < 5 && !( cmds.length==4 && request.endsWith(",")))
-                    return "! Wrong amount of arguments -> store:id,alterval,valname,attr,value";
+                    return "! Wrong amount of arguments -> "+prefix+"alterval,valname,attr,value";
                 if( !VAL_ATTR.contains(cmds[3]))
                     return "! Not a valid attribute, accepted: "+String.join(", ",VAL_ATTR);
                 // Find the val referenced?
@@ -291,8 +291,9 @@ public class StoreCmds {
                     XMLfab.alterDigger(dig).ifPresent( x -> x.attr(cmds[3],cmds.length==5?cmds[4]:"").build());
                     return "Attribute altered";
                 }
+                return "! No such val found: "+cmds[2];
             }
         }
-        return "Unknown command: store:"+request;
+        return "! No such subcommand in "+prefix+" : "+request;
     }
 }

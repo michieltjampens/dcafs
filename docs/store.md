@@ -36,7 +36,7 @@ To create the store: `store:meteo,addint,humidity`.
     <eol>crlf</eol>
     <address>localhost:4000</address>
     <store>
-        <int unit="%">humidity</int> <!-- unit isn't actually needed -->
+        <int unit="">humidity</int> <!-- unit isn't actually needed -->
     </store>
 </stream>
 ```
@@ -48,7 +48,7 @@ But the above would have actually been read like this:
     <eol>crlf</eol>
     <address>localhost:4000</address>
     <store group="meteo" map="false" db="" delimiter=","> <!-- group is taken from the id of the stream, ',' is the default delimiter -->
-        <int index="0" unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
+        <int index="0" unit="">humidity</int> <!-- Index is the position after split on the delimiter -->
     </store>
 </stream>
 ```
@@ -66,6 +66,7 @@ The store would be created with (check `store:?` for syntax):
 
 * To add an integer: `store:meteo,addint,humidity,1`  
 * To alter the delimiter to : `store:meteo,delimiter,:`
+* Set the unit: `store:meteo,alterval,humidity,unit,%` (added in 2.3.3)
 
 ```xml
 <stream id="meteo" type="tcp">
@@ -73,11 +74,16 @@ The store would be created with (check `store:?` for syntax):
     <address>localhost:4000</address>
     <store group="meteo" delimiter=":"> <!-- group is taken from the id of the stream, ',' is the default delimiter -->
         <int index="1" unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
-        <!-- For now % must be entered manually -->
     </store>
 </stream>
 ```
-
+Or if not using index.
+````xml
+    <store group="meteo" delimiter=":">
+        <ignore/> <!-- ignore the item at 0 -->
+        <int unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
+    </store>
+````
 ### Multiline key:value pair data
 
 If the data is multiline `key:value` pairs for example:  
@@ -87,14 +93,19 @@ winddir:320
 
 > Note: The delimiter doesn't have to be ':', it can be any character sequence. But no regex (for now).
 
+> Tip: This is probably a good time to use the 'repeat' function of the telnet interface. After using `store:meteo,!!`
+> that will be used as prefix for any following command untill `!!` is send.
+
 For this the `map` feature is used.
 * Switch to map mode: `store:meteo,map,yes` (or true,1,high)
-* Alter the delimiter `store:meteo,delimiter,:`
-* Add the humidity `store:meteo,addint,humidity,hum`
+* Alter the delimiter: `store:meteo,delimiter,:`
+* Add the humidity: `store:meteo,addint,humidity,hum`
+* Set the unit: `store:meteo,alterval,humidity,unit,%` (added in 2.3.3)
 * Add the temperature `store:meteo,addreal,temperature,temp`
-* Add the winddirection `store:meteo,addint,winddir,winddir`
+* Set the unit: `store:meteo,alterval,temperature,unit,°C`(added in 2.3.3)
+* Add the winddirection: `store:meteo,addint,winddir,winddir`
+* Set the unit: `store:meteo,alterval,winddir,unit,°`(added in 2.3.3)
 
-(units need to be filled in manually in the xml)
 ```xml
 <stream id="meteo" type="tcp">
     <eol>crlf</eol>
@@ -121,25 +132,60 @@ Otherwise old and new data might get mixed.
 
 To give a simple example:
 ````xml
-<databases>
-    <sqlite id="meteo" path="db\meteodata.sqlite">
-      <table name="meteo"> <!-- d20s instead of dice -->
-        <utcnow>timestamp</utcnow>
-        <integer>humidity</integer>
-          <integer>winddir</integer>
-          <real>temperature</real>
-      </table>
-    </sqlite>
-</databases>
-<streams>
-    <stream id="meteo" type="tcp">
-        <eol>crlf</eol>
-        <address>localhost:4000</address>
-        <store map="true" db="meteo:meteo" delimiter=":"> 
-            <int key="hum" unit="%">humidity</int> 
-            <real key="temp" unit="°C">temperature</real>
-            <int key="winddir" unit="°">winddir</int> <!-- Receiving this key will trigger the table insert -->
-        </store>
-    </stream>
-</streams>
+<dcafs>
+    <!-- doesn't include the telnet node -->
+    <databases>
+        <sqlite id="meteo" path="db\meteodata.sqlite">
+          <table name="meteo"> <!-- creates a table named meteo -->
+            <utcnow>timestamp</utcnow>
+            <integer>humidity</integer>
+              <integer>winddir</integer>
+              <real>temperature</real>
+          </table>
+        </sqlite>
+    </databases>
+    <streams>
+        <stream id="meteo" type="tcp">
+            <eol>crlf</eol>
+            <address>localhost:4000</address>
+            <store map="true" db="meteo:meteo" delimiter=":"> 
+                <int key="hum" unit="%">humidity</int> 
+                <real key="temp" unit="°C">temperature</real>
+                <int key="winddir" unit="°">winddir</int> <!-- Receiving this key will trigger the table insert -->
+            </store>
+        </stream>
+    </streams>
+</dcafs>
 ````
+**Resetting values**
+
+There are multiple ways to deal with rtvals if a stream is no longer sending data.
+- Check the timestamp to see if it's still relevant
+- Reset to default when the stream is idle
+
+For the second one, the `idlereset` attribute is adedd. Setting this to `idlereset="true"` will cause the store to 
+update the vals to their default value, if those are set...
+
+````xml
+<stream id="meteo" type="tcp">
+    <eol>crlf</eol>
+    <ttl>1m</ttl> <!-- TTL needs to be set so that it is known when the stream is idle -->
+    <address>localhost:4000</address>
+    <store idlereset="true" map="true" group="meteo" delimiter=":"> <!-- idlereset to true -->
+        <int key="hum" def="-1" unit="%">humidity</int>  <!-- def value filled in -->
+        <real key="temp" def="-999" unit="°C">temperature</real>
+        <int key="winddir" def="-1" unit="°">winddir</int>
+    </store>
+</stream>
+````
+
+## Inside a stream node
+
+The functionality is almost the same as inside a stream node, the difference is mainly in the commands.
+To refer to a store inside a path: `pf:pathid,store,cmd,value(s)`.  
+
+**Restrictions**
+- Because a store doesn't have an id, you can't refer to a specific one.
+- All commands will be applied to the last store in the path. If the last node isn't a store, a new one will be created.
+- The `idlereset` attribute can't be used because there's no idle check for a path (yet). Workaround is adding 
+  `rtvals:resetgroup,id` as a cmd in a stream to execute if it's idle. 

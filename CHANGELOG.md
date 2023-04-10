@@ -6,10 +6,12 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc?
+
 ## 2.3.3 (wip)
 
 ### Store
 - Added cmd `store:streamid,alterval,valname,attribute,value` to alter the attributes of a val in a store.
+- Error messages on cmds are now in line with those of other cmds and correspond to use for path or stream
 
 ### RealtimeValues
 - Flag didn't support the 'options' attribute like the other three do

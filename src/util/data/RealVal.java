@@ -286,7 +286,7 @@ public class RealVal extends AbstractVal implements NumericVal{
             Logger.error(id()+" (dv)-> Failed to convert trigger: "+trigger);
             return false;
         }
-        triggered.add( new TriggeredCmd(cmd,trigger) );
+        triggered.add( td );
         return true;
     }
     public boolean hasTriggeredCmds(){
