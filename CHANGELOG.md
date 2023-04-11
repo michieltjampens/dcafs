@@ -20,6 +20,10 @@ Note: Version numbering: x.y.z
 - When starting a new settings file, the text color for telnet will be light gray by default instead of yellow.
 Because this node wasn't created before, this doesn't affect existing uses.
 
+### Forwards
+- MathForward fix:
+  - when referring to an int to corresponding val was retrieved but not replaced with i yet. (only real and flag) 
+
 ## 2.3.2 (05/04/23)
 
 ### StreamManager

@@ -601,6 +601,7 @@ public class MathForward extends AbstractForward {
      * The indexes will be altered so that they match if the correct index of an array containing
      * - The received data split according to the delimiter up to the highest used index
      * - The realVals found
+     * - The intVals found
      * - The flagVals found
 
      * So if highest is 5 then the first double will be 6 and first flag will be 5 + size of double list + 1
@@ -615,8 +616,8 @@ public class MathForward extends AbstractForward {
                 boolean ok=false; // will be used at the end to check if ok
                 p[0]=p[0].toLowerCase();
                 switch(p[0]){
-                    case "d","double","r","real","f","flag":
-                        for( int pos=0;pos<referencedNums.size();pos++ ){ // go through the known doubleVals
+                    case "d","double","r","real","f","flag","i","int":
+                        for( int pos=0;pos<referencedNums.size();pos++ ){ // go through the known  Vals
                             var d = referencedNums.get(pos);
                             if( d.id().equalsIgnoreCase(p[1])) { // If a match is found
                                 exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + (highestI + pos + 1));
