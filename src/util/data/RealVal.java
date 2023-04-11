@@ -21,6 +21,7 @@ import java.util.function.Function;
 public class RealVal extends AbstractVal implements NumericVal{
 
     private double value;
+    private double rawValue=Double.NaN;
 
     private double defVal=Double.NaN;
 
@@ -146,6 +147,7 @@ public class RealVal extends AbstractVal implements NumericVal{
     public boolean parseValue( String val ){
         var res = NumberUtils.toDouble(val,Double.NaN);
         if(!Double.isNaN(res)){
+            rawValue=res;
             if( parseOp != null) {
                 res = parseOp.solveFor(res);
                 if( Double.isNaN(res))
@@ -322,13 +324,14 @@ public class RealVal extends AbstractVal implements NumericVal{
      * @return Get the current value as a double
      */
     public double value(){ return value; }
-    public String stringValue(){ return ""+value;}
+    public String stringValue(){ return String.valueOf(value);}
     public double value( String type ){
         return switch( type ){
             case "stdev", "stdv"-> getStdev();
             case "avg", "average" ->  getAvg();
             case "min" -> min();
             case "max" -> max();
+            case "raw" -> raw();
             default -> value();
         };
     }
@@ -359,6 +362,7 @@ public class RealVal extends AbstractVal implements NumericVal{
     public double max(){
         return max;
     }
+    public double raw() { return rawValue; }
     /**
      * Calculate the average of all the values stored in the history
      * @return The average of the stored values

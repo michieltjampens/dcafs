@@ -23,7 +23,7 @@ import java.util.function.Function;
 
 public class IntegerVal extends AbstractVal implements NumericVal{
     private int value;
-
+    private int rawValue=Integer.MAX_VALUE;
     private int defVal=0;
     private boolean abs=false;
 
@@ -195,6 +195,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         }
         try {
             var res = NumberUtils.createInteger(val.trim());
+            rawValue=res;
             if( parseOp != null) {
                 var dres = parseOp.solveFor((double)res);
                 if( Double.isNaN(dres)) {
@@ -207,6 +208,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             return true;
         }catch( NumberFormatException e ){
             if( defVal != Integer.MAX_VALUE ) {
+                rawValue=defVal;
                 value(defVal);
                 return true;
             }
@@ -308,7 +310,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public double value() {
         return value;
     }
-    public String stringValue(){ return ""+value;}
+    public String stringValue(){ return String.valueOf(value);}
     @Override
     public int intValue() {
         return value;
@@ -317,6 +319,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         return switch( type ){
             case "min" -> min();
             case "max" -> max();
+            case "raw" -> rawValue;
             default -> intValue();
         };
     }
