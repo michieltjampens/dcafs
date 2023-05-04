@@ -7,14 +7,19 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.3.3 (wip)
+## 2.3.4 (wip)
+
+### RealtimeValues
+- Fixed, vals weren't set to default on startup
+
+## 2.3.3 (20.04.23)
 
 ### Store
 - Added cmd `store:streamid,alterval,valname,attribute,value` to alter the attributes of a val in a store.
 - Error messages on cmds are now in line with those of other cmds and correspond to use for path or stream
 
 ### RealtimeValues
-- Flag didn't support the 'options' attribute like the other three do
+- Flag didn't support the 'options' attribute like the others do
 
 ### Telnet
 - When starting a new settings file, the text color for telnet will be light gray by default instead of yellow.
@@ -22,7 +27,7 @@ Because this node wasn't created before, this doesn't affect existing uses.
 
 ### Forwards
 - MathForward fix:
-  - when referring to an int to corresponding val was retrieved but not replaced with i yet. (only real and flag) 
+  - when referring to an int the corresponding val was retrieved but not replaced with 'i' yet. (only real and flag) 
 
 ## 2.3.2 (05/04/23)
 
