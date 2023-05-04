@@ -76,9 +76,12 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      */
     public IntegerVal alter( Element rtval ){
         reset();
-        unit(XMLtools.getStringAttribute(rtval, "unit", "")).
-                defValue( XMLtools.getIntAttribute(rtval, "default", defVal) ).
-                defValue( XMLtools.getIntAttribute(rtval, "default", defVal) );
+        unit(XMLtools.getStringAttribute(rtval, "unit", ""));
+        defValue( XMLtools.getIntAttribute(rtval, "default", defVal) );
+        defValue( XMLtools.getIntAttribute(rtval, "default", defVal) );
+
+        value=defVal; // Set the current value to the default
+
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");

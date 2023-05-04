@@ -56,10 +56,12 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
     public FlagVal reload(Element rtval){
         reset(); // reset is needed if this is called because of reload
-        name(name)
-                .group(XMLtools.getChildStringValueByTag(rtval, "group", group()))
-                .defState(XMLtools.getBooleanAttribute(rtval, "default", defState));
-                defState(XMLtools.getBooleanAttribute(rtval, "def", defState));
+        name(name);
+        group(XMLtools.getChildStringValueByTag(rtval, "group", group()));
+        defState(XMLtools.getBooleanAttribute(rtval, "default", defState));
+        defState(XMLtools.getBooleanAttribute(rtval, "def", defState));
+
+        state=defState; // Set the current state to the default
 
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {

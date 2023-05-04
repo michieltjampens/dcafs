@@ -61,6 +61,9 @@ public class TextVal extends AbstractVal{
         name(name).group(XMLtools.getChildStringValueByTag(rtval, "group", group()));
         defValue(XMLtools.getStringAttribute(rtval, "def", def));
         defValue(XMLtools.getStringAttribute(rtval, "default", def));
+
+
+
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");

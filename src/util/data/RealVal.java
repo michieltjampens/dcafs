@@ -81,10 +81,13 @@ public class RealVal extends AbstractVal implements NumericVal{
      */
     public RealVal alter( Element rtval ){
         reset();
-        unit(XMLtools.getStringAttribute(rtval, "unit", ""))
-                .scale(XMLtools.getIntAttribute(rtval, "scale", -1))
-                .defValue(XMLtools.getDoubleAttribute(rtval, "default", defVal))
-                .defValue(XMLtools.getDoubleAttribute(rtval, "def", defVal));
+        unit(XMLtools.getStringAttribute(rtval, "unit", ""));
+        scale(XMLtools.getIntAttribute(rtval, "scale", -1));
+        defValue(XMLtools.getDoubleAttribute(rtval, "default", defVal));
+        defValue(XMLtools.getDoubleAttribute(rtval, "def", defVal));
+
+        value=defVal; // Set the current value to the default
+
         String options = XMLtools.getStringAttribute(rtval, "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
