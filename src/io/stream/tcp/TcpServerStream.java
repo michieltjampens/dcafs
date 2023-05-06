@@ -148,7 +148,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
 
     @Override
     public String getInfo() {
-        return "TCPSERVER ["+id+"] "+ ipsock.toString();
+        return "TCPSERVER ["+id+"] Port "+ ipsock.getPort();
     }
 
     @Override
@@ -227,5 +227,8 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
             Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data());
             dQueue.add( Datagram.system(cmd.data()).writable(this) );
         }
+    }
+    public int getClientCount(){
+        return clients.size();
     }
 }
