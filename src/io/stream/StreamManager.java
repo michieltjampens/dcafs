@@ -9,6 +9,7 @@ import io.stream.serialport.ModbusStream;
 import io.stream.serialport.MultiStream;
 import io.stream.serialport.SerialStream;
 import io.stream.tcp.ModbusTCPStream;
+import io.stream.tcp.TcpServerStream;
 import io.stream.tcp.TcpStream;
 import io.stream.udp.UdpServer;
 import io.stream.udp.UdpStream;
@@ -62,7 +63,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	private final RealtimeValues rtvals;
 
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
-	static String[] NEWSTREAM={"addserial","addmodbus","addtcp","addudpclient","addlocal","addudpserver"};
+	static String[] NEWSTREAM={"addserial","addmodbus","addtcp","addudpclient","addlocal","addudpserver","addtcpserver"};
 
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
 		this.dQueue = dQueue;
@@ -429,6 +430,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				tcp.reconnectFuture = scheduler.schedule(new DoConnection(tcp), 0, TimeUnit.SECONDS);
 				return tcp;
 			}
+			case "tcpserver" -> {
+				TcpServerStream tcp = new TcpServerStream(dQueue, stream);
+				tcp.setEventLoopGroup(eventLoopGroup);
+				tcp.connect();
+				return tcp;
+			}
 			case "udp", "udpclient" -> {
 				UdpStream udp = new UdpStream(dQueue, stream);
 				udp.setEventLoopGroup(eventLoopGroup);
@@ -623,8 +630,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 							.add(green + " ss:id,ttl,value " + reg + "-> Alter the ttl")
 							.add(green + " ss:id,eol,value " + reg + "-> Alter the eol string")
 							.add(green + " ss:id,baudrate,value " + reg + "-> Alter the baudrate of a serial/modbus stream")
-							.add(green + " ss:id,addwrite,when,data " + reg + "-> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
-							.add(green + " ss:id,addcmd,when,data " + reg + "-> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
+							.add(green + " ss:id,addwrite,when:data " + reg + "-> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
+							.add(green + " ss:id,addcmd,when:data " + reg + "-> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
 							.add(green + " ss:id,echo,on/off " + reg + "-> Sets if the data received on this stream will be returned to sender");
 					join.add("").add(cyan + "Route data from or to a stream" + reg)
 							.add(green + " ss:forward,source,id " + reg + "-> Forward the data from a source to the stream, source can be any object that accepts a writable")
@@ -669,7 +676,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			var type = cmds[0].substring(3);
 
 			switch (type) {
-				case "tcp", "udpclient" -> {
+				case "tcp", "udpclient","tcpserver" -> {
 					if (cmds.length != 3)
 						return "! Not enough arguments: ss:" + cmds[0] + ",id,ip:port";
 					addBaseToXML(fab, cmds[1], type);
@@ -792,7 +799,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 				case "addwrite", "addcmd" -> {
 					if (cmds.length < 3) {
-						return "! Wrong amount of arguments -> ss:id," + cmds[1] + ",when:cmd";
+						return "! Wrong amount of arguments -> ss:id," + cmds[1] + ",when,cmd";
 					}
 					if (cmds[2].split(":").length == 1)
 						return "! Doesn't contain a proper when:data pair";

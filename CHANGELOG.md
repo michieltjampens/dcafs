@@ -12,6 +12,24 @@ Note: Version numbering: x.y.z
 ### RealtimeValues
 - Fixed, vals weren't set to default on startup
 
+### StreamManager
+- Added 'tcpserver' as possible type, can be used to replace the transserver with a more purpose built alternative.
+  - Use label 'system' to mimick most of transserver functionality 
+````xml
+    <!-- 
+        This mimics most used funcionality of the TransServer 
+        - Sends a welcome message to new clients, do note that continuous data requests will send data to ALL clients
+        - Sends the data from a certain src to all connected clients
+        - 'open' trigger is fired when the first client connects
+    --> 
+    <stream id="trans" type="tcpserver">
+      <label>system</label>
+      <eol>crlf</eol>
+      <address>localhost:1234</address>
+      <cmd when="open">raw:sensor</cmd> <!-- All attached clients will receive data from sensor stream -->
+      <cmd when="hello">Welcome to trans?</cmd> <!-- Send welcome message -->
+    </stream>
+````
 ## 2.3.3 (20.04.23)
 
 ### Store

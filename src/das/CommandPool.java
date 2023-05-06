@@ -218,7 +218,7 @@ public class CommandPool {
 				result = result.replaceAll("<.{1,2}>","");
 				wr.writeLine(result);
 			}else if(!d.isSilent()) {
-				wr.writeLine(result);
+				wr.writeLine(d.getOriginID(),result);
 			}
 		}
 		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)

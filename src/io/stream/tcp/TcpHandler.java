@@ -12,6 +12,7 @@ import worker.Datagram;
 
 import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
@@ -67,7 +68,11 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     public void setStreamListeners( List<StreamListener> listeners ){
         this.listeners=listeners;
     }
-
+    public void addStreamListener( StreamListener listener){
+        if( listeners==null)
+            listeners = new ArrayList<>();
+        listeners.add(listener);
+    }
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
     	if (evt instanceof IdleStateEvent e) {
@@ -113,7 +118,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
 			Logger.error( "Channel.remoteAddress is null in channelActive method");
 		}
 	
-        Logger.info("Channel Opened: "+ctx.channel().remoteAddress() +" ("+label+")");
+        Logger.info("Channel Opened: "+ctx.channel().remoteAddress() +" ("+(label.isEmpty()?"No label":label)+")");
         if( !label.equals("telnet")&&!label.equals("trans") && !id.isBlank()){
             listeners.forEach( l-> l.notifyOpened(id) );
         }     
@@ -164,8 +169,10 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
             if( !label.isEmpty() && dQueue !=null ) { // No use adding to queue without label
                dQueue.add( Datagram.build(msg)
                        .label(label)
+                       .origin(id)
                        .priority(priority)
                        .writable(writable)
+                       .toggleSilent()
                        );
             }
 
@@ -208,6 +215,9 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
             return true;
         }
         return false;
+    }
+    public void setLabel( String label){
+        this.label=label;
     }
     public void flagAsIdle(){
         idle=true;

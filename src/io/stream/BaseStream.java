@@ -274,17 +274,17 @@ public abstract class BaseStream {
     }
     public void applyTriggeredAction(TRIGGER trigger ){
         for( TriggerAction cmd : triggeredActions){
-            if( cmd.trigger!=trigger)
-                continue;
+            if( cmd.trigger!=trigger) // Check if the trigger presented matched this actions trigger
+                continue; // If not, check the next one
 
-            if( cmd.trigger==TRIGGER.HELLO || cmd.trigger==TRIGGER.WAKEUP ){
+            if( cmd.trigger==TRIGGER.HELLO || cmd.trigger==TRIGGER.WAKEUP ){ // These trigger involves writing to remote
                 Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data);
                 if( this instanceof Writable )
                     ((Writable) this).writeLine(cmd.data);
                 continue;
             }
             Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data);
-            if( this instanceof Writable ){
+            if( this instanceof Writable ){ // All the other triggers are executing cmds
                 dQueue.add( Datagram.system(cmd.data).writable((Writable)this) );
             }else{
                 dQueue.add( Datagram.system(cmd.data) );
@@ -322,12 +322,15 @@ public abstract class BaseStream {
     }
     protected static class TriggerAction {
         String data;
-        TRIGGER trigger;
+        public TRIGGER trigger;
 
         TriggerAction(TRIGGER trigger, String data ){
             this.trigger=trigger;
             this.data =data;
             Logger.info("Added action : "+trigger+" -> "+data);
+        }
+        public String data(){
+            return data;
         }
         TriggerAction(String trigger, String command){
             this(convertTrigger(trigger),command);
