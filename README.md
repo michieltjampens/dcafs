@@ -62,14 +62,15 @@ In the background, a fresh settings.xml was generated.
 ````xml
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
-  <settings>
-    <mode>normal</mode>
-    <!-- Settings related to the telnet server -->
-    <telnet port="23" title="DCAFS"/>
-  </settings>
-  <streams>
-    <!-- Defining the various streams that need to be read -->
-  </streams>
+    <settings>
+        <!-- Settings related to the telnet server -->
+        <telnet port="23" title="DCAFS">
+            <textcolor>lightgray</textcolor>
+        </telnet>
+    </settings>
+    <streams>
+        <!-- Defining the various streams that need to be read -->
+    </streams>
 </dcafs>
 ````
 Back in the telnet client, add a data source:
@@ -85,9 +86,10 @@ Meanwhile, in the background, the settings.xml was updated as follows:
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
   <settings>
-    <mode>normal</mode>
     <!-- Settings related to the telnet server -->
-   <telnet port="23" title="dcafs"/>
+      <telnet port="23" title="DCAFS">
+          <textcolor>lightgray</textcolor>
+      </telnet>
   </settings>
   <streams>
     <!-- Defining the various streams that need to be read -->
