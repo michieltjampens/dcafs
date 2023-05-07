@@ -6,18 +6,15 @@
     <telnet port="24" title="Dummy Sensor">
       <ignore/>
     </telnet>
-    <transserver port="4000">
-      <default address="127.0.0.1" id="local">
-        <cmd>raw:dummy</cmd>
-      </default>
-    </transserver>
+
     <taskmanager id="dicer">tmscripts\dum.xml</taskmanager>
   </settings>
   <streams>
     <!-- A local stream for the taskmanager to write to -->
-    <stream id="dummy" type="local">
-      <eol>crlf</eol>
+    <stream id="dummy" type="tcpserver">      
 	  <log>false</log>
+	  <label>system</label>
+      <port>4000</port>
     </stream>
   </streams>
 </dcafs>
