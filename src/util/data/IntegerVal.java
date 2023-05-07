@@ -7,8 +7,6 @@ import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
-import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -224,17 +222,14 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      *
      * @param defVal The default value
      */
-    public IntegerVal defValue(int defVal){
+    public void defValue(int defVal){
         this.defVal = defVal;
-        return this;
     }
     /**
      * Enable keeping track of the max and min values received since last reset
-     * @return This object but with min max enabled
      */
-    public IntegerVal keepMinMax(){
+    public void keepMinMax(){
         keepMinMax=true;
-        return this;
     }
     public void enableAbs(){
         abs=true;
@@ -257,11 +252,12 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     }
     /**
      * Tries to add a cmd with given trigger, will warn if no valid queue is present to actually execute them
-     * @param cmd The cmd to trigger, $ will be replaced with the current value
+     *
+     * @param cmd     The cmd to trigger, $ will be replaced with the current value
      * @param trigger The trigger which is either a comparison between the value and another fixed value fe. above 10 or
      *                'always' to trigger on every update or 'changed' to trigger only on a changed value
      */
-    public boolean addTriggeredCmd(String trigger,String cmd ){
+    public void addTriggeredCmd(String trigger, String cmd ){
 
         if( triggered==null)
             triggered = new ArrayList<>();
@@ -269,10 +265,9 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         var td = new TriggeredCmd(cmd,trigger);
         if( td.isInvalid()) {
             Logger.error(id()+" (iv)-> Failed to convert trigger: "+trigger);
-            return false;
+            return;
         }
         triggered.add( new TriggeredCmd(cmd,trigger) );
-        return true;
     }
     public boolean hasTriggeredCmds(){
         return triggered!=null&& !triggered.isEmpty();
@@ -431,12 +426,12 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             boolean ok;
             switch (type) {
                 case ALWAYS -> {
-                    dQueue.add(Datagram.system(cmd.replace("$", "" + val)));
+                    dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
                     return;
                 }
                 case CHANGED -> {
                     if (val != value)
-                        dQueue.add(Datagram.system(cmd.replace("$", "" + val)));
+                        dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
                     return;
                 }
                 case COMP -> ok = comp.apply(val);
@@ -452,7 +447,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
                 }
             }
             if( !triggered && ok ){
-                dQueue.add(Datagram.system(cmd.replace("$",""+val)));
+                dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
             }else if( triggered && !ok){
                 triggered=false;
             }

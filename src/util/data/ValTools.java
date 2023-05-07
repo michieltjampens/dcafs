@@ -227,12 +227,12 @@ public class ValTools {
                     case "d", "r", "double", "real" -> {
                         var d = rv.getReal(p[1], Double.NaN);
                         if (!Double.isNaN(d) || !error.isEmpty())
-                            line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : "" + d);
+                            line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : String.valueOf(d));
                     }
                     case "i", "int", "integer" -> {
                         var i = rv.getIntegerVal(p[1]).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
                         if (i != Integer.MAX_VALUE)
-                            line = line.replace("{" + p[0] + ":" + p[1] + "}", "" + i);
+                            line = line.replace("{" + p[0] + ":" + p[1] + "}", String.valueOf(i));
                     }
                     case "t", "text" -> {
                         String t = rv.getTextVal(p[1]).map(TextVal::value).orElse(error);
@@ -283,7 +283,7 @@ public class ValTools {
                             if( !error.equalsIgnoreCase("ignore")) // if errors should be ignored
                                 yield error;
                         }
-                        yield ""+rv.getReal(id,Double.NaN);
+                        yield String.valueOf(rv.getReal(id, Double.NaN));
                     }
                     case 'i' -> {
                         if( !rv.hasInteger(id) ) { // ID found
@@ -291,7 +291,7 @@ public class ValTools {
                             if( !error.equalsIgnoreCase("ignore")) // if errors should be ignored
                                 yield error;
                         }
-                        yield "" + rv.getIntegerVal(id).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
+                        yield String.valueOf(rv.getIntegerVal(id).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE));
                     }
                     case 'f'-> {
                         if (!rv.hasFlag(id)) {
@@ -322,10 +322,10 @@ public class ValTools {
                 };
             }else { // If it doesn't contain : it could be anything...
                 if (rv.hasReal(word)) { //first check for real
-                    replacement = "" + rv.getReal(word,Double.NaN);
+                    replacement = String.valueOf(rv.getReal(word, Double.NaN));
                 } else { // if not
                     if( rv.hasInteger(word)){
-                        replacement = ""  + rv.getIntegerVal(word).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
+                        replacement = String.valueOf(rv.getIntegerVal(word).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE));
                     }else {
                         if (rv.hasText(word)) { //next, try text
                             replacement = rv.getTextVal(word).map(TextVal::value).orElse("");

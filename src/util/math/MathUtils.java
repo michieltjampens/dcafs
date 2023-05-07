@@ -170,10 +170,10 @@ public class MathUtils {
                 // add the op
                 if( b<ops.length()) {
                     if( ops.length()>b+1 && ops.charAt(b+1)=='=') { // == doesn't get processed properly, so fix this
-                        full.add("" + ops.substring(b,b+2));
+                        full.add(ops.substring(b, b + 2));
                         b++;
                     }else {// if not == just add it
-                        full.add("" + ops.charAt(b));
+                        full.add(String.valueOf(ops.charAt(b)));
                     }
                 }
                 b++;
@@ -335,7 +335,7 @@ public class MathUtils {
      * @return The generated function
      */
     public static Function<Double,Boolean> getSingleCompareFunction( double fixed,String comp ){
-        Function<Double,Boolean> proc = switch (comp) {
+        return switch (comp) {
             case "<" -> x -> x < fixed;
             case "<=" -> x -> x <= fixed;
             case ">" -> x -> x > fixed;
@@ -344,7 +344,6 @@ public class MathUtils {
             case "!=" -> x -> x != fixed;
             default -> null;
         };
-        return proc;
     }
 
     /**
@@ -711,7 +710,7 @@ public class MathUtils {
                 i++;
             }
         }catch( NullPointerException e ){
-            Logger.error( "Nullpointer when processing "+formula+" on step "+i);
+            Logger.error( "Null pointer when processing "+formula+" on step "+i);
             return error;
         }
         return result[i-1];
@@ -805,259 +804,255 @@ public class MathUtils {
         }
 
 
-        switch( op ){
-            case "!":
-                proc = x -> Double.compare(x[i1],1)>=0?0.0:1.0;
-                break;
-            case "+":
+        switch (op) {
+            case "!" -> proc = x -> Double.compare(x[i1], 1) >= 0 ? 0.0 : 1.0;
+            case "+" -> {
                 try {
                     if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> db1+db2;
+                        proc = x -> db1 + db2;
                     } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1]+db2;
+                        proc = x -> x[i1] + db2;
                     } else if (db1 != null) { // meaning first is a number and second an index
-                        proc = x -> db1+x[i2];
+                        proc = x -> db1 + x[i2];
                     } else { // meaning both indexes
-                        proc = x -> x[i1]+x[i2];
+                        proc = x -> x[i1] + x[i2];
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "-":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> db1-db2;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> x[i1]-db2;
-                    }else if(db1 != null){ // meaning first is a number and second an index
-                        proc = x -> db1-x[i2];
-                    }else{ // meaning both indexes
-                        proc = x -> x[i1]-x[i2];
-                    }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
-                    Logger.error(e);
-                }
-                break;
-            case "*":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> db1*db2;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> x[i1]*db2;
-                    }else if(db1 != null){ // meaning first is a number and second an index
-                        proc = x -> db1*x[i2];
-                    }else{ // meaning both indexes
-                        proc = x -> x[i1]*x[i2];
-                    }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
-                    Logger.error(e);
-                }
-                break;
-
-            case "/": // i0/25
+            }
+            case "-" -> {
                 try {
                     if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> db1/db2;
+                        proc = x -> db1 - db2;
                     } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1]/db2;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> db1/x[i2];
+                        proc = x -> x[i1] - db2;
+                    } else if (db1 != null) { // meaning first is a number and second an index
+                        proc = x -> db1 - x[i2];
                     } else { // meaning both indexes
-                        proc = x ->x[i1]/x[i2];
+                        proc = x -> x[i1] - x[i2];
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-
-            case "%": // i0%25
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> db1%db2;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> x[i1]%db2;
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> db1%x[i2];
-                    }else{ // meaning both indexes
-                        proc = x -> x[i1]%x[i2];
+            }
+            case "*" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> db1 * db2;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> x[i1] * db2;
+                    } else if (db1 != null) { // meaning first is a number and second an index
+                        proc = x -> db1 * x[i2];
+                    } else { // meaning both indexes
+                        proc = x -> x[i1] * x[i2];
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "^": // i0^2
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Math.pow(db1,db2);
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        if( db2.compareTo(0.5) == 0){ // root
+            }
+            case "/" -> { // i0/25
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> db1 / db2;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> x[i1] / db2;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> db1 / x[i2];
+                    } else { // meaning both indexes
+                        proc = x -> x[i1] / x[i2];
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
+                }
+            }
+            case "%" -> { // i0%25
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> db1 % db2;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> x[i1] % db2;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> db1 % x[i2];
+                    } else { // meaning both indexes
+                        proc = x -> x[i1] % x[i2];
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
+                }
+            }
+            case "^" -> { // i0^2
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Math.pow(db1, db2);
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        if (db2.compareTo(0.5) == 0) { // root
                             proc = x -> Math.sqrt(x[i1]);
-                        }else{
-                            proc = x -> Math.pow(x[i1],db2);
+                        } else {
+                            proc = x -> Math.pow(x[i1], db2);
                         }
 
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Math.pow(db1,x[i2]);
-                    }else{ // meaning both indexes
-                        proc = x -> Math.pow(x[i1],x[i2]);
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Math.pow(db1, x[i2]);
+                    } else { // meaning both indexes
+                        proc = x -> Math.pow(x[i1], x[i2]);
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "scale": // i0/25
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Tools.roundDouble(db1,db2.intValue());
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Tools.roundDouble(x[i1],db2.intValue());
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Tools.roundDouble(db1,x[i2].intValue());
-                    }else{ // meaning both indexes
-                        proc = x -> Tools.roundDouble(x[i1],x[i2].intValue());
+            }
+            case "scale" -> { // i0/25
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Tools.roundDouble(db1, db2.intValue());
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Tools.roundDouble(x[i1], db2.intValue());
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Tools.roundDouble(db1, x[i2].intValue());
+                    } else { // meaning both indexes
+                        proc = x -> Tools.roundDouble(x[i1], x[i2].intValue());
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "diff": case "~":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Math.abs(db1-db2);
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Math.abs(x[i1]-db2);
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Math.abs(db1-x[i2]);
-                    }else{ // meaning both indexes
-                        proc = x -> Math.abs(x[i1]-x[i2]);
+            }
+            case "diff", "~" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Math.abs(db1 - db2);
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Math.abs(x[i1] - db2);
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Math.abs(db1 - x[i2]);
+                    } else { // meaning both indexes
+                        proc = x -> Math.abs(x[i1] - x[i2]);
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "ln":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
+            }
+            case "ln" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
                         Logger.error("Todo - ln bd,bd");
                         proc = x -> Math.log(db2);
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
                         proc = x -> Math.log(db2);
-                    }else if(db1 != null){ //  meaning first is a number and second an index
+                    } else if (db1 != null) { //  meaning first is a number and second an index
                         proc = x -> Math.log(x[i2]);
-                    }else{ // meaning both indexes
+                    } else { // meaning both indexes
                         proc = x -> Math.log(x[i2]);
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "<":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Double.compare(db1,db2)<0?1.0:0.0;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1],db2)<0?1.0:0.0;
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1,x[i2])<0?1.0:0.0;
-                    }else{ // meaning both indexes
-                        proc = x -> Double.compare(x[i1],x[i2])<0?1.0:0.0;
+            }
+            case "<" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Double.compare(db1, db2) < 0 ? 1.0 : 0.0;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Double.compare(x[i1], db2) < 0 ? 1.0 : 0.0;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Double.compare(db1, x[i2]) < 0 ? 1.0 : 0.0;
+                    } else { // meaning both indexes
+                        proc = x -> Double.compare(x[i1], x[i2]) < 0 ? 1.0 : 0.0;
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case ">":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Double.compare(db1,db2)>0?1.0:0.0;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1],db2)>0?1.0:0.0;
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1,x[i2])>0?1.0:0.0;
-                    }else{ // meaning both indexes
-                        proc = x -> Double.compare(x[i1],x[i2])>0?1.0:0.0;
+            }
+            case ">" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Double.compare(db1, db2) > 0 ? 1.0 : 0.0;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Double.compare(x[i1], db2) > 0 ? 1.0 : 0.0;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Double.compare(db1, x[i2]) > 0 ? 1.0 : 0.0;
+                    } else { // meaning both indexes
+                        proc = x -> Double.compare(x[i1], x[i2]) > 0 ? 1.0 : 0.0;
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "<=":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Double.compare(db1,db2)<=0?1.0:0.0;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1],db2)<=0?1.0:0.0;
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1,x[i2])<=0?1.0:0.0;
-                    }else{ // meaning both indexes
-                        proc = x -> Double.compare(x[i1],x[i2])<=0?1.0:0.0;
+            }
+            case "<=" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Double.compare(db1, db2) <= 0 ? 1.0 : 0.0;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Double.compare(x[i1], db2) <= 0 ? 1.0 : 0.0;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Double.compare(db1, x[i2]) <= 0 ? 1.0 : 0.0;
+                    } else { // meaning both indexes
+                        proc = x -> Double.compare(x[i1], x[i2]) <= 0 ? 1.0 : 0.0;
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case ">=":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Double.compare(db1,db2)>=0?1.0:0.0;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1],db2)>=0?1.0:0.0;
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1,x[i2])>=0?1.0:0.0;
-                    }else{ // meaning both indexes
-                        proc = x -> Double.compare(x[i1],x[i2])>=0?1.0:0.0;
+            }
+            case ">=" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Double.compare(db1, db2) >= 0 ? 1.0 : 0.0;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Double.compare(x[i1], db2) >= 0 ? 1.0 : 0.0;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Double.compare(db1, x[i2]) >= 0 ? 1.0 : 0.0;
+                    } else { // meaning both indexes
+                        proc = x -> Double.compare(x[i1], x[i2]) >= 0 ? 1.0 : 0.0;
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "==":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Double.compare(db1,db2)==0?1.0:0.0;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1],db2)==0?1.0:0.0;
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1,x[i2])==0?1.0:0.0;
-                    }else{ // meaning both indexes
-                        proc = x -> Double.compare(x[i1],x[i2])==0?1.0:0.0;
+            }
+            case "==" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Double.compare(db1, db2) == 0 ? 1.0 : 0.0;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Double.compare(x[i1], db2) == 0 ? 1.0 : 0.0;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Double.compare(db1, x[i2]) == 0 ? 1.0 : 0.0;
+                    } else { // meaning both indexes
+                        proc = x -> Double.compare(x[i1], x[i2]) == 0 ? 1.0 : 0.0;
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            case "!=":
-                try{
-                    if( db1!=null && db2!=null ){ // meaning both numbers
-                        proc = x -> Double.compare(db1,db2)!=0?1.0:0.0;
-                    }else if( db1==null && db2!=null){ // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1],db2)!=0?1.0:0.0;
-                    }else if(db1 != null){ //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1,x[i2])!=0?1.0:0.0;
-                    }else{ // meaning both indexes
-                        proc = x -> Double.compare(x[i1],x[i2])!=0?1.0:0.0;
+            }
+            case "!=" -> {
+                try {
+                    if (db1 != null && db2 != null) { // meaning both numbers
+                        proc = x -> Double.compare(db1, db2) != 0 ? 1.0 : 0.0;
+                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
+                        proc = x -> Double.compare(x[i1], db2) != 0 ? 1.0 : 0.0;
+                    } else if (db1 != null) { //  meaning first is a number and second an index
+                        proc = x -> Double.compare(db1, x[i2]) != 0 ? 1.0 : 0.0;
+                    } else { // meaning both indexes
+                        proc = x -> Double.compare(x[i1], x[i2]) != 0 ? 1.0 : 0.0;
                     }
-                }catch (IndexOutOfBoundsException | NullPointerException e){
-                    Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
                 }
-                break;
-            default:Logger.error("Unknown operand: "+op); break;
+            }
+            default -> Logger.error("Unknown operand: " + op);
         }
         return proc;
     }
@@ -1226,28 +1221,6 @@ public class MathUtils {
             hex = "0" + hex;
         return hex;
     }
-
-    /**
-     * Calculate the MD5 checksum of a file
-     *
-     * @param file The path to the file
-     * @return The calculated checksum in ascii
-     */
-    public static String calculateMD5(Path file) {
-        MessageDigest md;
-        Logger.info("Calculating MD5 for " + file.toString());
-
-        try {
-            md = MessageDigest.getInstance("MD5");
-            md.update(Files.readAllBytes(file));
-            byte[] digest = md.digest();
-            return Tools.fromBytesToHexString(digest);
-        } catch (NoSuchAlgorithmException | IOException e) {
-            Logger.error(e);
-            return "";
-        }
-    }
-
     /**
      * Calculate the CRC16 according to the modbus spec
      *
@@ -1325,95 +1298,5 @@ public class MathUtils {
             sum2 += (d - mean) * (d - mean);
         }
         return Tools.roundDouble(Math.sqrt(sum2 / set.size()), decimals);
-    }
-
-    /**
-     * Performes a second order A*x²2 + B*x + C computation in which A, B and C are
-     * calibration coefficients
-     *
-     * @param cal      The calibration coëfficients
-     * @param hex      The x in the formula in hexadecimal representation
-     * @param decimals How many decimals in the result
-     * @return Calculated value
-     */
-    public static double calc2ndOrder(BigDecimal[] cal, String hex, int decimals) {
-        return calc2ndOrder( cal, Long.decode(hex), decimals);
-    }
-
-    /**
-     * Performes a second order A*x²2 + B*x + C computation in which A, B and C are
-     * calibration coefficients
-     *
-     * @param cal      The calibration coëfficients
-     * @param dec      The x in the formula in decimal form
-     * @param decimals How many decimals in the result
-     * @return Calculated value
-     */
-    public static double calc2ndOrder(BigDecimal[] cal, double dec, int decimals) {
-        if (cal == null) {
-            Logger.error("Bad Calibrations values given");
-            return -999;
-        }
-        try {
-            BigDecimal bd = BigDecimal.valueOf(dec);
-            BigDecimal bd2 = bd.pow(2);
-            BigDecimal x2 = bd2.multiply(cal[0]);
-            BigDecimal x1 = bd.multiply(cal[1]);
-            BigDecimal result = x2.add(x1).add(cal[2]);
-            return Tools.roundDouble(result.doubleValue(), decimals);
-        } catch (NumberFormatException e) {
-            Logger.error("Bad value received for 2nd order conversion: " + dec);
-            return -999;
-        }
-    }
-
-    /**
-     * Performes a third order A*x³ + B*x² + C*x + D computation in which A, B, C and D are
-     * calibration coefficients
-     *
-     * @param cal      The calibration coëfficients
-     * @param dec      The x in the formula in decimal form
-     * @param decimals How many decimals in the result
-     * @return Calculated value
-     */
-    public static double calc3rdOrder(BigDecimal[] cal, double dec, int decimals) {
-        if (cal == null) {
-            Logger.error("Bad Calibrations values given");
-            return -999;
-        }
-        try {
-            BigDecimal bd = BigDecimal.valueOf(dec);
-            BigDecimal bd2 = bd.pow(2);
-            BigDecimal bd3 = bd.pow(3);
-
-            BigDecimal x3 = bd3.multiply(cal[0]);
-            BigDecimal x2 = bd2.multiply(cal[1]);
-            BigDecimal x1 = bd.multiply(cal[2]);
-            BigDecimal result = x3.add(x2).add(x1).add(cal[3]);
-            return Tools.roundDouble(result.doubleValue(), decimals);
-        } catch (NumberFormatException e) {
-            Logger.error("Bad value received for 2nd order conversion: " + dec);
-            return -999;
-        }
-    }
-
-    /**
-     * Convert the BCB representation of a number to the actual number
-     * @param bcd The Binary coded digital value
-     * @return A standard integer
-     */
-    public static int bcdToNumeric( int bcd ){
-        int ten=bcd/16;
-        int one=bcd%16;
-        return ten*10+one;
-    }
-
-    /**
-     * Convert the number to BCB representation eg. 25 to 0x25
-     * @param number The number to convert
-     * @return An integer BCD formatted
-     */
-    public static int numericToBCD( int number ){
-        return (number/10)*16+number%10;
     }
 }

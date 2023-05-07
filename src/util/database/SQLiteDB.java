@@ -35,8 +35,6 @@ public class SQLiteDB extends SQLDB{
     private LocalDateTime rolloverTimestamp;
 
     private String currentForm = "";
-    private Instant lastCheck;
-    private ScheduledFuture<?> timeCheckFuture;
     /**
      * Create an instance of a database with rollover
      * @param dbPath Path to the database
@@ -457,19 +455,13 @@ public class SQLiteDB extends SQLDB{
 
         int res = getTable(table).map(t -> t.doInsert(values)).orElse(-2);
         switch (res) {
-            case 1:
-                if( tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries )
+            case 1 -> {
+                if (tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
                     flushPrepared();
-                break;
-            case 0:
-                Logger.error("Bad amount of values for insert into " + id + ":" + table);
-                break;
-            case -1:
-                Logger.error("No such prepstatement found in " + id + ":" + table);
-                break;
-            case -2:
-                Logger.error("No such table ("+table+") found in " + id);
-                break;
+            }
+            case 0 -> Logger.error("Bad amount of values for insert into " + id + ":" + table);
+            case -1 -> Logger.error("No such prepstatement found in " + id + ":" + table);
+            case -2 -> Logger.error("No such table (" + table + ") found in " + id);
         }
         return res;
     }

@@ -168,9 +168,8 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
     /**
      * Toggle the state of the flag and return the new state
-     * @return The new state
      */
-    public boolean toggleState(){
+    public void toggleState(){
         if( keepTime )
             timestamp= Instant.now();
         state=!state;// toggle the state
@@ -180,7 +179,6 @@ public class FlagVal extends AbstractVal implements NumericVal{
         }else{ // If the flag goes from TRUE to FALSE => lowered
             loweredList.forEach( c -> dQueue.add(Datagram.system(c.replace("$","false"))));
         }
-        return state;
     }
     /**
      * Alter the default state (default is false)
@@ -291,7 +289,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
     public String stringValue(){ return toString();}
     public String toString(){
-        return ""+state;
+        return String.valueOf(state);
     }
 
     /**
@@ -319,9 +317,9 @@ public class FlagVal extends AbstractVal implements NumericVal{
      *
      * @param trigger The trigger which is either a comparison between the value and another fixed value fe. above 10 or
      *                'always' to trigger on every update or 'changed' to trigger only on a changed value
-     * @param cmd The cmd to trigger, $ will be replaced with the current value
+     * @param cmd     The cmd to trigger, $ will be replaced with the current value
      */
-    public boolean addTriggeredCmd(String trigger, String cmd){
+    public void addTriggeredCmd(String trigger, String cmd){
 
         switch (trigger) {
             case "raised", "up", "set" -> // State goes from false to true
@@ -329,10 +327,8 @@ public class FlagVal extends AbstractVal implements NumericVal{
             case "lowered", "down", "clear" -> // state goes from true to false
                     loweredList.add(cmd);
             default -> { // No other triggers for now or typo's
-                return false;
             }
         }
-        return true;
     }
     public boolean hasTriggeredCmds(){
         return !loweredList.isEmpty()||!raisedList.isEmpty();

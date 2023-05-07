@@ -127,11 +127,11 @@ public class SqlTable {
 
     /**
      * Store the setup of a table in xml
-     * @param fab The xmlfab to use, pointing to the database as parent node
+     *
+     * @param fab   The xmlfab to use, pointing to the database as parent node
      * @param build If true, the xml is build at the end
-     * @return True if all went well
      */
-    public boolean writeToXml( XMLfab fab, boolean build ){
+    public void writeToXml(XMLfab fab, boolean build ){
         fab.addChild("table").attr("name",name).down();
         for( var col : columns ){
             fab.addChild(col.type.toString().toLowerCase(),col.title);
@@ -149,9 +149,9 @@ public class SqlTable {
         }
         fab.up();
 
-        if (build)
-            return fab.build();
-        return true;
+        if (build) {
+            fab.build();
+        }
     }
     /**
      * Create a SQLiteTable object for a table with the given name
@@ -195,7 +195,7 @@ public class SqlTable {
 
     /**
      * Check if the build query of this table would use 'if not exists'
-     * @return
+     * @return True ifnotexists flag is high
      */
     public boolean hasIfNotExists() {
         return ifnotexists;
@@ -660,13 +660,11 @@ public class SqlTable {
                 rtval=name+"_"+title;
             this.rtval =rtval;
             this.type=type;
-            switch( type ){
-                case TIMESTAMP: case EPOCH: notnull=true; break; // these aren't allowed to be null by default
-                case INTEGER:
-                case REAL:
-                case TEXT:
-                default:
-                    break;
+            switch (type) {
+                case TIMESTAMP, EPOCH -> notnull = true;
+                // these aren't allowed to be null by default
+                default -> {
+                }
             }
         }
         public void setDefault(String def){

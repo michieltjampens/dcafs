@@ -16,7 +16,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -29,8 +28,6 @@ public class TaskManagerPool implements Commandable {
     CommandPool cmdReq;
     StreamManager streamManager;
     EmailSending emailSender;
-
-    static final String UNKNOWN_CMD = "unknown command";
 
     public TaskManagerPool(String workpath, RealtimeValues rtvals, CommandPool cmdReq){
         this.workPath=workpath;
@@ -45,8 +42,10 @@ public class TaskManagerPool implements Commandable {
         this.emailSender=emailSender;
     }
     public void readFromXML() {
-        var xml = XMLtools.readXML(Path.of(workPath,"settings.xml")).get();
-        for(Element e: XMLtools.getAllElementsByTag(xml, "taskmanager") ){
+        var xmlOpt = XMLtools.readXML(Path.of(workPath,"settings.xml"));
+        if( xmlOpt.isEmpty())
+            return;
+        for(Element e: XMLtools.getAllElementsByTag(xmlOpt.get(), "taskmanager") ){
             Logger.info("Found reference to TaskManager in xml.");
             var p = Path.of(e.getTextContent());
             if( !p.isAbsolute())
@@ -103,7 +102,7 @@ public class TaskManagerPool implements Commandable {
     }
 
     public void recheckAllIntervalTasks(){
-        tasklists.values().forEach( tl -> tl.recheckIntervalTasks());
+        tasklists.values().forEach(TaskManager::recheckIntervalTasks);
     }
     public Optional<TaskManager> getTaskManager(String id){
         return Optional.ofNullable( tasklists.get(id));

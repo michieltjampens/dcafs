@@ -101,22 +101,20 @@ public class Waypoint implements Comparable<Waypoint>{
 	}
 	public Optional<Travel> checkIt(OffsetDateTime when, double lat, double lon ){
 
-		switch( currentState( when , lat, lon ) ){
-			case ENTER:
-			case LEAVE:
-				if( getLastDistance() < 500 && getLastDistance() > 1) // Ignore abnormal movements
+		switch (currentState(when, lat, lon)) {
+			case ENTER, LEAVE -> {
+				if (getLastDistance() < 500 && getLastDistance() > 1) // Ignore abnormal movements
 					return checkTravel();
-				break;
-			case OUTSIDE:
+			}
+			case OUTSIDE -> {
 				String l = getLastMovement();
-				if( !l.isBlank()){
-					FileTools.appendToTxtFile(Path.of("logs","waypointsMoves.txt"), l+"\r\n");
-					Logger.info( "Travel: "+l);
+				if (!l.isBlank()) {
+					FileTools.appendToTxtFile(Path.of("logs", "waypointsMoves.txt"), l + "\r\n");
+					Logger.info("Travel: " + l);
 				}
-				break;
-			case INSIDE:
-			default:
-				break;
+			}
+			default -> {
+			}
 		}
 		return Optional.empty();
 	}
@@ -129,10 +127,6 @@ public class Waypoint implements Comparable<Waypoint>{
 	}
 	public boolean isTemp(){
 		return temp;
-	}
-	public Waypoint makeTemp(){
-		temp=true;
-		return this;
 	}
 	public String getName(){
 		return name;
@@ -306,11 +300,10 @@ public class Waypoint implements Comparable<Waypoint>{
 			return cmds;
 		}
 		public String getDirection(){
-			switch( direction ){
-				case LEAVE: return "out";
-				case ENTER:
-				default: return "in";
-			}
+			return switch (direction) {
+				case LEAVE -> "out";
+				default -> "in";
+			};
 		}
 		public String toString(){
 			String info = name +" = "+(direction==STATE.ENTER?" coming closer than "+range+"m":" going further away than "+range+"m");
@@ -319,15 +312,14 @@ public class Waypoint implements Comparable<Waypoint>{
 		public String getBearingString(){
 			return (minBearing+" -> "+maxBearing).replace(".0","");
 		}
-		public Travel addCmd( String cmd ){
+		public void addCmd(String cmd ){
 			if( cmd==null) {
 				Logger.error(name+" -> Invalid cmd given");
-				return this;
+				return;
 			}
 			if( cmds==null)
 				cmds=new ArrayList<>();
 			cmds.add(cmd);
-			return this;
 		}
 	}
 }

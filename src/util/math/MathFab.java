@@ -225,7 +225,7 @@ public class MathFab {
                 i++;// increment the counter
             }catch (IndexOutOfBoundsException e) {
                 if(showError ) {
-                    Logger.error("Bad things when it was processed, array size need " + requiredInputs + " got " + +data.length);
+                    Logger.error("Bad things when it was processed, array size need " + requiredInputs + " got " + data.length);
                     Logger.error(" -> Original formula: " + ori);
                 }
                 return Optional.empty();

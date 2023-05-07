@@ -23,9 +23,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class DatabaseManager implements QueryWriting, Commandable {
-
-    static final String UNKNOWN_CMD = "unknown command";
-
     private final Map<String, SQLiteDB> lites = new HashMap<>();        // Store the SQLite databases
     private final Map<String, SQLDB> sqls = new HashMap<>();            // Store the SQL databases
     private static final int CHECK_INTERVAL=5;                          // How often to check the state
@@ -282,33 +279,6 @@ public class DatabaseManager implements QueryWriting, Commandable {
             }
         }
     }
-
-    /**
-     * Get the sum of all the max buffer sizes
-     * @return Sum of buffer maxes
-     */
-    public int getTotalMaxCount(){
-        int total=0;
-        for( var db : lites.values())
-            total+=db.maxQueries;
-        for( var db : sqls.values())
-            total+=db.maxQueries;
-        return total;
-    }
-
-    /**
-     * Get the total amount of queries in memory
-     * @return Buffered query count
-     */
-    public int getTotalQueryCount(){
-        int total=0;
-        for( var db : lites.values())
-            total+=db.getRecordsCount();
-        for( var db : sqls.values())
-            total+=db.getRecordsCount();
-        return total;
-    }
-
     /**
      * Add a blank server node to the settings xml
      * @param fab The xmlfa b to use, point to the databases node
@@ -621,7 +591,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
     }
 
     /**
-     * Respons to MySQLdump related commands
+     * Response to MySQLdump related commands
      * @param args The command
      * @return The response
      */

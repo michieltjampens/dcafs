@@ -479,37 +479,31 @@ public class SQLDB extends Database{
 
     /**
      * Flush the simple queries to the database
-     * @return True if flush requested
      */
-    protected boolean flushSimple(){
+    protected void flushSimple(){
         if( isValid(1)){
             busySimple = true;
             var temp = new ArrayList<String>();
             while(!simpleQueries.isEmpty())
                 temp.add(simpleQueries.remove(0));
             scheduler.submit( new DoSimple(temp) );
-            return true;
         }else{
             connect(false);
         }
-        return false;
     }
 
     /**
      * Flush all the PreparedStatements to the database
-     * @return True if flush requested
      */
-    protected boolean flushPrepared(){
+    protected void flushPrepared(){
         if (!busyPrepared ) { // Don't ask for another flush when one is being done
             if(isValid(1)) {
                 busyPrepared=true; // Set Flag so we know the buffer is being flushed
                 scheduler.submit(new DoPrepared());
-                return true;
             }else{
                 connect(false);
             }
         }
-        return false;
     }
     /**
      * Read the setup of a database server from the settings.xml
@@ -547,7 +541,7 @@ public class SQLDB extends Database{
         db.id = dbe.getAttribute("id");
 
         /* Setup */
-        XMLtools.getFirstChildByTag(dbe, "flush").ifPresent( e -> db.readFlushSetup(e));
+        XMLtools.getFirstChildByTag(dbe, "flush").ifPresent(db::readFlushSetup);
         // How many seconds before the connection is considered idle (and closed)
         db.idleTime = (int)TimeTools.parsePeriodStringToSeconds(XMLtools.getChildStringValueByTag(dbe,"idleclose","5m"));
 
@@ -621,19 +615,13 @@ public class SQLDB extends Database{
 
         int res = getTable(table).map(t -> t.doInsert(values)).orElse(-2);
         switch (res) {
-            case 1:
-                if( tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries )
+            case 1 -> {
+                if (tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
                     flushPrepared();
-                break;
-            case 0:
-                Logger.error("Bad amount of values for insert into " + id + ":" + table);
-                break;
-            case -1:
-                Logger.error("No such prepStatement found in " + id + ":" + table);
-                break;
-            case -2:
-                Logger.error("No such table ("+table+") found in " + id);
-                break;
+            }
+            case 0 -> Logger.error("Bad amount of values for insert into " + id + ":" + table);
+            case -1 -> Logger.error("No such prepStatement found in " + id + ":" + table);
+            case -2 -> Logger.error("No such table (" + table + ") found in " + id);
         }
         return res;
     }
@@ -642,76 +630,72 @@ public class SQLDB extends Database{
      * @param secondsPassed How many seconds passed since the last check (interval so fixed)
      */
     public void checkState( int secondsPassed ) {
-        switch(state){
-            case FLUSH_REQ: // Required a flush
-                if( !simpleQueries.isEmpty() ) {
-                    Logger.info(id+"(db) -> Flushing simple");
+        switch (state) {
+            case FLUSH_REQ -> { // Required a flush
+                if (!simpleQueries.isEmpty()) {
+                    Logger.info(id + "(db) -> Flushing simple");
                     flushSimple();
                 }
-
-                if(tables.values().stream().anyMatch(t -> t.getRecordCount() != 0) ){ // If any table has records
+                if (tables.values().stream().anyMatch(t -> t.getRecordCount() != 0)) { // If any table has records
                     flushPrepared();
                 }
-
                 if (isValid(1)) { // If not valid, flush didn't work either
                     state = STATE.HAS_CON; // If valid, the state is has_connection
-                }else{
+                } else {
                     state = STATE.NEED_CON; // If invalid, need a connection
                 }
-                break;
-            case HAS_CON: // If we have a connection, but not using it
-                if( !hasRecords() ){
+            }
+            case HAS_CON -> { // If we have a connection, but not using it
+                if (!hasRecords()) {
                     idleCount += secondsPassed;
-                    if( idleCount > idleTime && idleTime > 0){
-                        Logger.info(getID()+"(id) -> Connection closed because idle: " + id +" for "+TimeTools.convertPeriodtoString( idleCount, TimeUnit.SECONDS)+" > "+
-                                TimeTools.convertPeriodtoString( idleTime, TimeUnit.SECONDS) );
+                    if (idleCount > idleTime && idleTime > 0) {
+                        Logger.info(getID() + "(id) -> Connection closed because idle: " + id + " for " + TimeTools.convertPeriodtoString(idleCount, TimeUnit.SECONDS) + " > " +
+                                TimeTools.convertPeriodtoString(idleTime, TimeUnit.SECONDS));
                         disconnect();
                         state = STATE.IDLE;
                     }
-                }else{
-                    Logger.debug(id+"(id) -> Waiting for max age to pass...");
-                    if( !simpleQueries.isEmpty() ){
-                        long age = (Instant.now().toEpochMilli()- firstSimpleStamp)/1000;
-                        Logger.debug(id+"(id) -> Age of simple: "+age+"s versus max: "+maxAge);
-                        if( age > maxAge ){
-                            state=STATE.FLUSH_REQ;
-                            Logger.info(id+"(id) -> Requesting simple flush because of age");
+                } else {
+                    Logger.debug(id + "(id) -> Waiting for max age to pass...");
+                    if (!simpleQueries.isEmpty()) {
+                        long age = (Instant.now().toEpochMilli() - firstSimpleStamp) / 1000;
+                        Logger.debug(id + "(id) -> Age of simple: " + age + "s versus max: " + maxAge);
+                        if (age > maxAge) {
+                            state = STATE.FLUSH_REQ;
+                            Logger.info(id + "(id) -> Requesting simple flush because of age");
                         }
                     }
-                    if(tables.values().stream().anyMatch(t -> t.getRecordCount() != 0) ) {
+                    if (tables.values().stream().anyMatch(t -> t.getRecordCount() != 0)) {
                         long age = (Instant.now().toEpochMilli() - firstPrepStamp) / 1000;
-                        Logger.debug(id+"(id) -> Age of prepared: " + age + "s");
+                        Logger.debug(id + "(id) -> Age of prepared: " + age + "s");
                         if (age > maxAge) {
                             state = STATE.FLUSH_REQ;
                         }
                     }
-                    idleCount=0;
+                    idleCount = 0;
                 }
-                break;
-            case IDLE: // Database is idle
-                if( hasRecords() ){ // If it has records
-                    if( connect(false) ){ // try to connect but don't reconnect if connected
-                        state=STATE.HAS_CON; // connected
-                    }else{
-                        state=STATE.NEED_CON; // connection failed
+            }
+            case IDLE -> { // Database is idle
+                if (hasRecords()) { // If it has records
+                    if (connect(false)) { // try to connect but don't reconnect if connected
+                        state = STATE.HAS_CON; // connected
+                    } else {
+                        state = STATE.NEED_CON; // connection failed
                     }
                 }
-                break;
-            case NEED_CON: // Needs a connection
-                Logger.info(id+" -> Need con, trying to connect...");
-                if( connect(false) ){
-                    if( hasRecords() ){ // If it is connected and has records
-                        state=STATE.HAS_CON;
-                        Logger.info(id+" -> Got a connection.");
-                    }else{  // Has a connection but doesn't need it anymore
-                        state=STATE.IDLE;
-                        Logger.info(id+" -> Got a connection, but don't need it anymore...");
+            }
+            case NEED_CON -> { // Needs a connection
+                Logger.info(id + " -> Need con, trying to connect...");
+                if (connect(false)) {
+                    if (hasRecords()) { // If it is connected and has records
+                        state = STATE.HAS_CON;
+                        Logger.info(id + " -> Got a connection.");
+                    } else {  // Has a connection but doesn't need it anymore
+                        state = STATE.IDLE;
+                        Logger.info(id + " -> Got a connection, but don't need it anymore...");
                     }
                 }
-                break;
-            default:
-                Logger.warn(id+"(db) -> Unknown state: "+state);
-                break;
+            }
+            default -> Logger.warn(id + "(db) -> Unknown state: " + state);
         }
     }
 

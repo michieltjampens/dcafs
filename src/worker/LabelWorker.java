@@ -6,9 +6,7 @@ import java.util.concurrent.*;
 
 /**
  * This class retrieves @see worker.Datagram s from a @see BlockingQueue. 
- * Next the content of @see Datagram is investigated and processed. 
- *
- * @author Michiel TJampens @vliz
+ * Next the content of @see Datagram is investigated and processed.
  */
 public class LabelWorker implements Runnable {
 	private BlockingQueue<Datagram> dQueue;      // The queue holding raw data for processing

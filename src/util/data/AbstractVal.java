@@ -1,7 +1,6 @@
 package util.data;
 
 import io.Writable;
-import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.time.Instant;
@@ -84,12 +83,12 @@ public abstract class AbstractVal {
     }
 
     /**
-     * Add a triggerd cmd to this Val
-     * @param cmd The cmd, in which $ will be replaced with the value causing it
+     * Add a triggered cmd to this Val
+     *
+     * @param cmd     The cmd, in which $ will be replaced with the value causing it
      * @param trigger The trigger, the options depend on the type of Val
-     * @return True if adding was successful
      */
-    abstract boolean addTriggeredCmd(String cmd, String trigger);
+    abstract void addTriggeredCmd(String cmd, String trigger);
 
     /**
      * Check if this has triggered cmd's

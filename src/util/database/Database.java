@@ -61,19 +61,17 @@ public abstract class Database{
 
     /**
      * Read the part of the node that contains the information on records flushing
+     *
      * @param set The element that contains the info
-     * @return True if flush info was read
      */
-    protected boolean readFlushSetup(Element set){
+    protected void readFlushSetup(Element set){
         if( set != null ){
             String age = XMLtools.getStringAttribute( set, "age", "30s");	    // How many time before data is flushed (if not reached batch size)
             maxAge = TimeTools.parsePeriodStringToSeconds(age);
             maxQueries = XMLtools.getIntAttribute( set, "batchsize", 30);		// Minimum amount of queries before a flush unless checks till flush is reached
             Logger.debug( id+" -> Flush:"+maxAge+"s maxQ:"+maxQueries);
-            return true;
         }else{
             Logger.debug( id+" -> No changes requested to default flush/idle values ");
-            return false;
         }
     }
 

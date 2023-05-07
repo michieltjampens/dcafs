@@ -1,22 +1,15 @@
 package util.gis;
 
 import org.apache.commons.lang3.math.NumberUtils;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import util.tools.Tools;
-import util.xml.XMLtools;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.function.Function;
 
 public class GisTools {
 
     static final BigDecimal BD60 = new BigDecimal("60.0");
-
-    // static BigDecimal aa = new BigDecimal("6378137.0")
     static final double EE = 6378137.0; // Earth Ellipsoid
     // static BigDecimal ff = new BigDecimal("298.257223563")
     static final double BE = 1.0 / 298.257223563; // Bessel Ellipsoid
@@ -342,35 +335,6 @@ public class GisTools {
         } else {
             return d + deli + Math.abs(min.doubleValue());
         }
-    }
-    /**
-     * Converts meters to kilometers with the given amount of decimals
-     * @param m The amount of meters
-     * @param decimals The amount of decimals
-     * @return The formatted result
-     */
-    public static String metersToKm(double m, int decimals) {
-        if (m > 5000)
-            return Tools.roundDouble(m / 1000, 1) + "km";
-        return Tools.roundDouble(m, decimals) + "m";
-    }
-    /**
-     * Converts meters to feet with an specified amount of decimals
-     * @param m The amount of meters
-     * @param decimals The amount of decimals
-     * @return The formatted result
-     */
-    public static double metersToFeet(double m, int decimals) {
-        return Tools.roundDouble(m * 3.2808399, decimals);
-    }
-    /**
-     * Converts meters to fathoms with an specified amount of decimals
-     * @param m The amount of meters
-     * @param decimals The amount of decimals
-     * @return The formatted result
-     */
-    public static double metersToFathoms(double m, int decimals) {
-        return Tools.roundDouble(m * 0.546806649, decimals);
     }
 
 }

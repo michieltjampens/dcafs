@@ -1,11 +1,9 @@
 package util.math;
 
 import org.apache.commons.lang3.math.NumberUtils;
-import org.tinylog.Logger;
 import util.tools.Tools;
 
 import java.math.BigDecimal;
-import java.util.TimeZone;
 import java.util.function.Function;
 
 public class Calculations {
@@ -378,60 +376,5 @@ public class Calculations {
                     headingIndex==-1?headingVal:x[headingIndex].doubleValue());
             return BigDecimal.valueOf(dir);
         };
-    }
-    /**
-     * Calculates the sound absorptions for the multibeam
-     * 
-     * @param sv    Current Sound Velocity in m/s
-     * @param pH    Current pH
-     * @param sbe38 Seawater temperature in degrees
-     * @param salin Salinity in PSU
-     * @param sound Sound Velocity
-     * @return Absorption coefficients
-     */
-    public static double[] calcSoundAbsorptions(double sv, double pH, double sbe38, double salin, double sound) {
-
-        sv = sound == 0 || sound == -999 ? sv : sound;
-        pH = pH == 0 ? 7.6 : pH;
-
-        double A1 = (8.86 * Math.pow(10, (0.78 * 7.6) - 5)) / sv;
-        double A2 = (21.44 * salin * (1 + (0.025 * sbe38))) / sv;
-        double A3;
-        if (sbe38 > 20) {
-            A3 = (3.964 * Math.pow(10, -4)) - (sbe38 * (1.146 * Math.pow(10, -5))
-                    - (sbe38 * ((1.45 * Math.pow(10, -7)) - (6.5 * Math.pow(10, -10) * sbe38))));
-        } else {
-            A3 = (4.937 * Math.pow(10, -4)) - (sbe38 * (2.59 * Math.pow(10, -5))
-                    - (sbe38 * ((9.11 * Math.pow(10, -7)) - (1.5 * Math.pow(10, -8) * sbe38))));
-        }
-
-        double P2 = 1 - (0.02 * (0.137 - (0.0062 * 0.02)));
-        double P3 = 1 - (0.02 * (0.0383 - (4.9 * Math.pow(10, -4) * 0.02)));
-        double f1 = 2.8 * (Math.pow(salin / 35, 0.5) * Math.pow(10, (4 - (1245 / (273 + sbe38)))));
-        double f2 = 8.17 * Math.pow(10, (8 - (1990 / (273 + sbe38)))) / (1 + (0.0018 * (salin - 35)));
-
-        // Sound absorptions
-        double[] vals = new double[6];
-        for (int a = 0; a < 5; a += 1) {
-            double X = Math.pow(200 + a * 50.0, 2);
-            double sa = (A1 * f1 * X) / (X + Math.pow(f1, 2)) + (A2 * P2 * f2 * X) / (X + Math.pow(f2, 2))
-                    + (A3 * P3 * X);
-            vals[a] = Tools.roundDouble(sa, 2);
-        }
-        vals[5] = sv;
-        return vals;
-    }
-
-    public static String LRC_Checksum(char[] a, int length) {
-        // Check checksum
-        int check = 0;
-        for (char x : a)
-            check += x;
-
-        check = check % 256; // cut off carry
-        check = ~check; // 2-s complement
-        check++; // +1
-        String sum = Integer.toHexString(check);
-        return sum.substring(sum.length() - 2).toUpperCase();
     }
 }

@@ -10,7 +10,6 @@ import org.w3c.dom.Element;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
@@ -75,12 +74,6 @@ public class RealtimeValues implements Commandable {
 	 * @param group The group of the Val
 	 */
 	private void processRtvalElement(Element rtval, String group ){
-		String name = XMLtools.getStringAttribute(rtval,"name","");
-		name = XMLtools.getStringAttribute(rtval,"id",name);
-
-		if( name.isEmpty())
-			name = rtval.getTextContent();
-		String id = group.isEmpty()?name:group+"_"+name;
 
 		switch (rtval.getTagName()) {
 			case "double", "real" -> {

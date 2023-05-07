@@ -981,9 +981,9 @@ public class TaskManager implements CollectorFuture {
     	line = line.replace("{utcstamp}", TimeTools.formatUTCNow("dd/MM/YY HH:mm:ss"));
 		line = line.replace("{utcdate}", TimeTools.formatUTCNow("yyMMdd"));
     	line = line.replace("{localstamp}", TimeTools.formatNow("dd/MM/YY HH:mm:ss"));
-		line = line.replace("{rand6}", ""+(int)Math.rint(1+Math.random()*5));
-		line = line.replace("{rand20}", ""+(int)Math.rint(1+Math.random()*19));
-		line = line.replace("{rand100}", ""+(int)Math.rint(1+Math.random()*99));
+		line = line.replace("{rand6}", String.valueOf((int) Math.rint(1 + Math.random() * 5)));
+		line = line.replace("{rand20}", String.valueOf((int) Math.rint(1 + Math.random() * 19)));
+		line = line.replace("{rand100}", String.valueOf((int) Math.rint(1 + Math.random() * 99)));
 
 		String to;
 		int i = line.indexOf("{ipv4:");

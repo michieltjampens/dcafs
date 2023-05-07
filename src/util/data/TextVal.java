@@ -10,14 +10,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Optional;
-import java.util.function.Function;
 
 public class TextVal extends AbstractVal{
     private String value="";
     private String def="";
     private final ArrayList<String> history = new ArrayList<>();
     private final ArrayList<TriggeredCmd> triggered = new ArrayList<>();
-    private HashMap<String,String> parser = new HashMap<>();
+    private final HashMap<String,String> parser = new HashMap<>();
     private String keepOrignal;
     private boolean regex=false;
     /* ********************************* Constructing ************************************************************ */
@@ -149,14 +148,13 @@ public class TextVal extends AbstractVal{
         return this;
     }
     @Override
-    boolean addTriggeredCmd(String cmd, String trigger) {
+    void addTriggeredCmd(String cmd, String trigger) {
         var td = new TriggeredCmd(cmd,trigger);
         if( td.isInvalid()) {
             Logger.error(id()+" (dv)-> Failed to convert trigger: "+trigger);
-            return false;
+            return;
         }
         triggered.add( new TriggeredCmd(cmd,trigger) );
-        return true;
     }
 
     @Override
@@ -198,8 +196,6 @@ public class TextVal extends AbstractVal{
         String cmd; // The cmd to issue
         String ori; // The compare before it was converted to a function (for toString purposes)
         TRIGGERTYPE type;
-        Function<Double,Boolean> comp; // The compare after it was converted to a function
-        boolean triggered=false; // The last result of the comparison
 
         /**
          * Create a new TriggeredCmd with the given cmd and trigger, doesn't set the cmd of it failed to convert the trigger
@@ -229,11 +225,11 @@ public class TextVal extends AbstractVal{
             }
             switch (type) {
                 case ALWAYS -> {
-                    dQueue.add(Datagram.system(cmd.replace("$", "" + val)));
+                    dQueue.add(Datagram.system(cmd.replace("$", val)));
                 }
                 case CHANGED -> {
                     if (val.equals(value))
-                        dQueue.add(Datagram.system(cmd.replace("$", "" + val)));
+                        dQueue.add(Datagram.system(cmd.replace("$", val)));
                 }
                 default -> {
                     Logger.error(id() + " (dv)-> Somehow an invalid trigger sneaked in... ");

@@ -134,7 +134,7 @@ public class Task implements Comparable<Task>{
 				}
 			}
 		}else{
-			id = XMLtools.getStringAttribute( tsk, "id", ""+new Random().nextLong()).toLowerCase();
+			id = XMLtools.getStringAttribute( tsk, "id", String.valueOf(new Random().nextLong())).toLowerCase();
 
 			reply = XMLtools.getStringAttribute( tsk, "reply", "");
 			var wind = XMLtools.getStringAttribute( tsk, "replywindow", "");
@@ -242,14 +242,12 @@ public class Task implements Comparable<Task>{
 	public boolean isEnableOnStart(){
 		return enableOnStart;
 	}
-	public boolean errorIncrement(){
+	public void errorIncrement(){
 		errorOccurred++;
 		if( errorOccurred > 10 ){
 			Logger.error("Task caused to many failed rtval issues when looking for "+badReq+", cancelling.");
 			cancelFuture(false);
-			return true;
 		}
-		return false;
 	}
 	public void cancelFuture( boolean mayInterruptIfRunning){
 		if( future != null)
@@ -293,29 +291,21 @@ public class Task implements Comparable<Task>{
 			trigger = trigger.replace(";", ",").toLowerCase();
 			trigger = trigger.replace("=",":");
 			String cmd = trigger.substring(0, trigger.indexOf(":"));
-			if( trigger.equals(cmd) ){
-				Logger.tag("TASK").error("Not enough arguments in trigger: "+trigger);
-				return;
-			}
 			String[] items = trigger.substring(trigger.indexOf(":")+1).split(",");
-    		switch( cmd ){	
-    			case "time":  /* time:07:15 or time:07:15,thursday */
-    			case "utctime":
-				case "localtime":
-					if( !cmd.startsWith("local"))
-						utc=true;
-					time = LocalTime.parse( items[0],DateTimeFormatter.ISO_LOCAL_TIME );
-					taskDays = TimeTools.convertDAY(items.length==2?items[1]:"");
-    				triggerType =TRIGGERTYPE.CLOCK;
-    				break;
-				case "retry":	/* retry:10s,-1 */
-				case "while":   /* while:10s,2 */
-				case "waitfor": /* waitfor:10s,1 */
-					Pair<Long,TimeUnit> period = TimeTools.parsePeriodString(items[0]); 
+			switch (cmd) {  /* time:07:15 or time:07:15,thursday */
+				case "time", "utctime", "localtime" -> {
+					if (!cmd.startsWith("local"))
+						utc = true;
+					time = LocalTime.parse(items[0], DateTimeFormatter.ISO_LOCAL_TIME);
+					taskDays = TimeTools.convertDAY(items.length == 2 ? items[1] : "");
+					triggerType = TRIGGERTYPE.CLOCK;
+				}    /* retry:10s,-1 */
+				/* while:10s,2 */
+				case "retry", "while", "waitfor" -> { /* waitfor:10s,1 */
+					Pair<Long, TimeUnit> period = TimeTools.parsePeriodString(items[0]);
 					interval = period.getKey();
 					unit = period.getValue();
-					
-    				if( items.length > 1 ) {
+					if (items.length > 1) {
 						runs = Tools.parseInt(items[1], -1);
 					}
 					switch (cmd) {
@@ -323,31 +313,30 @@ public class Task implements Comparable<Task>{
 						case "while" -> triggerType = TRIGGERTYPE.WHILE;
 						case "waitfor" -> triggerType = TRIGGERTYPE.WAITFOR;
 					}
-					break;
-				case "delay":	/* delay:5m3s */
+				}
+				case "delay" -> {    /* delay:5m3s */
 					startDelay = TimeTools.parsePeriodStringToMillis(items[0]);
-					unit=TimeUnit.MILLISECONDS;
-    				triggerType = TRIGGERTYPE.DELAY;
-					break;
-    			case "interval": /* interval:5m3s or interval:10s,5m3s*/
-					retries=5;
-					runs=5;
-
-					if( items.length == 1 ){//Just interval
+					unit = TimeUnit.MILLISECONDS;
+					triggerType = TRIGGERTYPE.DELAY;
+				}
+				case "interval" -> { /* interval:5m3s or interval:10s,5m3s*/
+					retries = 5;
+					runs = 5;
+					if (items.length == 1) {//Just interval
 						interval = TimeTools.parsePeriodStringToMillis(items[0]);
 						unit = TimeUnit.MILLISECONDS;
-						startDelay = -1;	// So first occurrence is not at 0!
-					}else{//Delay and interval
+						startDelay = -1;    // So first occurrence is not at 0!
+					} else {//Delay and interval
 						startDelay = TimeTools.parsePeriodStringToMillis(items[0]);
 						interval = TimeTools.parsePeriodStringToMillis(items[1]);
 						unit = TimeUnit.MILLISECONDS;
 					}
-    				triggerType =TRIGGERTYPE.INTERVAL;
-    				break;
-    			default:
-    				this.keyword = trigger; 
-    				triggerType =TRIGGERTYPE.KEYWORD;
-    				break;
+					triggerType = TRIGGERTYPE.INTERVAL;
+				}
+				default -> {
+					this.keyword = trigger;
+					triggerType = TRIGGERTYPE.KEYWORD;
+				}
 			}
     	}else{
 			triggerType = TRIGGERTYPE.EXECUTE;
@@ -486,35 +475,32 @@ public class Task implements Comparable<Task>{
 	 */
 	public String toString(){
 		String suffix="";
-		switch(triggerType) {
-			case CLOCK:
-				if( future !=null ){
-					suffix = " scheduled at "+this.time+(utc?" [UTC]":"")+" next occurrence in "+ TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
-					if( future.getDelay(TimeUnit.SECONDS) <0 )
-						suffix=".";
+		switch (triggerType) {
+			case CLOCK -> {
+				if (future != null) {
+					suffix = " scheduled at " + this.time + (utc ? " [UTC]" : "") + " next occurrence in " + TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
+					if (future.getDelay(TimeUnit.SECONDS) < 0)
+						suffix = ".";
 				}
-				break;
-			case DELAY:
-				suffix = " after "+TimeTools.convertPeriodtoString(startDelay, unit);
-				if( future == null) {
+			}
+			case DELAY -> {
+				suffix = " after " + TimeTools.convertPeriodtoString(startDelay, unit);
+				if (future == null) {
 					suffix += " [Not started]";
-				}else if(future.isDone()){
+				} else if (future.isDone()) {
 					suffix += " [Done]";
-				}else{
+				} else {
 					var delay = TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
-					suffix += " [Waiting... "+delay+"]";
+					suffix += " [Waiting... " + delay + "]";
 				}
-				break;
-			case INTERVAL:
-				suffix = " every "+ TimeTools.convertPeriodtoString(interval, unit) + (startDelay<=0?".":" after initial delay "+TimeTools.convertPeriodtoString(startDelay, unit))
-							+ (future==null?".":(" next occurrence in "+ TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS)));
-				break;
-			case KEYWORD:
-				suffix = " if "+keyword;
-				break;
-			default:
-				break;
-		}		
+			}
+			case INTERVAL ->
+					suffix = " every " + TimeTools.convertPeriodtoString(interval, unit) + (startDelay <= 0 ? "." : " after initial delay " + TimeTools.convertPeriodtoString(startDelay, unit))
+							+ (future == null ? "." : (" next occurrence in " + TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS)));
+			case KEYWORD -> suffix = " if " + keyword;
+			default -> {
+			}
+		}
 		if( !when.equals("always")&&!when.isBlank()) {
 			suffix += " if state is "+when;
 		}

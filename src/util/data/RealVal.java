@@ -214,16 +214,15 @@ public class RealVal extends AbstractVal implements NumericVal{
 
     /**
      * Set the default value, this will be used as initial value and after a reset
+     *
      * @param defVal The default value
-     * @return This object after altering the defValue if not NaN
      */
-    public RealVal defValue(double defVal){
+    public void defValue(double defVal){
         if( !Double.isNaN(defVal) ) { // If the given value isn't NaN
             this.defVal = defVal;
             if( Double.isNaN(value))
                 value=defVal;
         }
-        return this;
     }
 
     /**
@@ -249,11 +248,9 @@ public class RealVal extends AbstractVal implements NumericVal{
 
     /**
      * Enable keeping track of the max and min values received since last reset
-     * @return This object but with min max enabled
      */
-    public RealVal keepMinMax(){
+    public void keepMinMax(){
         keepMinMax=true;
-        return this;
     }
 
     @Override
@@ -277,11 +274,12 @@ public class RealVal extends AbstractVal implements NumericVal{
     }
     /**
      * Tries to add a cmd with given trigger, will warn if no valid queue is present to actually execute them
-     * @param cmd The cmd to trigger, $ will be replaced with the current value
+     *
+     * @param cmd     The cmd to trigger, $ will be replaced with the current value
      * @param trigger The trigger which is either a comparison between the value and another fixed value fe. above 10 or
      *                'always' to trigger on every update or 'changed' to trigger only on a changed value
      */
-    public boolean addTriggeredCmd(String trigger,String cmd ){
+    public void addTriggeredCmd(String trigger, String cmd ){
 
         if( triggered==null)
             triggered = new ArrayList<>();
@@ -289,10 +287,9 @@ public class RealVal extends AbstractVal implements NumericVal{
         var td = new TriggeredCmd(cmd,trigger);
         if( td.isInvalid()) {
             Logger.error(id()+" (dv)-> Failed to convert trigger: "+trigger);
-            return false;
+            return;
         }
         triggered.add( td );
-        return true;
     }
     public boolean hasTriggeredCmds(){
         return triggered!=null&& !triggered.isEmpty();
@@ -492,12 +489,12 @@ public class RealVal extends AbstractVal implements NumericVal{
             boolean ok;
             switch (type) {
                 case ALWAYS -> {
-                    dQueue.add(Datagram.system(cmd.replace("$", "" + val)));
+                    dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
                     return;
                 }
                 case CHANGED -> {
                     if (val != value)
-                        dQueue.add(Datagram.system(cmd.replace("$", "" + val)));
+                        dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
                     return;
                 }
                 case COMP -> ok = comp.apply(val);
@@ -513,7 +510,7 @@ public class RealVal extends AbstractVal implements NumericVal{
                 }
             }
             if( !triggered && ok ){
-                dQueue.add(Datagram.system(cmd.replace("$",""+val)));
+                dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
             }else if( triggered && !ok){
                 triggered=false;
             }

@@ -81,7 +81,6 @@ public class StoreCmds {
             return "! No valid fab created";
         var fab=fabOpt.get();
 
-
         fab.alterChild(tag).down(); // Go to store or make if not existing
         dig.goDown(tag);
 

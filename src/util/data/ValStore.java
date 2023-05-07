@@ -14,7 +14,7 @@ import worker.Datagram;
 public class ValStore {
     private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
     private String delimiter = ",";
-    private String[] db={"",""}; // dbid,table
+    private final String[] db={"",""}; // dbid,table
     private String id;
 
     /* * MAPPED * */

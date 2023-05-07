@@ -14,13 +14,11 @@ import util.math.MathUtils;
 import util.tools.Tools;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
-import worker.Datagram;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -28,9 +26,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class I2CWorker implements Commandable {
-
-    private final BlockingQueue<Datagram> dQueue;
-
     private final HashMap<String, ExtI2CDevice> devices = new HashMap<>();
     private final LinkedHashMap<String,I2CCommand> commands = new LinkedHashMap<>();
 
@@ -40,8 +35,7 @@ public class I2CWorker implements Commandable {
     private final Path settingsPath; // Path to the settingsfile
     private ExecutorService executor; // Executor to run the commands
 
-    public I2CWorker(Path settings, BlockingQueue<Datagram> dQueue) {
-        this.dQueue = dQueue;
+    public I2CWorker(Path settings) {
         this.settingsPath=settings;
         scriptsPath = settings.getParent().resolve("i2cscripts");
         readFromXML();
@@ -264,60 +258,58 @@ public class I2CWorker implements Commandable {
             intResults[a]=bytes[a]<0?bytes[a]+256:bytes[a];
         }
         int temp;
-        switch( bits ){
-            case 8: // Direct byte -> unsigned int conversion
-                for( int a : intResults){
-                    ints.add( signed? MathUtils.toSigned8bit(a):a);
+        switch (bits) {
+            case 8 -> { // Direct byte -> unsigned int conversion
+                for (int a : intResults) {
+                    ints.add(signed ? MathUtils.toSigned8bit(a) : a);
                 }
-            break;
-                //TODO Shift in the other direction and LSB/MSB first
-            case 10: // take the full first byte and only the 2 MSB of the second
-                for( int a=0;a<bytes.length;a+=2){
-                    temp=intResults[a]*4+intResults[a+1]/64;
-                    ints.add( signed? MathUtils.toSigned12bit(temp):temp );
-                }
-            break;
+            }
             //TODO Shift in the other direction and LSB/MSB first
-            case 12: // take the full first byte and only the MSB nibble of the second
-                for( int a=0;a<bytes.length;a+=2){
-                    temp = intResults[a]*16+intResults[a+1]/16;
-                    ints.add( signed? MathUtils.toSigned12bit(temp):temp );
+            case 10 -> { // take the full first byte and only the 2 MSB of the second
+                for (int a = 0; a < bytes.length; a += 2) {
+                    temp = intResults[a] * 4 + intResults[a + 1] / 64;
+                    ints.add(signed ? MathUtils.toSigned12bit(temp) : temp);
                 }
-            break;
-            case 16: // Concatenate two bytes 
-                for( int a=0;a<bytes.length;a+=2){
-                    if( msbFirst ){
-                        temp = intResults[a]*256+intResults[a+1];
-                    }else{
-                        temp = intResults[a]+intResults[a+1]*256;
+            }
+            //TODO Shift in the other direction and LSB/MSB first
+            case 12 -> { // take the full first byte and only the MSB nibble of the second
+                for (int a = 0; a < bytes.length; a += 2) {
+                    temp = intResults[a] * 16 + intResults[a + 1] / 16;
+                    ints.add(signed ? MathUtils.toSigned12bit(temp) : temp);
+                }
+            }
+            case 16 -> { // Concatenate two bytes
+                for (int a = 0; a < bytes.length; a += 2) {
+                    if (msbFirst) {
+                        temp = intResults[a] * 256 + intResults[a + 1];
+                    } else {
+                        temp = intResults[a] + intResults[a + 1] * 256;
                     }
-                    ints.add( signed? MathUtils.toSigned16bit(temp):temp );
+                    ints.add(signed ? MathUtils.toSigned16bit(temp) : temp);
                 }
-            break;
+            }
             //TODO Shift in the other direction?
-            case 20: // Concatenate two bytes and take the msb nibble of the third
-                for( int a=0;a<bytes.length;a+=3){
-                    if( msbFirst ){
-                        temp = (intResults[a]*256+intResults[a+1])*16+intResults[a+2]/16;
-                    }else{
-                        temp = (intResults[a+2]*256+intResults[a+1])*16+intResults[a]/16;
+            case 20 -> { // Concatenate two bytes and take the msb nibble of the third
+                for (int a = 0; a < bytes.length; a += 3) {
+                    if (msbFirst) {
+                        temp = (intResults[a] * 256 + intResults[a + 1]) * 16 + intResults[a + 2] / 16;
+                    } else {
+                        temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 16 + intResults[a] / 16;
                     }
-                    ints.add( signed? MathUtils.toSigned20bit(temp):temp );
+                    ints.add(signed ? MathUtils.toSigned20bit(temp) : temp);
                 }
-            break;
-            case 24: // Concatenate three bytes
-                for( int a=0;a<bytes.length;a+=3){
-                    if( msbFirst ) {
+            }
+            case 24 -> { // Concatenate three bytes
+                for (int a = 0; a < bytes.length; a += 3) {
+                    if (msbFirst) {
                         temp = (intResults[a] * 256 + intResults[a + 1]) * 256 + intResults[a + 2];
-                    }else{
-                        temp = (intResults[a+2] * 256 + intResults[a + 1]) * 256 + intResults[a];
+                    } else {
+                        temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 256 + intResults[a];
                     }
-                    ints.add( signed? MathUtils.toSigned24bit(temp):temp );
+                    ints.add(signed ? MathUtils.toSigned24bit(temp) : temp);
                 }
-            break;
-            default:
-                Logger.error("Tried to use an undefined amount of bits "+bits);
-                break;
+            }
+            default -> Logger.error("Tried to use an undefined amount of bits " + bits);
         }
         return ints;
     }
@@ -488,7 +480,6 @@ public class I2CWorker implements Commandable {
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
         String gr=html?"":TelnetCodes.TEXT_GREEN;
         String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-        var or = html?"":TelnetCodes.TEXT_ORANGE;
 
         switch (cmds[0]) {
             case "?" -> {
@@ -591,7 +582,7 @@ public class I2CWorker implements Commandable {
                         return "Request for i2c:" + cmds[0] + " accepted for " + oks;
                     } else {
                         Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());
-                        return "! No such subcommand in "+cmds+": "+args;
+                        return "! No such subcommand in "+cmd+": "+args;
                     }
                 }
                 if (wr != null && wr.id().equalsIgnoreCase("telnet")) {
@@ -658,7 +649,7 @@ public class I2CWorker implements Commandable {
             case BIN -> altRes.forEach(x -> output.add("0b" + Integer.toBinaryString(x.intValue())));
             case CHAR -> {
                 var line = new StringJoiner("");
-                altRes.forEach(x -> line.add("" + (char) x.intValue()));
+                altRes.forEach(x -> line.add(String.valueOf((char) x.intValue())));
                 output.add(line.toString());
             }
         }
