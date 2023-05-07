@@ -23,19 +23,16 @@ import java.util.*;
 
 public class CommandPool {
 
-	private final ArrayList<Commandable> stopCommandable = new ArrayList<>();
+	private final ArrayList<Commandable> stopCommandable = new ArrayList<>(); // the ones that 'stop' sending data
 	private final HashMap<String,Commandable> commandables = new HashMap<>();
+	private final String workPath; // Working path for dcafs
+	private final Path settingsPath; // Path to the settings.xml
 
-	private ArrayList<ShutdownPreventing> sdps;
+	static final String UNKNOWN_CMD = "unknown command"; // Default reply if the requested cmd doesn't exist
 
-	private final String workPath;
-	private final Path settingsPath;
+	private EmailSending sendEmail = null; // Object to send emails
 
-	static final String UNKNOWN_CMD = "unknown command";
-
-	private EmailSending sendEmail = null;
-
-	private String shutdownReason="";
+	private String shutdownReason=""; // The reason given for shutting down
 
 
 	/* ******************************  C O N S T R U C T O R *********************************************************/
@@ -55,7 +52,7 @@ public class CommandPool {
 			if( !stopCommandable.contains(cmdbl))
 				stopCommandable.add(cmdbl);
 		}else{
-			// No use in having repeated commandables
+			// No use in having repeated commandables, if the commandable is already in the map, add the id to the key
 			var oldOpt = commandables.entrySet().stream().filter( ent -> ent.getValue().equals(cmdbl)).findFirst();
 			if(oldOpt.isPresent()){
 				var old = oldOpt.get();
@@ -64,11 +61,6 @@ public class CommandPool {
 			}
 			commandables.put(id, cmdbl);
 		}
-	}
-	public void addShutdownPreventing( ShutdownPreventing sdp ){
-		if( sdps==null)
-			sdps = new ArrayList<>();
-		sdps.add(sdp);
 	}
 	public String getShutdownReason(){
 		return shutdownReason;
@@ -85,19 +77,27 @@ public class CommandPool {
 	}
 	/* ************************************ * R E S P O N S E *************************************************/
 
+	/**
+	 * When the result of the datagram should be send to an email
+	 * @param d The datagram to process
+	 */
 	public void emailResponse( Datagram d ) {
 		Logger.info( "Executing email command ["+d.getData()+"], origin: " + d.getOriginID() );
 		emailResponse( d, "Bot Reply" );
 	}
-
-	public void emailResponse(Datagram d, String header) {
+	/**
+	 * When the result of the datagram should be send to an email
+	 * @param d The datagram to process
+	 * @param subject The subject of  the email
+	 */
+	public void emailResponse(Datagram d, String subject) {
 		/* If there's no valid queue, can't do anything */
 		if ( sendEmail!=null ) {
 			Logger.info("Asked to email to " + d.getOriginID() + " but no worker defined.");
 			return;
 		}
 		/* Notification to know if anyone uses the bot. */
-		if ( (!d.getOriginID().startsWith("admin") && !sendEmail.isAddressInRef("admin",d.getOriginID()) ) && header.equalsIgnoreCase("Bot Reply")  ) {
+		if ( (!d.getOriginID().startsWith("admin") && !sendEmail.isAddressInRef("admin",d.getOriginID()) ) && subject.equalsIgnoreCase("Bot Reply")  ) {
 			sendEmail.sendEmail( Email.toAdminAbout("DCAFSbot").content("Received '" + d.getData() + "' command from " + d.getOriginID()) );
 		}
 		/* Processing of the question */
@@ -108,11 +108,11 @@ public class CommandPool {
 
 		if (!response.toLowerCase().contains(UNKNOWN_CMD)) {
 			response = response.replace("[33m ", "");
-			sendEmail.sendEmail( Email.to(d.getOriginID()).subject(header).content(response.replace("\r\n", "<br>")));
+			sendEmail.sendEmail( Email.to(d.getOriginID()).subject(subject).content(response.replace("\r\n", "<br>")));
 		} else {
 			sendEmail.sendEmail(
 					Email.to(d.getOriginID())
-							.subject(header)
+							.subject(subject)
 							.content("Euh " + d.getOriginID().substring(0, d.getOriginID().indexOf(".")) + ", no idea what to do with '" + d.getData() + "'..."));
 		}
 	}
@@ -142,7 +142,7 @@ public class CommandPool {
 
 		String question = d.getData();
 		var wr = d.getWritable();
-
+		// Some receivers of the result prefer html style (if possible)
 		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:"))){
 			html=true;
 		}
@@ -158,15 +158,15 @@ public class CommandPool {
 		}else{
 			split[0]=question;
 		}
-		split[0]=split[0].toLowerCase();
-		var eol = html ? "<br>" : "\r\n";
+		split[0]=split[0].toLowerCase(); // make sure the cmd is in lowercase
+		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
 
-		result = switch (split[0]) {
+		result = switch (split[0]) { // check if it's a built in cmd instead of a commandable one
 			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"),workPath, html);
 			case "help", "h", "?" -> doHelp(split, eol);
 			case "upgrade" -> doUPGRADE(split, wr, eol);
 			case "retrieve" -> doRETRIEVE(split, wr, eol);
-			case "sd" -> doShutDown(split, wr, eol);
+			case "sd" -> doShutDown(split, eol);
 			case "serialports" -> Tools.getSerialPorts(html);
 			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
 			case "store" -> {
@@ -205,22 +205,23 @@ public class CommandPool {
 			result = checkCommandables(split[0],split[1],wr,html);// Check the stored Commandables
 
 		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
-			result = checkTaskManagers(split[0],split[1],wr,html);
+			result = checkTaskManagers(split[0],split[1],wr,html); // Check if it matches the id of a taskmanager
 
-		if( result.equals(UNKNOWN_CMD))
-			result = "! No such cmd group: "+ split[0];
+		if( result.equals(UNKNOWN_CMD)) // Check if any result so far
+			result = "! No such cmd group: "+ split[0]; // No result, so probably bad cmd
 
-		if( wr!=null ) {
-			if( d.getLabel().startsWith("matrix")) {
-				wr.writeLine(d.getOriginID()+"|"+result);
-			}else if (wr.id().startsWith("file:")) {
-				result = result.replace("<br>",System.lineSeparator());
-				result = result.replaceAll("<.{1,2}>","");
-				wr.writeLine(result);
-			}else if(!d.isSilent()) {
+		if( wr!=null ) { // If a writable was given
+			if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
+				wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origing in front
+			}else if (wr.id().startsWith("file:")) { // if the target is a file
+				result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
+				result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
+				wr.writeLine(result); // send the result
+			}else if(!d.isSilent()) { // Check if the receiver actually wants the reply
 				wr.writeLine(d.getOriginID(),result);
 			}
 		}
+		// If the receiver is a telnet session, change coloring on short results based on a ! prepended (! means bad news)
 		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
 			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
 
@@ -237,7 +238,6 @@ public class CommandPool {
 				}).map(Map.Entry::getValue).findFirst();
 
 		if( cmdOpt.isPresent()) { // If requested cmd exists
-			String[] s = {cmd,question};
 			String result = cmdOpt.get().replyToCommand(cmd,question, wr, html);
 			if( result == null){
 				Logger.error("Got a null as response to "+question);
@@ -397,24 +397,13 @@ public class CommandPool {
 	 * Execute command to shut down dcafs, can be either sd or shutdown or sd:reason
 	 * 
 	 * @param request The full command split on the first :
-	 * @param wr The 'writable' of the source of the command
 	 * @param eol The eol to use
 	 * @return Descriptive result of the command, "Unknown command if not recognised
 	 */
-	private String doShutDown( String[] request, Writable wr, String eol ){
+	private String doShutDown( String[] request, String eol ){
 		if( request[1].equals("?") )
 			return "sd:reason -> Shutdown the program with the given reason, use force as reason to skip checks";
-		String reason = request[1].isEmpty()?"Telnet requested shutdown":request[1];
-		if( !request[1].equalsIgnoreCase("force") && sdps!=null) {
-			for (var sdp : sdps) {
-				if (sdp.shutdownNotAllowed()) {
-					if (wr != null)
-						wr.writeLine("Shutdown prevented by " + sdp.getID());
-					return "! Shutdown prevented by " + sdp.getID();
-				}
-			}
-		}
-		shutdownReason = reason;
+		shutdownReason = request[1].isEmpty()?"Telnet requested shutdown":request[1];
 		System.exit(0);                    
 		return "Shutting down program..."+ eol;
 	}
@@ -458,6 +447,8 @@ public class CommandPool {
 					join.add("   -> Send dbm:? for commands related to the database manager");
 					join.add(TelnetCodes.TEXT_GREEN+"5) Do other things"+TelnetCodes.TEXT_DEFAULT);
 					join.add("   -> For scheduling events, check taskmanager");
+					join.add("   -> For sending data to a stream without eol, use 'ctrl+s'");
+					join.add("   -> For sending ESC to a stream, use '\\e'");
 					join.add("   -> ...").add("");
 				break;
 			case "filter": return FilterForward.getHelp(eol);

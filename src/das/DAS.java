@@ -44,48 +44,48 @@ public class DAS implements Commandable{
 
     private static final String version = "2.3.4";
 
-    private final Path settingsPath;
-    private String workPath;
+    private final Path settingsPath; // Path to the settings.xml
+    private String workPath; // Path to the working dir of dcafs
 
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
 
     /* Workers */
-    private EmailWorker emailWorker;
-    private LabelWorker labelWorker;
-    private I2CWorker i2cWorker;
+    private EmailWorker emailWorker; // Worker that processes email requests
+    private LabelWorker labelWorker; // Worker that processes datagrams
+    private I2CWorker i2cWorker; // Worker that interacts with i2c devices
 
     /* */
-    private StreamManager streampool;
-    private TcpServer trans;
-    private TelnetServer telnet;
+    private StreamManager streamManager; // Pool of all the stream objects
+    private TcpServer trans; // TCP server that takes requests
+    private TelnetServer telnet; // Telnet server for the user CLI
 
-    private RealtimeValues rtvals;
-    private CommandPool commandPool;
-    private Waypoints waypoints;
+    private RealtimeValues rtvals; // Pool of all the vals (realval,flagval,textval,intval) that hold realtime data
+
+    private Waypoints waypoints; // Pool of waypoints
 
     /* Managers & Pools */
-    private DatabaseManager dbManager;
-    private MqttPool mqttPool;
-    private TaskManagerPool taskManagerPool;
-    private CollectorPool collectorPool;
-
+    private DatabaseManager dbManager; // Manager for the database interaction
+    private MqttPool mqttPool; // Pool for the mqtt connections
+    private TaskManagerPool taskManagerPool; // Pool that holds the tasksmanagers
+    private CollectorPool collectorPool; // Pool of the collector objects (mainly filecollectors)
+    private CommandPool commandPool; // Pool that holds the references to all the commandables
     private boolean bootOK = false; // Flag to show if booting went ok
     String sdReason = "Unwanted shutdown."; // Reason for shutdown of das, default is unwanted
 
-    private final BlockingQueue<Datagram> dQueue = new LinkedBlockingQueue<>();
-    boolean rebootOnShutDown = false;
-    private InterruptPins isrs;
+    private final BlockingQueue<Datagram> dQueue = new LinkedBlockingQueue<>(); // Queue for datagrams for the labelworker
+    boolean rebootOnShutDown = false; // Flag to set to know if the device should be rebooted on dcafs shutdown (linux only)
+    private InterruptPins isrs; // Manager for working with IO pins
 
-    private MatrixClient matrixClient;
-    private FileMonitor fileMonitor;
+    private MatrixClient matrixClient; // Client for working with matrix connections
+    private FileMonitor fileMonitor; // Monitor files for changes
 
-    private Instant lastCheck;
+    private Instant lastCheck; // Timestamp of the last clock check, to know if the clock was changed after das booted
 
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and streampool can share it
 
     public DAS() {
-
+        // Determin working dir base on the classpath
         var classPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
         classPath = classPath.replace("%20"," ");
         System.out.println("Checking for workpath at : "+classPath);
@@ -93,7 +93,7 @@ public class DAS implements Commandable{
         if( classPath.startsWith("/") && SystemUtils.IS_OS_WINDOWS ) // for some reason this gets prepended
             classPath=classPath.substring(1);
 
-        Path p=Path.of(classPath);
+        Path p=Path.of(classPath); // Convert to path
 
         if (classPath.endsWith("classes/")) { //meaning from ide
             p = p.getParent(); // get parent to get out of the classes
@@ -105,25 +105,25 @@ public class DAS implements Commandable{
         }else if( workPath.contains("repository")){
             workPath = Path.of("").toAbsolutePath().toString();
         }
-        System.out.println("Workpath lib: "+workPath);
+        System.out.println("Workpath lib: "+workPath); // System because logger isn't initiated yet
         if( System.getProperty("tinylog.directory") == null ) { // don't overwrite this
             // Re set the paths for the file writers to use the same path as the rest of the program
             System.setProperty("tinylog.directory", workPath); // Set work path as system property
         }
         settingsPath = Path.of(workPath, "settings.xml");
 
-        if (Files.notExists(settingsPath)) {
+        if (Files.notExists(settingsPath)) { // Check if the settings.xml exists
             Logger.warn("No Settings.xml file found, creating new one. Searched path: "
                     + settingsPath.toFile().getAbsolutePath());
-            createXML();
+            createXML(); // doesn't exist so create it
         }
         Logger.info("Used settingspath: "+settingsPath);
 
-        var docOpt = XMLtools.readXML(settingsPath);
+        var docOpt = XMLtools.readXML(settingsPath); // Try to read the settings.xml
 
-        if( docOpt.isEmpty()){
+        if( docOpt.isEmpty()){ // Check if the reading resulted in a proper xml
             Logger.error("Issue in current settings.xml, aborting: " + settingsPath);
-            addTelnetServer();
+            addTelnetServer(); // Even if settings.xml is bad, start the telnet server anyway so inform user
             return;
         }
         var settingsDoc= docOpt.get();
@@ -133,11 +133,11 @@ public class DAS implements Commandable{
                     System.setProperty("tinylog.directory", XMLtools.getChildStringValueByTag(ele,"tinylog",workPath) );
         });
 
-        Logger.info("Program booting in NORMAL mode");
+        Logger.info("Program booting");
 
         /* CommandPool */
         commandPool = new CommandPool( workPath );
-        addCommandable(this,"st");
+        addCommandable(this,"st"); // add the commands found in this file
 
         /* RealtimeValues */
         rtvals = new RealtimeValues( settingsPath, dQueue );
@@ -151,7 +151,7 @@ public class DAS implements Commandable{
         addCommandable(dbManager,"dbm","myd");
 
         /* TransServer */
-        addTransServer(-1);
+        addTransServer(-1); // Start the transserver with default port
 
         /* MQTT worker */
         addMqttPool();
@@ -160,7 +160,7 @@ public class DAS implements Commandable{
         addLabelWorker();
 
         /* StreamManager */
-        addStreamPool();
+        addStreamManager();
 
         /* I2C */
         addI2CWorker();
@@ -183,6 +183,8 @@ public class DAS implements Commandable{
         /* EmailWorker */
         if( digger.peekAt("email").hasValidPeek() ) {
             addEmailWorker();
+        }else{
+            Logger.info( "No email defined in xml");
         }
         /* File monitor */
         if( digger.peekAt("monitor").hasValidPeek() ) {
@@ -226,6 +228,10 @@ public class DAS implements Commandable{
         return settingsPath;
     }
 
+    /**
+     * Get the period that dcafs has been active
+     * @return The active period
+     */
     public String getUptime() {
         return TimeTools.convertPeriodtoString(Duration.between(bootupTimestamp, LocalDateTime.now()).getSeconds(),
                 TimeUnit.SECONDS);
@@ -245,6 +251,9 @@ public class DAS implements Commandable{
         lastCheck = Instant.now();
     }
     /* ************************************  X M L *****************************************************/
+    /**
+     * Create the base settings.xml
+     */
     private void createXML() {
        XMLfab.withRoot(settingsPath, "dcafs")
                 .addParentToRoot("settings")
@@ -269,32 +278,41 @@ public class DAS implements Commandable{
 
         taskManagerPool = new TaskManagerPool(workPath, rtvals, commandPool);
 
-        if (streampool != null)
-            taskManagerPool.setStreamPool(streampool);
+        if (streamManager != null)
+            taskManagerPool.setStreamPool(streamManager);
         if (emailWorker != null)
             taskManagerPool.setEmailSending(emailWorker.getSender());
         taskManagerPool.readFromXML();
         addCommandable(taskManagerPool,"tm");
     }
+
+    /**
+     * Get the taskmanagerpool, only used if dcafs is used as a library
+     * @return The current taskmanagerpool
+     */
     public TaskManagerPool getTaskManagerPool(){
         return taskManagerPool;
     }
     /* ******************************************  S T R E A M P O O L ***********************************************/
     /**
-     * Adds the streampool
+     * Adds the streammanager that will manage the various streams (tcp,udp,serial)
      */
-    private void addStreamPool() {
+    private void addStreamManager() {
 
-        streampool = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
-        addCommandable(streampool,"ss","streams");
-        addCommandable(streampool,"s_","h_");
-        addCommandable(streampool,"raw","stream");
-        addCommandable(streampool,"");
+        streamManager = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
+        addCommandable(streamManager,"ss","streams"); // general commands
+        addCommandable(streamManager,"s_","h_");     // sending data to a stream
+        addCommandable(streamManager,"raw","stream"); // getting data from a stream
+        addCommandable(streamManager,""); // stop sending data
 
-       streampool.readSettingsFromXML(settingsPath);
+       streamManager.readSettingsFromXML(settingsPath);
     }
-    public StreamManager getStreampool(){
-        return streampool;
+    /**
+     * Get the streammanager, only used if dcafs is used as a library
+     * @return The current streammanager
+     */
+    public StreamManager getStreamManager(){
+        return streamManager;
     }
     /* ***************************************** D B M  ******************************************************** */
     public DatabaseManager getDatabaseManager(){
@@ -303,18 +321,27 @@ public class DAS implements Commandable{
 
     /* *************************************  L A B E L W O R K E R **********************************************/
     /**
-     * Adds the BaseWorker
+     * Adds the LabelWorker that will process the datagrams
      */
     private void addLabelWorker() {
         if (this.labelWorker == null)
             labelWorker = new LabelWorker(dQueue);
         labelWorker.setCommandReq(commandPool);
     }
+
+    /**
+     * Get the queue that the labelworker processes
+     * @return the queue
+     */
     public BlockingQueue<Datagram> getDataQueue() {
         addLabelWorker();
         return dQueue;
     }
     /* ***************************************** M Q T T ******************************************************** */
+
+    /**
+     * Add the pool that handles the mqtt connections
+     */
     private void addMqttPool(){
         mqttPool = new MqttPool(settingsPath,rtvals,dQueue);
         addCommandable( mqttPool,"mqtt");
@@ -330,14 +357,14 @@ public class DAS implements Commandable{
         Logger.info("Adding TransServer");
         trans = new TcpServer(settingsPath, nettyGroup);
         trans.setServerPort(port);
-        trans.setDataQueue(dQueue);
+        trans.setDataQueue(dQueue); // Uses the same queue for datagrams like streammanager etc
 
-        addCommandable(trans,"ts","trans");
+        addCommandable(trans,"ts","trans"); // Add ts/trans commands to commandpool
     }
 
     /* **********************************  E M A I L W O R K E R *********************************************/
     /**
-     * Adds an EmailWorker
+     * Adds an EmailWorker, this handles sending and receiving emails
      */
     private void addEmailWorker() {
         Logger.info("Adding EmailWorker");
@@ -346,6 +373,11 @@ public class DAS implements Commandable{
         addCommandable(emailWorker,"email");
         commandPool.setEmailSender(emailWorker);
     }
+
+    /**
+     * Get the limited interface of the emailworker that allows sending emails, only used if dcafs is used as lib
+      * @return The limited emailworker interface for sending emails
+     */
     public EmailSending getEmailSender(){
         return emailWorker;
     }
@@ -365,7 +397,7 @@ public class DAS implements Commandable{
 
     /* ********************************   B U S ************************************************/
     /**
-     * Create the I2CWorker
+     * Create the I2CWorker, this handles working with I2C devices
      */
     private void addI2CWorker() {
         if( i2cWorker!=null)
@@ -430,17 +462,17 @@ public class DAS implements Commandable{
                 }
 
                 // disconnecting tcp ports
-                if (streampool != null)
-                    streampool.disconnectAll();
+                if (streamManager != null)
+                    streamManager.disconnectAll();
 
                 Logger.info("All processes terminated!");
                 try {
-                    ProviderRegistry.getLoggingProvider().shutdown();
+                    ProviderRegistry.getLoggingProvider().shutdown(); // Shutdown tinylog
                 } catch (InterruptedException e) {
                     Logger.error(e);
                     Thread.currentThread().interrupt();
                 }
-
+                // On linux it's possible to have the device reboot if das is shutdown for some reason
                 if (rebootOnShutDown) {
                     try {
                         Runtime rt = Runtime.getRuntime();
@@ -470,14 +502,17 @@ public class DAS implements Commandable{
         }
 
         if (trans != null && trans.isActive()) {
+            Logger.info( "Starting transserver");
             trans.run(); // Start the server
         }
         if (telnet != null) {
+            Logger.info("Starting telnet server");
             telnet.run(); // Start the server
         }
 
         // TaskManager
         if (taskManagerPool != null) {
+            Logger.info( "Parsing taskmanager scripts");
             String errors = taskManagerPool.reloadAll();
             if( !errors.isEmpty()){
                 telnet.addMessage("Errors during TaskManager parsing:\r\n"+errors);
@@ -532,11 +567,11 @@ public class DAS implements Commandable{
         } else {
             b.append(TEXT_YELLOW).append(TEXT_CYAN).append("\r\n").append("Streams").append("\r\n").append(UNDERLINE_OFF).append(TEXT_YELLOW);
         }
-        if (streampool != null) {
-            if (streampool.getStreamCount() == 0) {
+        if (streamManager != null) {
+            if (streamManager.getStreamCount() == 0) {
                 b.append("No streams defined (yet)").append("\r\n");
             } else {
-                for (String s : streampool.getStatus().split("\r\n")) {
+                for (String s : streamManager.getStatus().split("\r\n")) {
                     if (s.startsWith("!!")) {
                         b.append(TEXT_RED).append(s).append(TEXT_YELLOW).append(UNDERLINE_OFF);
                     } else {
@@ -621,12 +656,16 @@ public class DAS implements Commandable{
 
     @Override
     public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
-        return switch( cmd ){
-            case "st" -> getStatus(html);
-            default -> "Unknown command";
-        };
+        if( cmd.equalsIgnoreCase("st"))
+            return getStatus(html);
+        return "Unknown commmand";
     }
 
+    /**
+     * Part of the commandable interface but not used here
+     * @param wr The writable to remove
+     * @return True if the writable was found and removed
+     */
     @Override
     public boolean removeWritable(Writable wr) {
         return false;
