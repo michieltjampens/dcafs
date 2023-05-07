@@ -234,7 +234,7 @@ public class TaskManager implements CollectorFuture {
 		for (Task task : this.tasks) {
 			if (task.getID().equals(id)) {
 				Logger.tag(TINY_TAG).info("[" + this.id + "] Task with id " + id + " started.");
-				return startTask(task);//doTask(task);
+				return startTask(task);
 			}
 		}
 		Logger.tag(TINY_TAG).warn("[" + this.id + "] Task with id '" + id + "' not found.");
@@ -385,7 +385,7 @@ public class TaskManager implements CollectorFuture {
 			return false;
 		}
 		Logger.tag(TINY_TAG).debug("[" + id + "] Trying to start task of type: " + task.triggerType + "(" + task.value + ")");
-		switch (task.triggerType) {
+		var exec = switch (task.triggerType) {
 			case CLOCK -> {
 				long min = calculateSeconds(task);
 				if (min != -1) {
@@ -394,9 +394,14 @@ public class TaskManager implements CollectorFuture {
 							+ TimeTools.convertPeriodtoString(min, TimeUnit.SECONDS) + ".");
 				} else {
 					Logger.tag(TINY_TAG).error("[" + id + "] Something went wrong with calculating minutes...");
+					yield FAILREASON.ERROR;
 				}
+				yield FAILREASON.NONE;
 			}
-			case RETRY, INTERVAL, WAITFOR, WHILE -> checkIntervalTask(task);
+			case RETRY, INTERVAL, WAITFOR, WHILE -> {
+				checkIntervalTask(task);
+				yield FAILREASON.NONE;
+			}
 			case DELAY -> {
 				if (task.when == null) {
 					Logger.tag(TINY_TAG).error("[" + id + "] WHEN IS NULL!?!?");
@@ -407,11 +412,12 @@ public class TaskManager implements CollectorFuture {
 				Logger.tag(TINY_TAG).debug("[" + id + "] Scheduled sending '" + task.value + "' in "
 						+ TimeTools.convertPeriodtoString(task.startDelay, task.unit) + " and need " + (task.reply.isEmpty() ? "no reply" : ("'" + task.reply + "' as reply")));
 				task.future = scheduler.schedule(new DelayedControl(task), task.startDelay, task.unit);
+				yield FAILREASON.NONE;
 			}
 			case EXECUTE -> doTask(task);
-			default -> {}
-		}
-		return true;
+			default -> FAILREASON.ERROR;
+		};
+		return exec==FAILREASON.NONE;
 	}
 
 	public int stopTaskSet(String title) {
