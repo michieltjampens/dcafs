@@ -266,7 +266,7 @@ public class TaskManagerPool implements Commandable {
                     if( tl.hasTaskset(task[1])){
                         return tl.startTaskset(task[1]);
                     }else{
-                        return tl.startTask(task[1])?"Task started":"! No such task(set) "+task[1];
+                        return tl.startTask(task[1])?"Task ok":"! Failed/invalid "+task[1];
                     }
                 }
 
