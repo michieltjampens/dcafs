@@ -42,7 +42,7 @@ import java.util.concurrent.*;
 
 public class DAS implements Commandable{
 
-    private static final String version = "2.3.4";
+    private static final String version = "2.3.5";
 
     private final Path settingsPath; // Path to the settings.xml
     private String workPath; // Path to the working dir of dcafs

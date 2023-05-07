@@ -7,7 +7,9 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.3.4 (wip)
+## 2.3.5 (wip)
+
+## 2.3.4 (07/05/23)
 
 ### RealtimeValues
 - Fixed, vals weren't set to default on startup
@@ -35,7 +37,7 @@ Note: Version numbering: x.y.z
 is created. To restrict that from spamming, there's now a delay of one second between emails and a default maximum of 5 emails per 5+2 seconds.
 Any other emails to send in that period are ignored. This limits can be increased in xml with the <maxemails> node.
 
-## 2.3.3 (20.04.23)
+## 2.3.3 (20/04/23)
 
 ### Store
 - Added cmd `store:streamid,alterval,valname,attribute,value` to alter the attributes of a val in a store.
