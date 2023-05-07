@@ -61,8 +61,9 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	static final String MAIL_SMTP_TIMEOUT = "mail.smtp.timeout";
 	static final String MAIL_SMTP_WRITETIMEOUT = "mail.smtp.writetimeout";
 
-	int busy = 0; // Indicate that an email is being send to the server
-	int sendRequests=0;
+	private int busy = 0; // Indicate that an email is being send to the server
+	private int sendRequests=0;
+	private int MAX_EMAILS=5;
 	java.util.concurrent.ScheduledFuture<?> retryFuture; // Future of the retry checking thread
 
 	private final BlockingQueue<Datagram> dQueue; // Used to pass commands received via email to the dataworker for
@@ -175,6 +176,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 					doZipFromSizeMB = xml.peekAt("zip_from_size_mb").value(10);// Max unzipped filesize
 					deleteReceivedZip = xml.peekAt("delete_rec_zip").value(true);
 					maxSizeMB = xml.peekAt("max_size_mb").value(15.0);
+					MAX_EMAILS = xml.peekAt("maxemails").value(5);
 					break;
 				case "inbox":
 					if (xml.peekAt("server").hasValidPeek()) {
@@ -503,10 +505,10 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		if( email.isValid()) {
 			applyBook(email);
 			sendRequests++;
-			if( busy < 5) {
+			if( busy < MAX_EMAILS) {
 				scheduler.schedule(() -> sendEmail(email, false),busy,TimeUnit.SECONDS); // Send the email with a second delay
 				if( busy==1 )
-					scheduler.schedule(this::clearBusy,8,TimeUnit.SECONDS);
+					scheduler.schedule(this::clearBusy,MAX_EMAILS+2,TimeUnit.SECONDS);
 			}else{
 				if( sendRequests < 10 || sendRequests%20==0) {
 					Logger.error("Warning, probably spamming, tried to send more than 5 emails in 8 seconds, ignoring email. (reqs:"+sendRequests+")");

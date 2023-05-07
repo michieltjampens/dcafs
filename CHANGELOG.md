@@ -30,6 +30,11 @@ Note: Version numbering: x.y.z
       <cmd when="hello">Welcome to trans?</cmd> <!-- Send welcome message -->
     </stream>
 ````
+### EmailWorker
+- Up till now there wasn't a limit to emailsending. But it can happen that due to mistake in taskmanager etc an infinite loop
+is created. To restrict that from spamming, there's now a delay of one second between emails and a default maximum of 5 emails per 5+2 seconds.
+Any other emails to send in that period are ignored. This limits can be increased in xml with the <maxemails> node.
+
 ## 2.3.3 (20.04.23)
 
 ### Store
