@@ -151,7 +151,7 @@ public class DAS implements Commandable{
         addCommandable(dbManager,"dbm","myd");
 
         /* TransServer */
-        addTransServer(-1); // Start the transserver with default port
+        addTransServer(-1); // Check if trans is in xml and if so, set it up
 
         /* MQTT worker */
         addMqttPool();
