@@ -1,6 +1,5 @@
 package io.telnet;
 
-import das.Configurator;
 import io.Writable;
 import io.netty.channel.*;
 import io.netty.handler.codec.TooLongFrameException;
@@ -44,10 +43,6 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	String title = "dcafs";
 	String id="telnet";
 	String start="";
-
-	boolean config=false;
-	Configurator conf=null;
-
 	CommandLineInterface cli;
 	ArrayList<String> onetime = new ArrayList<>();
 	ArrayList<String> ids = new ArrayList<>();
@@ -163,24 +158,6 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 		if( dQueue==null ){
 			System.exit(0);
-		}
-
-		if( config ){ // Config mode
-			String reply = conf.reply(new String(rec));
-			reply = reply.trim();
-			if( !reply.equalsIgnoreCase("bye") ) {
-				if( !reply.isEmpty())
-					writeLine(reply);
-				return;
-			}
-			config=false;
-			writeLine( TelnetCodes.TEXT_BLUE+"Bye! Back to telnet mode..."+TelnetCodes.TEXT_DEFAULT);
-			writeString(">");
-			return;
-		}else if( new String(rec).equalsIgnoreCase("cfg")){
-			config=true;
-			conf = new Configurator( settingsPath,this ); // Always start with a new one
-			return;
 		}
 
 		distributeMessage(
