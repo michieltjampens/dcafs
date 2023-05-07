@@ -363,7 +363,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			str.getValStore().ifPresent( store -> store.removeRealtimeValues(rtvals));
 			str.readFromXML(childOpt.get());
 			str.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
-			str.reconnectFuture = scheduler.schedule( new DoConnection( str ), 0, TimeUnit.SECONDS );
+			if( !str.getType().contains("server"))
+				str.reconnectFuture = scheduler.schedule( new DoConnection( str ), 0, TimeUnit.SECONDS );
 			return "Reloaded and trying to reconnect";
 		}else{
 			var str = addStreamFromXML(childOpt.get());
