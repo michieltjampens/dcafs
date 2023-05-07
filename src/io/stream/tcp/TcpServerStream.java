@@ -29,7 +29,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     private final ArrayList<TcpHandler> clients = new ArrayList<>();
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
     private int nr=0;
-
+    private boolean serverOk=false;
     public TcpServerStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
     }
@@ -79,6 +79,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
                     System.exit(0);
                 } else if (future.isSuccess()) {
                     Logger.info(id+" -> Started the TcpServer.");
+                    serverOk=true;
                 }
             });
             serverFuture.sync();
@@ -86,6 +87,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
             Logger.error(e);
             // Restore interrupted state...
             Thread.currentThread().interrupt();
+            serverOk=false;
         }
         return false;
     }
@@ -111,13 +113,29 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     }
     @Override
     public boolean isConnectionValid() {
-        return clients.stream().anyMatch(TcpHandler::isConnectionValid);
+        return serverOk;//clients.stream().anyMatch(TcpHandler::isConnectionValid);
     }
 
     @Override
     public boolean readExtraFromXML(Element stream) {
+
+        // Alter eol
+        if( eol.isEmpty() ){
+            Logger.error(id + " -> No EOL defined");
+            return false;
+        }
+
         // Address
         String address = XMLtools.getChildStringValueByTag( stream, "address", "");
+        if( address.isEmpty()){
+            int port = XMLtools.getChildIntValueByTag(stream,"port",-1);
+            if( port==-1) {
+                Logger.error(id+" -> Not a valid port number:"+address);
+                return false;
+            }
+            ipsock = new InetSocketAddress( "localhost",port);
+            return true;
+        }
         if( !address.contains(":") ) {
             if( Tools.parseInt(address,-999)==-999) {
                 Logger.error(id+" -> Not a valid port number:"+address);
@@ -125,15 +143,9 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
             }
             address = "localhost:" + address;
         }
-        ipsock = new InetSocketAddress( address.substring(0,address.lastIndexOf(":")),
-                                                Tools.parseInt( address.substring(address.lastIndexOf(":")+1) , -1) );
+        ipsock = new InetSocketAddress(address.substring(0, address.lastIndexOf(":")),
+                    Tools.parseInt(address.substring(address.lastIndexOf(":") + 1), -1));
 
-
-        // Alter eol
-        if( eol.isEmpty() ){
-            Logger.error(id + " -> No EOL defined");
-            return false;
-        }
         return true;
     }
 
@@ -154,13 +166,13 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     @Override
     public boolean writeString(String data) {
         clients.forEach(x->x.writeString(data));
-        return !clients.isEmpty();
+        return serverOk;
     }
 
     @Override
     public boolean writeLine(String data) {
         clients.forEach(x->x.writeLine(data));
-        return !clients.isEmpty();
+        return serverOk;
     }
     @Override
     public boolean writeLine(String origin, String data) {
@@ -170,12 +182,12 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
         }else{
             clients.forEach( x->x.writeLine(data));
         }
-        return true;
+        return serverOk;
     }
     @Override
     public boolean writeBytes( byte[] data){
         clients.forEach(x->x.writeBytes(data));
-        return !clients.isEmpty();
+        return serverOk;
     }
     @Override
     public Writable getWritable(){
