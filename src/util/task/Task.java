@@ -506,7 +506,7 @@ public class Task implements Comparable<Task>{
 				}
 				break;
 			case INTERVAL:
-				suffix = " every "+ TimeTools.convertPeriodtoString(interval, unit) + (startDelay==0?".":" after initial delay "+TimeTools.convertPeriodtoString(startDelay, unit))
+				suffix = " every "+ TimeTools.convertPeriodtoString(interval, unit) + (startDelay<=0?".":" after initial delay "+TimeTools.convertPeriodtoString(startDelay, unit))
 							+ (future==null?".":(" next occurrence in "+ TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS)));
 				break;
 			case KEYWORD:
