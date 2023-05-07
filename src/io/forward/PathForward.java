@@ -27,23 +27,22 @@ import java.util.concurrent.TimeUnit;
 
 public class PathForward {
 
-    private String src = "";
+    private String src = ""; // The source of the data for the path
 
-    private final ArrayList<Writable> targets = new ArrayList<>();
-    private final ArrayList<CustomSrc> customs=new ArrayList<>();
+    private final ArrayList<Writable> targets = new ArrayList<>(); // The targets to send the final result of the path to
+    private final ArrayList<CustomSrc> customs=new ArrayList<>(); // The custom data sources
+    enum SRCTYPE {REG,PLAIN,RTVALS,CMD,FILE,SQLITE,INVALID} // Possible custom sources
+    RealtimeValues rtvals; // Reference to the realtimevalues
+    BlockingQueue<Datagram> dQueue; // The queue to process datagrams
+    EventLoopGroup nettyGroup; // Threaded processing is done with this
 
-    RealtimeValues rtvals;
-    BlockingQueue<Datagram> dQueue;
-    EventLoopGroup nettyGroup;
-
-    String id;
-    ArrayList<AbstractForward> stepsForward;
-    enum SRCTYPE {REG,PLAIN,RTVALS,CMD,FILE,SQLITE,INVALID}
-    Path workPath;
-    static int READ_BUFFER_SIZE=2500;
-    static long SKIPLINES = 0;
-    String error="";
-    boolean valid=false;
+    String id; // The id of the path
+    ArrayList<AbstractForward> stepsForward; // The steps to take in the path
+    Path workPath; // The path to the working folder of dcafs
+    static int READ_BUFFER_SIZE=2500; // maximum size of read buffer (if the source is a file)
+    static long SKIPLINES = 0; // How many lines to skip at the beginning of a file (fe to skip header)
+    String error=""; // Last error that occurred
+    boolean valid=false; // Whether this path is valid (xml processing went ok)
 
     public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup ){
         this.rtvals = rtvals;

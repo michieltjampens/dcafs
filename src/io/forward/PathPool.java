@@ -139,14 +139,14 @@ public class PathPool implements Commandable {
                 help.add( PathCmds.replyToCommand("?",html,settingsPath));
                 help.add("").add(cyan + "Other" + reg)
                         .add(green + " pf:reload/reloadall " + reg + "-> Reload all the paths")
-                        .add(green + " pf:pathid,reload " + reg + "-> reload the path with the given id")
+                        .add(green + " pf:id,reload " + reg + "-> reload the path with the given id")
                         .add(green + " pf:list " + reg + "-> List all the currently loaded paths")
-                        .add(green + " pf:pathid,debug<,stepnr/stepid> " + reg + "-> Request the data from a single step in the path (nr:0=first; -1=custom src)")
+                        .add(green + " pf:id,debug<,stepnr/stepid> " + reg + "-> Request the data from a single step in the path (nr:0=first; -1=custom src)")
                         .add(green + " pf:clear " + reg + "-> Remove all the paths from XML!");
 
                 return help.toString();
             }
-            case "reload", "reloadall" -> {
+            case "reload", "reloadall" -> { // Reload all tha paths
                 if (cmds.length == 1 || cmds[0].endsWith("all")) {
                     readPathsFromXML();
                     return "All paths reloaded.";
@@ -158,18 +158,18 @@ public class PathPool implements Commandable {
                 var result = paths.get(cmds[1]).readFromXML(ele.get(), settingsPath.getParent());
                 return result.isEmpty() ? "Path reloaded" : result;
             }
-            case "clear" -> {
+            case "clear" -> { // Clear the path node and reload
                 XMLfab.withRoot(settingsPath, "dcafs", "paths").clearChildren().build();
                 paths.values().forEach(PathForward::stop);
                 paths.values().forEach(PathForward::clearStores);
                 paths.clear();
                 return "Paths cleared";
             }
-            case "stop" -> {
+            case "stop" -> { // Stop receiving data from this path
                 paths.values().forEach(pf -> pf.removeTarget(wr));
                 return "Stopped sending to " + wr.id();
             }
-            case "list" -> {
+            case "list" -> { // Get a listing of all the steps in the path
                 StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
                 join.setEmptyValue("No paths yet");
                 paths.forEach((key, value) -> {
@@ -187,7 +187,7 @@ public class PathPool implements Commandable {
                         if( cmds.length==2)
                             return pp.debugStep("*", wr);
                         if (cmds.length != 3)
-                            return "Incorrect number of arguments, needs to be pf:pathid,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
+                            return "Incorrect number of arguments, needs to be pf:id,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
                         if (pp == null)
                             return or+"! No such path: " + cmds[1]+reg;
                         int nr = NumberUtils.toInt(cmds[2], -2);
@@ -197,7 +197,7 @@ public class PathPool implements Commandable {
                             return pp.debugStep(cmds[2], wr);
                         return pp.debugStep(nr, wr);
                     }
-                    case "reload" -> {
+                    case "reload" -> { // Reload the given path
                         var ele = XMLfab.withRoot(settingsPath, "dcafs", "paths")
                                 .getChild("path", "id", cmds[1]);
                         if (ele.isEmpty())
