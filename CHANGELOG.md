@@ -8,6 +8,8 @@ Note: Version numbering: x.y.z
 - back up path for sqlite db etc?
 
 ## 2.3.5 (wip)
+- When double/real was read from an xml file and it was using a ',' for decimal sign, this wasn't altered to '.'.
+
 
 ## 2.3.4 (07/05/23)
 
