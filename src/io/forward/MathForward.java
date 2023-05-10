@@ -65,10 +65,10 @@ public class MathForward extends AbstractForward {
     public String getRules(){
         int index=0;
         StringJoiner join = new StringJoiner("\r\n");
-        join.setEmptyValue(" -> No rules yet.");
+        join.setEmptyValue(" -> No ops yet.");
 
         for( String[] x : rulesString ){
-            join.add("\t"+(index++) +" : i"+x[1]+ " = "+x[2]);
+            join.add("\t"+(index++) +" : "+x[2]);
         }
         return join.toString();
     }
