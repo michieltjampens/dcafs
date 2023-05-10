@@ -5,7 +5,6 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -38,7 +37,7 @@ public abstract class AbstractForward implements Writable {
     protected boolean readOk=false;
     public enum RESULT{ERROR,EXISTS,OK}
     protected boolean inPath=true;
-
+    protected boolean parsedOk=true;
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
         this.rtvals=rtvals;
@@ -93,7 +92,7 @@ public abstract class AbstractForward implements Writable {
             if( !valid ){
                 valid=true;
                 if( !inPath)
-                    sources.stream().forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+                    sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
             }
             if( target.id().startsWith("telnet")) {
                 targets.add(0,target);
@@ -157,22 +156,27 @@ public abstract class AbstractForward implements Writable {
         }else if( this instanceof FilterForward){
             join.setEmptyValue(" -> No rules yet.");
         }
-        for( String[] x : rulesString ){
-            join.add("\t"+(index++) +" : "+x[1]+" -> "+x[2]);
+        if( !parsedOk ){
+            join.add("Failed to parse, check logs");
+        }else {
+            for (String[] x : rulesString) {
+                join.add("\t" + (index++) + " : " + x[1] + " -> " + x[2]);
+            }
         }
-
         return join.toString();
     }
     protected boolean readBasicsFromXml( Element fw ){
 
-        if( fw==null) // Can't work if this is null
+        if( fw==null) { // Can't work if this is null
+            parsedOk=false;
             return false;
-
+        }
         /* Attributes */
         id = XMLtools.getStringAttribute( fw, "id", "");
-        if( id.isEmpty() ) // Cant work without id
+        if( id.isEmpty() ) {// Cant work without id
+            parsedOk=false;
             return false;
-
+        }
         log = XMLtools.getBooleanAttribute(fw,"log",false);
 
         if( log ){ // this counts as a target, so enable it
@@ -202,6 +206,9 @@ public abstract class AbstractForward implements Writable {
     }
     public void addAfterCmd( String cmd){
         cmds.add(cmd);
+    }
+    public boolean hasParsed(){
+        return parsedOk;
     }
     /* *********************** Abstract Methods ***********************************/
     /**

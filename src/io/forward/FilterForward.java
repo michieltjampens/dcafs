@@ -118,6 +118,7 @@ public class FilterForward extends AbstractForward {
      * @return True if all went fine
      */
     public boolean readFromXML( Element filter ){
+        parsedOk=true;
 
         if( !readBasicsFromXml(filter) )
             return false;
@@ -187,6 +188,7 @@ public class FilterForward extends AbstractForward {
             case "math" -> addCheckBlock(delimiter, value);
             default -> {
                 Logger.error(id + " -> Unknown type chosen " + type);
+                parsedOk=false;
                 return -1;
             }
         }

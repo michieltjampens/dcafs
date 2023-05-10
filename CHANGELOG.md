@@ -9,11 +9,15 @@ Note: Version numbering: x.y.z
 
 ## 2.3.5 (wip)
 - When double/real was read from an xml file and it was using a ',' for decimal sign, this wasn't altered to '.'.
-- Paths, added option to add executing a cmd inside a path by adding a <cmd> at any position except the start 
-
+- Paths
+  - added option to add executing a cmd inside a path by adding a <cmd> at any position except the start 
+  - `pf:reload` now shows error if parsing failed
+  
 ### Small fixes
-- Paths, pf:list will now state no ops and no edits instead of no rules for math/edit
-
+- Paths, pf:list 
+  - will now state no ops and no edits instead of no rules for math/edit
+  - will no longer show ix = twice for an op
+  
 ## 2.3.4 (07/05/23)
 
 ### RealtimeValues

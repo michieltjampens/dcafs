@@ -66,9 +66,12 @@ public class MathForward extends AbstractForward {
         int index=0;
         StringJoiner join = new StringJoiner("\r\n");
         join.setEmptyValue(" -> No ops yet.");
-
-        for( String[] x : rulesString ){
-            join.add("\t"+(index++) +" : "+x[2]);
+        if( !parsedOk ){
+             join.add("Failed to parse from xml, check logs");
+        }else {
+            for (String[] x : rulesString) {
+                join.add("\t" + (index++) + " : " + x[2]);
+            }
         }
         return join.toString();
     }
@@ -87,7 +90,7 @@ public class MathForward extends AbstractForward {
      */
     @Override
     public boolean readFromXML(Element math) {
-
+        parsedOk=true;
         if( !readBasicsFromXml(math) )
             return false;
 
@@ -111,10 +114,12 @@ public class MathForward extends AbstractForward {
                         XMLtools.getStringAttribute(math,"cmd","")
                 );
                 if(op.isEmpty()){
+                    parsedOk=false;
                     Logger.error("No valid operation found in: "+content);
                     return false;
                 }
             }else {
+                parsedOk=false;
                 return false;
             }
         }
@@ -124,8 +129,10 @@ public class MathForward extends AbstractForward {
 
         boolean oldValid=valid;
         for( var ops : XMLtools.getChildElements(math, "op") ){
-            if( !findReferences(ops.getTextContent()))
+            if( !findReferences(ops.getTextContent())) {
+                parsedOk=false;
                 return false;
+            }
         }
 
         XMLtools.getChildElements(math, "op")

@@ -228,6 +228,11 @@ public class PathForward {
                     stepsForward.add(ef);
                 }
             }
+            var f = stepsForward.get(stepsForward.size()-1);
+            if( !f.hasParsed()){
+                error = "Failed to parse: "+f.id();
+                return error;
+            }
 
         }
         if( !oldTargets.isEmpty()&&!stepsForward.isEmpty()){ // Restore old requests
