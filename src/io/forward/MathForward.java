@@ -245,6 +245,10 @@ public class MathForward extends AbstractForward {
                 }
             }
         }
+
+        if( !cmds.isEmpty())
+            cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
+
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         if( noTargets() && !log && store==null){
             return false;

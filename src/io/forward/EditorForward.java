@@ -73,6 +73,10 @@ public class EditorForward extends AbstractForward{
 
         if( store != null )
             store.apply(data,dQueue);
+
+        if( !cmds.isEmpty())
+            cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
+
         // If there are no target, no label, this no longer needs to be a target
         if( targets.isEmpty() && !log && store==null){
             valid=false;

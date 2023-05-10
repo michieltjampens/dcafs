@@ -52,6 +52,8 @@ public class FilterForward extends AbstractForward {
         }else{
             reversed.forEach( t-> t.writeLine(data) );
         }
+        if( !cmds.isEmpty())
+            cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
 
         if( noTargets() && reversed.isEmpty() && store==null){
             valid=false;
