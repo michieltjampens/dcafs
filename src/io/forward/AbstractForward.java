@@ -150,7 +150,13 @@ public abstract class AbstractForward implements Writable {
     public String getRules(){
         int index=0;
         StringJoiner join = new StringJoiner("\r\n");
-        join.setEmptyValue(" -> No rules yet.");
+        if( this instanceof MathForward) {
+            join.setEmptyValue(" -> No ops yet.");
+        }else if( this instanceof EditorForward ){
+            join.setEmptyValue(" -> No edits yet.");
+        }else if( this instanceof FilterForward){
+            join.setEmptyValue(" -> No rules yet.");
+        }
         for( String[] x : rulesString ){
             join.add("\t"+(index++) +" : "+x[1]+" -> "+x[2]);
         }
@@ -193,6 +199,9 @@ public abstract class AbstractForward implements Writable {
     public void clearStore(RealtimeValues rtv){
         if( store!=null)
             store.removeRealtimeValues(rtv);
+    }
+    public void addAfterCmd( String cmd){
+        cmds.add(cmd);
     }
     /* *********************** Abstract Methods ***********************************/
     /**

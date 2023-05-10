@@ -9,7 +9,10 @@ Note: Version numbering: x.y.z
 
 ## 2.3.5 (wip)
 - When double/real was read from an xml file and it was using a ',' for decimal sign, this wasn't altered to '.'.
+- Paths, added option to add executing a cmd inside a path by adding a <cmd> at any position except the start 
 
+### Small fixes
+- Paths, pf:list will now state no ops and no edits instead of no rules for math/edit
 
 ## 2.3.4 (07/05/23)
 
@@ -21,7 +24,7 @@ Note: Version numbering: x.y.z
   - Use label 'system' to mimick most of transserver functionality 
 ````xml
     <!-- 
-        This mimics most used funcionality of the TransServer 
+        This mimics most used functionality of the TransServer 
         - Sends a welcome message to new clients, do note that continuous data requests will send data to ALL clients
         - Sends the data from a certain src to all connected clients
         - 'open' trigger is fired when the first client connects

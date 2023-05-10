@@ -190,7 +190,7 @@ public class MathForward extends AbstractForward {
             showError(" (mf)-> No valid highest I value in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
             return true;
         }
-        int oldBad = badDataCount; // now it's worthwhile to compare bad data count
+
         // After doing all possible initial test, do the math
         int cnt=0;
         for( var op : ops ){
@@ -250,10 +250,7 @@ public class MathForward extends AbstractForward {
             cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
 
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
-        if( noTargets() && !log && store==null){
-            return false;
-        }
-        return true;
+        return !noTargets() || log || store != null;
     }
     private boolean showError(String error){
         return showError(true,error);
@@ -299,7 +296,7 @@ public class MathForward extends AbstractForward {
                 var op = new Operation( expression, NumberUtils.toInt(expression.substring(1),-1));
                 op.setCmd(cmd);
                 op.setScale(scale);
-                rulesString.add(new String[]{"complex",""+NumberUtils.toInt(expression.substring(1)),expression});
+                rulesString.add(new String[]{"complex", String.valueOf(NumberUtils.toInt(expression.substring(1))),expression});
                 addOp(op);
                 return Optional.of(op);
             }else {
@@ -329,7 +326,7 @@ public class MathForward extends AbstractForward {
                 op.setScale(scale);
 
                 if( addOp(op) )
-                    rulesString.add(new String[]{"complex",""+NumberUtils.toInt(split[1].substring(1)),expression});
+                    rulesString.add(new String[]{"complex", String.valueOf(NumberUtils.toInt(split[1].substring(1))),expression});
                 return Optional.of(op);
             }else{
                 index = -2;
@@ -367,7 +364,7 @@ public class MathForward extends AbstractForward {
         op.setScale(scale);
         op.setCmd(cmd);
 
-        rulesString.add(new String[]{"complex",""+index,expression});
+        rulesString.add(new String[]{"complex", String.valueOf(index),expression});
         return Optional.ofNullable(ops.get(ops.size()-1)); // return the one that was added last
     }
 
@@ -389,48 +386,44 @@ public class MathForward extends AbstractForward {
         Operation op;
         String[] indexes = exp.split(",");
 
-        switch( type ){
-            case LN:
-                op = new Operation( expression, MathUtils.decodeBigDecimalsOp("i"+index,exp,"ln",0),NumberUtils.toInt(index));
-                break;
-            case SALINITY:
-                if( indexes.length != 3 ){
-                    Logger.error(id+" (mf)-> Not enough args for salinity calculation");
+        switch (type) {
+            case LN ->
+                    op = new Operation(expression, MathUtils.decodeBigDecimalsOp("i" + index, exp, "ln", 0), NumberUtils.toInt(index));
+            case SALINITY -> {
+                if (indexes.length != 3) {
+                    Logger.error(id + " (mf)-> Not enough args for salinity calculation");
                     return;
                 }
-                op = new Operation(expression, Calculations.procSalinity(indexes[0],indexes[1],indexes[2]), NumberUtils.toInt(index));
-                break;
-            case SVC:
-                if( indexes.length != 3 ){
-                    Logger.error(id+" (mf)-> Not enough args for soundvelocity calculation");
+                op = new Operation(expression, Calculations.procSalinity(indexes[0], indexes[1], indexes[2]), NumberUtils.toInt(index));
+            }
+            case SVC -> {
+                if (indexes.length != 3) {
+                    Logger.error(id + " (mf)-> Not enough args for soundvelocity calculation");
                     return;
                 }
-                op = new Operation(expression, Calculations.procSoundVelocity(indexes[0],indexes[1],indexes[2]), NumberUtils.toInt(index));
-                break;
-            case TRUEWINDSPEED:
-                if( indexes.length != 5 ){
-                    Logger.error(id+" (mf)-> Not enough args for True wind speed calculation");
+                op = new Operation(expression, Calculations.procSoundVelocity(indexes[0], indexes[1], indexes[2]), NumberUtils.toInt(index));
+            }
+            case TRUEWINDSPEED -> {
+                if (indexes.length != 5) {
+                    Logger.error(id + " (mf)-> Not enough args for True wind speed calculation");
                     return;
                 }
-                op = new Operation(expression, Calculations.procTrueWindSpeed(indexes[0],indexes[1],indexes[2],indexes[3],indexes[4]), NumberUtils.toInt(index));
-                break;
-            case TRUEWINDDIR:
-                if( indexes.length != 5 ){
-                    Logger.error(id+" (mf)-> Not enough args for True wind direction calculation");
+                op = new Operation(expression, Calculations.procTrueWindSpeed(indexes[0], indexes[1], indexes[2], indexes[3], indexes[4]), NumberUtils.toInt(index));
+            }
+            case TRUEWINDDIR -> {
+                if (indexes.length != 5) {
+                    Logger.error(id + " (mf)-> Not enough args for True wind direction calculation");
                     return;
                 }
-                op = new Operation(expression, Calculations.procTrueWindDirection(indexes[0],indexes[1],indexes[2],indexes[3],indexes[4]), NumberUtils.toInt(index));
-                break;
-            case UTM:
-                op = new Operation(expression, GisTools.procToUTM(indexes[0],indexes[1],
-                        Arrays.stream(index.split(",")).map(NumberUtils::toInt).toArray( Integer[]::new)),-1);
-                break;
-            case GDC:
-                op = new Operation(expression, GisTools.procToGDC(indexes[0],indexes[1],
-                        Arrays.stream(index.split(",")).map(NumberUtils::toInt).toArray( Integer[]::new)),-1);
-                break;
-            default:
+                op = new Operation(expression, Calculations.procTrueWindDirection(indexes[0], indexes[1], indexes[2], indexes[3], indexes[4]), NumberUtils.toInt(index));
+            }
+            case UTM -> op = new Operation(expression, GisTools.procToUTM(indexes[0], indexes[1],
+                    Arrays.stream(index.split(",")).map(NumberUtils::toInt).toArray(Integer[]::new)), -1);
+            case GDC -> op = new Operation(expression, GisTools.procToGDC(indexes[0], indexes[1],
+                    Arrays.stream(index.split(",")).map(NumberUtils::toInt).toArray(Integer[]::new)), -1);
+            default -> {
                 return;
+            }
         }
         addOp(op);
 
@@ -438,10 +431,10 @@ public class MathForward extends AbstractForward {
             Function<BigDecimal[],BigDecimal> proc = x -> x[NumberUtils.toInt(index)].setScale(scale, RoundingMode.HALF_UP);
             var p = new Operation( expression, proc, NumberUtils.toInt(index)).setCmd(cmd);
             if( addOp( p ))
-                rulesString.add(new String[]{type.toString().toLowerCase(),""+index,"scale("+expression+", "+scale+")"});
+                rulesString.add(new String[]{type.toString().toLowerCase(), index,"scale("+expression+", "+scale+")"});
         }else{
             op.setCmd(cmd);
-            rulesString.add(new String[]{type.toString().toLowerCase(),""+index,expression});
+            rulesString.add(new String[]{type.toString().toLowerCase(), index,expression});
         }
     }
     private boolean addOp( Operation op ){
@@ -619,20 +612,21 @@ public class MathForward extends AbstractForward {
             if (p.length == 2) { // The pair should be an actual pair
                 boolean ok=false; // will be used at the end to check if ok
                 p[0]=p[0].toLowerCase();
-                switch(p[0]){
-                    case "d","double","r","real","f","flag","i","int":
-                        for( int pos=0;pos<referencedNums.size();pos++ ){ // go through the known  Vals
+                switch (p[0]) {
+                    case "d", "double", "r", "real", "f", "flag", "i", "int" -> {
+                        for (int pos = 0; pos < referencedNums.size(); pos++) { // go through the known  Vals
                             var d = referencedNums.get(pos);
-                            if( d.id().equalsIgnoreCase(p[1])) { // If a match is found
+                            if (d.id().equalsIgnoreCase(p[1])) { // If a match is found
                                 exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + (highestI + pos + 1));
-                                ok=true;
+                                ok = true;
                                 break;
                             }
                         }
-                        break;
-                    default:
-                        Logger.error(id+" (mf)-> Operation containing unknown pair: "+String.join(":",p));
+                    }
+                    default -> {
+                        Logger.error(id + " (mf)-> Operation containing unknown pair: " + String.join(":", p));
                         return "";
+                    }
                 }
                 if(!ok){
                     Logger.error(id+" (mf)-> Didn't find a match when looking for "+String.join(":",p));
@@ -743,7 +737,7 @@ public class MathForward extends AbstractForward {
                 } catch (NullPointerException e) {
                     if (showError(false,"(mf) -> Null pointer when processing for " + ori)){
                         StringJoiner join = new StringJoiner(", ");
-                        Arrays.stream(data).map(d -> "" + d).forEach(join::add);
+                        Arrays.stream(data).map(String::valueOf).forEach(join::add);
                         Logger.error(id() + "(mf) -> Data: " + join);
                     }
                     return null;
