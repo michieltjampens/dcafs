@@ -120,6 +120,8 @@ public class ValStore {
             ArrayList<AbstractVal> rtvals = new ArrayList<>();
             for (var val : vals) {
                 int i = XMLtools.getIntAttribute(val, "index", -1);
+                if( i == -1 )
+                    i = XMLtools.getIntAttribute(val, "i", -1);
                 if (i != -1) {
                     while (i > rtvals.size())
                         rtvals.add(null);
