@@ -566,20 +566,23 @@ public class MathForward extends AbstractForward {
         if( referencedNums==null)
             referencedNums = new ArrayList<>();
         for( var p : pairs ) {
-            if (p.length == 2) {
-                switch (p[0]) {
-                    case "d", "double", "r", "real" -> rtvals.getRealVal(p[1]).ifPresent(referencedNums::add);
-                    case "i", "int" -> rtvals.getIntegerVal(p[1]).ifPresent(referencedNums::add);
-                    case "f", "flag" -> rtvals.getFlagVal(p[1]).ifPresent(referencedNums::add);
-                    default -> {
-                        Logger.error(id + " (mf)-> Operation containing unknown pair: " + p[0] + " and " + p[1]);
-                        return false;
-                    }
-                }
+            if (p.length == 2 || p.length == 1) {
+                int nums=referencedNums.size(); // Store current size to later check if it increased
+                var find = p[p.length-1];
+                if( rtvals.hasReal(find))
+                    rtvals.getRealVal(p[p.length-1]).ifPresent(referencedNums::add);
+                if( rtvals.hasInteger(find))
+                    rtvals.getIntegerVal(p[p.length-1]).ifPresent(referencedNums::add);
+                if( rtvals.hasFlag(find))
+                    rtvals.getFlagVal(p[p.length-1]).ifPresent(referencedNums::add);
+
+                if( referencedNums.size()==nums) // No increase ,so not found
+                    Logger.error(id+ "(mf) -> Couldn't find val with id "+find);
             }else{
                 Logger.error(id+" (mf)-> Pair containing odd amount of elements: "+String.join(":",p));
             }
         }
+
         if(referencedNums!=null)
             referencedNums.trimToSize();
 
@@ -614,23 +617,17 @@ public class MathForward extends AbstractForward {
     private String replaceReferences( String exp ){
         // Find the pairs in the expression
         for( var p : Tools.parseKeyValue(exp,true) ) {
-            if (p.length == 2) { // The pair should be an actual pair
+            if (p.length == 2 || p.length==1) { // The pair should be an actual pair
                 boolean ok=false; // will be used at the end to check if ok
-                p[0]=p[0].toLowerCase();
-                switch (p[0]) {
-                    case "d", "double", "r", "real", "f", "flag", "i", "int" -> {
-                        for (int pos = 0; pos < referencedNums.size(); pos++) { // go through the known  Vals
-                            var d = referencedNums.get(pos);
-                            if (d.id().equalsIgnoreCase(p[1])) { // If a match is found
-                                exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + (highestI + pos + 1));
-                                ok = true;
-                                break;
-                            }
-                        }
-                    }
-                    default -> {
-                        Logger.error(id + " (mf)-> Operation containing unknown pair: " + String.join(":", p));
-                        return "";
+                for (int pos = 0; pos < referencedNums.size(); pos++) { // go through the known Vals
+                    var d = referencedNums.get(pos);
+                    if (d.id().equalsIgnoreCase(p[p.length-1])) { // If a match is found
+                        var repl = "{"+p[0]+"}";
+                        if( p.length==2)
+                            repl = "{"+p[0]+":"+p[1]+"}";
+                        exp = exp.replace(repl, "i" + (highestI + pos + 1));
+                        ok = true;
+                        break;
                     }
                 }
                 if(!ok){
