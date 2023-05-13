@@ -70,7 +70,7 @@ public class MathForward extends AbstractForward {
              join.add("Failed to parse from xml, check logs");
         }else {
             for (String[] x : rulesString) {
-                join.add("\t" + (index++) + " : " + x[2]);
+                join.add("   " + (index++) + " : " + x[2]);
             }
         }
         return join.toString();
@@ -791,6 +791,28 @@ public class MathForward extends AbstractForward {
             }
             return bd;
         }
+    }
+    @Override
+    public String toString(){
+        StringJoiner join = new StringJoiner("\r\n" );
+        join.add("math:"+id+ (sources.isEmpty()?"":" getting data from "+String.join( ";",sources)));
+        // Make sure to show the def's
+        if( !defines.isEmpty()) {
+            join.add(" Defines");
+            defines.forEach((key, value) -> join.add("   " + key + " = " + value));
+        }
+        // Add the ops
+        join.add(" Ops");
+        join.add(getRules());
+
+        if(!targets.isEmpty()) {
+            StringJoiner ts = new StringJoiner(", ", "    Targets: ", "");
+            targets.forEach(x -> ts.add(x.id()));
+            join.add(ts.toString());
+        }
+        if( store != null )
+            join.add(store.toString());
+        return join.toString();
     }
     /* ************************************************************************************************************* */
     @Override
