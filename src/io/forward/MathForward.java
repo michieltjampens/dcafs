@@ -296,8 +296,6 @@ public class MathForward extends AbstractForward {
                                .replace("--","-=1")
                                .replace(" ",""); //remove spaces
 
-        findReferences(expression);
-
         if( !expression.contains("=") ) {// If this doesn't contain a '=' it's no good
             if(expression.matches("i[0-9]{1,3}")){
                 var op = new Operation( expression, NumberUtils.toInt(expression.substring(1),-1));
@@ -509,7 +507,7 @@ public class MathForward extends AbstractForward {
      */
     public double solveOp( String op ){
         ops.clear();rulesString.clear();
-
+        findReferences("i0="+op);
         var opt = addStdOperation("i0="+op,-1,"");
         if( opt.isEmpty())
             return Double.NaN;
