@@ -127,10 +127,11 @@ public class MathForward extends AbstractForward {
         XMLtools.getChildElements(math, "*")
                 .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
                         .forEach( def -> {
+                            var val = def.getTextContent().replace(",",".");
                             if( def.getTagName().equalsIgnoreCase("def")){
-                                defines.put( def.getAttribute("ref"),def.getTextContent());
+                                defines.put( def.getAttribute("ref"),val);
                             }else{
-                                defines.put( def.getTagName(),def.getTextContent());
+                                defines.put( def.getTagName(),val);
                             }
                         });
 
