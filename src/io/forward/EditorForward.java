@@ -91,10 +91,10 @@ public class EditorForward extends AbstractForward{
             return false;
         delimiter = XMLtools.getStringAttribute(editor,"delimiter",delimiter);
         edits.clear();
-        if( XMLtools.hasChildByTag(editor,"edit") ) { // if rules are defined as nodes
-            // Process all the types except 'start'
-            XMLtools.getChildElements(editor, "edit").forEach( this::processNode );
-        }else{
+
+        if( XMLtools.hasChildNodes(editor) ) { // If there are any childnodes
+            XMLtools.getChildElements(editor, "*").forEach(this::processNode);
+        }else { // if not
             return processNode(editor);
         }
         return true;
@@ -119,7 +119,9 @@ public class EditorForward extends AbstractForward{
         if( index == -1 ){
             index=0;
         }
-        switch (edit.getAttribute("type")) {
+        var type = edit.getTagName().equalsIgnoreCase("edit")?edit.getAttribute("type"):edit.getTagName();
+
+        switch (type) {
             case "charsplit" -> {
                 addCharSplit(deli, content);
                 Logger.info(id + " -> Added charsplit with delimiter " + deli + " on positions " + content);
@@ -405,6 +407,8 @@ public class EditorForward extends AbstractForward{
                 .toArray(String[]::new);
 
         var filler = resplit.split("i[0-9]{1,3}");
+        for( int a=0;a<filler.length;a++)
+            filler[a]=filler[a].replace("§","");
 
         if(is.length==0) {
             Logger.warn(id+"(ef)-> No original data referenced in the resplit");
