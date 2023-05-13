@@ -123,9 +123,16 @@ public class MathForward extends AbstractForward {
                 return false;
             }
         }
-
-        XMLtools.getChildElements(math, "def")
-                .forEach( def -> defines.put( def.getAttribute("ref"),def.getTextContent()));
+        // Check for other subnodes besides 'op' those will be considered def's to reference in the op
+        XMLtools.getChildElements(math, "*")
+                .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
+                        .forEach( def -> {
+                            if( def.getTagName().equalsIgnoreCase("def")){
+                                defines.put( def.getAttribute("ref"),def.getTextContent());
+                            }else{
+                                defines.put( def.getTagName(),def.getTextContent());
+                            }
+                        });
 
         boolean oldValid=valid;
         for( var ops : XMLtools.getChildElements(math, "op") ){
