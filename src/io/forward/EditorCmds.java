@@ -6,7 +6,7 @@ public class EditorCmds {
     private static XMLfab addNode( XMLfab fab, String type, String value, String comment){
         if( !comment.isEmpty())
             fab.comment(comment);
-        fab.addChild("edit",value).attr("type",type);
+        fab.addChild(type,value);
         return fab;
     }
     public static String addEditor(XMLfab fab, String type, String value ){
