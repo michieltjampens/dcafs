@@ -440,6 +440,18 @@ public class XMLtools {
 	public static List<Element> getChildElements(Element element) {
 		return getChildElements(element,"*");
 	}
+	public static boolean hasChildNodes( Element element ){
+		NodeList list = element.getElementsByTagName("*");
+
+		for (int a = 0; a < list.getLength(); a++){
+			if (list.item(a).getNodeType() == Node.ELEMENT_NODE ) {
+				Element add = (Element)list.item(a);
+				if( add.getParentNode() == element)
+					return true;
+			}
+		}
+		return false;
+	}
 	/* ******************************  E L E M E N T   A T T R I B U T E S *********************************/
 	/**
 	 * Get the attributes of an element and cast to string, return def if failed
