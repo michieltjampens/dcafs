@@ -44,12 +44,13 @@ create/read the table structure) while additionally raw/altered data can be kept
     * Get the status: sudo systemctl status dcafs
     * Read the full log: sudo journalctl -u dcafs.service
     * Follow the console: sudo journalctl -u dcafs.service -f
-   * Optional, add bash Alias for easier usage (apply with source ~/.bashrc)
+   * Optional, add bash alias's for easier usage (apply with source ~/.bashrc)
      * echo "alias dcafs_restart='sudo systemctl restart dcafs'" >> ~/.bashrc
      * echo "alias dcafs_start='sudo systemctl start dcafs'" >> ~/.bashrc
      * echo "alias dcafs_stop='sudo systemctl stop dcafs'" >> ~/.bashrc
      * echo "alias dcafs_log='sudo journalctl -u dcafs.service'" >> ~/.bashrc
      * echo "alias dcafs_track='sudo journalctl -u dcafs.service -f'" >> ~/.bashrc
+     * echo "alias dcafs='telnet localhost'" >> ~/.bashrc
   
 ## First steps
 

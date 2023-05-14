@@ -1,5 +1,7 @@
 ## Introduction
 
+>**Note: Document up to date for 2.3.5**
+
 The purpose of this (probably in the end very long) page is to slowly introduce the different components in dcafs and how to use them.
 The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
 
@@ -680,7 +682,7 @@ Or if you want to reduce it to a single line:
     <filter type="maxlength">5</filter>
     <editor>
         <!-- Replace d2 with d1 -->
-        <edit type="replace" find="d2">d1</edit>
+        <replace find="d2">d1</replace>
     </editor>
 </path>
 ````
@@ -700,7 +702,7 @@ Based on that the cmd becomes: `pf:cheat2,adde,resplit,:|append|i0:1i1`
     <filter type="maxlength">5</filter>
     <editor>
         <!-- Split on : then combine according to i0:1i1 -->
-        <edit delimiter=":" leftover="append" type="resplit">i0:1i1</edit>
+        <resplit delimiter=":" leftover="append">i0:1i1</resplit>
     </editor>
 </path>
 ````

@@ -33,6 +33,22 @@ Note: Version numbering: x.y.z
     <op>i0=A1*(i1+{big_number}</op> <!-- i: no longer needed -->
 </math>   
 ````
+- Edit, now allows to use the edit type as node tag instead of edit with type attribute. This is also the new 
+result of the cmds.
+````xml
+  <paths> <!-- both old and new are valid -->
+    <path id="old" src="raw:dummy" delimiter="">
+        <editor>
+            <edit type="resplit">si0s</edit>
+        </editor>
+    </path>
+    <path id="new" src="raw:dummy" delimiter="">
+        <editor>
+          <resplit>si0s</resplit>
+        </editor>
+    </path>
+  </paths>
+````
 ### RealtimeValues
 - Fixed, int only accepted the 'default' attribute instead of 'def' and 'default' 
   
