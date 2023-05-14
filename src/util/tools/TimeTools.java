@@ -409,6 +409,7 @@ public class TimeTools {
             }
 	    }catch( java.lang.ArrayIndexOutOfBoundsException e) {
 			Logger.error("Error parsing period to seconds:"+period);
+            return -1;
         }
     	return total;
     }
