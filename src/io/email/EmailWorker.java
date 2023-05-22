@@ -507,11 +507,11 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			sendRequests++;
 			if( busy < MAX_EMAILS) {
 				scheduler.schedule(() -> sendEmail(email, false),busy,TimeUnit.SECONDS); // Send the email with a second delay
-				if( busy==1 )
+				if( busy<=1 )
 					scheduler.schedule(this::clearBusy,MAX_EMAILS+2,TimeUnit.SECONDS);
 			}else{
 				if( sendRequests < 10 || sendRequests%20==0) {
-					Logger.error("Warning, probably spamming, tried to send more than 5 emails in 8 seconds, ignoring email. (reqs:"+sendRequests+")");
+					Logger.error("Warning, probably spamming, tried to send more than "+MAX_EMAILS+" emails in "+(MAX_EMAILS+2)+" seconds, ignoring email. (reqs:"+sendRequests+")");
 				}
 			}
 		}else{
@@ -606,7 +606,6 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			Logger.debug("Trying to send email to " + email.toRaw + " through " + outbox.server + "!");
 
 			Transport.send(message);
-
 
 			if( hasAttachment ){
 				try {
