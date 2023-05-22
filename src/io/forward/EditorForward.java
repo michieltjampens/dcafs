@@ -106,10 +106,13 @@ public class EditorForward extends AbstractForward{
         String from = XMLtools.getStringAttribute(edit,"from",",");
         String error = XMLtools.getStringAttribute(edit,"error","NaN");
         String find = XMLtools.getStringAttribute(edit,"find","");
+        if( find.isEmpty())
+            find = XMLtools.getStringAttribute(edit,"regex","");
         String leftover = XMLtools.getStringAttribute(edit,"leftover","append");
 
         int index = XMLtools.getIntAttribute(edit,"index",-1);
-
+        if( index == -1)
+            index = XMLtools.getIntAttribute(edit,"i",-1);
 
         if( content == null ){
             Logger.error(id+" -> Missing content in an edit.");
@@ -124,85 +127,85 @@ public class EditorForward extends AbstractForward{
         switch (type) {
             case "charsplit" -> {
                 addCharSplit(deli, content);
-                Logger.info(id + " -> Added charsplit with delimiter " + deli + " on positions " + content);
+                Logger.info(id() + " -> Added charsplit with delimiter " + deli + " on positions " + content);
             }
             case "resplit" -> {
                 addResplit(deli, content, error, leftover.equalsIgnoreCase("append"));
-                Logger.info(id + " -> Added resplit edit on delimiter " + deli + " with formula " + content);
+                Logger.info(id() + " -> Added resplit edit on delimiter " + deli + " with formula " + content);
             }
             case "rexsplit" -> {
                 addRexsplit(deli, content);
-                Logger.info(id + " -> Get items from " + content + " and join with " + deli);
+                Logger.info(id() + " -> Get items from " + content + " and join with " + deli);
             }
             case "redate" -> {
                 addRedate(from, content, index, deli);
-                Logger.info(id + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content);
+                Logger.info(id() + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content);
             }
             case "retime" -> {
                 addRetime(from, content, index, deli);
-                Logger.info(id + " -> Added retime edit on delimiter " + deli + " from " + from + " to " + content);
+                Logger.info(id() + " -> Added retime edit on delimiter " + deli + " from " + from + " to " + content);
             }
             case "replace" -> {
                 if (find.isEmpty()) {
-                    Logger.error(id + " -> Tried to add an empty replace.");
+                    Logger.error(id() + " -> Tried to add an empty replace.");
                 } else {
                     addReplacement(find, content);
                 }
             }
             case "rexreplace" -> {
                 if (find.isEmpty()) {
-                    Logger.error(id + " -> Tried to add an empty replace.");
+                    Logger.error(id() + " -> Tried to add an empty replace.");
                 } else {
                     addRegexReplacement(find, content);
                 }
             }
             case "remove" -> {
                 addReplacement(content, "");
-                Logger.info(id + " -> Remove occurrences off " + content);
+                Logger.info(id() + " -> Remove occurrences off " + content);
             }
             case "trim" -> {
                 addTrim();
-                Logger.info(id + " -> Trimming spaces");
+                Logger.info(id() + " -> Trimming spaces");
             }
             case "rexremove" -> {
                 addRexRemove(content);
-                Logger.info(id + " -> Remove matches off " + content);
+                Logger.info(id() + " -> Remove matches off " + content);
             }
             case "rexkeep" -> {
                 addRexsplit("", content);
-                Logger.info(id + " -> Keep result of " + content);
+                Logger.info(id() + " -> Keep result of " + content);
             }
             case "prepend", "prefix" -> {
                 addPrepend(content);
-                Logger.info(id + " -> Added prepend of " + content);
+                Logger.info(id() + " -> Added prepend of " + content);
             }
             case "append", "suffix" -> {
                 addAppend(content);
-                Logger.info(id + " -> Added append of " + content);
+                Logger.info(id() + " -> Added append of " + content);
             }
             case "insert" -> {
                 addInsert(XMLtools.getIntAttribute(edit, "index", -1), content);
-                Logger.info(id + " -> Added insert of " + content);
+                Logger.info(id() + " -> Added insert of " + content);
             }
             case "cutstart" -> {
                 if (NumberUtils.toInt(content, 0) != 0) {
                     addCutStart(NumberUtils.toInt(content, 0));
-                    Logger.info(id + " -> Added cut start of " + content + " chars");
+                    Logger.info(id() + " -> Added cut start of " + content + " chars");
                 } else {
-                    Logger.warn(id + " -> Invalid number given to cut from start " + content);
+                    Logger.warn(id() + " -> Invalid number given to cut from start " + content);
                 }
             }
             case "cutend" -> {
                 if (NumberUtils.toInt(content, 0) != 0) {
                     addCutEnd(NumberUtils.toInt(content, 0));
-                    Logger.info(id + " -> Added cut end of " + content + " chars");
+                    Logger.info(id() + " -> Added cut end of " + content + " chars");
                 } else {
-                    Logger.warn(id + " -> Invalid number given to cut from end " + content);
+                    Logger.warn(id() + " -> Invalid number given to cut from end " + content);
                 }
             }
             case "toascii" -> {
                 converToAscii(deli);
-                Logger.info(id + " -> Added conversion to char");
+                Logger.info(id() + " -> Added conversion to char");
             }
             case "millisdate" -> {
                 addMillisToDate(content, index, deli);
