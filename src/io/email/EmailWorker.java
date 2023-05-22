@@ -93,6 +93,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 	private ScheduledFuture<?> slowCheck = null;
 	private ScheduledFuture<?> fastCheck = null;
+	private ScheduledFuture<?> clear = null;
 	final Path settingsPath;
 	private boolean ready=false;
 	/**
@@ -488,6 +489,9 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
 				permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
 				return writePermits()?"Permit added":"! Failed to write to xml";
+			case "spam":
+				var cl = clear!=null?"in "+clear.getDelay(TimeUnit.SECONDS)+"s":"never";
+				return "Busy at "+busy+" and sendrequests at "+sendRequests+", clearing "+cl;
 			default	:
 				return "! No such subcommand in email: "+args;
 		}
@@ -506,9 +510,10 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			applyBook(email);
 			sendRequests++;
 			if( busy < MAX_EMAILS) {
+				busy++;
 				scheduler.schedule(() -> sendEmail(email, false),busy,TimeUnit.SECONDS); // Send the email with a second delay
-				if( busy<=1 )
-					scheduler.schedule(this::clearBusy,MAX_EMAILS+2,TimeUnit.SECONDS);
+				if( busy==1 )
+					clear = scheduler.schedule(this::clearBusy,MAX_EMAILS+2,TimeUnit.SECONDS);
 			}else{
 				if( sendRequests < 10 || sendRequests%20==0) {
 					Logger.error("Warning, probably spamming, tried to send more than "+MAX_EMAILS+" emails in "+(MAX_EMAILS+2)+" seconds, ignoring email. (reqs:"+sendRequests+")");
@@ -519,6 +524,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		}
 	}
 	private void clearBusy(){
+		Logger.info("Clearing busy at "+busy +" and "+sendRequests+" requests");
 		busy=0;
 		sendRequests=0;
 	}
@@ -562,7 +568,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	 * Method to send an email
 	 */
 	private void sendEmail(Email email, boolean retry) {
-		busy++;
+
 		try {
 			if (mailSession == null) {
 				if (outboxAuth) {
