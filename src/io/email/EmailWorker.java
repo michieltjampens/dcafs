@@ -164,13 +164,13 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		// Sending
 		xml.goDown("*"); // Get all child nodes of 'email'
 		while( xml.iterate()){
-			switch( xml.tagName("" ) ){
-				case "outbox":
-					if( xml.peekAt("server").hasValidPeek()) {
-						outbox.setServer( xml.value(""), xml.attr("port", 25));            // The SMTP server
+			switch (xml.tagName("")) {
+				case "outbox" -> {
+					if (xml.peekAt("server").hasValidPeek()) {
+						outbox.setServer(xml.value(""), xml.attr("port", 25));            // The SMTP server
 						outbox.setLogin(xml.attr("user", ""), xml.attr("pass", ""));
 						outbox.hasSSL = xml.attr("ssl", false);
-					}else{
+					} else {
 						Logger.error("No server defined for the outbox");
 					}
 					outbox.from = xml.peekAt("from").value("dcafs@email.com");// From emailaddress
@@ -178,22 +178,22 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 					deleteReceivedZip = xml.peekAt("delete_rec_zip").value(true);
 					maxSizeMB = xml.peekAt("max_size_mb").value(15.0);
 					MAX_EMAILS = xml.peekAt("maxemails").value(5);
-					break;
-				case "inbox":
+				}
+				case "inbox" -> {
 					if (xml.peekAt("server").hasValidPeek()) {
 						inbox.setServer(xml.value(""), xml.attr("port", 25));            // The SMTP server
 						inbox.setLogin(xml.attr("user", ""), xml.attr("pass", ""));
 						inbox.hasSSL = xml.attr("ssl", false);
-					}else{
+					} else {
 						Logger.error("No server defined for the inbox");
 					}
-					String interval = xml.peekAt("checkinterval").value( "5m");
-					checkIntervalSeconds = (int)TimeTools.parsePeriodStringToSeconds(interval);
-					allowedDomain = xml.peekAt("allowed").value( "");
-					break;
-				case "book": xml.current().ifPresent( x -> readEmailBook(x)); break;
-				case "permits": xml.current().ifPresent( x -> readPermits(x)); break;
-				default: Logger.error("Unknown node in email: "+xml.tagName("" )); break;
+					String interval = xml.peekAt("checkinterval").value("5m");
+					checkIntervalSeconds = (int) TimeTools.parsePeriodStringToSeconds(interval);
+					allowedDomain = xml.peekAt("allowed").value("");
+				}
+				case "book" -> xml.current().ifPresent(this::readEmailBook);
+				case "permits" -> xml.current().ifPresent(this::readPermits);
+				default -> Logger.error("Unknown node in email: " + xml.tagName(""));
 			}
 		}
 		return true;
@@ -285,9 +285,9 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 						.attr("ssl", outbox.hasSSL?"yes":"no")
 						.attr("port", outbox.port)
 					.alterChild("from",outbox.from )
-					.alterChild("zip_from_size_mb", ""+doZipFromSizeMB)
+					.alterChild("zip_from_size_mb", String.valueOf(doZipFromSizeMB))
 					.alterChild("delete_rec_zip", deleteReceivedZip?"yes":"no")
-					.alterChild("max_size_mb", ""+maxSizeMB);
+					.alterChild("max_size_mb", String.valueOf(maxSizeMB));
 		}
 		if( inbox != null ){
 			fab.selectOrAddChildAsParent("inbox")
@@ -441,59 +441,69 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 		String[] cmds = args.split(",");
 
-		String cyan = html?"":TelnetCodes.TEXT_CYAN;
 		String green=html?"":TelnetCodes.TEXT_GREEN;
 		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
-		switch(cmds[0]){
-			case "?":
-				StringJoiner b = new StringJoiner(html?"<br>":"\r\n");
-				return b.add(green+"email:reload "+reg+"-> Reload the settings found in te XML.")
-						.add(green+"email:refs "+reg+"-> Get a list of refs and emailadresses.")
-						.add(green+"email:send,to,subject,content "+reg+"-> Send an email using to with subject and content")
-						.add(green+"email:setup "+reg+"-> Get a listing of all the settings.")
-						.add(green+"email:checknow "+reg+"-> Checks the inbox for new emails")
-						.add(green+"email:addallow,from,cmd(,isRegex) "+reg+"-> Adds permit allow node, default no regex")
-						.add(green+"email:adddeny,from,cmd(,isRegex) "+reg+"-> Adds permit deny node, default no regex")
-						.add(green+"email:interval,x "+reg+"-> Change the inbox check interval to x").toString();
-			case "reload":
-				if( settingsPath == null )
+		switch (cmds[0]) {
+			case "?" -> {
+				StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
+				return b.add(green + "email:reload " + reg + "-> Reload the settings found in te XML.")
+						.add(green + "email:refs " + reg + "-> Get a list of refs and emailadresses.")
+						.add(green + "email:send,to,subject,content " + reg + "-> Send an email using to with subject and content")
+						.add(green + "email:setup " + reg + "-> Get a listing of all the settings.")
+						.add(green + "email:checknow " + reg + "-> Checks the inbox for new emails")
+						.add(green + "email:addallow,from,cmd(,isRegex) " + reg + "-> Adds permit allow node, default no regex")
+						.add(green + "email:adddeny,from,cmd(,isRegex) " + reg + "-> Adds permit deny node, default no regex")
+						.add(green + "email:interval,x " + reg + "-> Change the inbox check interval to x").toString();
+			}
+			case "reload" -> {
+				if (settingsPath == null)
 					return "! No xml defined yet...";
 				readFromXML();
 				return "Settings reloaded";
-			case "refs": return getEmailBook();
-			case "setup":case "status": return getSettings();
-			case "send":
-				if( cmds.length !=4 )
+			}
+			case "refs" -> {
+				return getEmailBook();
+			}
+			case "setup", "status" -> {
+				return getSettings();
+			}
+			case "send" -> {
+				if (cmds.length != 4)
 					return "! Wrong amount of arguments -> email:send,ref/email,subject,content";
 
 				// Check if the subject contains time request
-				cmds[2]=cmds[2].replace("{localtime}", TimeTools.formatNow("HH:mm"));
-				cmds[2]=cmds[2].replace("{utctime}", TimeTools.formatUTCNow("HH:mm"));
-
-				sendEmail( Email.to(cmds[1]).subject(cmds[2]).content(cmds[3]) );
+				cmds[2] = cmds[2].replace("{localtime}", TimeTools.formatNow("HH:mm"));
+				cmds[2] = cmds[2].replace("{utctime}", TimeTools.formatUTCNow("HH:mm"));
+				sendEmail(Email.to(cmds[1]).subject(cmds[2]).content(cmds[3]));
 				return "Tried to send email";
-			case "checknow":
+			}
+			case "checknow" -> {
 				checker.cancel(false);
-				checker = scheduler.schedule( new Check(), 1, TimeUnit.SECONDS);
+				checker = scheduler.schedule(new Check(), 1, TimeUnit.SECONDS);
 				return "Will check emails asap.";
-			case "interval":
-				if( cmds.length!=2)
+			}
+			case "interval" -> {
+				if (cmds.length != 2)
 					return "! Wrong amount of arguments -> email:interval,period (fe.5m for minutes)";
-				checkIntervalSeconds = (int)TimeTools.parsePeriodStringToSeconds(cmds[1]);
-				return "Interval changed to "+checkIntervalSeconds+" seconds (todo:save to settings.xml)";
-			case "addallow":case "adddeny":
-				if( cmds.length <3 ){
-					return "! Wrong amount of arguments -> email:"+cmds[0]+",from,cmd(,isRegex)";
+				checkIntervalSeconds = (int) TimeTools.parsePeriodStringToSeconds(cmds[1]);
+				return "Interval changed to " + checkIntervalSeconds + " seconds (todo:save to settings.xml)";
+			}
+			case "addallow", "adddeny" -> {
+				if (cmds.length < 3) {
+					return "! Wrong amount of arguments -> email:" + cmds[0] + ",from,cmd(,isRegex)";
 				}
 				boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
 				permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
-				return writePermits()?"Permit added":"! Failed to write to xml";
-			case "spam":
-				var cl = clear!=null?"in "+clear.getDelay(TimeUnit.SECONDS)+"s":"never";
-				return "Busy at "+busy+" and sendrequests at "+sendRequests+", clearing "+cl;
-			default	:
-				return "! No such subcommand in email: "+args;
+				return writePermits() ? "Permit added" : "! Failed to write to xml";
+			}
+			case "spam" -> {
+				var cl = clear != null ? "in " + clear.getDelay(TimeUnit.SECONDS) + "s" : "never";
+				return "Busy at " + busy + " and sendrequests at " + sendRequests + ", clearing " + cl;
+			}
+			default -> {
+				return "! No such subcommand in email: " + args;
+			}
 		}
 	}
 
@@ -992,7 +1002,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		for (int i = 0; i < count; i++) {
 			BodyPart bodyPart = mimeMultipart.getBodyPart(i);
 			if (bodyPart.isMimeType("text/plain")) {
-				result.add(""+bodyPart.getContent());
+				result.add(String.valueOf(bodyPart.getContent()));
 				break; // without break same text appears twice in my tests
 			} else if (bodyPart.isMimeType("text/html")) {
 				String html = (String) bodyPart.getContent();
@@ -1026,7 +1036,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		String about;
 
 		public DataRequest( String to, String about ){
-			bwr = BufferCollector.timeLimited(""+Instant.now().toEpochMilli(), "60s", scheduler);
+			bwr = BufferCollector.timeLimited(String.valueOf(Instant.now().toEpochMilli()), "60s", scheduler);
 			bwr.addListener(EmailWorker.this);
 			this.to=to;
 			this.about=about;
