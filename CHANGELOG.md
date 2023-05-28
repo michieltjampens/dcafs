@@ -10,8 +10,18 @@ Note: Version numbering: x.y.z
 ## 2.3.5 (wip)
 - When double/real was read from an xml file and it was using a ',' for decimal sign, this wasn't altered to '.'.
 
+### Dependencies
+- Updated Tinylog 2.6.1 -> 2.6.2
+- Updated Netty to 4.1.92.Final -> 4.1.93.Final
+
+### Databasemanager
+- Reordered the cmds to be in line with the other ones (start with id, if one is needed)
+
 ### Paths
-- added option to add executing a cmd inside a path by adding a <cmd> at any position except the start 
+- Added option to add executing a cmd inside a path by adding a <cmd> at any position
+  - Can refer to received data using i's (like other forwards), default or determined delimiter
+  - Can refer to other rtvals
+  - Either single cmd in <cmd> or multiple <cmd> inside a <cmds>
 - `pf:reload` now shows error if parsing failed
 - `pf:list` 
   - now shows if a parsing error occurred in a step
@@ -37,12 +47,12 @@ Note: Version numbering: x.y.z
 result of the cmds.
 ````xml
   <paths> <!-- both old and new are valid -->
-    <path id="old" src="raw:dummy" delimiter="">
+    <path id="old" src="raw:dummy" delimiter=":">
         <editor>
             <edit type="resplit">si0s</edit>
         </editor>
     </path>
-    <path id="new" src="raw:dummy" delimiter="">
+    <path id="new" src="raw:dummy" delimiter=":">
         <editor>
           <resplit>si0s</resplit>
         </editor>
