@@ -11,5 +11,5 @@ public interface QueryWriting {
     Optional<List<List<Object>>> doSelect(String id, String query);
     boolean hasDB( String id);
     boolean isValid(String id,int timeout);
-    Optional<Database> getDatabase(String id);
+    Optional<SQLDB> getDatabase(String id);
 }

@@ -305,11 +305,11 @@ And indeed in the settings.xml the following section has been added (comments he
       </sqlite>
     </databases>
 ```
-Next the database needs a table to store the results `dbm:addtable,id,tablename(,format)`
+Next the database needs a table to store the results `dbm:id,addtable,tablename(,format)`
 There are two options to do this, but we'll just show the shortest:
 
-- Create the table with:`dbm:addtable,diceresults,dice`
-- Add the first column with: `dbm:addcol,dice,utc:timestamp`
+- Create the table with:`dbm:diceresults,addtable,dice`
+- Add the first column with: `dbm:diceresults,addcol,dice,utc:timestamp`
     - addcol - short for add column
     - dice - refers to the table, could also be diceresults:dice but given that there's only one dice this can be omitted
     - utc:timestamp - utc is short for columntype 'utcnow' and the name is timestamp (utcnow is auto-filled)
@@ -319,7 +319,7 @@ There are two options to do this, but we'll just show the shortest:
 
 This will have altered the sqlite node accordingly:
 ````xml
-<sqlite id="diceresults" path="C:\local_home\GIT\dcafs\db\diceresults.sqlite">
+<sqlite id="diceresults" path="db\diceresults.sqlite"><!--will be absolute path -->
   <flush age="30s" batchsize="30"/>
   <idleclose>-1</idleclose>
   <table name="dice">
@@ -329,9 +329,9 @@ This will have altered the sqlite node accordingly:
 </sqlite>
 ````
 
-To apply this `dbm:reload,diceresults`, this will generate the table in the database.
+To apply this `dbm:diceresults,reload`, this will generate the table in the database.
 
-To check if it actually worked: `dbm:tables,diceresults`
+To check if it actually worked: `dbm:diceresults,tables`
 >Info about diceresults  
 > Table 'dice'  
 >\> timestamp TEXT (rtval=dice_timestamp)  
@@ -342,8 +342,8 @@ rtval in dcafs. The default rtval is `tablename_columnname`.
 
 Given that the earlier created rtval belongs to the group dice, this is the one that will be used.
 
-Do note that the columntype of timestamp is TEXT. This is because sqlite doesn't have an equivalent and TEXT is
-the recommended columntype for datetime.
+Do note that the columntype of timestamp is TEXT. This is because sqlite doesn't have a datetime equivalent and TEXT is
+the recommended columntype alternative.
 
 And `st` (for status) also got updated:
 > ...  
@@ -367,7 +367,7 @@ The result:
 
 Not sure if this is going to explain it or make it harder to understand.  
 The db attribute doesn't mean that the store is the one writing to the database.  
-If you check `dbm:?`, under the title 'Working with tables' there's `dbm:store,dbid,tableid`.  
+If you check `dbm:?`, under the title 'Working with tables' there's `dbm:dbid,store,tableid`.  
 So what the store does is execute that cmd with the data from the attribute. In other words, there doesn't
 have to be any link between the store and the table(s).
 

@@ -640,6 +640,11 @@ public class SqlTable {
     public long getPrepCount(){
         return prepCount;
     }
+    public String getColumnTypes(){
+        var join = new StringJoiner(",");
+        columns.forEach( c->join.add(String.valueOf(c.type)) );
+        return join.toString();
+    }
     /**
      * Inner class that holds all the info regarding a single column
      */
