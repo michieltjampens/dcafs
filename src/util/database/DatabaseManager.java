@@ -205,7 +205,20 @@ public class DatabaseManager implements QueryWriting, Commandable {
        }
        return ok==ids.split(",").length;
     }
-
+    public boolean buildPrep( String ids, String table, String[] data ){
+        int ok=0;
+        for( var id : ids.split(",")) {
+            for (SQLiteDB sqlite : lites.values()) {
+                if (sqlite.getID().equalsIgnoreCase(id))
+                    ok+=sqlite.fillPrep(table,data)?1:0;
+            }
+            for (SQLDB sqldb : sqls.values()) {
+                if (sqldb.getID().equalsIgnoreCase(id))
+                    ok+=sqldb.fillPrep(table,data)?1:0;
+            }
+        }
+        return ok==ids.split(",").length;
+    }
     /**
      * Add a query to the buffer of the given database
      * @param id The database to add the query to
@@ -544,6 +557,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             if( buildInsert(cmds[0],cmds[2],macro) )
                                 return "Wrote record";
                             return "! Failed to write record";
+                    }
+                    case "prep" -> {
+                        if( buildPrep(cmds[0],cmds[2],Arrays.copyOfRange(cmds,3,cmds.length)) )
+                            return "Wrote record";
+                        return "! Failed to write record";
                     }
                     case "coltypes" -> {
                         var tableOpt = db.getTable(cmds[2]);

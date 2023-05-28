@@ -621,14 +621,14 @@ public class SqlTable {
                         val = val.toString();
                 }
             }catch( NullPointerException e ){
-                Logger.error("Null pointer when looking for "+ref + " type:"+col.type);
+                Logger.error(id+" -> Null pointer when looking for "+ref + " type:"+col.type);
             }
 
             if( val == null && col.hasDefault ){
                 record[index]= def;
             }else{
                 if( val == null) {
-                    Logger.error("Couldn't find " + ref + " for " + name + " aborted insert.");
+                    Logger.error(id+" -> Couldn't find " + ref + " for " + name + " aborted insert.");
                     return false;
                 }
                 record[index] = val;
@@ -644,6 +644,55 @@ public class SqlTable {
         var join = new StringJoiner(",");
         columns.forEach( c->join.add(String.valueOf(c.type)) );
         return join.toString();
+    }
+
+    /**
+     * Gives all the data as strings to be parsed to the correct object so it can use the prepared statement
+     * @param id The id of the prepared statement to use
+     * @param data The array of data
+     * @return True if it works
+     */
+    public boolean parsePrep( String id, String[] data ){
+        PrepStatement prep = preps.get(id);
+        if( prep==null){
+            Logger.error(name+" -> No such prep: "+id);
+            return false;
+        }
+        int dataIndex=0;
+        int recordIndex=0;
+
+        Object[] record = new Object[columns.size()];
+        for( int colPos : prep.getIndexes() ){
+            Column col = columns.get(colPos);
+            String def = col.getDefault();
+
+            try{
+                record[recordIndex++] = switch(col.type ){
+                    case INTEGER -> {
+                        var defI = def.isEmpty()?Integer.MAX_VALUE:NumberUtils.createInteger(def);
+                        var val = NumberUtils.toInt(data[dataIndex++],defI);
+                        yield val==Integer.MAX_VALUE?null:val;
+                    }
+                    case REAL -> {
+                        var defI = def.isEmpty()?Double.MAX_VALUE:NumberUtils.createDouble(def);
+                        var val = NumberUtils.toDouble(data[dataIndex++],defI);
+                        yield val==Double.MAX_VALUE?null:val;
+                    }
+                    case TEXT,OBJECT,TIMESTAMP -> data[dataIndex++];
+                    case EPOCH -> Instant.now().toEpochMilli();
+                    case LOCALDTNOW -> server?OffsetDateTime.now():OffsetDateTime.now().toString();
+                    case UTCDTNOW -> server?OffsetDateTime.now(ZoneOffset.UTC):OffsetDateTime.now(ZoneOffset.UTC).toString();
+                    case DATETIME -> {
+                        var dt = TimeTools.parseDateTime(data[dataIndex++], "yyyy-MM-dd HH:mm:ss.SSS");
+                        yield server ? dt : dt.toString();
+                    }
+                };
+            }catch( NullPointerException e ){
+                Logger.error(id+" -> Null pointer when looking for at "+dataIndex + " type:"+col.type);
+            }
+        }
+        prepCount++;
+        return prep.addData(record);
     }
     /**
      * Inner class that holds all the info regarding a single column

@@ -460,6 +460,24 @@ public class SQLDB extends Database{
         }
         return false;
     }
+    public synchronized boolean fillPrep( String table, String[] data){
+        if (!hasRecords())
+            firstPrepStamp = Instant.now().toEpochMilli();
+
+        if( getTable(table).isEmpty() ){
+            Logger.error(id+"(db) ->  No such table "+table);
+            return false;
+        }
+
+        if (getTable(table).map(t -> t.parsePrep("",data)).orElse(false)) {
+            if(tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
+                flushPrepared();
+            return true;
+        }else{
+            Logger.error(id+"(db) -> Build insert failed for "+table);
+        }
+        return false;
+    }
     public synchronized void addQuery(String query) {
         if (!hasRecords())
             firstSimpleStamp = Instant.now().toEpochMilli();
