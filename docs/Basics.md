@@ -397,7 +397,7 @@ was actually 'd20s', then the node would have looked like this
 </sqlite>
 ````
 So the easiest fix is to alter the rtval attribute in the xml to 'dice_rolled', save the file and then do
-the `dbm:reload,diceresults` command again to apply it.
+the `dbm:diceresults,reload` command again to apply it.
 
 **What the store uses**
 
@@ -425,17 +425,18 @@ Another option would have been:
 
 #### Periodic SQLite?
 
-It's called rollover (db rolls over to the next), the command for it `dbm:addrollover,id,count,unit,pattern`.
+It's called rollover (db rolls over to the next), the command for it `dbm:id,addrollover,count,unit,pattern`.
 * id is the SQLite id
 * count is the amount of unit to rollover on
 * unit is the time period of the count, options are minute, hour, day, week, month, year
-* pattern is the text that is added in front of .sqlite of the filename, and allows for datetime patters.
+* pattern is the text that is added in front of .sqlite of the filename, and allows for datetime patterns.
+  * Alternative position can be given be adding `{rollover}` in the filename, this will be replaced 
 
-So as an example a monthly rollover: `dbm:addrollover,diceresults,1,month,_yyyyMM`.  
-To apply it: `dbm:reload,diceresults` (but note that you'll lose the queries in the buffer)
+So as an example a monthly rollover: `dbm:diceresults,addrollover,1,month,_yyMM`.  
+To apply it: `dbm:diceresults,reload` (but note that you'll lose the queries in the buffer)
 ```xml
     <databases>
-      <sqlite id="diceresults" path="db\diceresults.sqlite"> <!-- fe. db\diceresults_2021_05.sqlite -->
+      <sqlite id="diceresults" path="db\diceresults.sqlite"> 
         <rollover count="1" unit="month">yyyy_MM</rollover>
         <flush age="30s" batchsize="30"/>
         <idleclose>-1</idleclose>
@@ -446,6 +447,7 @@ To apply it: `dbm:reload,diceresults` (but note that you'll lose the queries in 
       </sqlite>
     </databases>
 ```
+Suppose this is active in may 2023, the filename will be diceresults_2305.sqlite.
 
 #### Using a database server?
 
