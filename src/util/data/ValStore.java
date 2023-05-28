@@ -278,8 +278,8 @@ public class ValStore {
         if (dbOk) {
             if (!db[0].isEmpty()) { // if a db is present
                 // dbm needs to retrieve everything
-                Arrays.stream(db[0].split(","))
-                        .forEach(id -> dQueue.add(Datagram.system("dbm:store," + id + "," + db[1])));
+                Arrays.stream(db[0].split(",")) //iterate over the databases
+                        .forEach(id -> dQueue.add(Datagram.system("dbm:"+id+",store," + db[1])));
             }
         }
         return true;
