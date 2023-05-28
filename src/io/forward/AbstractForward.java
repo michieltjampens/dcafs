@@ -128,9 +128,9 @@ public abstract class AbstractForward implements Writable {
      * The forward will request to be deleted if there are no writables to write to
      */
     public String toString(){
-        String type = this instanceof MathForward?"math":"editor";
+
         StringJoiner join = new StringJoiner("\r\n" );
-        join.add(type+":"+id+ (sources.isEmpty()?"":" getting data from "+String.join( ";",sources)));
+        join.add(getXmlChildTag()+":"+id+ (sources.isEmpty()?"":" getting data from "+String.join( ";",sources)));
         join.add(getRules());
 
         if(!targets.isEmpty()) {

@@ -271,7 +271,7 @@ public class StoreCmds {
                 int start = request.indexOf(",db,")+4;
                 fab.attr("db", request.substring(start));
                 fab.build();
-                return "Set the db to "+request.substring(start);
+                return "Set the db for "+cmds[0]+" to "+request.substring(start);
             }
             case "alterval" -> {
                 if (cmds.length < 5 && !( cmds.length==4 && request.endsWith(",")))
