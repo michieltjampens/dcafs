@@ -121,7 +121,8 @@ public class PathForward {
         }
 
         FilterForward lastff=null;
-        boolean hasStore=false;
+        boolean hasStore=false; // If there's a store, consider this valid to get data
+        boolean hasCmd=false; // If there's a cmd, consider this valid to get data
 
         for( int a=0;a<steps.size();a++  ){
             Element step = steps.get(a);
@@ -133,7 +134,7 @@ public class PathForward {
                               XMLtools.getStringAttribute(step,"label",""));
                 continue;
             }
-            if(step.getTagName().equalsIgnoreCase("cmd")){
+           /* if(step.getTagName().equalsIgnoreCase("cmd")){
                 if( stepsForward.isEmpty() ){
                     Logger.error(id + " -> Can't add a command before any steps");
                     continue;
@@ -147,7 +148,7 @@ public class PathForward {
                 }else{
                     continue;
                 }
-            }
+            }*/
             // Check if the next step is a store, if so process it to apply to current step
             if( a<steps.size()-1 ){
                 var next = steps.get(a+1);
@@ -227,6 +228,20 @@ public class PathForward {
                         ef.setStore(store);
                     stepsForward.add(ef);
                 }
+                case "cmds","cmd" -> {
+                    var cf = new CmdForward(step,dQueue,rtvals);
+                    if( !cf.hasSrc() ) {
+                        if (lastff != null && lastStore) {
+                            lastff.addReverseTarget(cf);
+                        }
+                        cf.removeSources();
+                        addAsTarget(cf, src,!(lastff!=null && lastStore));
+                    }else{
+                        addAsTarget(cf, cf.getSrc(),!(lastff!=null && lastStore));
+                    }
+                    hasCmd=true;
+                    stepsForward.add(cf);
+                }
             }
             var f = stepsForward.get(stepsForward.size()-1);
             if( !f.hasParsed()){
@@ -238,7 +253,7 @@ public class PathForward {
         if( !oldTargets.isEmpty()&&!stepsForward.isEmpty()){ // Restore old requests
             oldTargets.forEach(this::addTarget);
         }
-        if( !lastStep().map(AbstractForward::noTargets).orElse(false) || hasStore ) {
+        if( !lastStep().map(AbstractForward::noTargets).orElse(false) || hasStore || hasCmd ) {
             if (customs.isEmpty() ) { // If no custom sources
                 if(stepsForward.isEmpty()) {
                     Logger.error(id+" -> No steps to take, this often means something went wrong processing it");
