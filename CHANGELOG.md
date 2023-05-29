@@ -7,7 +7,9 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.4.0 (wip)
+## 2.4.1 (wip)
+
+## 2.4.0 (29/05/2023)
 - When double/real was read from an xml file and it was using a ',' for decimal sign, this wasn't altered to '.'.
 
 ### Dependencies
