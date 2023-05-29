@@ -40,7 +40,7 @@ public class PathForward {
     ArrayList<AbstractForward> stepsForward; // The steps to take in the path
     Path workPath; // The path to the working folder of dcafs
 
-
+    private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
     String error=""; // Last error that occurred
     boolean valid=false; // Whether this path is valid (xml processing went ok)
 
@@ -128,7 +128,7 @@ public class PathForward {
             Element step = steps.get(a);
             ValStore store=null;
             if(step.getTagName().equalsIgnoreCase("customsrc")){
-                customs.add( new CustomSrc(step));
+                readCustomSources(step);
                 continue;
             }
            /* if(step.getTagName().equalsIgnoreCase("cmd")){
@@ -443,12 +443,17 @@ public class PathForward {
         customs.forEach(CustomSrc::stop);
         customs.clear();
     }
+    public void readCustomSources( Element csrc ){
+        maxBufferSize = XMLtools.getIntAttribute(csrc,"buffer",2500);
+        XMLtools.getChildElements(csrc).forEach( sub -> customs.add( new CustomSrc(sub) ));
+
+    }
     private class CustomSrc{
         String pathOrData;
         String path;
         SRCTYPE srcType;
         long intervalMillis;
-
+        long delayMillis=0;
         ScheduledFuture<?> future;
         ArrayList<String> buffer;
         ArrayList<Path> files;
@@ -460,70 +465,69 @@ public class PathForward {
         String label;
 
         boolean readOnce=false;
-        private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
+
         static long skipLines = 0; // How many lines to skip at the beginning of a file (fe to skip header)
         public CustomSrc( Element node){
             readFromElement(node);
         }
-        public void readFromElement( Element csrc ){
+        public void readFromElement( Element sub ){
 
-            maxBufferSize = XMLtools.getIntAttribute(csrc,"buffer",2500);
+            var data = sub.getTextContent();
 
-            for( var sub : XMLtools.getChildElements(csrc)){
-                 var data = sub.getTextContent();
-                 var interval = XMLtools.getStringAttribute(sub,"interval","1s");
-                 intervalMillis = TimeTools.parsePeriodStringToMillis(interval);
+            var interval = XMLtools.getStringAttribute(sub,"interval","1s");
+            intervalMillis = TimeTools.parsePeriodStringToMillis(interval);
+            var delay = XMLtools.getStringAttribute(sub,"delay","10ms");
+            delayMillis = TimeTools.parsePeriodStringToMillis(delay);
 
-                 switch (sub.getTagName()) {
-                    case "rtvals" -> {
-                        srcType =SRCTYPE.RTVALS;
-                        pathOrData = data;
+            switch (sub.getTagName()) {
+                case "rtvals" -> {
+                    srcType =SRCTYPE.RTVALS;
+                    pathOrData = data;
+                }
+                case "cmd" -> {
+                    srcType = SRCTYPE.CMD;
+                    pathOrData = data;
+                }
+                case "plain" -> {
+                    srcType = SRCTYPE.PLAIN;
+                    pathOrData = data;
+                }
+                case "file","files" ->  {
+                    skipLines = XMLtools.getChildIntValueByTag(sub,"skip",0);
+                    lineCount=skipLines+1; // We'll skip these lines
+                    files = new ArrayList<>();
+                    var p = Path.of(pathOrData);
+                    if (!p.isAbsolute()) {
+                        p = workPath.resolve(data);
                     }
-                    case "cmd" -> {
-                        srcType = SRCTYPE.CMD;
-                        pathOrData = data;
-                    }
-                    case "plain" -> {
-                        srcType = SRCTYPE.PLAIN;
-                        pathOrData = data;
-                    }
-                    case "file" ->  {
-                        skipLines = XMLtools.getChildIntValueByTag(sub,"skip",0);
-                        lineCount=skipLines+1; // We'll skip these lines
-                        files = new ArrayList<>();
-                        var p = Path.of(pathOrData);
-                        if (!p.isAbsolute()) {
-                            p = workPath.resolve(data);
-                        }
-                        if (Files.isDirectory(p)) {
-                            try {
-                                try( var str = Files.list(p) ){
-                                    str.forEach(files::add);
-                                }
-                            } catch (IOException e) {
-                                Logger.error(e);
+                    if (Files.isDirectory(p)) {
+                        try {
+                            try( var str = Files.list(p) ){
+                                str.forEach(files::add);
                             }
-                        } else {
-                            files.add(p);
+                        } catch (IOException e) {
+                            Logger.error(e);
                         }
-                        buffer = new ArrayList<>();
-                        multiLine = XMLtools.getIntAttribute(sub,"multiline",1);
+                    } else {
+                        files.add(p);
                     }
-                    case "sqlite" -> {
-                        path = data;
-                        buffer = new ArrayList<>();
-                        srcType = SRCTYPE.SQLITE;
-                    }
-                    default -> {
-                        srcType = SRCTYPE.INVALID;
-                        Logger.error(id + "(pf) -> no valid srctype '" + sub.getTagName() + "'");
-                    }
-                };
-            }
+                    buffer = new ArrayList<>();
+                    multiLine = XMLtools.getIntAttribute(sub,"multiline",1);
+                }
+                case "sqlite" -> {
+                    path = data;
+                    buffer = new ArrayList<>();
+                    srcType = SRCTYPE.SQLITE;
+                }
+                default -> {
+                    srcType = SRCTYPE.INVALID;
+                    Logger.error(id + "(pf) -> no valid srctype '" + sub.getTagName() + "'");
+                }
+            };
         }
         public void start(){
             if( future==null || future.isDone())
-                future = nettyGroup.scheduleAtFixedRate(this::write,intervalMillis,intervalMillis, TimeUnit.MILLISECONDS);
+                future = nettyGroup.scheduleAtFixedRate(this::write,delayMillis,intervalMillis, TimeUnit.MILLISECONDS);
         }
         public void stop(){
             if( future!=null && !future.isCancelled())
