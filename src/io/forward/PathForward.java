@@ -127,7 +127,7 @@ public class PathForward {
         for( int a=0;a<steps.size();a++  ){
             Element step = steps.get(a);
             ValStore store=null;
-            if(step.getTagName().equalsIgnoreCase("customsrc")){
+            if(step.getTagName().endsWith("src")){
                 readCustomSources(step);
                 continue;
             }
@@ -445,8 +445,7 @@ public class PathForward {
     }
     public void readCustomSources( Element csrc ){
         maxBufferSize = XMLtools.getIntAttribute(csrc,"buffer",2500);
-        XMLtools.getChildElements(csrc).forEach( sub -> customs.add( new CustomSrc(sub) ));
-
+        customs.add( new CustomSrc(csrc));
     }
     private class CustomSrc{
         String pathOrData;
@@ -479,7 +478,7 @@ public class PathForward {
             var delay = XMLtools.getStringAttribute(sub,"delay","10ms");
             delayMillis = TimeTools.parsePeriodStringToMillis(delay);
 
-            switch (sub.getTagName()) {
+            switch (sub.getTagName().replace("src","")) {
                 case "rtvals" -> {
                     srcType =SRCTYPE.RTVALS;
                     pathOrData = data;
