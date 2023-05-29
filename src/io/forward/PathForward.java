@@ -258,9 +258,10 @@ public class PathForward {
                     dQueue.add(Datagram.system(this.src).writable(stepsForward.get(0)));
                 }
             } else {// If custom sources
-                if( !stepsForward.isEmpty()) // and there are steps
+                if( !stepsForward.isEmpty()) { // and there are steps
                     targets.add(stepsForward.get(0));
-                customs.forEach(CustomSrc::start);
+                    customs.forEach(CustomSrc::start);
+                }
             }
         }
         customs.trimToSize();
@@ -461,7 +462,7 @@ public class PathForward {
         long sendLines=0;
         int multiLine=1;
 
-        String label;
+        String label="";
 
         boolean readOnce=false;
 
@@ -492,10 +493,11 @@ public class PathForward {
                     pathOrData = data;
                 }
                 case "file","files" ->  {
+                    srcType = SRCTYPE.FILE;
                     skipLines = XMLtools.getChildIntValueByTag(sub,"skip",0);
                     lineCount=skipLines+1; // We'll skip these lines
                     files = new ArrayList<>();
-                    var p = Path.of(pathOrData);
+                    var p = Path.of(data);
                     if (!p.isAbsolute()) {
                         p = workPath.resolve(data);
                     }
