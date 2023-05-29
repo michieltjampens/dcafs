@@ -9,6 +9,7 @@ import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.util.ArrayList;
+import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -47,9 +48,9 @@ public class CmdForward extends AbstractForward implements Writable {
         delimiter = XMLtools.getStringAttribute(fwd,"delimiter",delimiter);
 
         if( tag.equalsIgnoreCase("cmds")){ // meaning multiple
-            XMLtools.getChildElements(fwd,"cmd").forEach( cmd -> cmds.add( new Cmd(cmd.getTextContent())));
+            XMLtools.getChildElements(fwd,"cmd").forEach( cmd -> cmds.add(new Cmd(cmd.getTextContent())));
         }else{
-            cmds.add( new Cmd(fwd.getTextContent()));
+            cmds.add(new Cmd(fwd.getTextContent()));
         }
         valid=true;
         return true;
@@ -66,8 +67,14 @@ public class CmdForward extends AbstractForward implements Writable {
     public boolean noTargets(){
         return false;
     }
-
-    private class Cmd{
+    @Override
+    public String toString() {
+        StringJoiner join = new StringJoiner("\r\n");
+        join.add("Executing cmds:");
+        cmds.forEach( x->join.add(" |-> "+x.cmd));
+        return join.toString();
+    }
+    private static class Cmd{
         Integer[] is=null;
         String cmd="";
         int highestI=-1;
@@ -100,7 +107,7 @@ public class CmdForward extends AbstractForward implements Writable {
             }
             return alter;
         }
-        public String getCmd(){
+        public String toString(){
             return cmd;
         }
     }
