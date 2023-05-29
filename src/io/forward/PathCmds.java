@@ -36,13 +36,13 @@ public class PathCmds {
                     .add(green+" pf:pathid,delete "+reg+"-> Delete this path completely")
                     .add(green+" pf:pathid,clear "+reg+"-> Remove all the steps");
             join.add("").add(cyan+"Add new steps"+reg)
-                    .add(green+" pf:pathid,addfilter/addf,rule "+reg+"-> Add a filter to the path with the given rule")
-                    .add(green+" pf:pathid,addeditor/adde,name<,index> "+reg+"-> Add an editor to the store with the given rule")
-                    .add(green+" pf:pathid,addtext/addt,name<,index> "+reg+"-> Add a TextVal to the store, with optional index")
-                    .add(green+" pf:pathid,addmath/addm,name<,index> "+reg+"-> Add a IntVal to the store, with optional index")
+                    .add(green+" pf:pathid,addfilter/addf,type:rule "+reg+"-> Add a filter, with the given rule")
+                    .add(green+" pf:pathid,addeditor/adde,type:value "+reg+"-> Add an editor,with the given edit")
+                    .add(green+" pf:pathid,addmath/addm,operation "+reg+"-> Add a math, with given operation")
+                    .add(green+" pf:pathid,addcmd/addc,operation "+reg+"-> Add a cmd, with given cmd")
                     .add(green+" pf:pathid,store,cmds "+reg+"-> Add/edit a store");
             join.add("").add(cyan+"Alter attributes"+reg)
-                    .add(green+" pf:pathid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the path")
+                    .add(green+" pf:pathid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter")
                     .add(green+" pf:pathid,src,newsrc "+reg+"-> Alter the src");
             return join.toString();
         }
@@ -207,7 +207,7 @@ public class PathCmds {
                 if( cmds.length < 3 )
                     return "! Not enough arguments: pf:id,addmath,operation";
 
-                // fab is pointing at path node, needs to know if last item is a filter or not
+                // fab is pointing at path node, needs to know if last item is a math or not
                 dig.goDown("*").toLastSibling();
                 var opt = dig.current();
                 // Check if it has steps and if the last one isn't a math
@@ -230,6 +230,30 @@ public class PathCmds {
                 }
                 fab.build();
                 return "Math added";
+            }
+            case "addcmd","addc" -> {
+                if( cmds.length < 3 )
+                    return "! Not enough arguments: pf:id,addcmd,cmd";
+                // fab is pointing at path node, needs to know if last item is a cmd or not
+                dig.goDown("*").toLastSibling();
+                var opt = dig.current();
+                // Check if it has steps and if the last one isn't a cmd
+                if(opt.isPresent()) {
+                    fabOpt = XMLfab.alterDigger(dig);
+                    if( fabOpt.isEmpty() )
+                        return "! Failed to get fab";
+                    fab = fabOpt.get();
+                    var tag = opt.get().getTagName();
+                    if( tag.equalsIgnoreCase("cmd")){
+                        var old = opt.get().getTextContent();
+                        opt.get().setTextContent("");
+                        fab.renameParent("cmds")
+                            .addChild("cmd",old);
+                    }
+                }
+                fab.addChild("cmd", cmds[2]);
+                fab.build();
+                return "Cmd added";
             }
             case "store" -> {
                 if( cmds.length <4 )
