@@ -119,7 +119,7 @@ public class FileTools {
      * @param amount The amount of lines to read, if less lines are available it will read till end of file
      * @return List of read lines or an empty list of none were read
      */
-    public static ArrayList<String> readLines( Path path, int start, long amount) {
+    public static ArrayList<String> readLines( Path path, long start, long amount) {
 
         var read = new ArrayList<String>();
         if( start==0) {
@@ -142,7 +142,7 @@ public class FileTools {
         }
         return read;
     }
-    private static boolean readLimitedLines( Path path, int start, Charset cs, ArrayList<String> read){
+    private static boolean readLimitedLines( Path path, long start, Charset cs, ArrayList<String> read){
         try( var lines = Files.lines(path, cs) ) {
             try{
                 var l = lines.skip(start - 1);
