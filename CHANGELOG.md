@@ -12,23 +12,26 @@ Note: Version numbering: x.y.z
 
 ### Dependencies
 - Updated Tinylog 2.6.1 -> 2.6.2
-- Updated Netty to 4.1.92.Final -> 4.1.93.Final
-
+- Updated Netty 4.1.92.Final -> 4.1.93.Final
+- Updated sqlite 3.40.1.0 -> 3.42.0.0
+- Updated progresql 42.5.4 -> 42.6.0
+- 
 ### Databasemanager
 - Reordered the cmds to be in line with the other ones (start with id, if one is needed)
 
 ### Paths
-- Added option to add executing a cmd inside a path by adding a <cmd> at any position
-  - Can refer to received data using i's (like other forwards), default or determined delimiter
-  - Can refer to other rtvals
-  - Either single cmd in <cmd> or multiple <cmd> inside a <cmds>
 - `pf:reload` now shows error if parsing failed
 - `pf:list` 
   - now shows if a parsing error occurred in a step
   - now shows the defines for a math
   - fixed, will now state no ops and no edits instead of no rules for math/edit
   - fixed, will no longer show ix = twice for an op
-- Math  
+#### Cmd
+- Added option to add executing a cmd inside a path by adding a <cmd> at any position
+  - Can refer to received data using i's (like other forwards), default or determined delimiter
+  - Can refer to other rtvals
+  - Either single cmd in <cmd> or multiple <cmd> inside a <cmds>
+#### Math  
   - no need to add the type of val when referencing them in ops
   - can now use a tagname for a def instead of the def tag
 ````xml
@@ -43,7 +46,8 @@ Note: Version numbering: x.y.z
     <op>i0=A1*(i1+{big_number}</op> <!-- i: no longer needed -->
 </math>   
 ````
-- Edit, now allows to use the edit type as node tag instead of edit with type attribute. This is also the new 
+#### Edit
+- now allows to use the edit type as node tag instead of edit with type attribute. This is also the new 
 result of the cmds.
 ````xml
   <paths> <!-- both old and new are valid -->
@@ -59,6 +63,17 @@ result of the cmds.
     </path>
   </paths>
 ````
+#### Customsrc
+- Changed the node from using attribute type to nodes, some examples
+````xml
+<path>
+  <plainsrc>Hello World!</plainsrc> <!-- Will send Hello World every second -->
+  <plainsrc delay="100ms" interval="10s">Hello??</plainsrc> <!-- Will send hello?? every 10s with initial delay of 100ms -->
+  <filesrc>todo</filesrc> <!-- will send the data from all the files in the map one line at a time at 1s interval -->
+  <cmdsrc>st</cmdsrc> <!-- will send the result of the cmd -->
+</path>
+````
+
 ### RealtimeValues
 - Fixed, int only accepted the 'default' attribute instead of 'def' and 'default' 
   

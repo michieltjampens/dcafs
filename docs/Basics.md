@@ -1,6 +1,6 @@
 ## Introduction
 
->**Note: Document up to date for 2.3.5**
+>**Note: Document up to date for 2.4.0**
 
 The purpose of this (probably in the end very long) page is to slowly introduce the different components in dcafs and how to use them.
 The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
@@ -1076,7 +1076,7 @@ The most basic example would be:
 ````xml
 <paths>
     <path id="custom">
-        <customsrc>Hello World?</customsrc>
+          <plainsrc>Hello World?</plainsrc>
     </path>
 </paths>
 ````
@@ -1086,7 +1086,7 @@ On the other hand, with a different interval:
 ````xml
 <paths>
     <path id="advexample">
-        <customsrc interval="3s">Hello World?</customsrc>
+        <plainsrc interval="3s">Hello World?</plainsrc>
     </path>
 </paths>
 ````
@@ -1095,11 +1095,16 @@ Another alternative is to use a cmd as the src...
 ````xml
 <paths>
     <path id="stupdate">
-        <customsrc interval="10s">st</customsrc>
+        <cmdsrc interval="10s">st</cmdsrc>
     </path>
 </paths>
 ````
 When using `path:stupdate` in a telnet session, the result of `st` will be shown every 10s.
+
+Besides those two, there are also:
+- filesrc -> to read the content of a file or files in a folder
+- sqlitesrc -> to process the result of a query
+- rtvalssrc -> same as plain, but can hold references to rtvals
 
 ### 3. How the data is stored in memory, rtvals
 
