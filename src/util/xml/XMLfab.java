@@ -264,6 +264,15 @@ public class XMLfab {
     }
 
     /**
+     * Rename the tag of the current parent
+     * @param tag The new tag
+     * @return This fab after altering the tag
+     */
+    public XMLfab renameParent( String tag){
+        xmlDoc.renameNode(parent,null,tag);
+        return this;
+    }
+    /**
      * Add a child node to the current root and make it the current parent node and add a comment
      * @param tag The tag of the future parent node
      * @param comment The comment for this parent node
