@@ -1,6 +1,5 @@
 package io.forward;
 
-import org.apache.commons.lang3.math.NumberUtils;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
@@ -18,6 +17,7 @@ import worker.Datagram;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -39,8 +39,8 @@ public class PathForward {
     String id; // The id of the path
     ArrayList<AbstractForward> stepsForward; // The steps to take in the path
     Path workPath; // The path to the working folder of dcafs
-    static int READ_BUFFER_SIZE=2500; // maximum size of read buffer (if the source is a file)
-    static long SKIPLINES = 0; // How many lines to skip at the beginning of a file (fe to skip header)
+
+
     String error=""; // Last error that occurred
     boolean valid=false; // Whether this path is valid (xml processing went ok)
 
@@ -128,10 +128,7 @@ public class PathForward {
             Element step = steps.get(a);
             ValStore store=null;
             if(step.getTagName().equalsIgnoreCase("customsrc")){
-                addCustomSrc( step.getTextContent(),
-                              XMLtools.getStringAttribute(step,"interval","1s"),
-                              XMLtools.getStringAttribute(step,"type","plain"),
-                              XMLtools.getStringAttribute(step,"label",""));
+                customs.add( new CustomSrc(step));
                 continue;
             }
            /* if(step.getTagName().equalsIgnoreCase("cmd")){
@@ -359,15 +356,6 @@ public class PathForward {
         }
         return null;
     }
-    public void addCustomSrc( String data, String interval, String type, String label){
-        if( data.contains("{") && data.contains("}")) {
-            type ="rtvals";
-        }else if(type.equalsIgnoreCase("rtvals")){
-            type="plain";
-        }
-        customs.add( new CustomSrc(data,type,TimeTools.parsePeriodStringToMillis(interval),label) );
-    }
-
     public String toString(){
         var join = new StringJoiner("\r\n");
         if( customs.isEmpty() ){
@@ -465,52 +453,72 @@ public class PathForward {
         ArrayList<String> buffer;
         ArrayList<Path> files;
 
-        int lineCount=1;
+        long lineCount=1;
         long sendLines=0;
         int multiLine=1;
 
         String label;
 
         boolean readOnce=false;
+        private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
+        static long skipLines = 0; // How many lines to skip at the beginning of a file (fe to skip header)
+        public CustomSrc( Element node){
+            readFromElement(node);
+        }
+        public void readFromElement( Element csrc ){
 
-        public CustomSrc( String data, String type, long intervalMillis, String label){
-            pathOrData = data;
-            this.label=label;
-            this.intervalMillis=intervalMillis;
-            var spl = type.split(":");
-            srcType = switch (spl[0]) {
-                case "rtvals" -> SRCTYPE.RTVALS;
-                case "cmd" -> SRCTYPE.CMD;
-                case "plain" -> SRCTYPE.PLAIN;
-                case "file" ->  SRCTYPE.FILE;
-                case "sqlite" -> SRCTYPE.SQLITE;
-                default -> SRCTYPE.INVALID;
-            };
-            if( srcType==SRCTYPE.FILE){
-                files = new ArrayList<>();
-                var p = Path.of(pathOrData);
-                if (!p.isAbsolute()) {
-                    p = workPath.resolve(data);
-                }
-                if (Files.isDirectory(p)) {
-                    try {
-                        try( var str = Files.list(p) ){
-                            str.forEach(files::add);
-                        }
-                    } catch (IOException e) {
-                        Logger.error(e);
+            maxBufferSize = XMLtools.getIntAttribute(csrc,"buffer",2500);
+
+            for( var sub : XMLtools.getChildElements(csrc)){
+                 var data = sub.getTextContent();
+                 var interval = XMLtools.getStringAttribute(sub,"interval","1s");
+                 intervalMillis = TimeTools.parsePeriodStringToMillis(interval);
+
+                 switch (sub.getTagName()) {
+                    case "rtvals" -> {
+                        srcType =SRCTYPE.RTVALS;
+                        pathOrData = data;
                     }
-                } else {
-                    files.add(p);
-                }
-                buffer = new ArrayList<>();
-                if (spl.length == 2)
-                    multiLine = NumberUtils.toInt(spl[1]);
-            }else if( srcType == SRCTYPE.INVALID ){
-                Logger.error(id + "(pf) -> no valid srctype '" + type + "'");
-            }else if( srcType==SRCTYPE.SQLITE){
-                path = spl[1];
-                buffer = new ArrayList<>();
+                    case "cmd" -> {
+                        srcType = SRCTYPE.CMD;
+                        pathOrData = data;
+                    }
+                    case "plain" -> {
+                        srcType = SRCTYPE.PLAIN;
+                        pathOrData = data;
+                    }
+                    case "file" ->  {
+                        skipLines = XMLtools.getChildIntValueByTag(sub,"skip",0);
+                        lineCount=skipLines+1; // We'll skip these lines
+                        files = new ArrayList<>();
+                        var p = Path.of(pathOrData);
+                        if (!p.isAbsolute()) {
+                            p = workPath.resolve(data);
+                        }
+                        if (Files.isDirectory(p)) {
+                            try {
+                                try( var str = Files.list(p) ){
+                                    str.forEach(files::add);
+                                }
+                            } catch (IOException e) {
+                                Logger.error(e);
+                            }
+                        } else {
+                            files.add(p);
+                        }
+                        buffer = new ArrayList<>();
+                        multiLine = XMLtools.getIntAttribute(sub,"multiline",1);
+                    }
+                    case "sqlite" -> {
+                        path = data;
+                        buffer = new ArrayList<>();
+                        srcType = SRCTYPE.SQLITE;
+                    }
+                    default -> {
+                        srcType = SRCTYPE.INVALID;
+                        Logger.error(id + "(pf) -> no valid srctype '" + sub.getTagName() + "'");
+                    }
+                };
             }
         }
         public void start(){
@@ -528,7 +536,7 @@ public class PathForward {
 
             switch (srcType) {
                 case CMD ->
-                        targets.forEach(t -> dQueue.add(Datagram.build(pathOrData).label("system").writable(t).toggleSilent()));
+                        targets.forEach(t -> dQueue.add(Datagram.system(pathOrData).writable(t).toggleSilent()));
                 case RTVALS -> {
                     var write = ValTools.parseRTline(pathOrData, "-999", rtvals);
                     targets.forEach(x -> x.writeLine(write));
@@ -551,6 +559,8 @@ public class PathForward {
                                 d.stream().map(Object::toString).forEach(join::add);
                                 buffer.add(join.toString());
                             }
+                        }else{
+                            Logger.error("Tried to read from db but failed: "+path);
                         }
                     } else {
                         String line = buffer.remove(0);
@@ -561,32 +571,30 @@ public class PathForward {
                     try {
                         for (int a = 0; a < multiLine; a++) {
                             if (buffer.isEmpty()) {
+                                // If the list of files is empty, stop
                                 if (files.isEmpty()) {
                                     future.cancel(true);
-                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished."));
+                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
                                     return;
                                 }
-                                if (SKIPLINES == 0) {
-                                    buffer.addAll(FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
-                                } else {
-                                    if (!readOnce)
-                                        buffer.addAll(FileTools.readSubsetLines(files.get(0), 10, SKIPLINES));
-                                    readOnce = true;
-                                }
+
+                                buffer.addAll(FileTools.readLines(files.get(0), lineCount, maxBufferSize));
                                 lineCount += buffer.size();
-                                if (buffer.size() < READ_BUFFER_SIZE) {
-                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)));
+
+                                if (buffer.size() < maxBufferSize) { // Buffer wasn't full, so file read till end
+                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)+" at "+ Instant.now()));
                                     Logger.info("Finished processing " + files.get(0));
                                     files.remove(0);
-                                    lineCount = 1;
+                                    lineCount = 1+skipLines; // First line is at 1, so add any that need to be skipped
                                     if (buffer.isEmpty()) {
                                         if (!files.isEmpty()) {
-                                            Logger.info("Started processing " + files.get(0));
-                                            buffer.addAll(FileTools.readLines(files.get(0), lineCount, READ_BUFFER_SIZE));
+                                            Logger.info("Started processing " + files.get(0)+ " at "+Instant.now() );
+                                            // Buffer isn't full, so fill it up
+                                            buffer.addAll(FileTools.readLines(files.get(0), lineCount, maxBufferSize-buffer.size()));
                                             lineCount += buffer.size();
                                         } else {
                                             future.cancel(true);
-                                            dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished."));
+                                            dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
                                             return;
                                         }
                                     }
