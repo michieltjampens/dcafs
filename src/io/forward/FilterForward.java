@@ -95,6 +95,8 @@ public class FilterForward extends AbstractForward {
         if( !reversed.isEmpty())
             join.add(ts2.toString());
 
+        if( store != null )
+            join.add(store.toString());
         return join.toString();
     }
     @Override
