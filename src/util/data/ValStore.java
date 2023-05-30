@@ -332,7 +332,7 @@ public class ValStore {
         int index=0;
         for( var val :rtvals ){
             if( val !=null){
-                join.add("At index "+index+" -> "+val);
+                join.add("At index "+index+" -> "+val.id());
             }
             index++;
         }
