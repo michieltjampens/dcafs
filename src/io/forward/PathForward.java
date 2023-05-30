@@ -149,6 +149,8 @@ public class PathForward {
             // Check if the next step is a store, if so process it to apply to current step
             if( a<steps.size()-1 ){
                 var next = steps.get(a+1);
+                if( !next.hasAttribute("delimiter")&& !delimiter.isEmpty())
+                    next.setAttribute("delimiter",delimiter);
                 if(next.getTagName().equalsIgnoreCase("store")){// Next element is a store
                     var storeOpt = ValStore.build(next,id,rtvals);
                     if( storeOpt.isPresent()) {
