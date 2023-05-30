@@ -98,10 +98,13 @@ public class CmdForward extends AbstractForward implements Writable {
                 }
             }
         }
-        public String applyData( String[] data ){
+        public String applyData( String[] data, RealtimeValues rtvals ){
             if( is==null)
                 return cmd;
             var alter = cmd;
+            if( alter.contains("{")){
+                alter = ValTools.parseRTline(alter,"-999",rtvals);
+            }
             for( int a=0;a<is.length;a++){
                 alter = alter.replace("i"+is[a],data[is[a]]);
             }
