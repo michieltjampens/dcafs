@@ -621,7 +621,18 @@ public class PathForward {
             }
         }
         public String toString(){
-            return "Reads '"+ pathOrData +"' every "+TimeTools.convertPeriodtoString(intervalMillis,TimeUnit.MILLISECONDS);
+            String shortData="";
+            if( pathOrData!=null)
+                shortData = pathOrData.substring(0,pathOrData.length()>20?20:pathOrData.length()-1);
+
+            var interval = TimeTools.convertPeriodtoString(intervalMillis,TimeUnit.MILLISECONDS);
+            return switch( srcType ){
+                case REG,PLAIN,RTVALS -> "Shows "+shortData+" every "+interval;
+                case CMD -> "Show result of '"+shortData+"' every "+interval;
+                case FILE -> "Reads from "+files.size()+" files, every "+interval;
+                case SQLITE -> "Shows the result of a query";
+                case INVALID -> "Invalid src";
+            };
         }
     }
 }
