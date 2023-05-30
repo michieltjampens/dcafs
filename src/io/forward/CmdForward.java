@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 public class CmdForward extends AbstractForward implements Writable {
     private ArrayList<Cmd> cmds = new ArrayList<>();
     private String delimiter="";
+
     protected CmdForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals) {
         super(id, source, dQueue, rtvals);
     }
@@ -27,12 +28,11 @@ public class CmdForward extends AbstractForward implements Writable {
     @Override
     protected boolean addData(String data) {
 
-        data = ValTools.parseRTline(data,"",rtvals); // Replace all the rtvals
         String[] split = data.split(delimiter); // Split the data according to the delimiter
 
         cmds.forEach( cmd -> {
             // Replace the i's with rt data if any and send it away
-            dQueue.add(Datagram.system(cmd.applyData(split)));
+            dQueue.add(Datagram.system(cmd.applyData(split,rtvals)));
         });
         String finalData = data;
         targets.forEach(t->t.writeLine(id(), finalData));
