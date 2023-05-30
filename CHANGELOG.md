@@ -9,6 +9,13 @@ Note: Version numbering: x.y.z
 
 ## 2.4.1 (wip)
 
+### Paths
+- `pf:list` didn't show store attached to a filter
+
+### Rtvals
+- fixed, store to string showed the value not the id
+- fixed, store didn't use the default delimiter if none was specified
+
 ## 2.4.0 (29/05/2023)
 - When double/real was read from an xml file and it was using a ',' for decimal sign, this wasn't altered to '.'.
 
