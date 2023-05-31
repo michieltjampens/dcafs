@@ -2,7 +2,9 @@ package io.forward;
 
 import io.Writable;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.data.AbstractVal;
 import util.data.RealtimeValues;
 import util.data.ValTools;
 import util.xml.XMLtools;
@@ -32,7 +34,7 @@ public class CmdForward extends AbstractForward implements Writable {
 
         cmds.forEach( cmd -> {
             // Replace the i's with rt data if any and send it away
-            dQueue.add(Datagram.system(cmd.applyData(split,rtvals)));
+            dQueue.add(Datagram.system(cmd.applyData(split)));
         });
         targets.forEach(t->t.writeLine(id(), data));
         if( store!=null)
@@ -77,16 +79,38 @@ public class CmdForward extends AbstractForward implements Writable {
             join.add(store.toString());
         return join.toString();
     }
-    private static class Cmd{
+    private class Cmd{
         Integer[] is=null;
+        ArrayList<AbstractVal> vals = new ArrayList<>();
         String cmd="";
+        String ori="";
         int highestI=-1;
 
         public Cmd( String cmd ){
             this.cmd=cmd;
+            this.ori=cmd;
+            // Find and replace the rtvals if any
+            var iss = Pattern.compile("\\{\\w*}")
+                    .matcher(cmd)
+                    .results()
+                    .map(MatchResult::group)
+                    .map( x->x.substring(1,x.length()-1))
+                    .sorted()
+                    .toArray(String[]::new);
 
+            if( iss.length!=0 ){
+                for( int a=0;a<iss.length;a++) {
+                    var val = rtvals.getAbstractVal(iss[a]);
+                    if( val.isEmpty()){
+                        Logger.error( "Didn't find a match for "+iss[a]+" as part of "+cmd);
+                    }else{
+                        vals.add(val.get());
+                        this.cmd = this.cmd.replace("{"+iss[a]+"}","{"+a+"}");
+                    }
+                }
+            }
             // Find the highest used 'i' index
-            var iss = Pattern.compile("i[0-9]{1,2}")
+            iss = Pattern.compile("i[0-9]{1,2}")
                     .matcher(cmd)
                     .results()
                     .map(MatchResult::group)
@@ -101,20 +125,21 @@ public class CmdForward extends AbstractForward implements Writable {
                 }
             }
         }
-        public String applyData( String[] data, RealtimeValues rtvals ){
+        public String applyData( String[] data ){
             if( is==null)
                 return cmd;
             var alter = cmd;
-            if( alter.contains("{")){
-                alter = ValTools.parseRTline(alter,"-999",rtvals);
+            if( !vals.isEmpty()){
+                for( int a=0;a<vals.size();a++)
+                    alter = alter.replace("{"+a+"}",vals.get(a).stringValue());
             }
-            for( int a=0;a<is.length;a++){
-                alter = alter.replace("i"+is[a],data[is[a]]);
+            for (Integer i : is) {
+                alter = alter.replace("i" + i, data[i]);
             }
             return alter;
         }
         public String toString(){
-            return cmd;
+            return ori;
         }
     }
 }
