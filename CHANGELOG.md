@@ -7,6 +7,8 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
+## 2.4.2 (wip)
+
 ## 2.4.1 (31/05/2023)
 
 ### Paths
