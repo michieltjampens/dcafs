@@ -273,6 +273,30 @@ public class RealtimeValues implements Commandable {
 	}
 	/* ******************************************************************************************************/
 
+	/**
+	 * Look through all the vals for one that matches the id
+	 * @param id The id to find
+	 * @return An optional of the val, empty if not found
+	 */
+	public Optional<AbstractVal> getAbstractVal( String id ){
+		// Check real
+		var val = getRealVal(id);
+		if( val.isPresent())
+			return Optional.of(val.get());
+		// Check integer
+		var iv = getIntegerVal(id);
+		if( iv.isPresent())
+			return Optional.of(iv.get());
+		// Check flags
+		var fv = getFlagVal(id);
+		if( fv.isPresent())
+			return Optional.of(fv.get());
+		// Check Texts
+		var tv = getTextVal(id);
+		if( tv.isPresent())
+			return Optional.of(tv.get());
+		return Optional.empty();
+	}
 	public int addRequest(Writable writable, String type, String req) {
 		switch (type) {
 			case "double", "real" -> {
