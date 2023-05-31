@@ -238,6 +238,8 @@ public class PathForward {
                     }else{
                         addAsTarget(cf, cf.getSrc(),!(lastff!=null && lastStore));
                     }
+                    if( store!=null)
+                        cf.setStore(store);
                     hasCmd=true;
                     stepsForward.add(cf);
                 }

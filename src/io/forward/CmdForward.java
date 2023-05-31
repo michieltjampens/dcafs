@@ -34,8 +34,9 @@ public class CmdForward extends AbstractForward implements Writable {
             // Replace the i's with rt data if any and send it away
             dQueue.add(Datagram.system(cmd.applyData(split,rtvals)));
         });
-        String finalData = data;
-        targets.forEach(t->t.writeLine(id(), finalData));
+        targets.forEach(t->t.writeLine(id(), data));
+        if( store!=null)
+            store.apply(data,dQueue);
         return true;
     }
 
@@ -72,6 +73,8 @@ public class CmdForward extends AbstractForward implements Writable {
         StringJoiner join = new StringJoiner("\r\n");
         join.add("Executing cmds:");
         cmds.forEach( x->join.add(" |-> "+x.cmd));
+        if( store!=null)
+            join.add(store.toString());
         return join.toString();
     }
     private static class Cmd{
