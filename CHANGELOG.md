@@ -7,17 +7,20 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.4.1 (wip)
+## 2.4.1 (31/05/2023)
 
 ### Paths
 - `pf:list` didn't show store attached to a filter
+- fixed, rtval references in cmd needed type in {type:id}, not anymore
+- fixed, store after cmd didn't work because the step before holds it which cmd didn't yet
+- When parsing a cmd, the rtvals are stored so they aren't looked for on every call
 
 ### Rtvals
 - fixed, store to string showed the value not the id
 - fixed, store didn't use the default delimiter if none was specified
 
 ## 2.4.0 (29/05/2023)
-- When double/real was read from an xml file and it was using a ',' for decimal sign, this wasn't altered to '.'.
+- When double/real was read from a xml file, and it was using a ',' for decimal sign, this wasn't altered to '.'.
 
 ### Dependencies
 - Updated Tinylog 2.6.1 -> 2.6.2
