@@ -89,7 +89,7 @@ public class EditorForward extends AbstractForward{
         parsedOk=true;
         if( !readBasicsFromXml(editor))
             return false;
-        delimiter = XMLtools.getStringAttribute(editor,"delimiter",delimiter);
+        delimiter = XMLtools.getEscapedStringAttribute(editor,"delimiter",delimiter);
         edits.clear();
 
         if( XMLtools.hasChildNodes(editor) ) { // If there are any childnodes
@@ -101,7 +101,7 @@ public class EditorForward extends AbstractForward{
     }
 
     private boolean processNode( Element edit ){
-        String deli = XMLtools.getStringAttribute(edit,"delimiter",delimiter);
+        String deli = XMLtools.getEscapedStringAttribute(edit,"delimiter",delimiter);
         String content = edit.getTextContent();
         String from = XMLtools.getStringAttribute(edit,"from",",");
         String error = XMLtools.getStringAttribute(edit,"error","NaN");
@@ -139,7 +139,7 @@ public class EditorForward extends AbstractForward{
             }
             case "redate" -> {
                 addRedate(from, content, index, deli);
-                Logger.info(id() + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content);
+                Logger.info(id() + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content+ " at "+index);
             }
             case "retime" -> {
                 addRetime(from, content, index, deli);
