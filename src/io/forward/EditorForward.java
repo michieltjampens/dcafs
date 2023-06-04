@@ -343,7 +343,7 @@ public class EditorForward extends AbstractForward{
                     Logger.error( id() + " -> Failed to convert datetime "+split[index]);
                     return input;
                 }
-                return String.join(delimiter,split);
+                return String.join(deli,split);
             }
             Logger.error(id+" -> To few elements after split for redate");
             return input;
@@ -372,7 +372,7 @@ public class EditorForward extends AbstractForward{
                 split[index] = TimeTools.reformatTime(split[index],from,to);
                 if( split[index].isEmpty())
                     return input;
-                return String.join(delimiter,split);
+                return String.join(deli,split);
             }
             Logger.error(id+" -> To few elements after split for redate");
             return input;
