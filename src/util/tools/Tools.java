@@ -397,7 +397,7 @@ public class Tools {
         // Then replace all those hexes in the string with a null character
         for( String hex : hexes) { // replace all the hexes with the escape
             try {
-                txt = txt.replace(hex, "" + (char) Integer.parseInt(hex.substring(2), 16));
+                txt = txt.replace(hex, String.valueOf((char) Integer.parseInt(hex.substring(2), 16)));
             }catch( NumberFormatException e){
                 Logger.error("Failed to convert: "+txt);
             }
