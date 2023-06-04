@@ -169,7 +169,7 @@ public class EditorForward extends AbstractForward{
             }
             case "rexremove" -> {
                 addRexRemove(content);
-                Logger.info(id() + " -> Remove matches off " + content);
+                Logger.info(id() + " -> RexRemove matches off " + content);
             }
             case "rexkeep" -> {
                 addRexsplit("", content);

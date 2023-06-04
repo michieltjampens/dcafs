@@ -128,10 +128,10 @@ public class CollectorPool implements Commandable, CollectorFuture {
                             .add(green + "   fc:id,addheader,headerline " + reg + " -> Adds the header to the given fc")
                             .add(green + "   fc:id,addsizelimit,size,zip? " + reg + " -> Adds a limit of the given size with optional zipping");
                     join.add(cyan + "Alter attributes" + reg)
-                            .add( green + "  fc:id,filpath,newpath"+reg+" -> Change the filepath")
+                            .add( green + "  fc:id,filepath,newpath"+reg+" -> Change the filepath")
                             .add( green + "  fc:id,sizelimit,newlimit"+reg+" -> Change the file sizelimit")
                             .add( green + "  fc:id,eol,neweol"+reg+" -> Change the eol sequence")
-                            .add( green + "  fc:id,charset,newpath"+reg+" -> Change the charset used")
+                            .add( green + "  fc:id,charset,newcharset"+reg+" -> Change the charset used")
                             .add( green + "  fc:id,src,newsrc"+reg+" -> Change the src");
                     join.add(cyan + "Get info" + reg)
                             .add(green + "   fc:list " + reg + " -> Get a list of all active File Collectors")
