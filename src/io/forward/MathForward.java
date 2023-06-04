@@ -100,7 +100,7 @@ public class MathForward extends AbstractForward {
 
         highestI=-1;
 
-        setDelimiter(XMLtools.getStringAttribute( math, "delimiter", delimiter));
+        setDelimiter(XMLtools.getEscapedStringAttribute( math, "delimiter", delimiter));
         suffix = XMLtools.getStringAttribute(math,"suffix","");
         defines.clear();
         ops.clear();
