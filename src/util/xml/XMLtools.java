@@ -475,6 +475,10 @@ public class XMLtools {
 		return val.trim(); //trim spaces around the val
 
 	}
+	public static String getEscapedStringAttribute( Element element,String attribute, String def){
+		var line = getStringAttribute(element,attribute,def);
+		return Tools.fromEscapedStringToBytes(line);
+	}
 	/**
 	 * Get the optional path value of a node from the given element with the given name
 	 *
