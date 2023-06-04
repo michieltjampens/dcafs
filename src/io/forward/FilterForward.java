@@ -125,7 +125,7 @@ public class FilterForward extends AbstractForward {
         if( !readBasicsFromXml(filter) )
             return false;
 
-        delimiter = XMLtools.getStringAttribute(filter,"delimiter",delimiter); // Allow for global delimiter
+        delimiter = XMLtools.getEscapedStringAttribute(filter,"delimiter",delimiter); // Allow for global delimiter
         ignoreFalse = XMLtools.getIntAttribute(filter,"ignores",0);
         negate = XMLtools.getBooleanAttribute(filter,"negate",false);
 
@@ -137,7 +137,7 @@ public class FilterForward extends AbstractForward {
                     .stream()
                     .filter( rule -> !rule.getAttribute("type").equalsIgnoreCase("start"))
                     .forEach( rule -> {
-                        String delimiter = XMLtools.getStringAttribute(rule,"delimiter",this.delimiter);
+                        String delimiter = XMLtools.getEscapedStringAttribute(rule,"delimiter",this.delimiter);
                         addRule( rule.getAttribute("type"), rule.getTextContent(),delimiter);
                     } );
 
@@ -157,7 +157,7 @@ public class FilterForward extends AbstractForward {
         }else if( filter.getTextContent() != null ){ // If only a single rule is defined
             String type = XMLtools.getStringAttribute(filter,"type","");
             if( !type.isEmpty()){
-                addRule(type,filter.getTextContent(),XMLtools.getStringAttribute(filter,"delimiter",this.delimiter));
+                addRule(type,filter.getTextContent(),XMLtools.getEscapedStringAttribute(filter,"delimiter",this.delimiter));
             }
         }
         return true;
