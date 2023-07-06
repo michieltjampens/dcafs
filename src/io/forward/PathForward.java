@@ -271,6 +271,10 @@ public class PathForward {
         customs.trimToSize();
         valid=true;
         error="";
+
+        if( this.src.isEmpty() && customs.isEmpty()){
+            Logger.error(id()+" -> This path doesn't have a src!");
+        }
         return "";
     }
     public void clearStores(){
