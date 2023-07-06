@@ -457,7 +457,15 @@ public class EditorForward extends AbstractForward{
         };
         edits.add(edit);
     }
-
+    public void addIndexReplace( int index, String delimiter, String value ){
+        rulesString.add( new String[]{"","indexreplace","i"+index+"->"+value} );
+        edits.add( input -> {
+            var its =input.split(delimiter);
+            if( its.length > index )
+                its[index]=ValTools.parseRTline(value,its[index],rtvals);
+            return String.join(delimiter,its);
+        } );
+    }
     /**
      * Add a string to the start of the data
      * @param addition The string to add at the start
@@ -561,6 +569,9 @@ public class EditorForward extends AbstractForward{
                 .add(gr+"insert"+re+" -> Add the given data at the chosen position")
                 .add("    cmd pf:pathid,adde,insert,position,givendata")
                 .add("    fe. <edit type='insert' position='4' >!</edit>  --> time!=16:25:12 (UTC)")
+                .add(gr+"indexreplace"+re+" -> Replace the item at the given index (start at 0) whitt something else")
+                .add("    cmd pf:pathid,adde,indexreplace,index,replacement")
+                .add("    fe. <edit type='indexreplace' index='1' delimiter=':'>35</edit>  -->16:35:12 (UTC)")
                 .add("")
                 .add(TelnetCodes.TEXT_ORANGE+"--REMOVE--")
                 .add(gr+"trim"+re+" -> Remove all whitespace characters from the start and end of the data")
