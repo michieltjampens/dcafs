@@ -216,6 +216,10 @@ public class EditorForward extends AbstractForward{
                 addListReplace(content, deli, index, first);
                 Logger.info(id + "(ef) -> Added listreplace of " + content + " of index " + index);
             }
+            case "indexreplace" -> {
+                addIndexReplace(index,deli,content);
+                Logger.info(id + "(ef) -> Added indexreplace with " + content + " at index " + index);
+            }
             default -> {
                 Logger.error(id + " -> Unknown type used : '" + edit.getAttribute("type") + "'");
                 parsedOk = false;
