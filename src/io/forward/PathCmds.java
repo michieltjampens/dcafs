@@ -77,16 +77,23 @@ public class PathCmds {
                 case "xml" -> {
                     if( cmds.length<3)
                         return "To few arguments, expected pf:pathid,xml,src";
+                    var pathPath = settingsPath.getParent().resolve("paths");
                     try {
-                        Files.createDirectories( settingsPath.getParent().resolve("paths") );
+                        Files.createDirectories( pathPath );
                     } catch (IOException e) {
                         Logger.error(e);
                     }
+                    // Add it to the settings.xml
                     XMLfab.withRoot(settingsPath,"dcafs","paths")
                             .selectOrAddChildAsParent("path","id",cmds[0])
                             .attr("src",cmds[2])
                             .attr("delimiter",",")
                             .attr("import","paths"+ File.separator+cmds[0]+".xml")
+                            .build();
+                    // Actually create the file
+                    XMLfab.withRoot( pathPath.resolve(cmds[0]+".xml"),"dcafs")
+                            .selectOrAddChildAsParent("path","id",cmds[0])
+                            .attr("delimiter",",")
                             .build();
                     return "Path created";
                 }
