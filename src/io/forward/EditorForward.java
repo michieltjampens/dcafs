@@ -468,16 +468,25 @@ public class EditorForward extends AbstractForward{
     public void addIndexReplace( int index, String delimiter, String value ){
         if( value.isEmpty() ) {
             rulesString.add( new String[]{"","removeindex","i"+index} );
-            edits.add(input -> {
-                var its = input.split(delimiter);
-                var list = Arrays.asList(its);
-                if( index<list.size()) {
-                    list.remove(index);
-                }else{
-                    Logger.error("Tried to remove index "+index+" from "+input+" but no such thing.");
-                }
-                return String.join(delimiter, list);
-            });
+            if( index==0 ){
+                edits.add( input -> {
+                    int a = input.indexOf(delimiter);
+                    if( a == -1 )
+                        return input;
+                    return input.substring(a);
+                });
+            }else {
+                edits.add(input -> {
+                    var its = input.split(delimiter);
+                    var list = Arrays.asList(its);
+                    if (index < list.size()) {
+                        list.remove(index);
+                    } else {
+                        Logger.error("Tried to remove index " + index + " from " + input + " but no such thing.");
+                    }
+                    return String.join(delimiter, list);
+                });
+            }
         }else{
             rulesString.add( new String[]{"","indexreplace","i"+index+"->"+value} );
             edits.add(input -> {
