@@ -8,6 +8,21 @@ Note: Version numbering: x.y.z
 - back up path for sqlite db etc?
 
 ## 2.4.2 (wip)
+- Fixed, filecollector checked if file and parent folder are both new, this wasn't right (was a bad fix of a old bug)
+- Fixed, if a tab is requested as a delimiter for a forward, this wasn't properly converted to an actual tab but stayed
+as the sequence \t. Which is fine for a split, but causes issues if it's used to join afterwards.
+
+### Forwards
+- editor, added indexreplace to replace the value at an index after split with something else (like rtval)
+- path, now an error is given if no src is specified
+- path fixed, pf:id,xml,src now actually creates the xml file
+
+### Store
+- Now gives an error in the logs if db write failed.
+
+### Dependencies
+- Updated Netty 4.1.93.Final -> 4.1.94.Final
+- Updated Json 20230227 -> 20230618
 
 ## 2.4.1 (31/05/2023)
 
@@ -29,7 +44,7 @@ Note: Version numbering: x.y.z
 - Updated Netty 4.1.92.Final -> 4.1.93.Final
 - Updated sqlite 3.40.1.0 -> 3.42.0.0
 - Updated progresql 42.5.4 -> 42.6.0
-- 
+
 ### Databasemanager
 - Reordered the cmds to be in line with the other ones (start with id, if one is needed)
 
