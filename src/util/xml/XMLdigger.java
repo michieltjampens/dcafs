@@ -59,7 +59,7 @@ public class XMLdigger {
 
         if( tags.length!=1){
             for( int a=0;a<tags.length-1;a++) {
-                XMLtools.getFirstChildByTag(root, tags[a]).ifPresentOrElse(ele->stepDown(ele),()->invalidate());
+                XMLtools.getFirstChildByTag(root, tags[a]).ifPresentOrElse(this::stepDown, this::invalidate);
                 if( !valid )
                     return this;
             }
@@ -109,6 +109,10 @@ public class XMLdigger {
         var eleOpt = XMLtools.getChildElements(last==null?root:last, tag).stream().filter(x ->
                 x.getTextContent().equalsIgnoreCase(content)).findFirst();
         peek=eleOpt.orElse(null);
+        return this;
+    }
+    public XMLdigger usePeek(){
+        last=peek;
         return this;
     }
     public XMLdigger goUp(){

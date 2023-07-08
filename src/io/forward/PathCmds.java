@@ -110,33 +110,33 @@ public class PathCmds {
             return "! No valid fab created";
         var fab=fabOpt.get();
 
-        switch( cmds[1]){
+        switch( cmds[1]) {
             /* Commands that affect the path */
-            case "delimiter","delim" ->{
+            case "delimiter", "delim" -> {
                 if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,delim/delimiter,newdelimiter";
                 var deli = cmds.length == 4 ? "," : cmds[2];
                 fab.attr("delimiter", deli);
                 fab.build();
-                return "Set the delimiter to '"+deli+"'";
+                return "Set the delimiter to '" + deli + "'";
             }
-            case "clear" ->{
+            case "clear" -> {
                 fab.clearChildren();
                 fab.build();
                 return "Removed all steps";
             }
             case "delete" -> {
-                if( cmds.length < 3 )
+                if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,delete,all/last";
-                switch( cmds[2] ){
-                    case "all" ->{
+                switch (cmds[2]) {
+                    case "all" -> {
                         fab.up();
-                        fab.removeChild("path","id",cmds[0]);
+                        fab.removeChild("path", "id", cmds[0]);
                         fab.build();
                         return "Deleted the path completely";
                     }
-                    case "last" ->{
-                        if( fab.removeLastChild("*")) {
+                    case "last" -> {
+                        if (fab.removeLastChild("*")) {
                             fab.build();
                             return "Node removed";
                         }
@@ -144,118 +144,118 @@ public class PathCmds {
                     }
                 }
             }
-            case "src" ->{
+            case "src" -> {
                 if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,src,newsrc";
                 fab.attr("src", cmds[2]);
                 fab.build();
-                return "Set the src to '"+cmds[2]+"'";
+                return "Set the src to '" + cmds[2] + "'";
             }
             /* Commands to add a simple step at the end */
-            case "addfilter","addf" -> {
-                if( cmds.length < 3 )
+            case "addfilter", "addf" -> {
+                if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,addfilter,type:rule";
                 var rule = cmds[2].split(":");
-                if( rule.length != 2)
+                if (rule.length != 2)
                     return "! Need a type and a rule separated with : (pf:id,addfilter,type:rule)";
 
-                if(!List.of(FILTERS).contains(rule[0]))
-                    return "! No such filter type, valid: "+String.join(",",FILTERS);
+                if (!List.of(FILTERS).contains(rule[0]))
+                    return "! No such filter type, valid: " + String.join(",", FILTERS);
 
                 // fab is pointing at path node, needs to know if last item is a filter or not
                 dig.goDown("*").toLastSibling();
                 var opt = dig.current();
                 // Check if it has steps and if the last one isn't a filter
-                if( opt.isEmpty() || !opt.get().getTagName().equalsIgnoreCase("filter")){
-                    fab.addChild("filter",rule[1]).attr("type",rule[0]);
-                }else{ // Last one is a filter
+                if (opt.isEmpty() || !opt.get().getTagName().equalsIgnoreCase("filter")) {
+                    fab.addChild("filter", rule[1]).attr("type", rule[0]);
+                } else { // Last one is a filter
                     fabOpt = XMLfab.alterDigger(dig);
-                    if( fabOpt.isEmpty() )
+                    if (fabOpt.isEmpty())
                         return "! Failed to get fab";
                     fab = fabOpt.get();
                     // fab pointing at the last filter
-                    if( dig.goDown("rule").isInvalid()){ // check if already contains a rule node
+                    if (dig.goDown("rule").isInvalid()) { // check if already contains a rule node
                         // Correct node but no rule subnodes... replace current
                         var cur = opt.get();
                         var content = cur.getTextContent();
                         var type = cur.getAttribute("type");
                         fab.content("").removeAttr("type"); // clear to replace with sub
-                        fab.addChild("rule",content).attr("type",type);
+                        fab.addChild("rule", content).attr("type", type);
                     }
-                    fab.addChild("rule",rule[1]).attr("type",rule[0]); // add new one
+                    fab.addChild("rule", rule[1]).attr("type", rule[0]); // add new one
                 }
                 fab.build();
                 return "Filter added";
             }
-            case "addeditor","adde" -> {
-                if( cmds.length < 4 )
+            case "addeditor", "adde" -> {
+                if (cmds.length < 4)
                     return "! Not enough arguments: pf:id,addeditor,type,value";
 
                 // Now get the value that can contain ,
-                int a = request.indexOf(cmds[2]+",");
-                a += cmds[2].length()+1;
+                int a = request.indexOf(cmds[2] + ",");
+                a += cmds[2].length() + 1;
                 var value = request.substring(a);
 
                 // fab is pointing at path node, needs to know if last item is an editor or not
                 dig.goDown("*").toLastSibling();
                 var opt = dig.current();
-                if( opt.isPresent() && opt.get().getTagName().equalsIgnoreCase("editor")) {
+                if (opt.isPresent() && opt.get().getTagName().equalsIgnoreCase("editor")) {
                     // Last one is a editor, so get a
-                    fabOpt= XMLfab.alterDigger(dig);
-                    if( fabOpt.isEmpty() )
+                    fabOpt = XMLfab.alterDigger(dig);
+                    if (fabOpt.isEmpty())
                         return "! Failed to get fab";
                     fab = fabOpt.get();
-                }else{
+                } else {
                     fab.addChild("editor").down();
                 }
-                return EditorCmds.addEditor(fab,cmds[2],value);
+                return EditorCmds.addEditor(fab, cmds[2], value);
             }
-            case "addmath","addm" -> {
-                if( cmds.length < 3 )
+            case "addmath", "addm" -> {
+                if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,addmath,operation";
 
                 // fab is pointing at path node, needs to know if last item is a math or not
                 dig.goDown("*").toLastSibling();
                 var opt = dig.current();
                 // Check if it has steps and if the last one isn't a math
-                if( opt.isEmpty() || !opt.get().getTagName().equalsIgnoreCase("math")){
-                    fab.addChild("math",cmds[2]);
-                }else{ // Last one is a math
+                if (opt.isEmpty() || !opt.get().getTagName().equalsIgnoreCase("math")) {
+                    fab.addChild("math", cmds[2]);
+                } else { // Last one is a math
                     fabOpt = XMLfab.alterDigger(dig);
-                    if( fabOpt.isEmpty() )
+                    if (fabOpt.isEmpty())
                         return "! Failed to get fab";
                     fab = fabOpt.get();
                     // fab pointing at the last math
-                    if( dig.goDown("op").isInvalid()){ // check if already contains a rule node
-                         // Correct node but no subnodes... replace current
+                    if (dig.goDown("op").isInvalid()) { // check if already contains a rule node
+                        // Correct node but no subnodes... replace current
                         var cur = opt.get();
                         var content = cur.getTextContent();
                         fab.content("");
-                        fab.addChild("op",content);
+                        fab.addChild("op", content);
                     }
-                    fab.addChild("op",cmds[2]); // and add new
+                    fab.addChild("op", cmds[2]); // and add new
                 }
                 fab.build();
                 return "Math added";
             }
-            case "addcmd","addc" -> {
-                if( cmds.length < 3 )
+            case "addcmd", "addc" -> {
+                if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,addcmd,cmd";
                 // fab is pointing at path node, needs to know if last item is a cmd or not
                 dig.goDown("*").toLastSibling();
                 var opt = dig.current();
                 // Check if it has steps and if the last one isn't a cmd
-                if(opt.isPresent()) {
+                if (opt.isPresent()) {
                     fabOpt = XMLfab.alterDigger(dig);
-                    if( fabOpt.isEmpty() )
+                    if (fabOpt.isEmpty())
                         return "! Failed to get fab";
                     fab = fabOpt.get();
                     var tag = opt.get().getTagName();
-                    if( tag.equalsIgnoreCase("cmd")){
+                    if (tag.equalsIgnoreCase("cmd")) {
                         var old = opt.get().getTextContent();
                         opt.get().setTextContent("");
                         fab.renameParent("cmds")
-                            .addChild("cmd",old);
+                                .addChild("cmd", old);
                     }
                 }
                 fab.addChild("cmd", cmds[2]);
@@ -266,6 +266,7 @@ public class PathCmds {
                 if( cmds.length <4 )
                     return "! Not enough arguments, need atleast 4: pf:pathid,store,cmd,value(s)";
                 // pf:id,store,addi,rolled,4
+
                 return StoreCmds.replyToPathCmd(cmds[0]+","+cmds[2]+","+cmds[3]+(cmds.length>4?","+cmds[4]:""),settingsPath);
             }
         }
