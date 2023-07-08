@@ -314,7 +314,7 @@ public class XMLtools {
 		var list = element.getChildNodes();
 		for( int a=0;a<list.getLength();a++){
 			if(list.item(a) instanceof Element ele) {
-				if (ele.getTagName().equalsIgnoreCase(tag))
+				if (ele.getTagName().equalsIgnoreCase(tag) || tag.equals("*"))
 					return Optional.of(ele);
 			}
 		}
