@@ -216,9 +216,13 @@ public class EditorForward extends AbstractForward{
                 addListReplace(content, deli, index, first);
                 Logger.info(id + "(ef) -> Added listreplace of " + content + " of index " + index);
             }
-            case "indexreplace" -> {
+            case "indexreplace","replaceindex" -> {
                 addIndexReplace(index,deli,content);
                 Logger.info(id + "(ef) -> Added indexreplace with " + content + " at index " + index);
+            }
+            case "removeindex" -> {
+                addIndexReplace(index,deli,"");
+                Logger.info(id + "(ef) -> Added remove at index " + index);
             }
             default -> {
                 Logger.error(id + " -> Unknown type used : '" + edit.getAttribute("type") + "'");
@@ -462,13 +466,27 @@ public class EditorForward extends AbstractForward{
         edits.add(edit);
     }
     public void addIndexReplace( int index, String delimiter, String value ){
-        rulesString.add( new String[]{"","indexreplace","i"+index+"->"+value} );
-        edits.add( input -> {
-            var its =input.split(delimiter);
-            if( its.length > index )
-                its[index]=ValTools.parseRTline(value,its[index],rtvals);
-            return String.join(delimiter,its);
-        } );
+        if( value.isEmpty() ) {
+            rulesString.add( new String[]{"","removeindex","i"+index} );
+            edits.add(input -> {
+                var its = input.split(delimiter);
+                var list = Arrays.asList(its);
+                if( index<list.size()) {
+                    list.remove(index);
+                }else{
+                    Logger.error("Tried to remove index "+index+" from "+input+" but no such thing.");
+                }
+                return String.join(delimiter, list);
+            });
+        }else{
+            rulesString.add( new String[]{"","indexreplace","i"+index+"->"+value} );
+            edits.add(input -> {
+                var its = input.split(delimiter);
+                if (its.length > index)
+                    its[index] = ValTools.parseRTline(value, its[index], rtvals);
+                return String.join(delimiter, its);
+            });
+        }
     }
     /**
      * Add a string to the start of the data
