@@ -263,7 +263,13 @@ public class PathCmds {
                 return "Cmd added";
             }
             case "store" -> {
-                if( cmds.length <4 )
+                if (cmds.length == 3) {
+                    if (cmds[2].equals("?")) { // So request for info?
+                        var res = StoreCmds.replyToCommand("?", false, settingsPath);
+                        return res.replace("store:streamid,", "pf:" + cmds[0] + ",store,");
+                    }
+                }
+                if( cmds.length < 4 )
                     return "! Not enough arguments, need atleast 4: pf:pathid,store,cmd,value(s)";
                 // pf:id,store,addi,rolled,4
 

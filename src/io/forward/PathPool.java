@@ -207,6 +207,10 @@ public class PathPool implements Commandable {
                     }
                     default -> {
                         var res = PathCmds.replyToCommand(cmd, html, settingsPath);
+                        if( res.startsWith("Table added with ")){
+                            var reloadCmd = res.substring( res.indexOf("dbm"));
+                            dQueue.add( Datagram.system(reloadCmd));
+                        }
                         // Reload the path
                         var pEle = XMLfab.withRoot(settingsPath, "dcafs", "paths")
                                 .getChild("path", "id", cmds[0]);

@@ -15,11 +15,16 @@ as the sequence \t. Which is fine for a split, but causes issues if it's used to
 ### Forwards
 - editor, added indexreplace to replace the value at an index after split with something else (like rtval)
   - Using an empty node will remove that index, naming the node 'removeindex' does the same 
-- path, now an error is given if no src is specified
-- path fixed, pf:id,xml,src now actually creates the xml file
-
+- path
+  - now an error is given if no src is specified
+  - fixed, pf:id,xml,src now actually creates the xml file
+  - added pf:id,store,astable,dbid this adds a table to the given db based on the last store in the path
+  
 ### Store
 - Now gives an error in the logs if db write failed.
+
+### Other fixes
+- XMLdigger peekAt("*"), now properly recognises this as the wildcard (so it's pretty much 'any sibling?')
 
 ### Dependencies
 - Updated Netty 4.1.93.Final -> 4.1.94.Final

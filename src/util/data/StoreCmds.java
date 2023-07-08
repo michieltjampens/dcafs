@@ -7,6 +7,7 @@ import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,10 +45,12 @@ public class StoreCmds {
             join.add("").add(cyan+"Alter attributes"+reg)
                     .add(green+" store:streamid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the store")
                     .add(green+" store:streamid,db,dbids:table "+reg+"-> Alter the database/table ")
-                    .add(green+" store:streamid,map,true/false"+reg+"-> Alter the map attribute")
-                    .add(green+" store:streamid,group,newgroup"+reg+"-> Alter the default group used");
+                    .add(green+" store:streamid,map,true/false "+reg+"-> Alter the map attribute")
+                    .add(green+" store:streamid,group,newgroup "+reg+"-> Alter the default group used");
             join.add("").add(cyan+"Alter val attributes"+reg)
                     .add(green+" store:streamid,alterval,valname,unit,value "+reg+"-> Set the unit attribute of the given val");
+            join.add("").add(cyan+"Other"+reg)
+                    .add(green+" store:streamid,astable,dbid "+reg+"-> Create a table in the given db according to the store (wip)");
             return join.toString();
         }else if( id.isEmpty()){
             return "! Empty id is not valid";
@@ -94,9 +97,10 @@ public class StoreCmds {
             request=String.join(",",cmds);
         }
         // At this point 'store' certainly exists in memory and dig is pointing to it
-        return doCmd("store:id,",request,fab,dig);
+        return doCmd("store:id,",request,fab,dig,settingsPath);
     }
     public static String replyToPathCmd(String request, Path xmlPath ){
+
 
         String id = request.split(",")[0];
 
@@ -115,6 +119,19 @@ public class StoreCmds {
             return "! No such path yet "+id;
 
         // At this point, the digger is pointing to the path node for the given id
+        // Now check if it's import or not
+        var imp = dig.attr("import","");
+        if( !imp.isEmpty() ){
+            // It's an import, so the digger should actually be pointing to that?
+            var impPath =Path.of(imp);
+            if( Files.notExists(impPath) ) // Doesn't exist, but should... so inform
+                return "! No such path file "+imp;
+            dig = XMLdigger.goIn(impPath,"dcafs");
+            dig.goDown("path","id",id);
+            if( dig.isInvalid() )
+                return "! No valid path inside "+imp+" yet.";
+        }
+
         // Now determine if the last step in the path is a store...
         boolean startNew;
         dig.peekAt("*");  // Check if something is already in the path
@@ -135,14 +152,13 @@ public class StoreCmds {
             var deli = XMLtools.getStringAttribute(fab.getCurrentElement(),"delimiter",",");
             fab.addChild("store").attr("delimiter",deli);
             fab.down(); // make the store the parent
-            //fab.build();
             dig = XMLdigger.goIn(fab.getCurrentElement()); // reset the digger
-            return doCmd("path:id,store,",request,fab,dig);
+            return doCmd("path:id,store,",request,fab,dig,xmlPath);
         } // Work in existing one at the end
-        return doCmd("path:id,store,",request,fab,dig);
+        return doCmd("path:id,store,",request,fab,dig,xmlPath);
 
     }
-    private static String doCmd( String prefix, String request, XMLfab fab, XMLdigger dig){
+    private static String doCmd( String prefix, String request, XMLfab fab, XMLdigger dig, Path xml){
         var cmds = request.split(",");
         boolean map = dig.attr("map",false);
 
@@ -291,6 +307,51 @@ public class StoreCmds {
                     return "Attribute altered";
                 }
                 return "! No such val found: "+cmds[2];
+            }
+            case "astable" -> {
+                if (cmds.length < 3)
+                    return "! Wrong amount of arguments -> "+prefix+"astable,dbid";
+                // First check if the database actually exists
+                var dbDig = XMLdigger.goIn(xml,"dcafs");
+                dbDig.goDown("databases");
+                if( dbDig.isInvalid()) // Any database?
+                    return "! No databases defined yet.";
+                // Now check for sqlite or server with the id...
+                if( dbDig.peekAt("sqlite","id",cmds[2]).hasValidPeek() ){ // SQLite
+                    dbDig.usePeek();
+                }else if( dbDig.peekAt("server","id",cmds[2]).hasValidPeek() ){// Server
+                    dbDig.usePeek();
+                }else{
+                    return "! No such database yet";
+                }
+                // Now check if the table already exists
+                dbDig.peekAt("table","name",cmds[0]);
+                if( dbDig.hasValidPeek() )
+                    return "! Already a table with that name";
+
+                var dbFabOpt = XMLfab.alterDigger(dbDig); // fab is pointing to the database node
+                if( dbFabOpt.isEmpty() )
+                    return "! Failed to obtain fab from dig";
+                fab = dbFabOpt.get(); // reuse the name
+                // Everything ready for the import
+                // Create the table node
+                fab.addChild("table").attr("name",cmds[0]);
+                // Now copy the childnodes from the store?
+                fab.down();
+                int cols=0;
+                for( var ele : dig.currentSubs()){
+                    fab.addChild( ele.getTagName(),ele.getTextContent());
+                    cols++;
+                }
+                if( cols==0)
+                    return "! Nothing imported, store still empty?";
+                fab.build(); // Make the nodes
+                // Maybe alter the store to refer to the db?
+                var fabOpt = XMLfab.alterDigger(dig);
+                if( fabOpt.isEmpty() )
+                    return "! No valid fab made based on path dig";
+                fabOpt.get().attr("db",cmds[2]+":"+cmds[0]).build();
+                return "Table added with "+cols+" columns, applied with dbm:"+cmds[2]+",reload";
             }
         }
         return "! No such subcommand in "+prefix+" : "+request;
