@@ -441,9 +441,10 @@ public class DatabaseManager implements QueryWriting, Commandable {
             }
         }else{
             var dbOpt = getDatabase(cmds[0]);
-            if( dbOpt.isEmpty() )
-                return "! No such database: "+cmds[0];
-
+            if( dbOpt.isEmpty() ) {
+                Logger.error(cmd+":"+args+" -> Failed because no such database: "+cmds[0]);
+                return "! No such database: " + cmds[0];
+            }
             var db = dbOpt.get();
             if( cmds.length==2 ){
                 return switch (cmds[1]) {
@@ -556,6 +557,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             }
                             if( buildInsert(cmds[0],cmds[2],macro) )
                                 return "Wrote record";
+                            Logger.error("Tried to do store on "+cmds[0]+"->"+cmds[2]+", but failed.");
                             return "! Failed to write record";
                     }
                     case "prep" -> {
