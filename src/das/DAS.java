@@ -658,7 +658,7 @@ public class DAS implements Commandable{
     public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
         if( cmd.equalsIgnoreCase("st"))
             return getStatus(html);
-        return "Unknown commmand";
+        return "Unknown command";
     }
 
     /**

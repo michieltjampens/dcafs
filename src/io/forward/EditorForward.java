@@ -222,7 +222,7 @@ public class EditorForward extends AbstractForward{
             }
             case "removeindex" -> {
                 addIndexReplace(index,deli,"");
-                Logger.info(id + "(ef) -> Added remove at index " + index);
+                Logger.info(id + "(ef) -> Added remove index " + index);
             }
             default -> {
                 Logger.error(id + " -> Unknown type used : '" + edit.getAttribute("type") + "'");

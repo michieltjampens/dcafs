@@ -14,6 +14,7 @@ as the sequence \t. Which is fine for a split, but causes issues if it's used to
 
 ### Forwards
 - editor, added indexreplace to replace the value at an index after split with something else (like rtval)
+  - Using an empty node will remove that index, naming the node 'removeindex' does the same 
 - path, now an error is given if no src is specified
 - path fixed, pf:id,xml,src now actually creates the xml file
 
