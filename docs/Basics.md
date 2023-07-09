@@ -31,8 +31,8 @@ And some important commands:
 4. Extract the content into the dummy folder (fe. settings.xml should be on the same level as the .jar)
 5. From now on, the dcafs version that generates the dummy (diceroller) data will be called "dummy", the other one we'll call "regular"
 6. Start both the regular and dummy dcafs (double-click on their respective .jar files). If your firewall (Windows Defender, ...) ask permissions you'll have to grant them.
-> Note: If you get a JNI error message, this likely means that it's not using the correct version of Java
-7. A `settings.xml` should be generated in the regular folder. 
+> Note: If you get a JNI error message, this likely means an incorrect version of Java
+7. `settings.xml` should be generated in the regular folder. 
 
 > Note: Dummy can be accessed via telnet if needed, it is listening on port 24 instead of the standard 23. Dcafs refuses to start if there is a telnet active on port 23. This prevents duplicate instances running.
 
@@ -42,9 +42,9 @@ The following is the recommended workspace layout for setting up dcafs in genera
 * Have two dcafs telnet instances open
   * Open PuTTY, select telnet as the protocol, use `localhost` as the ip, keep the default port.
      * Localhost means that dcafs is running on your PC/laptop 'locally'.
-     * Type 'dcafs' in the saved session and click 'Save'.
+     * Type 'dcafs' in the 'saved session' box and click 'Save'.
      * Click 'Open', to open the connection.
-  * Once open, right-click on the title bar and select 'Duplicate instance'. The opens a second instance.
+  * Once open, right-click on the title bar and select 'Duplicate instance' to open the second instance.
     * You'll probably want to make this window larger (or adjust it accordingly later)
     * There's no real limit to the amount of instances.
   * The idea is to use one window for showing long term info (like help etc. or data updates) and the other to issue other commands
@@ -53,7 +53,7 @@ The following is the recommended workspace layout for setting up dcafs in genera
      *  Settings -> Preferences -> MISC. -> Update silently (checkbox) -> (click close)
   *  Working with xml is made a lot easier by installing the XML tools plugin
      * Plugins -> Plugin Admin -> search for 'XML tools' (click next) -> click checkbox -> install
-     * This will auto-close nodes (something that's easily forgotten)
+     * This will auto-close xml nodes (something that's easily forgotten)
   * In case you read the markdown docs locally, install the Markdown panel plugin
     * Plugins -> Plugin Admin -> search for 'Markdown panel' (click next) -> click checkbox -> install
     * To enable: 
@@ -63,10 +63,9 @@ The following is the recommended workspace layout for setting up dcafs in genera
 
 ## Interacting with Regular
 
-Connect to the 'regular' dcafs telnet. 
+The earlier workspace layout connected to dcafs. 
 
-As a first step type `help`, which would result in the screen below:
-[[images/helpCmd.jpg]]
+As a first step type `help`(in either screen), which would result in the screen below:
 
 For the sake of consistency, we'll follow the 'recommend workflow' from the help.
 
@@ -75,17 +74,17 @@ For the sake of consistency, we'll follow the 'recommend workflow' from the help
 Congratulations, you found a bug! Or made a typo...  
 If you suspect a bug, check the subfolder 'logs' it should contain a dated errorlog and a single info.log. Both might
 give a hint on what went wrong.
-If this doesn't help, create an [issue](https://github.com/vlizBE/dcafs/issues) about it (and maybe attach those logs)
+If this doesn't help, create an [issue](https://github.com/michieltjampens/dcafs/issues) about it (and maybe attach those logs)
 and I'll look into it.
 
 ## A. Let's take it slow
 
-### 1. Connect to a datasource
-The datasource (our dummy simulating a d20 dice) is a TCP server. Typing `ss:?` in the (second) telnet session will give a lot
+### 1. Connect to a data source
+The data source (our dummy simulating a d20 dice) is a TCP server. Typing `ss:?` in the (second) telnet session will give a lot
 of information, but the only line interesting now is:  
 `ss:addtcp,id,ip:port` which connects to a tcp server.
 
-For this example this becomes `ss:addtcp,dice,localhost:4000`.  
+For this example, this becomes `ss:addtcp,dice,localhost:4000`.   
 You should see _Connected to dice, use `raw:dice` to see incoming data._ as the reply.
 If you try that, hit `enter` to stop it.
 
@@ -138,8 +137,8 @@ What we did so far (starting up dcafs and connecting to a stream) generated a `s
 </dcafs>
 ```
 Some basic information about xml to start:
-* Anything starting with <word> and closing with </word>, is called a node.
-    * The first such node is called the rootnode, so <dcafs> ... </dcafs>
+* Anything starting with <word> and closing with </word>, is called a node (the text in it a 'tag').
+    * The first such node is called the rootnode, so <dcafs> ... </dcafs> (tag is dcafs)
     * A node inside another node is called a childnode, so settings is a childnode of dcafs and so on
 * A node can have content, so like eol has crlf as content
     * A node without content and without childnodes can be closed with just a / fe. <stream id="hello" />
@@ -149,7 +148,7 @@ Some basic information about xml to start:
 Everything in a stream node of the `settings.xml` file (except the ID) can be altered while running and will be applied
 without restart. To reload a stream after changing something in the `streams` node use `ss:id,reload` or in our case `ss:dice,reload`.  
 Or all at once with `ss:reload`.
->**Note:** To connect to other datasources (like serial or modbus), the command `ss:?` shows a list of options.
+>**Note:** To connect to other data sources (like serial or modbus), the command `ss:?` shows a list of options.
 
 ### 2. Look at the received data
 
@@ -193,7 +192,7 @@ So, to define the store,we need to analyse the format of the data.
 The data needs to be split on ':' and then the second element (but counting from 0) is the integer we want.
 
 An overview of all the commands available for store is given with the `store:?` command.  
-Easiest is to open a second instance to display the result of that command.
+(Issue that command in the window that had the ss:? result)
 
 Because all the commands start with the same `store:streamid,` we'll let the interface prepend this with `store:dice,!!`.  
 This tells dcafs that all the following things we'll send need to have everything in front of the '!!' appended.
@@ -204,7 +203,7 @@ Now defining the store:
 * First we'll set the delimiter to ':' with `delimiter,:`
     * The default delimiter is ',', so if that was the case setting it can be skipped
 * Next up is adding an integer `store:streamid,addint,id<,index>`
-    * which we'll call 'rolled' and it's at index 1 so this becomes `addint,rolled,1`
+    * which we'll call 'rolled' and it's at index 1 so this becomes `addint,rolled,1` or `addi,rolled,1`
 
 Now that the store is defined, use `!!` to remove the prepending.
 
@@ -252,8 +251,8 @@ Altering the store to increase the roll with 5: (for now, there's no command to 
 ````xml
 <store delimiter=":">
       <int index="1" name="rolled" unit=""> <!-- because the content will contain the op, the name becomes an attribute -->
-        <op>i0=i0+5</op>
-        <!-- i0 because int receives a single value, i by itself is fine to -->
+        <op>i=i+5</op>
+        <!-- 'i' is the input received -->
         <!-- After parsing to an integer, the value will get 5 added before being stored in the rtval -->
       </int> 
 </store>
