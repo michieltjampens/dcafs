@@ -7,11 +7,13 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.4.2 (wip)
+## 2.4.3 (wip)
+
+## 2.4.2 (09/07/2023)
 - Fixed, filecollector checked if file and parent folder are both new, this wasn't right (was a bad fix of a old bug)
 - Fixed, if a tab is requested as a delimiter for a forward, this wasn't properly converted to an actual tab but stayed
 as the sequence \t. Which is fine for a split, but causes issues if it's used to join afterwards.
-- Fixed, an interval task that outputs to a stream could put that in endless loop reload because it forces succesive
+- Fixed, an interval task that outputs to a stream but fails could put that in endless loop reload because it forces succesive
 reloads. Now the streampool will inform the taskmanagers on the reconnected event.
 
 ### Forwards
