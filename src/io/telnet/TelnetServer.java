@@ -129,7 +129,7 @@ public class TelnetServer implements Commandable {
         if( cmd.equalsIgnoreCase("nb") || args.equalsIgnoreCase("nb")){
             int s = writables.size();
             writables.remove(wr);
-            return (s==writables.size())?"Failed to remove":"Removed from targets";
+            return (s==writables.size())?"! Failed to remove":"Removed from targets";
         }else {
             String reg=html?"":TelnetCodes.TEXT_DEFAULT;
             switch (cmds[0]) {
@@ -144,7 +144,7 @@ public class TelnetServer implements Commandable {
                 }
                 case "error" -> {
                     if (cmds.length < 2)
-                        return "Not enough arguments, telnet:error,message";
+                        return "! Not enough arguments, telnet:error,message";
                     var error = args.substring(6);
                     messages.add(error);
                     writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
@@ -153,7 +153,7 @@ public class TelnetServer implements Commandable {
                 case "broadcast" -> {
                     String send;
                     if (cmds.length < 2)
-                        return "Not enough arguments, telnet:broadcast,level,message or telnet:broadcast,message for info level";
+                        return "! Not enough arguments, telnet:broadcast,level,message or telnet:broadcast,message for info level";
                     switch (cmds[1]) {
                         case "warn" -> send = TelnetCodes.TEXT_ORANGE + args.substring(15);
                         case "error" -> send = TelnetCodes.TEXT_RED + args.substring(16);
@@ -173,7 +173,7 @@ public class TelnetServer implements Commandable {
                 case "write" -> {
                     var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
                     if (wrs.isEmpty())
-                        return "No such id";
+                        return "! No such id";
                     var mes = TelnetCodes.TEXT_MAGENTA + wr.id() + ": " + args.substring(7 + cmds[1].length()) + TelnetCodes.TEXT_DEFAULT;
                     wrs.forEach(w -> w.writeLine(mes));
                     return mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
