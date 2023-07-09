@@ -226,7 +226,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 			if( !stream.isConnectionValid() ){
 				Logger.error("No connection to stream named " + stream);
-				reloadStream(id);
+		//		if( stream.reconnectFuture==null || stream.reconnectFuture.)
+		//			reloadStream(id);
 				return "";
 			}
 			Writable wr = (Writable)stream;
