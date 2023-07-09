@@ -675,7 +675,7 @@ public class TaskManager implements CollectorFuture {
 							return FAILREASON.ERROR;
 						}
 
-						if (!streams.isStreamOk(task.stream, true)) { // Can't send anything if the channel isn't
+						if (!streams.isStreamOk(task.stream, false)) { // Can't send anything if the channel isn't
 																			// alive
 							Logger.tag(TINY_TAG).error("[" + id + "] Wanted to output to a stream (" + task.stream
 									+ "), but channel not alive.");
