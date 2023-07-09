@@ -319,7 +319,11 @@ public class TaskManager implements CollectorFuture {
 			checkIntervalTask(task);
 		}
 	}
-
+	public void recheckStreamInterval( String streamid) {
+		Logger.tag(TINY_TAG).info("[" + id + "] Running check for "+streamid+"...");
+		tasks.stream().filter( task -> task.out==OUTPUT.STREAM && task.stream.equalsIgnoreCase(streamid))
+				.forEach(this::checkIntervalTask);
+	}
 	/**
 	 * Check a task with triggertype interval or retry, if it shouldn't be running
 	 * it's cancelled if it should and isn't it's started
@@ -1281,11 +1285,21 @@ public class TaskManager implements CollectorFuture {
 					}
 				}
 				if( !waitForRestore.isEmpty() ){
-					scheduler.schedule(new ChannelRestoreChecker(), 10, TimeUnit.SECONDS);
+					scheduler.schedule(new ChannelRestoreChecker(), 60, TimeUnit.SECONDS);
 				}
 			}
 		}
 	}
+	public String notifyRestored( String streamid ){
+		if( waitForRestore.remove(streamid) ){
+			Logger.tag(TINY_TAG).info("'"+streamid+"' restored, checking interval tasks");
+			recheckStreamInterval(streamid);
+			return id+" -> Restored interval task if any";
+		}else{
+			return id+ " -> Not using for "+streamid;
+		}
+	}
+
 	@Override
 	public void collectorFinished(String id, String message, Object result) {
 		boolean res= (boolean) result;

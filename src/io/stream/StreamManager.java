@@ -1010,7 +1010,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public boolean notifyActive(String id ) {
 		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
 		issues.addIfNewAndStop(device+".conidle", "TTL passed for "+id);
-
+		dQueue.add( Datagram.system("tm:restored,"+id));
 		getStream(id.toLowerCase()).ifPresent( s -> {
 			s.flagAsActive();
 			scheduler.schedule(new ReaderIdleTimeoutTask(s), s.getReaderIdleTime(), TimeUnit.SECONDS);
@@ -1022,6 +1022,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public void notifyOpened( String id ) {
 		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
 		issues.addIfNewAndStop(device+".conlost", "Connection lost to "+id);
+		dQueue.add( Datagram.system("tm:restored,"+id));
 
 		getStream(id.toLowerCase()).ifPresent( b -> {
 			b.applyTriggeredAction(BaseStream.TRIGGER.HELLO);

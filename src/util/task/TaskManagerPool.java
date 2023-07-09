@@ -286,7 +286,14 @@ public class TaskManagerPool implements Commandable {
                     return tl.getXMLPath().toString();
                 }
                 return "! No such TaskManager: "+cmds[0];
-
+            case "restored":
+                if( tasklists.isEmpty())
+                    return "No taskmanagers active";
+                if( cmds.length != 2)
+                    return "Missing id";
+                 join = new StringJoiner(nl);
+                 tasklists.values().forEach( tm -> join.add(tm.notifyRestored(cmds[1])));
+                 return join.toString();
             default:
                 if( cmds.length==1)
                     return "! No such subcommand in tm: "+cmds[0];
