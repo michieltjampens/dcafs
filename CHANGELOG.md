@@ -11,6 +11,8 @@ Note: Version numbering: x.y.z
 - Fixed, filecollector checked if file and parent folder are both new, this wasn't right (was a bad fix of a old bug)
 - Fixed, if a tab is requested as a delimiter for a forward, this wasn't properly converted to an actual tab but stayed
 as the sequence \t. Which is fine for a split, but causes issues if it's used to join afterwards.
+- Fixed, an interval task that outputs to a stream could put that in endless loop reload because it forces succesive
+reloads. Now the streampool will inform the taskmanagers on the reconnected event.
 
 ### Forwards
 - editor, added indexreplace to replace the value at an index after split with something else (like rtval)
@@ -19,12 +21,17 @@ as the sequence \t. Which is fine for a split, but causes issues if it's used to
   - now an error is given if no src is specified
   - fixed, pf:id,xml,src now actually creates the xml file
   - added pf:id,store,astable,dbid this adds a table to the given db based on the last store in the path
+- filter
+  - fixed, adding minlength and maxlength with cmd didn't work because it expected a _ between the words
   
-### Store
-- Now gives an error in the logs if db write failed.
+### Telnet
+- Replaced the 'Mode changed to' to 'Prefix changed to' because that fits better
+- The prefix is now displayed completely (used to be cut off at : to only show main cmd)
+- Fixed, the prefix wasn't shown for the first cmd after setting it
 
 ### Other fixes
 - XMLdigger peekAt("*"), now properly recognises this as the wildcard (so it's pretty much 'any sibling?')
+- store, now gives an error in the logs if db write failed (fe missing database).
 
 ### Dependencies
 - Updated Netty 4.1.93.Final -> 4.1.94.Final
