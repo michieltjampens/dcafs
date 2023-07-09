@@ -555,6 +555,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 * @return True if ok
 	 */
 	public boolean isStreamOk( String id, boolean reconnect ){
+		if( streams.isEmpty()){
+			Logger.warn("No streams defined yet, so "+id+" doesn't exist");
+			return false;
+		}
+
 		BaseStream base = streams.get(id.toLowerCase());
 		if( base == null){
 			Logger.warn("Couldn't find stream: "+id+" in list of "+streams.size());
@@ -562,7 +567,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		boolean alive = base.isConnectionValid();
 		if( !alive && reconnect )
-			this.reloadStream(id);
+			reloadStream(id);
 		return alive;
 	}
 	/* ***************************************************************************************************** */

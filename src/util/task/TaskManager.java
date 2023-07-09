@@ -1275,13 +1275,13 @@ public class TaskManager implements CollectorFuture {
 		@Override
 		public void run() {
 			if( !waitForRestore.isEmpty() ){				
-				for( String channel : waitForRestore ){					
-					if( streams.isStreamOk(channel,false) ){
-						waitForRestore.remove(channel);						
-						Logger.tag(TINY_TAG).info("'"+channel+"' restored, checking interval tasks");
+				for( String stream : waitForRestore ){
+					if( streams.isStreamOk(stream,false) ){
+						waitForRestore.remove(stream);
+						Logger.tag(TINY_TAG).info("'"+stream+"' restored, checking interval tasks");
 						recheckIntervalTasks();
 					}else{
-						Logger.tag(TINY_TAG).info("'"+channel+"' not restored");
+						Logger.tag(TINY_TAG).info("'"+stream+"' not restored");
 					}
 				}
 				if( !waitForRestore.isEmpty() ){
