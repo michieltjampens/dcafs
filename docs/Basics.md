@@ -529,9 +529,9 @@ But when working with multiple (longer) paths it's recommended to give each path
 This also enables easier reuse.
 
 For this example, the path will be added inside the settings.xml.
-Paths have their own cmds, which are given with the `pf:?` cmd (pf=pathforward).
+Paths have their own cmd's, which are listed with the `pf:?` cmd (pf=pathforward).
 
-So create an empty path with: `pf:addpath,cheat,raw:dice`.
+So create an empty path with: `pf:cheat,new,raw:dice`.
 * cheat is the id of the path
 * raw:dice is the source of the data
 
@@ -541,11 +541,11 @@ The result is an extra node added:
     <path delimiter="," id="cheat" src="raw:dice"/>
   </paths>
 ````
-For now the path is empty, but 'steps' will be added (or childnodes in the xml).
-These are the 'steps' the data takes while being processed in the path.
+For now the path is empty, but 'steps' will be added (as childnodes in the xml).
+These are the 'steps' the data takes while being forwarded in the path.
 
 A path doesn't need a delimiter, but the steps might. That's why a default delimiter can be set
-that will be used by a step if none is specified by it.
+that will be used by a step (if none is specified by it).
 
 Because we'll use the same data as before, the delimiter can be altered to ':': `pf:cheat,delim,:`.
 
@@ -572,15 +572,15 @@ Below is what was added to the settings.xml.
 To write this to the database, a store node needs to be added. Because it's inside a path, the cmds are different.  
 All the cmds start with `pf:pathid,store,`, using !! again `pf:cheat,store,!!`
 * Because a store takes group from the parent id (cheat), alter it `group,dice`
-* To add (to) an int to a store: `addint,name<,index>`, so `addint,rolled,1`.
+* To add an int to a store: `addint,name<,index>`, so `addint,rolled,1`.
     * If a store is the last step in the path, the int will be added to that store
     * If no store is at the end, a new one will be created for it.
 * Then finally, to set the db reference, `db,diceresults:dice`
 * Next `!!`, to go back to normal entry
 
 ````xml
-<store db="diceresults:dice" delimiter=":" group="dice">
-    <int index="1" unit="">rolled</int>
+<store db="diceresults:dice" group="dice">
+    <int i="1" unit="">rolled</int>
 </store>
 ````
 Now when you check the rtvals or the database, results below 10 shouldn't appear anymore. But in the database, it might
@@ -611,8 +611,8 @@ Below is how it will look in xml.
     <path delimiter=":" id="cheat2" src="raw:dice">
         <filter type="maxlength">5</filter>
         <math>i1=i1+5</math>
-        <store db="diceresults:dice" delimiter=":" group="dice">
-            <int index="1" unit="">rolled</int>
+        <store db="diceresults:dice" group="dice">
+            <int i="1" unit="">rolled</int>
         </store>
     </path>
 </paths>
@@ -690,7 +690,8 @@ Or if you want to reduce it to a single line:
 Now remove the last node with `pf:cheat2,delete,last`.
 
 The resplit one is a bit more complex so to give an example of yet another cheat method.  
-According to `help:editor`, the cmd is `pf:pathid,adde,resplit,delimiter|append/remove|format`.
+According to `help:editor`, the cmd is `pf:pathid,adde,resplit,delimiter|append/remove|format`.  
+The reason for using '|' instead of ',' is because it's highly likely that delimiter and format contain ','.
 * The delimiter is the same as before, so `:`.
 * The append/remove refers to what is done with the items that aren't mentioned in the format. If it's split in four but
   the format only refers to two, append will have those appended at the end (using delimiter) and remove will discard.
@@ -716,14 +717,14 @@ So far we made a path for each filter, but it's actually the same when combining
 ````xml
 <path delimiter=":" id="cheat" src="raw:dice">
     <filter type="minlength">6</filter>
-    <store db="diceresults:dice" delimiter=":" group="dice">
+    <store db="diceresults:dice" group="dice">
         <int index="1" unit="">rolled</int>
     </store>
     <!-- because the previous step was a 'store', dcafs assumes you're done with the filtered data -->
     <!-- So the next step will get the discarded data -->
     <filter type="maxlength">5</filter>
     <math>i1=i1+5</math>
-    <store db="diceresults:dice" delimiter=":" group="dice">
+    <store db="diceresults:dice" group="dice">
         <int index="1" unit="">rolled</int>
     </store>
 </path>
@@ -735,8 +736,8 @@ If this is unwanted behaviour, it's possible to override it.
 <paths>
     <path delimiter=":" id="cheat" src="raw:dice">
         <filter id="f1" type="minlength">6</filter> <!--  the filter was given an id -->
-        <store db="diceresults:dice" delimiter=":" group="dice">
-            <int index="1" unit="">rolled</int>
+        <store db="diceresults:dice" group="dice">
+            <int i="1" unit="">rolled</int>
         </store>
         <!-- because the previous step was a 'store', dcafs assumes you're done with the filtered data -->
         <!-- So the next step will get the discarded data -->
