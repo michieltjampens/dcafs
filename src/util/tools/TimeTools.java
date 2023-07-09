@@ -524,6 +524,8 @@ public class TimeTools {
 		boolean round=false;
 		if( unit == TimeUnit.MILLISECONDS ){
 			if( amount < 5000 ){
+                if( amount%1000==0)
+                    return amount/1000+"s";
 				return amount+"ms";
 			}
 			amount /= 1000; //seconds
