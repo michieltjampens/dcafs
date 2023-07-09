@@ -176,11 +176,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		if( d.getData().endsWith("!!") ) {
 			if( d.getData().length()>2) {
 				repeat = d.getData().replace("!!", "");
-				writeString("Mode changed to '"+repeat+"'\r\n>");
+				writeString("Prefix changed to '"+repeat+"'\r\n"+TelnetCodes.TEXT_YELLOW+repeat+">"+default_text_color);
 			}else {
 				d.label(LABEL);
 				repeat="";
-				writeString("Mode cleared!\r\n>");
+				writeString("Prefix cleared!\r\n>");
 			}
 			return;
 		}else if( d.getData().startsWith(">>")) {

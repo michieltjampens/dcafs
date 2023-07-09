@@ -1,6 +1,7 @@
 package worker;
 
 import das.CommandPool;
+import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import java.util.concurrent.*;
 
@@ -96,8 +97,14 @@ public class LabelWorker implements Runnable {
 								String response = reqData.executeCommand(d, false);
 								if( d.getOriginID().startsWith("telnet")&&d.getWritable()!=null){
 									d.getWritable().writeLine(response);
-									String[] split = d.getLabel().split(":");
-									d.getWritable().writeString((split.length >= 2 ? "<" + split[1] : "") + ">");
+									if( d.getLabel().contains(":")){
+										d.getWritable().writeString(
+												TelnetCodes.TEXT_YELLOW + // print the prefix in yellow
+													d.getLabel().substring(d.getLabel().indexOf(":")+1)+ ">"
+													+ TelnetCodes.TEXT_DEFAULT ); // return to default color
+									}else{
+										d.getWritable().writeString( ">");
+									}
 								}
 							});
 						default -> Logger.error("Unknown label: " + label);
