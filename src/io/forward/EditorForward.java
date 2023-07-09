@@ -221,7 +221,7 @@ public class EditorForward extends AbstractForward{
                 Logger.info(id + "(ef) -> Added indexreplace with " + content + " at index " + index);
             }
             case "removeindex" -> {
-                addIndexReplace(index,deli,"");
+                addIndexReplace( NumberUtils.toInt(content,-1),deli,"");
                 Logger.info(id + "(ef) -> Added remove index " + index);
             }
             default -> {
@@ -466,6 +466,10 @@ public class EditorForward extends AbstractForward{
         edits.add(edit);
     }
     public void addIndexReplace( int index, String delimiter, String value ){
+        if( index==-1) {
+            Logger.error("Invalid index given for indexreplace/removeindex");
+            return;
+        }
         if( value.isEmpty() ) {
             rulesString.add( new String[]{"","removeindex","i"+index} );
             if( index==0 ){

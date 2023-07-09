@@ -89,6 +89,14 @@ public class EditorCmds {
                         .build();
                 return "Replacing " + p[0] + " with " + p[1];
             }
+            case "replaceindex","indexreplace" -> {
+                if (value.equals("?"))
+                    return "pf:pathid,addedit,"+type+",index|replacement";
+                addNode( fab, type,value,type+" " + p[0] + " with " + p[1])
+                        .attr("find", p[0])
+                        .build();
+                return "Replacing value at " + p[0] + " with " + p[1];
+            }
             /* Remove stuff */
             case "remove" -> {
                 if (value.equals("?"))
@@ -126,6 +134,13 @@ public class EditorCmds {
                 addNode( fab, type,value,"Cutting "+value+" chars from the end")
                         .build();
                 return "Cutting " + value + " char(s) from the end";
+            }
+            case "removeindex" -> {
+                if (value.equals("?"))
+                    return "pf:pathid,addedit,removeindex:index";
+                addNode( fab, type,value,"Removing item at index "+value)
+                        .build();
+                return "Removing item at index "+value;
             }
             /* Adding stuff */
             case "prepend", "prefix" -> {
