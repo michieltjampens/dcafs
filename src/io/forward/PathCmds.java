@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 
 public class PathCmds {
 
-    private static String[] FILTERS = {"start","nostart","end","items","contain","c_start","c_end","min_length","max_length","nmea","regex","math"};
+    private static String[] FILTERS = {"start","nostart","end","items","contain","c_start","c_end","minlength","maxlength","nmea","regex","math"};
     public static String replyToCommand(String request, boolean html, Path settingsPath ){
 
         var cmds= request.split(",");
