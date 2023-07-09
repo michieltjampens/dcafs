@@ -490,13 +490,15 @@ public class Task implements Comparable<Task>{
 				} else if (future.isDone()) {
 					suffix += " [Done]";
 				} else {
-					var delay = TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
+					var delay = TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
 					suffix += " [Waiting... " + delay + "]";
 				}
 			}
-			case INTERVAL ->
-					suffix = " every " + TimeTools.convertPeriodtoString(interval, unit) + (startDelay <= 0 ? "." : " after initial delay " + TimeTools.convertPeriodtoString(startDelay, unit))
-							+ (future == null ? "." : (" next occurrence in " + TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS)));
+			case INTERVAL -> {
+				long next = future==null?-1:future.getDelay(TimeUnit.MILLISECONDS);
+				suffix = " every " + TimeTools.convertPeriodtoString(interval, unit) + (startDelay <= 0 ? "." : " after initial delay " + TimeTools.convertPeriodtoString(startDelay, unit))
+						+ (next<=0 ? "." : (" next occurrence in " + TimeTools.convertPeriodtoString(next, TimeUnit.MILLISECONDS)));
+			}
 			case KEYWORD -> suffix = " if " + keyword;
 			default -> {
 			}
