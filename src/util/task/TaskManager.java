@@ -1279,7 +1279,7 @@ public class TaskManager implements CollectorFuture {
 					if( streams.isStreamOk(stream,false) ){
 						waitForRestore.remove(stream);
 						Logger.tag(TINY_TAG).info("'"+stream+"' restored, checking interval tasks");
-						recheckIntervalTasks();
+						recheckStreamInterval(stream);
 					}else{
 						Logger.tag(TINY_TAG).info("'"+stream+"' not restored");
 					}
