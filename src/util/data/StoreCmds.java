@@ -150,7 +150,7 @@ public class StoreCmds {
         if( startNew ){
             fab.up(); // dig was pointing to the last step which wasn't a store, go back up
             var deli = XMLtools.getStringAttribute(fab.getCurrentElement(),"delimiter",",");
-            fab.addChild("store").attr("delimiter",deli);
+            fab.addChild("store");//.attr("delimiter",deli);
             fab.down(); // make the store the parent
             dig = XMLdigger.goIn(fab.getCurrentElement()); // reset the digger
             return doCmd("path:id,store,",request,fab,dig,xmlPath);
@@ -181,7 +181,7 @@ public class StoreCmds {
                         fab.attr("key",cmds[3]);
                     }else {
                         if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("index", cmds[3]);
+                            fab.attr("ix", cmds[3]);
                         } else if (!cmds[3].isEmpty()) {
                             fab.attr("group", cmds[3]);
                         }
@@ -203,7 +203,7 @@ public class StoreCmds {
                         fab.attr("key",cmds[3]);
                     }else {
                         if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("index", cmds[3]);
+                            fab.attr("i", cmds[3]);
                         } else if (!cmds[3].isEmpty()) {
                             fab.attr("group", cmds[3]);
                         }
@@ -225,7 +225,7 @@ public class StoreCmds {
                         fab.attr("key",cmds[3]);
                     }else {
                         if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("index", cmds[3]);
+                            fab.attr("i", cmds[3]);
                         } else if (!cmds[3].isEmpty()) {
                             fab.attr("group", cmds[3]);
                         }
@@ -247,7 +247,7 @@ public class StoreCmds {
                         fab.attr("key",cmds[3]);
                     }else {
                         if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("index", cmds[3]);
+                            fab.attr("i", cmds[3]);
                         } else if (!cmds[3].isEmpty()) {
                             fab.attr("group", cmds[3]);
                         }
