@@ -339,8 +339,6 @@ public class TaskManager implements CollectorFuture {
 
 
 		if (task.future == null || task.future.isCancelled()) {
-			Logger.tag(TINY_TAG).info("[" + id + "] Scheduling task: " + task + " with delay/interval/unit:"
-					+ task.startDelay + ";" + task.interval + ";" + task.unit);
 			try {
 				long delay = task.startDelay;
 				if(task.startDelay==-1){ // Figure out the delay
@@ -353,6 +351,8 @@ public class TaskManager implements CollectorFuture {
 							task.interval, task.unit);
 					Logger.info(id + " -> Delay set to " + TimeTools.convertPeriodtoString(delay, TimeUnit.MILLISECONDS) + " for " + task.interval +" "+ task.unit + " interval");
 				}
+				Logger.tag(TINY_TAG).info("[" + id + "] Scheduling task: " + task + " with delay/interval/unit:"
+						+ task.startDelay + ";" + task.interval + ";" + task.unit);
 			} catch (IllegalArgumentException e) {
 				Logger.tag(TINY_TAG).error("Illegal Argument: start=" + task.startDelay + " interval=" + task.interval + " unit="
 						+ task.unit);
