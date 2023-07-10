@@ -1,6 +1,6 @@
 ## Introduction
 
->**Note: Document up to date for 2.4.0**
+>**Note: Document up to date for 2.4.2**
 
 The purpose of this (probably in the end very long) page is to slowly introduce the different components in dcafs and how to use them.
 The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
@@ -213,7 +213,7 @@ The result of those commands can be seen in the settings.xml.
     <eol>crlf</eol>
     <address>localhost:4000</address>
     <store delimiter=":">
-        <int index="1" unit="">rolled</int> <!-- unit isn't used for now -->
+        <int i="1" unit="">rolled</int> <!-- unit isn't used for now -->
     </store>
 </stream>
 ```
@@ -250,7 +250,7 @@ The options are:
 Altering the store to increase the roll with 5: (for now, there's no command to do this)
 ````xml
 <store delimiter=":">
-      <int index="1" name="rolled" unit=""> <!-- because the content will contain the op, the name becomes an attribute -->
+      <int i="1" name="rolled" unit=""> <!-- because the content will contain the op, the name becomes an attribute -->
         <op>i=i+5</op>
         <!-- 'i' is the input received -->
         <!-- After parsing to an integer, the value will get 5 added before being stored in the rtval -->
@@ -260,7 +260,7 @@ Altering the store to increase the roll with 5: (for now, there's no command to 
 Or if the roll was stored as a text instead. The node below replaces some bad rolls with better ones
 ````xml
 <store delimiter=":">
-      <text index="1" name="rolled" unit=""> 
+      <text i="1" name="rolled" unit=""> 
         <parser key="1">11</parser>
         <parser key="2">12</parser>
         <parser key="3">13</parser>
@@ -314,7 +314,7 @@ There are two options to do this, but we'll just show the shortest:
     - utc:timestamp - utc is short for columntype 'utcnow' and the name is timestamp (utcnow is auto-filled)
 - Add the second column with: `dbm:addcol,dice,i:rolled`
     - All the same except it's i for integer (there's also t/text,r/real,ldt=localdt now,dt=datetime)
-> Note: `dbm:addcolumn,diceresults:dice,integer:rolled` would have the same result
+> Note: `dbm:addcolumn,diceresults:dice,int:rolled` would have the same result
 
 This will have altered the sqlite node accordingly:
 ````xml
@@ -323,7 +323,7 @@ This will have altered the sqlite node accordingly:
   <idleclose>-1</idleclose>
   <table name="dice">
     <utcnow>timestamp</utcnow>
-    <integer>rolled</integer>
+    <int>rolled</int>
   </table>
 </sqlite>
 ````
@@ -391,7 +391,7 @@ was actually 'd20s', then the node would have looked like this
   <idleclose>-1</idleclose>
   <table name="d20s"> <!-- d20s instead of dice -->
     <utcnow>timestamp</utcnow>
-    <integer rtval="d20s_rolled">rolled</integer> <!--rtval attribute is shown -->
+    <int rtval="d20s_rolled">rolled</int> <!--rtval attribute is shown -->
   </table>
 </sqlite>
 ````
@@ -441,7 +441,7 @@ To apply it: `dbm:diceresults,reload` (but note that you'll lose the queries in 
         <idleclose>-1</idleclose>
         <table name="dice">
           <utcnow>timestmap</utcnow> 
-          <integer>rolled</integer>  
+          <int>rolled</int>  
         </table>
       </sqlite>
     </databases>
@@ -961,7 +961,7 @@ Anything new/added will be explained in the comments.
                 </table>
                 <table name="d6s"> <!-- Add an extra table for d6s -->
                     <utcnow>timestamp</utcnow>
-                    <integer>rolld6</integer>
+                    <int>rolld6</int>
                 </table>
             </sqlite>
         </databases>
@@ -974,12 +974,12 @@ Anything new/added will be explained in the comments.
         <path id="sort" src="raw:dice" delimiter=":">
             <filter type="start">d20</filter> <!-- redirect the d20's -->
             <store db="diceresults:d20s" group="d20s">
-                <integer index="1">rolld20</integer>
+                <int i="1">rolld20</int>
             </store>
             <!-- From this point, the data discarded by the previous filter is given -->
             <filter type="start">d6</filter> <!-- redirect the d6's -->
             <store db="diceresults:d6s" group="d6s">
-                <integer index="1">rolld6</integer>
+                <int i="1">rolld6</int>
             </store>
         </path>
     </paths>
@@ -1003,8 +1003,8 @@ Simplest option would be to provide the earlier mentioned rtval attribute:
 ````xml
     <table name="rolls">
         <utcnow>timestamp</utcnow>
-        <integer rtval="d20s_rolld20">rolld20</integer>
-        <integer rtval="d6s_rolld6">rolld6</integer> <!-- column added to store the d6 -->
+        <int rtval="d20s_rolld20">rolld20</int>
+        <int rtval="d6s_rolld6">rolld6</int> <!-- column added to store the d6 -->
     </table>
 ````
 This tells dcafs to look for d20s_rolld20 instead of rolls_rolld20 etc.
@@ -1013,8 +1013,8 @@ But suppose the table actually looked like this.
 ````xml
     <table name="rolls">
         <utcnow>timestamp</utcnow>
-        <integer>rolld20</integer>
-        <integer>rolld6</integer> <!-- column added to store the d6 -->
+        <int>rolld20</int>
+        <int>rolld6</int> <!-- column added to store the d6 -->
     </table>
 ````
 
@@ -1023,12 +1023,12 @@ Then the groups of the stores need to be altered.
 <path id="sort" src="raw:dice" delimiter=":">
     <filter type="start">d20</filter> <!-- redirect the d20's -->
     <store db="diceresults:rolls" group="rolls">
-        <integer index="1">rolld20</integer>
+        <int i="1">rolld20</int>
     </store>
     <!-- From this point, the data discarded by the previous filter is given -->
     <filter type="start">d6</filter> <!-- redirect the d6's -->
     <store group="rolls">
-        <integer index="1">rolld6</integer>
+        <int i="1">rolld6</int>
     </store>
 </path>
 ````
@@ -1048,8 +1048,8 @@ pair.
   <address>localhost:4000</address>
   <write when="hello">dicer:rolld6s</write> <!-- We also want to receive d6 results -->
   <store group="rolls" delimiter=":" db="dbresults:rolls" map="true"> 
-        <integer key="d20">rolld20</integer> <!-- First element of the split should be d20 and second element is the value -->
-        <integer key="d6">rolld6</integer>
+        <int key="d20">rolld20</int> <!-- First element of the split should be d20 and second element is the value -->
+        <int key="d6">rolld6</int>
   </store>
 </stream>
 ````
@@ -1062,8 +1062,8 @@ If the corresponding rtval isn't found def will be used instead (if no def is de
 ````xml
 <table name="rolls">
     <timestamp>timestamp</timestamp>
-    <integer>rolld20</integer>
-    <integer def="6">rolld6</integer> <!-- column added to store the d6 -->
+    <int>rolld20</int>
+    <int def="6">rolld6</int> <!-- column added to store the d6 -->
 </table>
 ````
 
