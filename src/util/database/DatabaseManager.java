@@ -531,7 +531,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             var spl = cmds[a].split(":");
                             switch (spl[0]) {
                                 case "timestamp", "ts" -> spl[0] = "timestamp";
-                                case "integer", "int", "i" -> spl[0] = "integer";
+                                case "integer", "int", "i" -> spl[0] = "int";
                                 case "real", "r", "d" -> spl[0] = "real";
                                 case "text", "t" -> spl[0] = "text";
                                 case "utc" -> spl[0] = "utcnow";

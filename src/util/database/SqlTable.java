@@ -763,7 +763,7 @@ public class SqlTable {
                 case 't' -> fab.addChild("timestamp", "columnname");
                 case 'u' -> fab.addChild("utcnow", "columnname");
                 case 'r' -> fab.addChild("real", "columnname");
-                case 'i' -> fab.addChild("integer", "columnname");
+                case 'i' -> fab.addChild("int", "columnname");
                 case 'c' -> fab.addChild("text", "columnname");
                 case 'm' -> fab.addChild("epochmillis", "columnname");
             }
