@@ -12,6 +12,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.math.MathUtils;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 
@@ -200,39 +201,33 @@ public class I2CWorker implements Commandable {
 
         commands.clear();
         for( Path p : xmls ){
-
-            var docOpt = XMLtools.readXML(p);
-            if( docOpt.isEmpty() ){
+            var dig = XMLdigger.goIn(p,"commandset");
+            if( dig.isInvalid() ){
                 return "Syntax error in "+p.getFileName().toString();
             }
-            var doc = docOpt.get();
-            for( Element set : XMLtools.getAllElementsByTag(  doc , "commandset") ){
-            
-                String script = XMLtools.getStringAttribute( set,"script","");
-                String defOut = XMLtools.getStringAttribute( set,"output","dec");
+            var script = dig.attr("script","");
+            var defOut = dig.attr("output","dec");
+            dig.digOut("command").forEach( c -> {
+                I2CCommand cmd = new I2CCommand();
 
-                for( Element command : XMLtools.getChildElements( set, "command")){
-                    I2CCommand cmd = new I2CCommand();
+                String cmdID = c.attr( "id", "");
+                cmd.setOutType( c.attr( "output",defOut) );
+                cmd.setInfo( c.attr( "info", "") );
+                cmd.setReadBits( c.attr( "bits", 8) );
+                cmd.setMsbFirst( c.attr( "msbfirst",true) );
 
-                    String cmdID = XMLtools.getStringAttribute( command, "id", "");
-                    cmd.setOutType( XMLtools.getStringAttribute( command,"output",defOut) );
-                    cmd.setInfo( XMLtools.getStringAttribute( command, "info", "") );
-                    cmd.setReadBits( XMLtools.getIntAttribute( command, "bits", 8) );
-                    cmd.setMsbFirst( XMLtools.getBooleanAttribute( command, "msbfirst",true) );
-
-                    for( Element step : XMLtools.getChildElements(command)){
-                        if( step.getTagName().equalsIgnoreCase("repeat")){
-                            cmd.addRepeat( NumberUtils.toInt(step.getAttribute("cnt")));
-                            for(Element sub : XMLtools.getChildElements(step))
-                                cmd.addStep(sub);
-                            cmd.addReturn();
-                        }else{
-                            cmd.addStep(step);
-                        }
+                dig.peekOut("*").forEach( step -> {
+                    if( step.getTagName().equalsIgnoreCase("repeat")){
+                        cmd.addRepeat( NumberUtils.toInt(step.getAttribute("cnt")));
+                        for(Element sub : XMLtools.getChildElements(step))
+                            cmd.addStep(sub);
+                        cmd.addReturn();
+                    }else{
+                        cmd.addStep(step);
                     }
-                    commands.put( script+":"+cmdID,cmd);
-                }     
-            }
+                });
+                commands.put( script+":"+cmdID,cmd);
+            });
         }
         if( !commands.isEmpty() && executor==null ) // Only need the executor if there are actually commands
             executor = Executors.newSingleThreadExecutor();
