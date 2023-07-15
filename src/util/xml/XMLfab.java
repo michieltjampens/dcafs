@@ -203,7 +203,13 @@ public class XMLfab {
      */
     public XMLfab clearChildren( String tag ){
         if( tag.isEmpty() || tag.equalsIgnoreCase("*")) {
-            XMLtools.removeAllChildren(parent);
+            if( parent ==null){
+                Logger.error("Given node is null");
+            }else {
+                while (parent.hasChildNodes()) {
+                    parent.removeChild(parent.getFirstChild());
+                }
+            }
         }else{
             Optional<Element> child;
             while( (child = getChild(tag)).isPresent() )

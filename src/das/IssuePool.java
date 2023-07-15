@@ -43,28 +43,26 @@ public class IssuePool implements Commandable{
     public boolean readFromXML( ){
         XMLdigger.goIn(settingsPath,"dcafs","issues")
                         .digOut("*").forEach(
-                issueEle ->
+                dig ->
                 {
-                    String id = XMLtools.getStringAttribute(issueEle,"id","");
-                    String message = XMLtools.getStringAttribute(issueEle,"message","");
-                    message = XMLtools.getChildStringValueByTag(issueEle,"message",message);
+                    String id = dig.attr("id","");
+                    String message = dig.attr("message","");
                     var issue = new Issue(id,message);
 
-                    String start = XMLtools.getChildStringValueByTag(issueEle,"test","");
-                    start = XMLtools.getChildStringValueByTag(issueEle,"startif",start);
-                    String stop = XMLtools.getChildStringValueByTag(issueEle,"stopif","");
+                    String start = dig.attr("test","");
+                    start = dig.attr("startif",start);
+                    String stop = dig.attr("stopif","");
                     issue.setTests( start,stop );
 
-                    for( Element cmdEle : XMLtools.getChildElements(issueEle,"cmd")){
-                        String cmd = cmdEle.getTextContent();
+                    dig.peekOut("cmd").forEach( ele -> {
+                        String cmd = ele.getTextContent();
                         cmd = cmd.replace("{message}",issue.getMessage());
-                        switch( cmdEle.getAttribute("when") ){
-                            case "start": issue.atStart(cmd); break;
-                            case "stop": issue.atStop(cmd); break;
-                            default:
-                                Logger.error("Unknown when used: "+cmdEle.getAttribute("when"));
+                        switch (ele.getAttribute("when")) {
+                            case "start" -> issue.atStart(cmd);
+                            case "stop" -> issue.atStop(cmd);
+                            default -> Logger.error("Unknown when used: " + ele.getAttribute("when"));
                         }
-                    }
+                    });
                     issues.put(id,issue);
                 }
         );
@@ -76,8 +74,8 @@ public class IssuePool implements Commandable{
         String nl = html?"<br>":"\r\n";
         Issue issue;
         StringJoiner join;
-        switch( cmds[0] ){
-            case "?":
+        switch (cmds[0]) {
+            case "?" -> {
                 join = new StringJoiner(nl);
                 join.add("issue:? -> Show this message")
                         .add("issue:addblank -> Add a blank issue node with some example issues")
@@ -89,75 +87,86 @@ public class IssuePool implements Commandable{
                         .add("issue:resetall -> Reset the issue counters")
                         .add("issue:listall -> List all id/message pairs of the issues");
                 return join.toString();
-            case "add":
-                if( cmds.length!=3)
+            }
+            case "add" -> {
+                if (cmds.length != 3)
                     return "Not enough parameters: issue:add,issueid,message";
-                addIssue(cmds[1],cmds[2]);
-                XMLfab.withRoot(settingsPath,"dcafs").digRoot("issues")
-                        .addParentToRoot("issue").attr("id",cmds[1]).content(cmds[2]).build();
+                addIssue(cmds[1], cmds[2]);
+                XMLfab.withRoot(settingsPath, "dcafs").digRoot("issues")
+                        .addParentToRoot("issue").attr("id", cmds[1]).content(cmds[2]).build();
                 return "Issue added";
-            case "addblank":
-                XMLfab.withRoot(settingsPath,"dcafs").digRoot("issues")
-                        .addParentToRoot("issue","Issue without commands").attr("id","issueid")
+            }
+            case "addblank" -> {
+                XMLfab.withRoot(settingsPath, "dcafs").digRoot("issues")
+                        .addParentToRoot("issue", "Issue without commands").attr("id", "issueid")
                         .content("Message/info on the issue")
-                        .addParentToRoot("issue","Issue with commands").attr("id","issue2")
-                        .addChild("message","Message/info on the issue")
-                        .addChild("cmd","cmd to run on start").attr("when","start")
-                        .addChild("cmd","cmd to run on stop").attr("when","stop").build();
+                        .addParentToRoot("issue", "Issue with commands").attr("id", "issue2")
+                        .addChild("message", "Message/info on the issue")
+                        .addChild("cmd", "cmd to run on start").attr("when", "start")
+                        .addChild("cmd", "cmd to run on stop").attr("when", "stop").build();
                 return "Blank added to xml";
-            case "trip":
-                if( cmds.length!=2)
+            }
+            case "trip" -> {
+                if (cmds.length != 2)
                     return "Not enough parameters: issue:trip,issueid";
                 issue = issues.get(cmds[1]);
-                if( issue!=null) {
+                if (issue != null) {
                     issue.increment();
-                    return "Increased count of "+cmds[1];
+                    return "Increased count of " + cmds[1];
                 }
-                return "No such issue: "+cmds[1];
-            case "start":
-                if( cmds.length!=2)
+                return "No such issue: " + cmds[1];
+            }
+            case "start" -> {
+                if (cmds.length != 2)
                     return "Not enough parameters: issue:start,issueid";
                 issue = issues.get(cmds[1]);
-                if( issue!=null)
-                    return issue.start()?"Issue started "+cmds[1]:"Issue already active";
-                return "No such issue: "+cmds[1];
-            case "stop":
-                if( cmds.length!=2)
+                if (issue != null)
+                    return issue.start() ? "Issue started " + cmds[1] : "Issue already active";
+                return "No such issue: " + cmds[1];
+            }
+            case "stop" -> {
+                if (cmds.length != 2)
                     return "Not enough parameters: issue:stop,issueid";
                 issue = issues.get(cmds[1]);
-                if( issue!=null){
-                    return issue.stop()?"Issue stopped "+cmds[1]:"Issue not active";
+                if (issue != null) {
+                    return issue.stop() ? "Issue stopped " + cmds[1] : "Issue not active";
                 }
-                return "No such issue: "+cmds[1];
-            case "test":
-                if( cmds.length!=2)
+                return "No such issue: " + cmds[1];
+            }
+            case "test" -> {
+                if (cmds.length != 2)
                     return "Not enough parameters: issue:test,issueid";
                 issue = issues.get(cmds[1]);
-                if( issue!=null){
-                   if(issue.doTest() )
-                       return "Test run";
-                   return "No proper test found";
+                if (issue != null) {
+                    if (issue.doTest())
+                        return "Test run";
+                    return "No proper test found";
                 }
                 return "Invalid issue or no test";
-            case "resetall":
+            }
+            case "resetall" -> {
                 issues.values().forEach(Issue::clear);
                 return "Issues reset";
-            case "listactive":
-                join = new StringJoiner(nl,html?"<b>Active Issues</b><br>":"Active Issues\r\n","");
+            }
+            case "listactive" -> {
+                join = new StringJoiner(nl, html ? "<b>Active Issues</b><br>" : "Active Issues\r\n", "");
                 join.setEmptyValue("None yet.");
-                issues.values().stream().filter( is -> is.active)
-                        .forEach( is->join.add(is.message+" --> total time "+ TimeTools.convertPeriodtoString(is.getTotalActiveTime(), TimeUnit.SECONDS)));
+                issues.values().stream().filter(is -> is.active)
+                        .forEach(is -> join.add(is.message + " --> total time " + TimeTools.convertPeriodtoString(is.getTotalActiveTime(), TimeUnit.SECONDS)));
                 return join.toString();
-            case "listresolved":
-                join = new StringJoiner(nl,(html?"<b>Resolved Issues</b><br>":"Resolved Issues\r\n"),"");
+            }
+            case "listresolved" -> {
+                join = new StringJoiner(nl, (html ? "<b>Resolved Issues</b><br>" : "Resolved Issues\r\n"), "");
                 join.setEmptyValue("None Yet");
-                issues.values().stream().filter( is -> !is.active && is.totalCycles!=0 )
-                        .forEach( is->join.add(is.message+" --> "
-                                + (is.totalCycles==1?"once, ":is.totalCycles+" occurrences, ")+"total time "
+                issues.values().stream().filter(is -> !is.active && is.totalCycles != 0)
+                        .forEach(is -> join.add(is.message + " --> "
+                                + (is.totalCycles == 1 ? "once, " : is.totalCycles + " occurrences, ") + "total time "
                                 + TimeTools.convertPeriodtoString(is.totalActiveTime, TimeUnit.SECONDS)));
                 return join.toString();
-            case "listall":
-                return getReport(html,false);
+            }
+            case "listall" -> {
+                return getReport(html, false);
+            }
         }
         return "! No such subcommand in issues: "+args;
     }

@@ -67,7 +67,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
         fileCollectors.clear();
         FileCollector.createFromXml(
                         XMLdigger.goIn(workPath.resolve("settings.xml"),"dcafs","collectors")
-                                .digOut("file"),
+                                .peekOut("file"),
                         nettyGroup,
                         dQueue,
                         workPath.toString() )

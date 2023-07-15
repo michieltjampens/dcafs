@@ -8,6 +8,7 @@ import org.w3c.dom.Element;
 import util.data.ValTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -89,30 +90,30 @@ public class EditorForward extends AbstractForward{
         parsedOk=true;
         if( !readBasicsFromXml(editor))
             return false;
-        delimiter = XMLtools.getEscapedStringAttribute(editor,"delimiter",delimiter);
+        var dig = XMLdigger.goIn(editor);
+        delimiter = dig.attr("delimiter",delimiter,true);
         edits.clear();
-
-        if( XMLtools.hasChildNodes(editor) ) { // If there are any childnodes
-            XMLtools.getChildElements(editor, "*").forEach(this::processNode);
-        }else { // if not
-            return processNode(editor);
+        if( dig.hasPeek("*")){
+            dig.digOut("*").forEach(this::processNode);
+        }else{
+            processNode(dig);
         }
         return true;
     }
 
-    private boolean processNode( Element edit ){
-        String deli = XMLtools.getEscapedStringAttribute(edit,"delimiter",delimiter);
-        String content = edit.getTextContent();
-        String from = XMLtools.getStringAttribute(edit,"from",",");
-        String error = XMLtools.getStringAttribute(edit,"error","NaN");
-        String find = XMLtools.getStringAttribute(edit,"find","");
+    private boolean processNode( XMLdigger dig ){
+        String deli = dig.attr("delimiter",delimiter);
+        String content = dig.value("");
+        String from = dig.attr("from",",");
+        String error = dig.attr("error","NaN");
+        String find = dig.attr("find","");
         if( find.isEmpty())
-            find = XMLtools.getStringAttribute(edit,"regex","");
-        String leftover = XMLtools.getStringAttribute(edit,"leftover","append");
+            find = dig.attr("regex","");
+        String leftover = dig.attr("leftover","append");
 
-        int index = XMLtools.getIntAttribute(edit,"index",-1);
+        int index = dig.attr("index",-1);
         if( index == -1)
-            index = XMLtools.getIntAttribute(edit,"i",-1);
+            index = dig.attr("i",-1);
 
         if( content == null ){
             Logger.error(id+" -> Missing content in an edit.");
@@ -122,7 +123,7 @@ public class EditorForward extends AbstractForward{
         if( index == -1 ){
             index=0;
         }
-        var type = edit.getTagName().equalsIgnoreCase("edit")?edit.getAttribute("type"):edit.getTagName();
+        var type = dig.attr("type",dig.tagName(""));
 
         switch (type) {
             case "charsplit" -> {
@@ -184,7 +185,7 @@ public class EditorForward extends AbstractForward{
                 Logger.info(id() + " -> Added append of " + content);
             }
             case "insert" -> {
-                addInsert(XMLtools.getIntAttribute(edit, "index", -1), content);
+                addInsert(dig.attr("index", -1), content);
                 Logger.info(id() + " -> Added insert of " + content);
             }
             case "cutstart" -> {
@@ -212,7 +213,7 @@ public class EditorForward extends AbstractForward{
                 Logger.info(id() + " -> Added millis conversion to " + content);
             }
             case "listreplace" -> {
-                int first = XMLtools.getIntAttribute(edit, "first", 0);
+                int first = dig.attr("first", 0);
                 addListReplace(content, deli, index, first);
                 Logger.info(id + "(ef) -> Added listreplace of " + content + " of index " + index);
             }
@@ -225,7 +226,7 @@ public class EditorForward extends AbstractForward{
                 Logger.info(id + "(ef) -> Added remove index " + index);
             }
             default -> {
-                Logger.error(id + " -> Unknown type used : '" + edit.getAttribute("type") + "'");
+                Logger.error(id + " -> Unknown type used : '" + type + "'");
                 parsedOk = false;
                 return false;
             }

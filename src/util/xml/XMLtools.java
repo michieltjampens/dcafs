@@ -6,7 +6,6 @@ import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 import util.tools.Tools;
 
-import javax.swing.text.html.Option;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -124,47 +123,15 @@ public class XMLtools {
 		}
 		return "";
 	}
-
-	/**
-	 * Get the xml Document from a resource inside a jar
-	 * @param origin The class origin to pinpoint the jar
-	 * @param path The path inside the jar
-	 * @return The document if found or empty optional is not
-	 */
-	public static Optional<Document> readResourceXML( Class origin,String path ){
-
-		if( !path.startsWith("/"))
-			path = "/"+path;
-
-		InputStream is = origin.getResourceAsStream(path);
-		if( is==null){
-			Logger.error("File not found "+path);
-			return Optional.empty();
-		}
-
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-
-		try {
-			Document doc = dbf.newDocumentBuilder().parse(is);
-			doc.getDocumentElement().normalize();
-			return Optional.of(doc);
-		} catch (ParserConfigurationException | SAXException | IOException | java.nio.file.InvalidPathException e) {
-			Logger.error("Error occurred while reading " + path, true);
-			Logger.error(e);
-			return Optional.empty();
-		}
-	}
 	/**
 	 * Write the content of a Document to an xml file
 	 *
 	 * @param xmlFile The file to write to
 	 * @param xmlDoc  The content to write in the file
 	 */
-	public static boolean writeXML(Path xmlFile, Document xmlDoc) {
+	public static void writeXML(Path xmlFile, Document xmlDoc) {
 		if( xmlDoc == null )
-			return false;
+			return;
 
 		try ( var fos = new FileOutputStream(xmlFile.toFile());
 			  var writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8)
@@ -183,11 +150,9 @@ public class XMLtools {
 			xformer.setOutputProperty(OutputKeys.INDENT, "yes");
 			xformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 			xformer.transform(source, result);
-			return true;
 		} catch (Exception e) {
 			Logger.error("Failed writing XML: "+xmlFile.toString());
 			Logger.error(e);
-			return false;
 		}
 	}
 	/**
@@ -196,45 +161,10 @@ public class XMLtools {
 	 * @param xmlDoc The updated document
 	 */
 	public static void updateXML(Document xmlDoc ){
-		getDocPath(xmlDoc).ifPresent( d -> XMLtools.writeXML(d,xmlDoc));
-	}
-	/**
-	 * Reload the given xmlDoc based on the internal URI
-	 * @param xmlDoc The doc to reload
-	 * @return The reloaded document
-	 */
-	public static Optional<Document> reloadXML( Document xmlDoc ){
-		if( xmlDoc.getDocumentURI() == null) {
-			Logger.error("The given document doesn't contain a valid URI");
-			return Optional.empty();
-		}
-		return getDocPath(xmlDoc).flatMap( p -> XMLtools.readXML(p));
-	}
-
-	/**
-	 * Get the parent path of this xml document
-	 * @param xmlDoc The document
-	 * @return The path of the document
-	 */
-	public static Optional<Path> getXMLparent(Document xmlDoc){
-		if( xmlDoc.getDocumentURI() == null) {
-			Logger.error("The given xmldoc doesn't contain a valid uri");
-			return Optional.empty();
-		}
-		return getDocPath(xmlDoc).map(Path::getParent);
-	}
-
-	/**
-	 * Get the path to the given doc
-	 * @param xmlDoc The doc to get the path from
-	 * @return An optional of the path
-	 */
-	public static Optional<Path> getDocPath(Document xmlDoc){
 		try {
-			return Optional.of(Path.of(new URL(xmlDoc.getDocumentURI()).toURI()));
+			XMLtools.writeXML(Path.of( new URL(xmlDoc.getDocumentURI()).toURI() ), xmlDoc);
 		} catch (URISyntaxException | MalformedURLException e) {
 			Logger.error(e);
-			return Optional.empty();
 		}
 	}
 	/* *********************************  S E A R C H I N G *******************************************************/
@@ -289,15 +219,6 @@ public class XMLtools {
 	public static Optional<Element> getFirstElementByTag(Path xmlPath, String tag) {
 		return XMLtools.readXML(xmlPath).flatMap(d -> getFirstElementByTag(d, tag));
 	}
-	/**
-	 * Check the given document if it contains a node with the given tag
-	 * @param xml The xml doc
-	 * @param tag The node tag to look for
-	 * @return True if found
-	 */
-	public static boolean hasElementByTag(Document xml, String tag) {
-		return getFirstElementByTag(xml,tag).isPresent();
-	}
 	/* ************************************** Child ******************************************************* */
 	/**
 	 * Retrieve the first child from an element with a specific tag
@@ -351,58 +272,7 @@ public class XMLtools {
 	public static int getChildIntValueByTag(Element element, String tag, int def) {
 		return getFirstChildByTag(element, tag).map(e-> NumberUtils.toInt(e.getTextContent(),def)).orElse(def);
 	}
-
-	/**
-	 * Get the double value of a node from the given element with the given name
-	 * 
-	 * @param element The element to look in
-	 * @param tag     The name of the node
-	 * @param def     The value to return if the node wasn't found
-	 * @return The requested data or the def value if not found
-	 */
-	public static double getChildDoubleValueByTag(Element element, String tag, double def) {
-		return getFirstChildByTag(element, tag).map(e-> NumberUtils.toDouble(e.getTextContent().replace(",","."),def)).orElse(def);
-	}
-	/**
-	 * 
-	 * Get the boolean value of a node from the given element with the given name.
-	 * yes,true and 1 -> true
-	 * no,false and 0 -> false
-	 * 
-	 * @param element The element to look in
-	 * @param tag     The name of the node
-	 * @param def     The value to return if the node wasn't found
-	 * @return The requested data or the def value if not found
-	 */
-	public static boolean getChildBooleanValueByTag( Element element, String tag, boolean def){
-		// Get the first child with the tag, if found convert the content if any otherwise return def
-		return getFirstChildByTag(element, tag).map( child -> Tools.parseBool(child.getTextContent(),def)).orElse(def);
-	}
-	/**
-	 * Get the path value of a node from the given element with the given tag, returning a default value if none found
-	 *
-	 * @param element The element to look in
-	 * @param tag     The name of the node
-	 * @param defPath The value to return if the node wasn't found
-	 * @return The requested path or an empty optional is something went wrong
-	 */
-	public static Optional<Path> getChildPathValueByTag(Element element, String tag, String defPath ) {
-		var childOpt = getFirstChildByTag(element, tag.toLowerCase());
-		if (childOpt.isEmpty() )
-			return Optional.empty();
-
-		String p = childOpt.get().getTextContent().replace("/", File.separator); // Make sure to use correct slashes
-		p=p.replace("\\",File.separator);
-		if( p.isEmpty() )
-			return Optional.empty();
-
-		var path = Path.of(p);
-		if( path.isAbsolute() || defPath.isEmpty())
-			return Optional.of(path);
-
-		return Optional.of( Path.of(defPath).resolve(path) );
-	}
-	/**
+		/**
 	 * Get all the child-elements of an element with the given name
 	 * 
 	 * @param element The element to look in to
@@ -522,23 +392,6 @@ public class XMLtools {
 		return def;
 	}
 	/**
-	 * Get the attributes of an element and cast to double, return def if failed
-	 * @param parent The element that holds the attribute
-	 * @param attribute The tag of the attribute
-	 * @param def The value to return if cast/parse fails
-	 * @return The content if ok or def if failed
-	 */
-	public static double getDoubleAttribute(Element parent, String attribute, double def) {
-		if( parent==null){
-			Logger.error("Given parent is null while looking for "+attribute);
-			return def;
-		}
-
-		if( parent.hasAttribute(attribute))
-			return NumberUtils.toDouble(parent.getAttribute(attribute).replace(",","."), def);
-		return def;
-	}
-	/**
 	 * Get the attributes of an element and convert to boolean, return def if failed
 	 * 
 	 * @param parent The element that holds the attribute
@@ -554,39 +407,8 @@ public class XMLtools {
 		return Tools.parseBool(parent.getAttribute(attribute),def);
 	}
 
-	/**
-	 * Get a list of all the attributes in the given element
-	 * @param ele The element to look into
-	 * @return A list of arrays containing nodename,value pairs
-	 */
-	public static ArrayList<String[]> getAttributes(Element ele){
-		ArrayList<String[]> list = new ArrayList<>();
-
-		var attrs = ele.getAttributes();
-		for( int a=0;a<attrs.getLength();a++){
-			String val = attrs.item(a).getNodeValue();
-			String att = attrs.item(a).getNodeName();
-			list.add(new String[]{att,val});
-		}
-		return list;
-	}
 	/* **************************** E L E M E N T   V A L U E S ***************************/
 	/* ********************************* W R I T I N G **************************************/
-	/**
-	 * Remove all children of a node
-	 *
-	 * @param node The node to remove the children off
-	 */
-	public static void removeAllChildren(Node node) {
-
-		if( node ==null){
-			Logger.error("Given node is null");
-			return;
-		}
-		while (node.hasChildNodes()){
-			node.removeChild(node.getFirstChild());
-		}
-	}
 	/**
 	 * Do a clean of the xml document according to xpathfactory
 	 *

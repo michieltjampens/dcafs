@@ -211,7 +211,7 @@ public class FileCollector extends AbstractCollector{
     }
 
     /**
-     * Set the maximum size th file can become, and whether or not to zip it after reaching this point
+     * Set the maximum size th file can become, and whether to zip it after reaching this point
      * @param size The size of the file, allows kb,mb,gb extension (fe. 15mb)
      * @param zip If true, this file gets zipped
      */

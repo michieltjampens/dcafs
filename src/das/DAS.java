@@ -85,7 +85,8 @@ public class DAS implements Commandable{
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and streampool can share it
 
     public DAS() {
-        // Determin working dir base on the classpath
+        // Note: Don't use tinylog yet!
+        // Determine working dir base on the classpath
         var classPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
         classPath = classPath.replace("%20"," ");
         System.out.println("Checking for workpath at : "+classPath);
@@ -112,6 +113,8 @@ public class DAS implements Commandable{
         }
         settingsPath = Path.of(workPath, "settings.xml");
 
+        /* *************************** FROM HERE ON TINYLOG CAN BE USED ****************************************** */
+
         if (Files.notExists(settingsPath)) { // Check if the settings.xml exists
             Logger.warn("No Settings.xml file found, creating new one. Searched path: "
                     + settingsPath.toFile().getAbsolutePath());
@@ -119,20 +122,12 @@ public class DAS implements Commandable{
         }
         Logger.info("Used settingspath: "+settingsPath);
 
-        var docOpt = XMLtools.readXML(settingsPath); // Try to read the settings.xml
-
-        if( docOpt.isEmpty()){ // Check if the reading resulted in a proper xml
+        if( !XMLtools.checkXML(settingsPath).isEmpty() ){// Check if the reading resulted in a proper xml
             Logger.error("Issue in current settings.xml, aborting: " + settingsPath);
-            addTelnetServer(); // Even if settings.xml is bad, start the telnet server anyway so inform user
+            addTelnetServer(); // Even if settings.xml is bad, start the telnet server anyway to inform user
             return;
         }
-        var settingsDoc= docOpt.get();
-
-        XMLtools.getFirstElementByTag(settingsDoc, "settings").ifPresent( ele ->
-                {
-                    System.setProperty("tinylog.directory", XMLtools.getChildStringValueByTag(ele,"tinylog",workPath) );
-        });
-
+        var digger = XMLdigger.goIn(settingsPath,"dcafs");
         Logger.info("Program booting");
 
         /* CommandPool */
@@ -150,20 +145,23 @@ public class DAS implements Commandable{
         dbManager = new DatabaseManager(workPath,rtvals);
         addCommandable(dbManager,"dbm","myd");
 
-        /* TransServer */
-        addTransServer(-1); // Check if trans is in xml and if so, set it up
-
-        /* MQTT worker */
-        addMqttPool();
-
         /* Label Worker */
         addLabelWorker();
 
         /* StreamManager */
         addStreamManager();
 
+        /* TransServer */
+        if( digger.hasPeek("transserver"))
+            addTransServer(); // Check if trans is in xml and if so, set it up
+
+        /* MQTT worker */
+        if( digger.hasPeek("mqtt"))
+            addMqttPool();
+
         /* I2C */
-        addI2CWorker();
+        if( digger.hasPeek("i2c"))
+            addI2CWorker();
 
         /* Forwards */
         PathPool pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup);
@@ -175,11 +173,13 @@ public class DAS implements Commandable{
         addCommandable(waypoints,"wpts");
 
         /* Collectors */
-        collectorPool = new CollectorPool(settingsPath.getParent(),dQueue,nettyGroup,rtvals);
-        addCommandable(collectorPool,"fc");
-        addCommandable(collectorPool,"mc");
-
-        var digger = XMLdigger.goIn(settingsPath,"dcafs");
+        if( digger.hasPeek("collectors")) {
+            collectorPool = new CollectorPool(settingsPath.getParent(), dQueue, nettyGroup, rtvals);
+            addCommandable(collectorPool, "fc");
+            addCommandable(collectorPool, "mc");
+        }else{
+            Logger.info("No collectors defined in xml");
+        }
         /* EmailWorker */
         if( digger.hasPeek("email") ) {
             addEmailWorker();
@@ -285,14 +285,6 @@ public class DAS implements Commandable{
         taskManagerPool.readFromXML();
         addCommandable(taskManagerPool,"tm");
     }
-
-    /**
-     * Get the taskmanagerpool, only used if dcafs is used as a library
-     * @return The current taskmanagerpool
-     */
-    public TaskManagerPool getTaskManagerPool(){
-        return taskManagerPool;
-    }
     /* ******************************************  S T R E A M P O O L ***********************************************/
     /**
      * Adds the streammanager that will manage the various streams (tcp,udp,serial)
@@ -307,18 +299,6 @@ public class DAS implements Commandable{
 
        streamManager.readSettingsFromXML(settingsPath);
     }
-    /**
-     * Get the streammanager, only used if dcafs is used as a library
-     * @return The current streammanager
-     */
-    public StreamManager getStreamManager(){
-        return streamManager;
-    }
-    /* ***************************************** D B M  ******************************************************** */
-    public DatabaseManager getDatabaseManager(){
-        return dbManager;
-    }
-
     /* *************************************  L A B E L W O R K E R **********************************************/
     /**
      * Adds the LabelWorker that will process the datagrams
@@ -327,15 +307,6 @@ public class DAS implements Commandable{
         if (this.labelWorker == null)
             labelWorker = new LabelWorker(dQueue);
         labelWorker.setCommandReq(commandPool);
-    }
-
-    /**
-     * Get the queue that the labelworker processes
-     * @return the queue
-     */
-    public BlockingQueue<Datagram> getDataQueue() {
-        addLabelWorker();
-        return dQueue;
     }
     /* ***************************************** M Q T T ******************************************************** */
 
@@ -349,14 +320,11 @@ public class DAS implements Commandable{
     /* *****************************************  T R A N S S E R V E R ***************************************** */
     /**
      * Adds the TransServer listening on the given port
-     * 
-     * @param port The port the server will be listening on
      */
-    private void addTransServer(int port) {
+    private void addTransServer() {
 
         Logger.info("Adding TransServer");
         trans = new TcpServer(settingsPath, nettyGroup);
-        trans.setServerPort(port);
         trans.setDataQueue(dQueue); // Uses the same queue for datagrams like streammanager etc
 
         addCommandable(trans,"ts","trans"); // Add ts/trans commands to commandpool
@@ -368,27 +336,17 @@ public class DAS implements Commandable{
      */
     private void addEmailWorker() {
         Logger.info("Adding EmailWorker");
-        addLabelWorker();
         emailWorker = new EmailWorker(settingsPath, dQueue);
         addCommandable(emailWorker,"email");
         commandPool.setEmailSender(emailWorker);
     }
-
-    /**
-     * Get the limited interface of the emailworker that allows sending emails, only used if dcafs is used as lib
-      * @return The limited emailworker interface for sending emails
-     */
-    public EmailSending getEmailSender(){
-        return emailWorker;
-    }
-
     /* ***************************************  T E L N E T S E R V E R ******************************************/
     /**
      * Create the telnet server
      */
     private void addTelnetServer() {
         if( bootOK) {
-            telnet = new TelnetServer(this.getDataQueue(), settingsPath, nettyGroup);
+            telnet = new TelnetServer(dQueue, settingsPath, nettyGroup);
             addCommandable(telnet, "telnet", "nb");
         }else{
             telnet = new TelnetServer(null, settingsPath, nettyGroup);
@@ -411,15 +369,6 @@ public class DAS implements Commandable{
         i2cWorker = new I2CWorker(settingsPath);
         addCommandable(i2cWorker,"i2c","i_c");
         addCommandable(i2cWorker,"stop");
-    }
-    /* ******************************** R E A L T I M E  D A T A  ******************************************* */
-    // Note: these are used when dcafs is used as a library
-    public IssuePool getIssuePool(){ return rtvals.getIssuePool();}
-    public Waypoints getWaypoints(){
-        return waypoints;
-    }
-    public RealtimeValues getRealtimeValues(){
-        return rtvals;
     }
     /* ******************************** * S H U T D O W N S T U F F ***************************************** */
     /**

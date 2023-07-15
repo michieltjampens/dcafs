@@ -19,6 +19,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -43,7 +44,6 @@ public class TcpServer implements StreamListener, Commandable {
 	private final EventLoopGroup workerGroup;
 
 	private final ArrayList<TransHandler> clients = new ArrayList<>();
-	static final String XML_PARENT_TAG = "transserver";
 	private final HashMap<String,ArrayList<Writable>> targets = new HashMap<>();
 
 	private boolean active;
@@ -51,8 +51,7 @@ public class TcpServer implements StreamListener, Commandable {
 	public TcpServer(Path xml, EventLoopGroup workerGroup) {
 		this.workerGroup = workerGroup;
 		xmlPath = xml;
-
-		active = readSettingsFromXML( XMLtools.readXML(xmlPath).get(), false);
+		active = readSettingsFromXML();
 	}
 	public boolean isActive(){
 		return active;
@@ -64,7 +63,7 @@ public class TcpServer implements StreamListener, Commandable {
 	 * @param port The new port to use
 	 */
 	public boolean setServerPort(int port) {
-		if (this.serverPort != port && port != -1) {
+		if (serverPort != port && port != -1) {
 			Logger.info("New port isn't the same as current one. current=" + this.serverPort + " req=" + port);
 			serverPort = port;
 			alterXML();
@@ -84,26 +83,24 @@ public class TcpServer implements StreamListener, Commandable {
 
 	/**
 	 * Read the settings related to the transserver from the settings.xml
-	 * @param xml The document to read from
-	 * @param run Whether to run the transserver once settings are read
 	 * @return True if no hiccups
 	 */
-	public boolean readSettingsFromXML(Document xml, boolean run) {
-		var tranOpt = XMLtools.getFirstElementByTag(xml, XML_PARENT_TAG);
-		if (tranOpt.isPresent()) {
-			var tran = tranOpt.get();
+	private boolean readSettingsFromXML( ) {
+		var dig = XMLdigger.goIn(xmlPath,"dcafs","transserver");
+
+		if (dig.isValid()) {
 			Logger.info("Settings for the TransServer found.");
-			serverPort = XMLtools.getIntAttribute(tran, "port", -1);
+			serverPort = dig.attr( "port", -1);
 			if (serverPort == -1)
-				serverPort = XMLtools.getChildIntValueByTag(tran, "port", 5542);
+				serverPort = dig.peekAt("port").value(5542);
 			defaults.clear();
-			for( Element client : XMLtools.getAllElementsByTag(xml, "default")){
-				TransDefault td = new TransDefault(client.getAttribute("id"),client.getAttribute("address"));
-				td.setLabel( XMLtools.getStringAttribute(client,"label","system"));
-				XMLtools.getChildElements(client, "cmd").forEach( req -> td.addCommand( req.getTextContent() ) );
+			for( var client : dig.digOut("default")){
+				TransDefault td = new TransDefault(client.attr("id",""),client.attr("address",""));
+				td.setLabel( client.attr("label","system"));
+				dig.peekOut("cmd").forEach(req -> td.addCommand( req.getTextContent() ));
 				defaults.put(td.id, td );
 			}
-			if (run)
+			if( !active )
 				run();
 			return true;
 		}
@@ -113,7 +110,7 @@ public class TcpServer implements StreamListener, Commandable {
 	public void alterXML() {
 		Logger.warn("Altering the XML");
 
-		XMLfab fab = XMLfab.withRoot(xmlPath, "settings", XML_PARENT_TAG).clearChildren().attr("port", this.serverPort);
+		XMLfab fab = XMLfab.withRoot(xmlPath, "settings", "transserver").clearChildren().attr("port", this.serverPort);
 
 		// Adding the clients
 		for (Entry<String,TransDefault> cip : defaults.entrySet()) {
@@ -125,11 +122,11 @@ public class TcpServer implements StreamListener, Commandable {
 
 	/* ********************************************************************************************************** **/
 	public void run() {
-		run(this.serverPort);
+		run(serverPort);
 	}
 
 	private void run(int port) {
-		this.serverPort = port;
+		serverPort = port;
 		// Netty
 		try {
 			ServerBootstrap b = new ServerBootstrap();
@@ -138,10 +135,7 @@ public class TcpServer implements StreamListener, Commandable {
 						@Override
 						public void initChannel(SocketChannel ch){
 							ch.pipeline().addLast("framer",
-									new DelimiterBasedFrameDecoder(512, true, Delimiters.lineDelimiter())); // Max 512
-																											// char,
-																											// strip
-																											// delimiter
+									new DelimiterBasedFrameDecoder(512, true, Delimiters.lineDelimiter()));
 							ch.pipeline().addLast("decoder", new ByteArrayDecoder());
 							ch.pipeline().addLast("encoder", new ByteArrayEncoder());
 
@@ -259,7 +253,7 @@ public class TcpServer implements StreamListener, Commandable {
 	 * @param wr The writable that issued the command
 	 */
 	public void storeHandler( TransHandler handler, Writable wr ){
-		XMLfab fab = XMLfab.withRoot(xmlPath, "settings", XML_PARENT_TAG);
+		XMLfab fab = XMLfab.withRoot(xmlPath, "settings", "transserver");
 
 		fab.selectOrAddChildAsParent("default","id",handler.id());
 		fab.attr("address",handler.getIP());
@@ -314,7 +308,6 @@ public class TcpServer implements StreamListener, Commandable {
 		if( !active ) {
 			if(cmds[0].equalsIgnoreCase("start")&&cmds.length==2){
 				if( setServerPort(NumberUtils.toInt(cmds[1],-1)) )
-
 					return "Server started on "+cmds[1];
 				return "Invalid port number given.";
 			}else{
@@ -367,7 +360,7 @@ public class TcpServer implements StreamListener, Commandable {
 				defaults.forEach( (id,val) -> lines.add(id+" -> "+val.ip+" => "+String.join(",",val.commands)));
 				return lines.toString();
 			case "reload":
-				if( readSettingsFromXML(XMLtools.readXML(xmlPath).get(),false) )
+				if( readSettingsFromXML() )
 					return "Defaults reloaded";
 				return "Reload failed";
 			case "alter":

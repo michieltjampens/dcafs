@@ -238,13 +238,12 @@ public class XMLdigger {
      * @param tag The tag to dig for
      * @return The elements found or an empty list if none or invalid digger
      */
-    public ArrayList<Element> digOut( String tag ){
-        var temp = new ArrayList<Element>();
+    public ArrayList<XMLdigger> digOut( String tag ){
+        var temp = new ArrayList<XMLdigger>();
         if( !valid )
             return temp;
         digDown(tag);
-        temp.addAll(siblings);
-        siblings.clear();
+        siblings.forEach( x->temp.add(XMLdigger.goIn(x)));
         return temp;
     }
     /**
@@ -341,6 +340,12 @@ public class XMLdigger {
             return last.getAttribute(tag);
         }
         return def;
+    }
+    public String attr( String tag, String def, boolean esc){
+        var val = attr(tag,def);
+        if(esc)
+            val=Tools.fromEscapedStringToBytes(val);
+        return val;
     }
     public Optional<Path> attr( String tag, Path def, Path workpath){
         if( !valid ) { // If the digger isn't valid
