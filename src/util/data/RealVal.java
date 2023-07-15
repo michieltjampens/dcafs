@@ -7,6 +7,7 @@ import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -81,14 +82,16 @@ public class RealVal extends AbstractVal implements NumericVal{
      */
     public RealVal alter( Element rtval ){
         reset();
-        unit(XMLtools.getStringAttribute(rtval, "unit", ""));
-        scale(XMLtools.getIntAttribute(rtval, "scale", -1));
-        defValue(XMLtools.getDoubleAttribute(rtval, "default", defVal));
-        defValue(XMLtools.getDoubleAttribute(rtval, "def", defVal));
+
+        var dig = XMLdigger.goIn(rtval);
+        unit( dig.attr("unit", "") );
+        scale( dig.attr("scale", -1)) ;
+        defValue( dig.attr("default", defVal) );
+        defValue( dig.attr("def", defVal) );
 
         value=defVal; // Set the current value to the default
 
-        String options = XMLtools.getStringAttribute(rtval, "options", "");
+        String options = dig.attr("options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
             switch (arg[0]) {
@@ -100,18 +103,18 @@ public class RealVal extends AbstractVal implements NumericVal{
                 case "abs" -> enableAbs();
             }
         }
-        for (Element trigCmd : XMLtools.getChildElements(rtval, "cmd")) {
+        dig.peekOut("cmd").forEach( trigCmd -> {
             String trig = trigCmd.getAttribute("when");
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
-        }
-        String op = XMLtools.getChildStringValueByTag(rtval,"op","");
-        if( !op.isEmpty())
-            setParseOp(op);
+        });
+        setParseOp(dig.attr("op",""));
 
         return this;
     }
     public void setParseOp( String op ){
+        if( op.isEmpty())
+            return;
         parseOp = MathFab.newFormula(op);
         if( !parseOp.isValid() ){
             Logger.error(id() +" -> Tried to apply an invalid op for parsing "+op);

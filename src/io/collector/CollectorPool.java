@@ -10,6 +10,7 @@ import util.data.RealtimeValues;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
@@ -65,7 +66,8 @@ public class CollectorPool implements Commandable, CollectorFuture {
     private void loadFileCollectors(){
         fileCollectors.clear();
         FileCollector.createFromXml(
-                XMLfab.getRootChildren(workPath.resolve("settings.xml"),"dcafs","collectors","file"),
+                        XMLdigger.goIn(workPath.resolve("settings.xml"),"dcafs","collectors")
+                                .digOut("file"),
                         nettyGroup,
                         dQueue,
                         workPath.toString() )

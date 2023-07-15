@@ -75,26 +75,27 @@ public abstract class BaseStream {
             return false;
         }
 
-        id = XMLtools.getStringAttribute( stream, "id", ""); 
-        label = XMLtools.getChildStringValueByTag( stream, "label", "");    // The label associated fe. nmea,sbe38 etc
-        priority = XMLtools.getChildIntValueByTag( stream, "priority", 1);	 // Determine priority of the sensor
-        
-        log = XMLtools.getChildStringValueByTag(stream, "log", "yes").equals("yes");
+        var dig = XMLdigger.goIn(stream);
+
+        id = dig.attr("id", "");
+        label = dig.attr( "label", "");    // The label associated fe. nmea,sbe38 etc
+        priority = dig.attr("priority", 1);	 // Determine priority of the sensor
+        log = dig.attr("log", true);
 
         // delimiter
-        String deli = XMLtools.getChildStringValueByTag( stream, "eol", "\r\n");
+        String deli = dig.attr("eol", "\r\n");
         if( deli.equalsIgnoreCase("\\0"))
             deli="";// Delimiter used, default carriage return + line feed
         eol = Tools.getDelimiterString(deli);
 
         // ttl
-		String ttlString = XMLtools.getChildStringValueByTag( stream, "ttl", "-1");
+		String ttlString = dig.attr("ttl", "-1");
         if( !ttlString.equals("-1") ){
 			if( Tools.parseInt(ttlString, -999) != -999) // Meaning no time unit was added, use the default s
                 ttlString += "s";
 			readerIdleSeconds = TimeTools.parsePeriodStringToSeconds(ttlString);
         }
-        if( XMLtools.getChildBooleanValueByTag(stream, "echo", false) ){
+        if( dig.attr("echo", false) ){
             enableEcho();
         }
         // Store
@@ -123,13 +124,13 @@ public abstract class BaseStream {
      */
     protected boolean reloadStore(Path settingsPath, RealtimeValues rtvals){
 
-        var dig = XMLdigger.goIn(settingsPath,"dcafs").goDown("streams").goDown("stream","id",id);
+        var dig = XMLdigger.goIn(settingsPath,"dcafs").digDown("streams").digDown("stream","id",id);
         var eleOpt = dig.current();
         if( eleOpt.isEmpty())
             return false;
 
         if( store != null) { // If this already exists
-            dig.goDown("store");
+            dig.digDown("store");
             if( dig.current().isEmpty()){ // doesn't exist anymore
                 store=null;
             }else{

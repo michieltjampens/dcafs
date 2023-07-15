@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.StringJoiner;
-import java.util.stream.Stream;
 
 public class PathCmds {
 
@@ -48,14 +47,14 @@ public class PathCmds {
         }
 
         var dig = XMLdigger.goIn(settingsPath,"dcafs");
-        if( !dig.peekAt("paths").hasValidPeek()){
+        if( !dig.hasPeek("paths")) {
             XMLfab.alterDigger(dig).ifPresent(fab->fab.addChild("paths").build());
         }
-        dig.goDown("paths");
+        dig.digDown("paths");
         if( dig.isInvalid())
             return "! No paths yet";
 
-        dig.goDown("path","id",id);
+        dig.digDown("path","id",id);
         if( dig.isInvalid() ) {
             switch(cmds[1]){
                 case "new" ->{
@@ -163,7 +162,7 @@ public class PathCmds {
                     return "! No such filter type, valid: " + String.join(",", FILTERS);
 
                 // fab is pointing at path node, needs to know if last item is a filter or not
-                dig.goDown("*").toLastSibling();
+                dig.digDown("*").toLastSibling();
                 var opt = dig.current();
                 // Check if it has steps and if the last one isn't a filter
                 if (opt.isEmpty() || !opt.get().getTagName().equalsIgnoreCase("filter")) {
@@ -174,7 +173,7 @@ public class PathCmds {
                         return "! Failed to get fab";
                     fab = fabOpt.get();
                     // fab pointing at the last filter
-                    if (dig.goDown("rule").isInvalid()) { // check if already contains a rule node
+                    if (dig.digDown("rule").isInvalid()) { // check if already contains a rule node
                         // Correct node but no rule subnodes... replace current
                         var cur = opt.get();
                         var content = cur.getTextContent();
@@ -197,7 +196,7 @@ public class PathCmds {
                 var value = request.substring(a);
 
                 // fab is pointing at path node, needs to know if last item is an editor or not
-                dig.goDown("*").toLastSibling();
+                dig.digDown("*").toLastSibling();
                 var opt = dig.current();
                 if (opt.isPresent() && opt.get().getTagName().equalsIgnoreCase("editor")) {
                     // Last one is a editor, so get a
@@ -215,7 +214,7 @@ public class PathCmds {
                     return "! Not enough arguments: pf:id,addmath,operation";
 
                 // fab is pointing at path node, needs to know if last item is a math or not
-                dig.goDown("*").toLastSibling();
+                dig.digDown("*").toLastSibling();
                 var opt = dig.current();
                 // Check if it has steps and if the last one isn't a math
                 if (opt.isEmpty() || !opt.get().getTagName().equalsIgnoreCase("math")) {
@@ -226,7 +225,7 @@ public class PathCmds {
                         return "! Failed to get fab";
                     fab = fabOpt.get();
                     // fab pointing at the last math
-                    if (dig.goDown("op").isInvalid()) { // check if already contains a rule node
+                    if (dig.digDown("op").isInvalid()) { // check if already contains a rule node
                         // Correct node but no subnodes... replace current
                         var cur = opt.get();
                         var content = cur.getTextContent();
@@ -242,7 +241,7 @@ public class PathCmds {
                 if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,addcmd,cmd";
                 // fab is pointing at path node, needs to know if last item is a cmd or not
-                dig.goDown("*").toLastSibling();
+                dig.digDown("*").toLastSibling();
                 var opt = dig.current();
                 // Check if it has steps and if the last one isn't a cmd
                 if (opt.isPresent()) {

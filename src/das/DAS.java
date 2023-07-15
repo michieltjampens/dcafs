@@ -181,18 +181,18 @@ public class DAS implements Commandable{
 
         var digger = XMLdigger.goIn(settingsPath,"dcafs");
         /* EmailWorker */
-        if( digger.peekAt("email").hasValidPeek() ) {
+        if( digger.hasPeek("email") ) {
             addEmailWorker();
         }else{
             Logger.info( "No email defined in xml");
         }
         /* File monitor */
-        if( digger.peekAt("monitor").hasValidPeek() ) {
+        if( digger.hasPeek("monitor") ) {
             fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
             addCommandable(fileMonitor,"fm","fms");
         }
         /* GPIO's */
-        if( digger.peekAt("gpio").hasValidPeek() ){
+        if( digger.hasPeek("gpio") ){
             Logger.info("Reading interrupt gpio's from settings.xml");
             isrs = new InterruptPins(dQueue,settingsPath);
         }else{
@@ -200,7 +200,7 @@ public class DAS implements Commandable{
         }
 
         /* Matrix */
-        if( digger.peekAt("matrix").hasValidPeek() ){
+        if( digger.hasPeek("matrix") ){
             Logger.info("Reading Matrix info from settings.xml");
             matrixClient = new MatrixClient( dQueue, rtvals, settingsPath );
             addCommandable(matrixClient,"matrix");

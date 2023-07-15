@@ -129,11 +129,13 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * Read the databases' setup from the settings.xml
      */
     private void readFromXML() {
-        XMLfab.getRootChildren(settingsPath,"dcafs","databases","sqlite").stream()
+        XMLdigger.goIn(settingsPath,"dcafs","databases")
+                .digOut("sqlite").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
                 .forEach( db -> SQLiteDB.readFromXML(db,workPath).ifPresent( d -> addSQLiteDB(db.getAttribute("id"),d)) );
 
-        XMLfab.getRootChildren(settingsPath,"dcafs","databases","server").stream()
+        XMLdigger.goIn(settingsPath,"dcafs","databases")
+                .digOut("server").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
                 .forEach( db -> addSQLDB(db.getAttribute("id"), SQLDB.readFromXML(db)));
     }
@@ -507,18 +509,18 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             return "! Needs to be columtype:columnname";
 
                         var dig = XMLdigger.goIn(settingsPath,"dcafs")
-                                .goDown("databases"); // Go into the database node
-                        dig.peekAt("sqlite","id",cmds[0]);
+                                .digDown("databases"); // Go into the database node
+                        dig.hasPeek("sqlite","id",cmds[0]);
                         if( dig.hasValidPeek() ){
-                            dig.goDown("sqlite","id",cmds[0]);
-                        }else if( dig.peekAt("server","id",cmds[0]).hasValidPeek() ){
-                            dig.goDown("server","id",cmds[0]);
+                            dig.digDown("sqlite","id",cmds[0]);
+                        }else if( dig.hasPeek("server","id",cmds[0]) ){
+                            dig.digDown("server","id",cmds[0]);
                         }else{
                             return "! No such database node yet";
                         }
                         if( dig.isInvalid() )
                             return "! No such database node yet";
-                        dig.goDown("table","name",cmds[2]);
+                        dig.digDown("table","name",cmds[2]);
                         if( dig.isInvalid() )
                             return "! No such table node yet";
 

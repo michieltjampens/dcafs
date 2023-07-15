@@ -8,6 +8,7 @@ import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -47,7 +48,7 @@ public class PathPool implements Commandable {
         clearStores();
 
         // From the paths section
-        XMLfab.getRootChildren(settingsPath,"dcafs","paths","path").forEach(
+        XMLdigger.goIn(settingsPath,"dcafs","paths").digOut("path").forEach(
                 pathEle -> {
                     PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
                     path.readFromXML( pathEle,settingsPath.getParent() );
@@ -61,7 +62,7 @@ public class PathPool implements Commandable {
         );
 
         // From the streams section
-        XMLfab.getRootChildren(settingsPath,"dcafs","streams","stream").stream()
+        XMLdigger.goIn(settingsPath,"dcafs","streams").digOut("stream").stream()
                 .filter( e -> XMLtools.hasChildByTag(e,"path")) // Only those with a path node
                 .map( e -> XMLtools.getFirstChildByTag(e,"path").get())
                 .forEach(

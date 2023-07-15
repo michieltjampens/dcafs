@@ -35,7 +35,7 @@ public class IssuePool implements Commandable {
     private void readFromXML(){
 
         var dig = XMLdigger.goIn(xml,"dcafs");
-        dig.goDown("issues");
+        dig.digDown("issues");
         if( dig.isInvalid()) {
             Logger.info("No issues node in the xml");
             return;
@@ -55,32 +55,32 @@ public class IssuePool implements Commandable {
             return;
         }
         var is = new Issue(id);
-        if( dig.peekAt("start").hasValidPeek() ){ // Check for a start
-            dig.goDown("start"); // Go to start node
+        if( dig.hasPeek("start") ){ // Check for a start
+            dig.digDown("start"); // Go to start node
             var check = dig.attr("if","");
             if( !check.isEmpty() ){
                 if( !is.addStartCheck(check) ){
                     Logger.error( "Failed to process 'if' for "+id);
                 }
             }
-            if( dig.peekAt("cmd").hasValidPeek()){// Has cmds
+            if( dig.hasPeek("cmd")){// Has cmds
                 while(dig.iterate()) {
-                    dig.goDown("cmd");
+                    dig.digDown("cmd");
                     is.addStartCmd( dig.value(""),dig.attr("after",""));
                 }
             }
         }
-        if( dig.peekAt("stop").hasValidPeek() ){ // Check for a stop
-            dig.goDown("stop"); // Go to start node
+        if( dig.hasPeek("stop") ){ // Check for a stop
+            dig.digDown("stop"); // Go to start node
             var check = dig.attr("if","");
             if( !check.isEmpty() ){
                 if( !is.addStopCheck(check) ){
                     Logger.error( "Failed to process 'if' for "+id);
                 }
             }
-            if( dig.peekAt("cmd").hasValidPeek()){// Has cmds
+            if( dig.hasPeek("cmd")){// Has cmds
                 while(dig.iterate()) {
-                    dig.goDown("cmd");
+                    dig.digDown("cmd");
                     is.addStopCmd( dig.value(""),dig.attr("after",""));
                 }
             }

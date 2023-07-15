@@ -41,7 +41,8 @@ public class IssuePool implements Commandable{
      * @return True if any were read
      */
     public boolean readFromXML( ){
-        XMLfab.getRootChildren(settingsPath,"dcafs","issues","*").forEach(
+        XMLdigger.goIn(settingsPath,"dcafs","issues")
+                        .digOut("*").forEach(
                 issueEle ->
                 {
                     String id = XMLtools.getStringAttribute(issueEle,"id","");

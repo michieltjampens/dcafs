@@ -10,6 +10,7 @@ import util.data.ValTools;
 import util.database.SQLiteDB;
 import util.tools.FileTools;
 import util.tools.TimeTools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -79,28 +80,23 @@ public class PathForward {
             lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
         }
+        var dig = XMLdigger.goIn(pathEle);
+        id = dig.attr("id","");
+        String delimiter = dig.attr("delimiter","");
+        this.src = dig.attr("src","");
 
-        id = XMLtools.getStringAttribute(pathEle,"id","");
-        String delimiter = XMLtools.getStringAttribute(pathEle,"delimiter","");
-        this.src = XMLtools.getStringAttribute(pathEle,"src","");
-
-        var importPathOpt = XMLtools.getPathAttribute(pathEle,"import",null);
+        var importPathOpt = dig.attr("import",null,null);
         if( importPathOpt.isPresent() ) {
             var importPath = importPathOpt.get();
             if( !importPath.isAbsolute()) // If the path isn't absolute
                 importPath = workPath.resolve(importPath); // Make it so
-            var p = XMLfab.getRootChildren(importPath,"dcafs","path");
-            if(!p.isEmpty()) {
-                pathEle = p.get(0);
+            var p = XMLdigger.goIn(importPath,"dcafs").digDown("path")
+                    .current();
+            if(p.isPresent()) {
                 if( id.isEmpty())
                     id = XMLtools.getStringAttribute(pathEle,"id",id);
                 delimiter = XMLtools.getStringAttribute(pathEle,"delimiter",delimiter);
                 Logger.info("Valid path script found at "+importPath);
-
-                // Check for rtvals
-                var l = XMLfab.getRootChildren(importPath,"dcafs","rtvals");
-                if( !l.isEmpty())
-                    rtvals.readFromXML(l.get(0));
             }else{
                 Logger.error("No valid path script found: "+importPath);
                 error="No valid path script found: "+importPath;

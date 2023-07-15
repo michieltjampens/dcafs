@@ -18,40 +18,13 @@ public class XMLfab {
     private Element parent;         // The element to which child nodes are added
     private Document xmlDoc;        // The xml document
     private Path xmlPath;           // The path to the xml document
+    private boolean validRoot=true; // If the rootnode is valid
 
-    /**
-     * Create a fab based on the given doc and start from the given root
-     * @param xml The xml document
-     * @param rootTag The tag to look for as a starting point
-     */
-    private XMLfab( Document xml, String rootTag ){
-       this(xml,rootTag,true);
-    }
     private XMLfab( Document ori, Element work ){
         xmlDoc=ori;
         last=work;
         parent=last;
     }
-    /**
-     * Create a fab based on the given document, reload the document first if requested
-     * @param doc The xml document
-     * @param reload True if the document should be reloaded from disk first
-     */
-    private XMLfab( Document doc, boolean reload ){
-        if( doc == null ){
-            Logger.error("Invalid xml doc given.");
-            return;
-        }
-        if( reload ){
-            var docOpt= XMLtools.reloadXML(doc); // make sure we use latest version
-            if( docOpt.isPresent()) {
-                xmlDoc = docOpt.get();
-            }
-        }else{
-            xmlDoc = doc;
-        }        
-    }
-
     /**
      * Create a fab with the xml document at the given path
      * @param path The path to the xml file
@@ -67,15 +40,6 @@ public class XMLfab {
         if( xmlDoc==null )
             Logger.error("Failed to create XMLfab for "+path);
     }
-    /**
-     * Create a fab from the given document and root tag
-     * @param xmlDoc The xml document
-     * @param rootTag The root tag to find
-     */
-    private XMLfab( Document xmlDoc, String rootTag, boolean reload ){
-        this(xmlDoc,reload);
-        getRoot(rootTag);
-    }
 
     /**
      * Create a fab with the given path and parent tag
@@ -84,63 +48,7 @@ public class XMLfab {
      */
     private XMLfab( Path xmlPath, String rootTag ){
         this(xmlPath);
-        getRoot(rootTag);
-    }
-    public static Optional<XMLfab> alterDigger( XMLdigger dig ){
-        return dig.current().map( d -> new XMLfab(dig.doc(),d));
-    }
-    public boolean isInvalid(){
-        return xmlDoc==null;
-    }
-    /**
-     * Get the path of the xml document
-     * @return The path of the document
-     */
-    public Path getXMLPath(){
-        return xmlPath;
-    }
-
-    /**
-     * Pick the node with the given tag to become the root
-     * @param tag The tag to look for
-     */
-    private void getRoot(String tag){
-        if( isInvalid()) {
-            Logger.error( "No valid xml, so can't find root");
-            return;
-        }
-        var rootOpt= XMLtools.getFirstElementByTag(xmlDoc, tag );
-        if( rootOpt.isEmpty() ){
-            Logger.warn("No such root "+tag+ " in "+xmlPath.getFileName()+", so creating it.");
-            root = xmlDoc.createElement(tag);
-            try {
-                xmlDoc.appendChild(root);
-            }catch( DOMException e ){
-                Logger.error( "Issue while trying to add "+tag+" to "+xmlDoc.toString()+":"+e.getMessage());
-            }
-        }else{
-            root = rootOpt.get();
-        }
-        last=root;
-    }
-
-    /**
-     * Check if a document contains the requested roots, creating nodes as needed
-     * @param xmlPath The path to check
-     * @param roots The roots to find
-     * @return True if found
-     */
-    public static boolean hasRoot( Path xmlPath, String... roots){
-        return new XMLfab(xmlPath).hasRoots(roots);
-    }
-    /**
-     * Start a Mathfab based on the xml found at the path and after traversing the given roots/branches
-     * @param xmlDoc The xml document to look into
-     * @param roots The roots to look for
-     * @return The fab found
-     */
-    public static XMLfab withRoot( Document xmlDoc, String... roots){
-        return digging( new XMLfab(xmlDoc,roots[0]),roots );
+        validRoot = getRoot(rootTag);
     }
     /**
      * Start a XMLfab based on the xml found at the path and after traversing the given roots/branches
@@ -151,7 +59,43 @@ public class XMLfab {
     public static XMLfab withRoot( Path xmlPath, String... roots){
         return digging( new XMLfab(xmlPath,roots[0]),roots );
     }
+    public static Optional<XMLfab> alterDigger( XMLdigger dig ){
+        return dig.current().map( d -> new XMLfab(dig.doc(),d));
+    }
+    public boolean isInvalid(){
+        return xmlDoc==null;
+    }
+    /**
+     * Pick the node with the given tag to become the root
+     * @param tag The tag to look for
+     */
+    private boolean getRoot(String tag){
+        if( isInvalid()) {
+            Logger.error( "No valid xml, so can't find root");
+            return false;
+        }
 
+        var first = (Element) xmlDoc.getFirstChild(); // Get the root node
+        if( first!=null ){ // Already a node present
+            if( !first.getTagName().equals(tag)) { // Trying to change the rootnode isn't allowed
+                Logger.error( xmlPath.getFileName()+" already has a rootnode, can't set "+tag);
+                return false;
+            }else{
+                root=first;;
+            }
+        }else{
+            Logger.warn("No such root "+tag+ " in "+xmlPath.getFileName()+", so creating it.");
+            root = xmlDoc.createElement(tag);
+            try {
+                xmlDoc.appendChild(root);
+            }catch( DOMException e ){
+                Logger.error("Issue while trying to add " + tag + " to " + xmlDoc.toString() + ":" + e.getMessage());
+                return false;
+            }
+        }
+        last=root;
+        return true;
+    }
     /**
      * Goes through the root tags given, either selecting or creating
      * @param fab The fab to work with
@@ -171,6 +115,10 @@ public class XMLfab {
      * @return This fab after going one step lower with the root
      */
     public XMLfab digRoot( String tag ){
+        if( root==null) {
+            Logger.error("Tried to dig down the root to "+tag+", but root invalid");
+            return this;
+        }
         var eleOpt = XMLtools.getFirstChildByTag(root, tag);
         if( eleOpt.isEmpty() ){
             root = (Element)root.appendChild( xmlDoc.createElement(tag) );    
@@ -182,70 +130,6 @@ public class XMLfab {
         last = root;
         parent = root;
         return this;
-    }
-    /**
-     * Get an Element stream with all the elements that match the last item of the given root.
-     * fe. trunk,branch,twig will return all the twig elements
-     * Note that twig can be * because this is considered a special tag that acts as a wildcard
-     * @param xmlPath The path to the document
-     * @param roots The roots to look for
-     * @return The elements found at the end of the root
-     */
-    public static List<Element> getRootChildren( Path xmlPath, String... roots){
-        if( Files.notExists(xmlPath) ){
-            Logger.error("No such xml file: "+xmlPath+", looking for "+String.join("->",roots));
-            return new ArrayList<>();
-        }
-        return XMLtools.readXML(xmlPath).map( xml -> getRootChildren(xml,roots)).orElse(new ArrayList<>());
-    }
-
-    /**
-     * Get an Element stream with all the elements that match the last item of the given root.
-     * fe. trunk,branch,twig will return all the twig elements.
-     * Note that twig can be * because this is considered a special tag that acts as a wildcard
-     * @param xml The source document
-     * @param roots The roots to look for
-     * @return The elements found at the end of the root
-     */
-    public static List<Element> getRootChildren( Document xml, String... roots){
-        XMLfab fab = new XMLfab(xml,false);
-
-        var rootOpt= XMLtools.getFirstElementByTag(fab.xmlDoc, roots[0]);
-        if( rootOpt.isEmpty())
-            return new ArrayList<>();
-
-        fab.last = rootOpt.get();
-
-        for( int a=1; a<roots.length-1;a++){
-            var eleOpt = XMLtools.getFirstChildByTag(fab.last, roots[a]);
-            if( eleOpt.isEmpty() )
-                return new ArrayList<>();
-            fab.last = eleOpt.get();
-        }
-        return fab.getChildren(roots[roots.length - 1]);
-    }
-
-    /**
-     * Check if the current document has the given roots
-     * @param roots The roots to look for (each step goes down a level)
-     * @return True if found
-     */
-    private boolean hasRoots( String... roots ){
-        if( isInvalid())
-            return false;
-
-        var rootOpt = XMLtools.getFirstElementByTag(xmlDoc, roots[0]);
-        if(rootOpt.isEmpty())
-            return false;
-
-        var root=rootOpt.get();
-        for( int a=1; a<roots.length;a++){
-            var eleOpt = XMLtools.getFirstChildByTag(root, roots[a]);
-            if( eleOpt.isEmpty() )
-                return false;
-            root = eleOpt.get();
-        }
-        return true;
     }
 
     /**
@@ -453,32 +337,6 @@ public class XMLfab {
         return selectChildAsParent(tag,"","");
     }
     /**
-     * Checks the children of the active node for a specific tag,attribute,value matches and makes the last active and parent
-     * If not found create it.
-     * @param tag The tag of the parent
-     * @param attribute The attribute to check
-     * @param value The value the attribute should be
-     * @return This fab
-     */
-    public XMLfab selectOrAddLastChildAsParent(String tag, String attribute, String value){
-        var found = getChildren(tag).stream()
-                .filter( x -> x.getAttribute(attribute).equalsIgnoreCase(value)||attribute.isEmpty())
-                .collect(Collectors.toCollection(ArrayList::new));
-        if( !found.isEmpty() ){
-            last = found.get(found.size()-1);
-            parent = last;
-        }else{
-            addChild(tag);// Create the child
-            if( !attribute.isEmpty())
-                attr(attribute,value);
-            down(); // make it the last/parent
-        }
-        return this;
-    }
-    public XMLfab selectOrAddLastChildAsParent(String tag){
-        return selectOrAddChildAsParent(tag,"","");
-    }
-    /**
      * Checks the children of the active node for a specific tag,attribute,value match and make that active and parent
      * If not found create it.
      * @param tag The tag of the parent
@@ -673,6 +531,8 @@ public class XMLfab {
      * @return The build document or null if failed
      */
     public boolean build(){
+        if( validRoot==false)
+            return false;
         if( xmlPath == null ){
             XMLtools.updateXML(xmlDoc);
         }else{

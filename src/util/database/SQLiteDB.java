@@ -3,6 +3,7 @@ package util.database;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 
@@ -227,8 +228,9 @@ public class SQLiteDB extends SQLDB{
         if( dbe == null )
             return Optional.empty();
 
-        String id = XMLtools.getStringAttribute(dbe,"id","");
-        var path = XMLtools.getPathAttribute(dbe,"path",Path.of(workPath));
+        var dig = XMLdigger.goIn(dbe);
+        String id = dig.attr("id","");
+        var path = dig.attr("path",null,Path.of(workPath));
 
         if( path.isEmpty() )
             return Optional.empty();
@@ -236,13 +238,11 @@ public class SQLiteDB extends SQLDB{
         SQLiteDB db = SQLiteDB.createDB(id,path.get());
         
         /* RollOver */
-        var rollOpt = XMLtools.getFirstChildByTag(dbe, "rollover");
-        if( rollOpt.isPresent()){
-            var roll =rollOpt.get();
-            int rollCount = XMLtools.getIntAttribute(roll, "count", 1);
-            String unit = XMLtools.getStringAttribute(roll, "unit", "").toLowerCase();
-            String format = roll.getTextContent();
-            
+        if( dig.peekAt("rollover").hasValidPeek() ){
+            int rollCount = dig.attr("count", 1);
+            String unit = dig.attr( "unit", "").toLowerCase();
+            String format = dig.value("");
+
             TimeTools.RolloverUnit rollUnit = TimeTools.convertToRolloverUnit( unit );
             if( rollUnit !=null){
                 Logger.info("Setting rollover: "+format+" "+rollCount+" "+rollUnit);
@@ -253,20 +253,21 @@ public class SQLiteDB extends SQLDB{
             }
         }
         /* Setup */
-        XMLtools.getFirstChildByTag(dbe, "flush").ifPresent(db::readFlushSetup);
+        dig.peekAndUse("flush").ifPresent(db::readFlushSetup);
 
         // How many seconds before the connection is considered idle (and closed)
-        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds(XMLtools.getChildStringValueByTag(dbe,"idleclose","5m"));
+        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds(dig.attr("idleclose","5m"));
 
         /* Views */
-        for( Element view : XMLtools.getChildElements(dbe, "view")){
+        dig.peekOut("view").forEach( view -> {
             String name = view.getAttribute("name");
             String query = view.getTextContent();
             db.views.add( "CREATE VIEW  IF NOT EXISTS "+name+" AS "+query);
-        }
+        });
+        dig.goUp();
 
         /* Tables */
-        XMLtools.getChildElements(dbe,"table").forEach(x -> SqlTable.readFromXml(x).ifPresent(table -> db.tables.put(table.name,table)));
+        dig.peekOut("table").forEach( table -> SqlTable.readFromXml(table).ifPresent(t -> db.tables.put(t.name,t)));
 
         /* Create the content */
         db.getCurrentTables(false);

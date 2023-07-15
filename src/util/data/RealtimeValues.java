@@ -41,7 +41,7 @@ public class RealtimeValues implements Commandable {
 		this.dQueue=dQueue;
 
 		XMLdigger.goIn(settingsPath,"dcafs")
-					.goDown("rtvals")
+					.digDown("rtvals")
 					.current()
 				    .ifPresentOrElse(this::readFromXML,() -> Logger.info("No rtvals in settings.xml"));
 
@@ -54,7 +54,8 @@ public class RealtimeValues implements Commandable {
 	 */
 	public void readFromXML( Element rtvalsEle ){
 
-		var dig = XMLdigger.goIn(rtvalsEle).goDown("*"); // inside the rtvals node
+		var dig = XMLdigger.goIn(rtvalsEle).digDown("*"); // inside the rtvals node
+
 		if( !dig.isValid())
 			return;
 

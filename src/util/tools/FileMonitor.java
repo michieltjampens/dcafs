@@ -3,6 +3,7 @@ package util.tools;
 import das.Commandable;
 import io.Writable;
 import org.tinylog.Logger;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -37,21 +38,19 @@ public class FileMonitor implements Commandable {
      */
     public boolean readFromXML( ){
 
-        var baseOpt = XMLtools.readXML(root.resolve("settings.xml"));
-        if( baseOpt.isEmpty())
+        var dig = XMLdigger.goIn(root.resolve("settings.xml"),"dcafs","monitor");
+        if( dig.isInvalid())
             return false;
-        var base = baseOpt.get();
-        var ele = XMLtools.getAllElementsByTag(base,"monitor");
-        if( ele.length==0)
-            return false;
+
         /* Check for simple file modification alerts */
-        for( var file : XMLtools.getChildElements(ele[0],"file")){
-            var id = XMLtools.getStringAttribute(file,"id","fm"+files.size());
-            var p = XMLtools.getPathAttribute(file,"path",root);
+        dig.digDown("file");
+        while(dig.iterate()){
+            var id = dig.attr("id","fm"+files.size());
+            var p = dig.attr("path",null,root);
             if( p.isEmpty())
                 continue;
-            String val = XMLtools.getChildStringValueByTag(file,"onmodify","");
-            boolean read = XMLtools.getBooleanAttribute(file,"read",true);
+            String val = dig.attr("onmodify","");
+            boolean read = dig.attr("read",true);
 
             var mon = new ReactionInfo(id,p.get(), val);
             if( read )

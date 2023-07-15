@@ -156,17 +156,17 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 		mailSession = null;
 
-		XMLdigger xml = XMLdigger.goIn(settingsPath,"dcafs").goDown("settings").goDown("email");
+		XMLdigger xml = XMLdigger.goIn(settingsPath,"dcafs").digDown("settings").digDown("email");
 
 		if( !xml.isValid() )
 			return false;
 
 		// Sending
-		xml.goDown("*"); // Get all child nodes of 'email'
+		xml.digDown("*"); // Get all child nodes of 'email'
 		while( xml.iterate()){
 			switch (xml.tagName("")) {
 				case "outbox" -> {
-					if (xml.peekAt("server").hasValidPeek()) {
+					if (xml.hasPeek("server")) {
 						outbox.setServer(xml.value(""), xml.attr("port", 25));            // The SMTP server
 						outbox.setLogin(xml.attr("user", ""), xml.attr("pass", ""));
 						outbox.hasSSL = xml.attr("ssl", false);
@@ -180,7 +180,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 					MAX_EMAILS = xml.peekAt("maxemails").value(5);
 				}
 				case "inbox" -> {
-					if (xml.peekAt("server").hasValidPeek()) {
+					if (xml.hasPeek("server")) {
 						inbox.setServer(xml.value(""), xml.attr("port", 25));            // The SMTP server
 						inbox.setLogin(xml.attr("user", ""), xml.attr("pass", ""));
 						inbox.hasSSL = xml.attr("ssl", false);
@@ -205,7 +205,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	 */
 	private void readEmailBook( Element email ){
 		emailBook.clear();  // Clear previous references
-		XMLdigger xml = XMLdigger.goIn(email).goDown("entry"); // dig to entries
+		XMLdigger xml = XMLdigger.goIn(email).digDown("entry"); // dig to entries
 
 		while( xml.iterate() ){
 			String addresses = xml.value("");
@@ -219,7 +219,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	}
 	private void readPermits( Element perms){
 		permits.clear(); // clear previous permits
-		XMLdigger xml = XMLdigger.goIn(perms).goDown("*");
+		XMLdigger xml = XMLdigger.goIn(perms).digDown("*");
 
 		while( xml.iterate() ){ // Go through the denies
 			boolean denies = xml.tagName("").equals("denies");;

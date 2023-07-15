@@ -6,6 +6,7 @@ import org.w3c.dom.Element;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -116,10 +117,10 @@ public class FileCollector extends AbstractCollector{
         return fcs;
     }
     public void readFromXML( Element fcEle, String workpath ){
+
+        var dig = XMLdigger.goIn(fcEle);
         /* Flush settings */
-        var flushOpt = XMLtools.getFirstChildByTag(fcEle,"flush");
-        if( flushOpt.isPresent() ){
-            var flush = flushOpt.get();
+        dig.peekAndUse("flush").ifPresent( flush -> {
             setBatchsize( XMLtools.getIntAttribute(flush,"batchsize",Integer.MAX_VALUE));
             if( scheduler != null ) {
                 String timeout = XMLtools.getStringAttribute(flush, "age", "-1");
@@ -127,10 +128,11 @@ public class FileCollector extends AbstractCollector{
                     setTimeOut(timeout, scheduler);
                 }
             }
-        }
+        });
+
         /* Source and destination */
-        addSource( XMLtools.getStringAttribute(fcEle,"src",""));
-        var path = XMLtools.getChildPathValueByTag(fcEle,"path",workpath);
+        addSource( dig.attr("src",""));
+        var path = dig.attr("path",null,Path.of(workpath));
         if( path.isEmpty() ){
             Logger.error(id+"(fc) -> No valid destination given");
             return;
@@ -143,18 +145,14 @@ public class FileCollector extends AbstractCollector{
 
         /* Headers */
         headers.clear();
-        for( var ele : XMLtools.getChildElements(fcEle,"header") ){
-            addHeaderLine(ele.getTextContent());
-        }
+        dig.peekOut("header").forEach( ele->addHeaderLine(ele.getTextContent()));
 
         /* RollOver */
-        var rollOpt = XMLtools.getFirstChildByTag(fcEle, "rollover");
-        if( rollOpt.isPresent() ){
-            var roll = rollOpt.get();
-            int rollCount = XMLtools.getIntAttribute(roll, "count", 1);
-            String unit = XMLtools.getStringAttribute(roll, "unit", "none").toLowerCase();
-            boolean zip = XMLtools.getBooleanAttribute(roll,"zip",false);
-            String format = roll.getTextContent();
+        if( dig.hasPeek("rollover")){
+            int rollCount = dig.attr("count", 1);
+            String unit = dig.attr("unit", "none").toLowerCase();
+            boolean zip = dig.attr("zip",false);
+            String format = dig.value("");
 
             TimeTools.RolloverUnit rollUnit = TimeTools.convertToRolloverUnit( unit );
             if( rollUnit !=null){
@@ -162,27 +160,24 @@ public class FileCollector extends AbstractCollector{
                 setRollOver(format,rollCount,rollUnit,zip);
             }else{
                 Logger.error(id+"(fc) -> Bad Rollover given" );
-                return;
             }
-        }
-        /* Size limit */
-        trigCmds.clear();
-        var sizeEleOpt = XMLtools.getFirstChildByTag(fcEle, "sizelimit");
-        if( sizeEleOpt.isPresent() ){
-            boolean zip = XMLtools.getBooleanAttribute(fcEle,"zip",false);
-            String size = sizeEleOpt.get().getTextContent();
-            if( size!=null){
-                setMaxFileSize(size.toLowerCase(),zip);
-            }
-        }
-        /* Triggered */
-        for( var ele : XMLtools.getChildElements(fcEle,"cmd") ){
-            String cmd = ele.getTextContent();
-            addTriggerCommand(XMLtools.getStringAttribute(ele,"trigger","none").toLowerCase(),cmd);
         }
 
+        /* Size limit */
+        trigCmds.clear();
+        if( dig.hasPeek("sizelimit") ){
+            boolean zip = dig.attr("zip",false);
+            var size = dig.value("");
+            if( !size.isEmpty())
+                setMaxFileSize(size.toLowerCase(),zip);
+        }
+        /* Triggered */
+        dig.peekOut("cmd").forEach( cmd -> {
+            addTriggerCommand(XMLtools.getStringAttribute(cmd,"trigger","none").toLowerCase(),cmd.getTextContent());
+        });
+
         /* Changing defaults */
-        setLineSeparator( Tools.fromEscapedStringToBytes( XMLtools.getStringAttribute(fcEle,"eol",System.lineSeparator())) );
+        setLineSeparator( Tools.fromEscapedStringToBytes( dig.attr("eol",System.lineSeparator())) );
 
         /* Headers change ?*/
         if( Files.exists(getPath()) ) {

@@ -607,11 +607,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		BaseStream stream;
 		XMLfab fab;
 
-		var dig = XMLdigger.goIn(settingsPath,"dcafs").peekAt("streams");
-		if( !dig.hasValidPeek()) {
+		var dig = XMLdigger.goIn(settingsPath,"dcafs");
+		if( !dig.hasPeek("streams")) {
 			XMLfab.alterDigger(dig).ifPresent( x->x.addChild("streams").build());
 		}
-		dig.goDown("streams");
+		dig.digDown("streams");
 		if( cmds.length==1){
 			switch (cmds[0]) {
 				case "?" -> {
@@ -673,7 +673,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 		}else if( Arrays.asList(NEWSTREAM).contains(cmds[0]) ){ // Meaning it's an add cmd
 			cmds[1]=cmds[1].toLowerCase();
-			dig.peekAt("stream","id",cmds[1]);
+			dig.hasPeek("stream","id",cmds[1]);
 			if( dig.hasValidPeek())
 				return "! Already a stream with that id, try something else?";
 
@@ -729,10 +729,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}else{ // Meaning it's an alter/use cmd
 			cmds[0] = cmds[0].toLowerCase();
 
-			dig.peekAt("stream","id",cmds[0]);
+			dig.hasPeek("stream","id",cmds[0]);
 			if( !dig.hasValidPeek())
 				return "! No such stream yet.";
-			dig.goDown("stream","id",cmds[0]);
+			dig.digDown("stream","id",cmds[0]);
 
 			var fabOpt = XMLfab.alterDigger(dig);
 			if( fabOpt.isEmpty() )

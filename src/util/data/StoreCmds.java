@@ -70,10 +70,10 @@ public class StoreCmds {
 
         var dig = XMLdigger.goIn(settingsPath,"dcafs");
         if( !id.equalsIgnoreCase("global")){
-            dig.goDown("streams");
+            dig.digDown("streams");
             if( dig.isInvalid())
                 return "! No streams yet";
-            dig.goDown("stream","id",id);
+            dig.digDown("stream","id",id);
             if( dig.isInvalid() )
                 return "! No such stream yet "+id;
         }
@@ -85,7 +85,7 @@ public class StoreCmds {
         var fab=fabOpt.get();
 
         fab.alterChild(tag).down(); // Go to store or make if not existing
-        dig.goDown(tag);
+        dig.digDown(tag);
 
         if(  tag.equals("store")) {
             if (!dig.current().get().hasAttribute("delimiter"))
@@ -109,12 +109,12 @@ public class StoreCmds {
             return "! No such file";
 
         if( xmlPath.toString().endsWith("settings.xml")) {
-            dig.goDown("paths");
+            dig.digDown("paths");
             if( dig.isInvalid())
                 return "! No paths defined yet";
         }
 
-        dig.goDown("path","id",id);
+        dig.digDown("path","id",id);
         if( dig.isInvalid() )
             return "! No such path yet "+id;
 
@@ -127,18 +127,18 @@ public class StoreCmds {
             if( Files.notExists(impPath) ) // Doesn't exist, but should... so inform
                 return "! No such path file "+imp;
             dig = XMLdigger.goIn(impPath,"dcafs");
-            dig.goDown("path","id",id);
+            dig.digDown("path","id",id);
             if( dig.isInvalid() )
                 return "! No valid path inside "+imp+" yet.";
         }
 
         // Now determine if the last step in the path is a store...
         boolean startNew;
-        dig.peekAt("*");  // Check if something is already in the path
-        if( !dig.hasValidPeek() ) { // path has no steps
+        // Check if something is already in the path
+        if( !dig.hasPeek("*") ) { // path has no steps
             startNew = true;
         }else{
-            dig.goDown("*");
+            dig.digDown("*");
             dig.toLastSibling();
             startNew = !dig.tagName("").equalsIgnoreCase("store");
         }
@@ -171,8 +171,8 @@ public class StoreCmds {
             case "addreal","addr" -> {
                 if (cmds.length < 3)
                     return "! Wrong amount of arguments -> "+prefix+"addreal,name<,index/group>";
-                if( dig.peekAt("real","name",cmds[2]).hasValidPeek()
-                        || dig.peekAtContent("real",cmds[2]).hasValidPeek() )
+                if( dig.hasPeek("real","name",cmds[2])
+                        || dig.peekAtContent("real",cmds[2]) )
                     return "! Already a real with that id, try something else?";
 
                 fab.addChild("real",cmds[2]).attr("unit");
@@ -193,8 +193,8 @@ public class StoreCmds {
             case "addint","addi" -> {
                 if (cmds.length < 3)
                     return "! Wrong amount of arguments -> "+prefix+"addint,name<,index/group>";
-                if( dig.peekAt("int","name",cmds[2]).hasValidPeek()
-                        || dig.peekAtContent("int",cmds[2]).hasValidPeek() )
+                if( dig.hasPeek("int","name",cmds[2])
+                        || dig.peekAtContent("int",cmds[2]) )
                     return "! Already an int with that id, try something else?";
 
                 fab.addChild("int",cmds[2]).attr("unit");
@@ -215,8 +215,8 @@ public class StoreCmds {
             case "addtext","addt" -> {
                 if (cmds.length < 3)
                     return "! Wrong amount of arguments -> "+prefix+"addtext,name<,index/group>";
-                if( dig.peekAt("text","name",cmds[2]).hasValidPeek()
-                    || dig.peekAtContent("text",cmds[2]).hasValidPeek() )
+                if( dig.hasPeek("text","name",cmds[2])
+                    || dig.peekAtContent("text",cmds[2]) )
                     return "! Already a text with that id, try something else?";
 
                 fab.addChild("text",cmds[2]);
@@ -237,8 +237,8 @@ public class StoreCmds {
             case "addflag","addf" -> {
                 if (cmds.length < 3)
                     return "! Wrong amount of arguments -> "+prefix+"addflag,name<,index/group>";
-                if( dig.peekAt("flag","name",cmds[2]).hasValidPeek()
-                    || dig.peekAtContent("flag",cmds[2]).hasValidPeek() )
+                if( dig.hasPeek("flag","name",cmds[2])
+                    || dig.peekAtContent("flag",cmds[2]) )
                     return "! Already a flag with that id, try something else?";
 
                 fab.addChild("flag",cmds[2]).attr("unit");
@@ -296,10 +296,10 @@ public class StoreCmds {
                     return "! Not a valid attribute, accepted: "+String.join(", ",VAL_ATTR);
                 // Find the val referenced?
                 for( var valtype : VALS){
-                    if( dig.peekAt(valtype,"name",cmds[2]).hasValidPeek() ){
-                        dig.goDown(valtype,"name",cmds[2]);
-                    }else if( dig.peekAtContent(valtype,cmds[2]).hasValidPeek() ){ // Found a flag
-                        dig.goDown(valtype,cmds[2]);
+                    if( dig.hasPeek(valtype,"name",cmds[2]) ){
+                        dig.digDown(valtype,"name",cmds[2]);
+                    }else if( dig.peekAtContent(valtype,cmds[2]) ){ // Found a flag
+                        dig.digDown(valtype,cmds[2]);
                     }else{
                         continue;
                     }
@@ -313,19 +313,19 @@ public class StoreCmds {
                     return "! Wrong amount of arguments -> "+prefix+"astable,dbid";
                 // First check if the database actually exists
                 var dbDig = XMLdigger.goIn(xml,"dcafs");
-                dbDig.goDown("databases");
+                dbDig.digDown("databases");
                 if( dbDig.isInvalid()) // Any database?
                     return "! No databases defined yet.";
                 // Now check for sqlite or server with the id...
-                if( dbDig.peekAt("sqlite","id",cmds[2]).hasValidPeek() ){ // SQLite
+                if( dbDig.hasPeek("sqlite","id",cmds[2]) ){ // SQLite
                     dbDig.usePeek();
-                }else if( dbDig.peekAt("server","id",cmds[2]).hasValidPeek() ){// Server
+                }else if( dbDig.hasPeek("server","id",cmds[2]) ){// Server
                     dbDig.usePeek();
                 }else{
                     return "! No such database yet";
                 }
                 // Now check if the table already exists
-                dbDig.peekAt("table","name",cmds[0]);
+                dbDig.hasPeek("table","name",cmds[0]);
                 if( dbDig.hasValidPeek() )
                     return "! Already a table with that name";
 
