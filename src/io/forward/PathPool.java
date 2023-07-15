@@ -48,7 +48,7 @@ public class PathPool implements Commandable {
         clearStores();
 
         // From the paths section
-        XMLdigger.goIn(settingsPath,"dcafs","paths").digOut("path").forEach(
+        XMLdigger.goIn(settingsPath,"dcafs","paths").peekOut("path").forEach(
                 pathEle -> {
                     PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
                     path.readFromXML( pathEle,settingsPath.getParent() );
@@ -62,7 +62,7 @@ public class PathPool implements Commandable {
         );
 
         // From the streams section
-        XMLdigger.goIn(settingsPath,"dcafs","streams").digOut("stream").stream()
+        XMLdigger.goIn(settingsPath,"dcafs","streams").peekOut("stream").stream()
                 .filter( e -> XMLtools.hasChildByTag(e,"path")) // Only those with a path node
                 .map( e -> XMLtools.getFirstChildByTag(e,"path").get())
                 .forEach(

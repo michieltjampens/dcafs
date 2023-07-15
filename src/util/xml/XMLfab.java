@@ -7,16 +7,14 @@ import org.w3c.dom.Element;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class XMLfab {
     private Element root;           // The highest element to which parents are added
     private Element last;           // The last created/added element
     private Element parent;         // The element to which child nodes are added
-    private Document xmlDoc;        // The xml document
+    final private Document xmlDoc;        // The xml document
     private Path xmlPath;           // The path to the xml document
     private boolean validRoot=true; // If the rootnode is valid
 
@@ -247,18 +245,16 @@ public class XMLfab {
     }
     /**
      * Remove a single child node from the current parent node
+     *
      * @param tag The tag of the child to remove
-     * @return This fab
      */
-    public boolean removeChild( String tag, String attr, String value ){
+    public void removeChild(String tag, String attr, String value ){
         var child = getChild(tag,attr,value);
         if( child.isPresent() ) {
             parent.removeChild(child.get());
             build();
-            return true;
         }else{
             Logger.warn("Tried to remove a none-existing child "+tag);
-            return false;
         }
     }
     /**
@@ -336,11 +332,11 @@ public class XMLfab {
 
     /**
      * Checks the children of the active node for a specific tag and make that active and parent
+     *
      * @param tag The tag of the parent
-     * @return The optional parent node or empty if none found
      */
-    public Optional<XMLfab> selectChildAsParent(String tag ){
-        return selectChildAsParent(tag,"","");
+    public void selectChildAsParent(String tag ){
+        selectChildAsParent(tag, "", "");
     }
     /**
      * Checks the children of the active node for a specific tag,attribute,value match and make that active and parent
@@ -352,7 +348,7 @@ public class XMLfab {
         return selectOrAddChildAsParent(tag,"","");
     }
     public XMLfab selectOrAddChildAsParent(String tag, String attribute, int value){
-        return selectOrAddChildAsParent(tag,attribute,""+value);
+        return selectOrAddChildAsParent(tag,attribute, String.valueOf(value));
     }
     public XMLfab selectOrAddChildAsParent(String tag, String attribute, String value){
         Optional<Element> found = getChildren(tag).stream()
@@ -418,17 +414,6 @@ public class XMLfab {
         last.getParentNode().insertBefore( xmlDoc.createComment(" "+comment+" "),last );
         return this;
     }
-
-    /**
-     * Clear the content of the current parent node
-     * @return This XMLfab after removing the content
-     */
-    public XMLfab clearParentTextContent(){
-        if(parent.getFirstChild()==null ){
-            parent.setTextContent("");
-        }
-        return this;
-    }
     /* Attributes */
     /**
      * Add an attribute with the given value
@@ -448,7 +433,7 @@ public class XMLfab {
      * @return The fab after adding the attribute
      */
     public XMLfab attr( String attr, int value ){
-        last.setAttribute(attr, ""+value);
+        last.setAttribute(attr, String.valueOf(value));
         return this;
     }
     /**
@@ -458,7 +443,7 @@ public class XMLfab {
      * @return The fab after adding the attribute
      */
     public XMLfab attr( String attr, double value ){
-        last.setAttribute(attr, ""+value);
+        last.setAttribute(attr, String.valueOf(value));
         return this;
     }
     /**
@@ -473,13 +458,12 @@ public class XMLfab {
 
     /**
      * Remove an attribute of the current node
+     *
      * @param attr The name of the attribute to remove
-     * @return The fab after the removal attempt
      */
-    public XMLfab removeAttr( String attr ){
+    public void removeAttr(String attr ){
         if( last.hasAttribute(attr))
             last.removeAttribute(attr);
-        return this;
     }
     /* Content */
 

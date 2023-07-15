@@ -130,12 +130,12 @@ public class DatabaseManager implements QueryWriting, Commandable {
      */
     private void readFromXML() {
         XMLdigger.goIn(settingsPath,"dcafs","databases")
-                .digOut("sqlite").stream()
+                .peekOut("sqlite").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
                 .forEach( db -> SQLiteDB.readFromXML(db,workPath).ifPresent( d -> addSQLiteDB(db.getAttribute("id"),d)) );
 
         XMLdigger.goIn(settingsPath,"dcafs","databases")
-                .digOut("server").stream()
+                .peekOut("server").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
                 .forEach( db -> addSQLDB(db.getAttribute("id"), SQLDB.readFromXML(db)));
     }
@@ -146,14 +146,13 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * @return The database reloaded
      */
     public Optional<Database> reloadDatabase( String id ){
-        var fab = XMLfab.withRoot(settingsPath,"dcafs","databases");
-        var sqlite = fab.getChild("sqlite","id",id);
-        if( sqlite.isPresent()){
-            return SQLiteDB.readFromXML( sqlite.get(),workPath).map(sqLiteDB -> addSQLiteDB(id, sqLiteDB));
-        }else{
-            var sqldb= fab.getChild("server","id",id);
-            if( sqldb.isPresent())
-                return Optional.ofNullable(addSQLDB(id, SQLDB.readFromXML(sqldb.get())));
+        var dig = XMLdigger.goIn(settingsPath,"dcafs","databases");
+        if( dig.hasPeek("sqlite","id",id)){
+            var d = dig.usePeek().current();
+            return SQLiteDB.readFromXML( d.get(),workPath).map(sqLiteDB -> addSQLiteDB(id, sqLiteDB));
+        }else if( dig.hasPeek("server","id",id)){
+            var d = dig.usePeek().current();
+            return Optional.ofNullable(addSQLDB(id, SQLDB.readFromXML(d.get())));
         }
         return Optional.empty();
     }

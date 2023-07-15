@@ -3,6 +3,7 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -57,13 +58,16 @@ public class FlagVal extends AbstractVal implements NumericVal{
     public FlagVal reload(Element rtval){
         reset(); // reset is needed if this is called because of reload
         name(name);
-        group(XMLtools.getChildStringValueByTag(rtval, "group", group()));
-        defState(XMLtools.getBooleanAttribute(rtval, "default", defState));
-        defState(XMLtools.getBooleanAttribute(rtval, "def", defState));
+
+        var dig = XMLdigger.goIn(rtval);
+
+        group( dig.attr("group", group()));
+        defState( dig.attr("default", defState));
+        defState( dig.attr("def", defState));
 
         state=defState; // Set the current state to the default
 
-        String options = XMLtools.getStringAttribute(rtval, "options", "");
+        String options =  dig.attr("options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
             switch (arg[0]) {
@@ -74,17 +78,17 @@ public class FlagVal extends AbstractVal implements NumericVal{
         }
 
         // Triggered Commands
-        if (!XMLtools.getChildElements(rtval, "cmd").isEmpty())
+        if ( dig.hasPeek("cmd") )
             enableTriggeredCmds(dQueue);
-        for (Element trigCmd : XMLtools.getChildElements(rtval, "cmd")) {
+        for (Element trigCmd : dig.peekOut("cmd")) {
             String trig = trigCmd.getAttribute("when");
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         }
         // Parsing
-        if( XMLtools.hasChildByTag(rtval,"true"))
+        if( dig.hasPeek("true"))
             TRUE.clear();
-        for (Element parse : XMLtools.getChildElements(rtval, "true")) {
+        for (Element parse : dig.peekOut("true")) {
             if( parse.hasAttribute("delimiter")){
                 var trues = parse.getTextContent().split(parse.getAttribute("delimiter"));
                 TRUE.addAll(Arrays.asList(trues));
@@ -98,9 +102,9 @@ public class FlagVal extends AbstractVal implements NumericVal{
         if( !TRUE.isEmpty() && trueRegex!=null ){
             Logger.error(id()+" -> Can't combine both fixed and regex based for true flag");
         }
-        if( XMLtools.hasChildByTag(rtval,"false"))
+        if( dig.hasPeek("false"))
             FALSE.clear();
-        for (Element parse : XMLtools.getChildElements(rtval, "false")) {
+        for (Element parse : dig.peekOut("false")) {
             if( parse.hasAttribute("delimiter")){
                 var falses = parse.getTextContent().split(parse.getAttribute("delimiter"));
                 FALSE.addAll(Arrays.asList(falses));

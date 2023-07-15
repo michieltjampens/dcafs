@@ -9,6 +9,7 @@ import org.w3c.dom.Element;
 import util.math.MathUtils;
 import util.taskblocks.CheckBlock;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -103,14 +104,7 @@ public class FilterForward extends AbstractForward {
     public boolean removeTarget( Writable target ){
         return targets.remove(target)||reversed.remove(target);
     }
-    /**
-     * Read a filter from an element in the xml
-     * @param ele The element containing the filter info
-     * @return The FilterForward created based on the xml element
-     */
-    public static FilterForward readXML(Element ele, BlockingQueue<Datagram> dQueue ){
-        return new FilterForward( ele,dQueue );
-    }
+
     protected String getXmlChildTag(){
         return "filter";
     }
@@ -125,15 +119,16 @@ public class FilterForward extends AbstractForward {
         if( !readBasicsFromXml(filter) )
             return false;
 
-        delimiter = XMLtools.getEscapedStringAttribute(filter,"delimiter",delimiter); // Allow for global delimiter
-        ignoreFalse = XMLtools.getIntAttribute(filter,"ignores",0);
-        negate = XMLtools.getBooleanAttribute(filter,"negate",false);
+        var dig = XMLdigger.goIn(filter);
+
+        delimiter = dig.attr("delimiter",delimiter); // Allow for global delimiter
+        ignoreFalse = dig.attr("ignores",0);
+        negate = dig.attr("negate",false);
 
         rules.clear();
-
-        if( XMLtools.hasChildByTag(filter,"rule") ){ // if rules are defined as nodes
+        if( dig.hasPeek("rule")){ // if rules are defined as nodes
             // Process all the types except 'start'
-            XMLtools.getChildElements(filter, "rule")
+            dig.peekOut("rule")
                     .stream()
                     .filter( rule -> !rule.getAttribute("type").equalsIgnoreCase("start"))
                     .forEach( rule -> {
@@ -144,7 +139,7 @@ public class FilterForward extends AbstractForward {
             ArrayList<String> starts = new ArrayList<>();
 
             // Process all the 'start' filters
-            XMLtools.getChildElements(filter, "rule")
+            dig.peekOut("rule")
                     .stream()
                     .filter( rule -> rule.getAttribute("type").equalsIgnoreCase("start"))
                     .forEach( rule -> starts.add( rule.getTextContent() ) );
@@ -155,17 +150,17 @@ public class FilterForward extends AbstractForward {
                 addStartOptions( starts.toArray(new String[1]) );
             }
         }else if( filter.getTextContent() != null ){ // If only a single rule is defined
-            String type = XMLtools.getStringAttribute(filter,"type","");
+            String type = dig.attr("type","");
             if( !type.isEmpty()){
-                addRule(type,filter.getTextContent(),XMLtools.getEscapedStringAttribute(filter,"delimiter",this.delimiter));
+                addRule(type,dig.value(""),dig.attr("delimiter",delimiter,true));
             }
         }
         return true;
     }
     /**
      * Add a rule to the filter
-     * @param type predefined type of the filter eg. start,nostart,end ...
-     * @param value The value for the type eg. start:$GPGGA to start with $GPGGA
+     * @param type predefined type of the filter e.g. start,nostart,end ...
+     * @param value The value for the type e.g. start:$GPGGA to start with $GPGGA
      * @return -1 -> unknown type, 1 if ok
      */
     public int addRule( String type, String value, String delimiter ){

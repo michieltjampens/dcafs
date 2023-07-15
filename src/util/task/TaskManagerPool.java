@@ -9,6 +9,7 @@ import io.telnet.TelnetCodes;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 
@@ -42,21 +43,22 @@ public class TaskManagerPool implements Commandable {
         this.emailSender=emailSender;
     }
     public void readFromXML() {
-        var xmlOpt = XMLtools.readXML(Path.of(workPath,"settings.xml"));
-        if( xmlOpt.isEmpty())
+        var dig = XMLdigger.goIn(Path.of(workPath,"settings.xml"),"taskmanagers");
+
+        if( dig.isInvalid() )
             return;
-        for(Element e: XMLtools.getAllElementsByTag(xmlOpt.get(), "taskmanager") ){
+        dig.peekOut("taskmanager").forEach( tm -> {
             Logger.info("Found reference to TaskManager in xml.");
-            var p = Path.of(e.getTextContent());
+            var p = Path.of(tm.getTextContent());
             if( !p.isAbsolute())
                 p = Path.of(workPath).resolve(p);
 
             if (Files.exists(p)) {
-                addTaskList(e.getAttribute("id"), p);
+                addTaskList(tm.getAttribute("id"), p);
             } else {
                 Logger.error("No such task xml: " + p);
             }
-        }
+        });
     }
     public TaskManager addTaskList( String id, TaskManager tl){
         tl.setStreamPool(streamManager);

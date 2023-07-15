@@ -66,7 +66,7 @@ public abstract class Database{
      */
     protected void readFlushSetup(Element set){
         if( set != null ){
-            String age = XMLtools.getStringAttribute( set, "age", "30s");	    // How many time before data is flushed (if not reached batch size)
+            String age = XMLtools.getStringAttribute( set, "age", "30s");	    // How much time before data is flushed (if not reached batch size)
             maxAge = TimeTools.parsePeriodStringToSeconds(age);
             maxQueries = XMLtools.getIntAttribute( set, "batchsize", 30);		// Minimum amount of queries before a flush unless checks till flush is reached
             Logger.debug( id+" -> Flush:"+maxAge+"s maxQ:"+maxQueries);

@@ -189,28 +189,6 @@ public class XMLtools {
 		return Optional.of( (Element)list.item(0));
 	}
 	/**
-	 * Get an array containing all the elements in the xml with the give tag
-	 * @param xmlDoc The document to look into
-	 * @param tag The tag to look for
-	 * @return An array with the result or an empty array
-	 */
-	public static Element[] getAllElementsByTag(Document xmlDoc, String tag) {
-		if (xmlDoc == null) {
-			Logger.error("No valid XML provided while looking for "+tag);
-			return new Element[0];
-		}
-		NodeList list = xmlDoc.getElementsByTagName(tag); // Get a list of all the nodes with that tag
-
-		var eles = new ArrayList<Element>();
-		for( int a=0;a<list.getLength();a++ ){
-			Node node = list.item(a);
-			if(node!=null && node.getNodeType() == Node.ELEMENT_NODE){
-				eles.add((Element)node);
-			}
-		}
-		return eles.toArray(new Element[0]);
-	}
-	/**
 	 * Retrieve the first element in a xml doc based on the tag
 	 * @param xmlPath The path to the xml
 	 * @param tag The tag to log for
