@@ -361,7 +361,7 @@ public class RealtimeValues implements Commandable {
 			case "rtvals", "rvs" -> {
 				result = replyToRtvalsCmd(args, html);
 			}
-			case "rtval", "real", "int", "integer" -> {
+			case "rtval", "real", "int", "integer","text" -> {
 				int s = addRequest(wr, cmd, args);
 				result = s != 0 ? "Request added to " + s : "Request failed";
 			}
