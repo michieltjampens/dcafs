@@ -309,13 +309,13 @@ Next the database needs a table to store the results `dbm:id,addtable,tablename(
 There are two options to do this, but we'll just show the shortest:
 
 - Create the table with:`dbm:rolls,addtable,dice`
-- Add the first column with: `dbm:rolls,addcol,dice,utc:timestamp`
-    - addcol - short for add column
+- Use the prefix thing again with `dbm:rolls,addcol,dice,!!` (addcol is the cmd to add a column)
+- Add the first column with: `utc:timestamp`
     - dice - refers to the table, could also be rolls:dice but given that there's only one dice this can be omitted
     - utc:timestamp - utc is short for columntype 'utcnow' and the name is timestamp (utcnow is auto-filled)
-- Add the second column with: `dbm:addcol,dice,i:rolled`
+- Add the second column with: `i:rolled` (or `int:rolled`)
     - All the same except it's i for integer (there's also t/text,r/real,ldt=localdt now,dt=datetime)
-> Note: `dbm:addcolumn,rolls:dice,int:rolled` would have the same result
+- Stop the prefix with `!!`
 
 This will have altered the sqlite node accordingly:
 ````xml
@@ -338,9 +338,15 @@ To check if it actually worked: `dbm:rolls,tables`
 >\> rolled INTEGER (rtval=dice_rolled)
 
 A column has a name and a rtval, the name is how it's called in the database while the rtval is the corresponding
-rtval in dcafs. The default rtval is `tablename_columnname`.
+rtval in dcafs. The default rtval used has id `tablename_columnname`.
 
-Given that the earlier created rtval belongs to the group dice, this is the one that will be used.
+By default, the rtval attribute is hidden but if this wasn't the case the node would actually look like this.
+````xml
+  <table name="dice">
+    <utcnow rtval="dice_timestamp">timestamp</utcnow>
+    <int rtval="dice_rolled">rolled</int>
+  </table>
+````
 
 Do note that the columntype of timestamp is TEXT. This is because sqlite doesn't have a datetime equivalent and TEXT is
 the recommended columntype alternative.
@@ -368,11 +374,11 @@ The result:
 Not sure if this is going to explain it or make it harder to understand.  
 The db attribute doesn't mean that the store is the one writing to the database.  
 If you check `dbm:?`, under the title 'Working with tables' there's `dbm:dbid,store,tableid`.  
-So what the store does is execute that cmd with the data from the attribute. In other words, there doesn't
-have to be any link between the store and the table(s).
+So what the store does is execute that cmd with the data from the attribute. In other words, there isn't
+any link between the store and the table(s) (on a source code level).
 
 To check if something is actually happening, check `st` again, you'll see that it's no longer 0/30 (NC) and the
-sqlite is slowly getting bigger.
+sqlite is slowly getting bigger. If not, check the logs.
 
 ### 5. What if...
 
@@ -385,34 +391,38 @@ There are two ways to fix this, either change what the table looks for or what t
 **What the table looks for**
 
 A lot of attributes are hidden if they contain the default value. Suppose this wasn't the case and the tablename
-was actually 'd20s', then the node would have looked like this
+was actually 'd20s', then the sqlite node would have looked like this
 ````xml
-<sqlite id="rolls" path="db\rolls.sqlite">
-  <flush age="30s" batchsize="30"/>
-  <idleclose>-1</idleclose>
-  <table name="d20s"> <!-- d20s instead of dice -->
-    <utcnow>timestamp</utcnow>
-    <int rtval="d20s_rolled">rolled</int> <!--rtval attribute is shown -->
-  </table>
-</sqlite>
+<table name="d20s"> <!-- d20s instead of dice -->
+  <utcnow>timestamp</utcnow>
+  <int rtval="d20s_rolled">rolled</int> <!--rtval attribute is shown -->
+</table>
 ````
-So the easiest fix is to alter the rtval attribute in the xml to 'dice_rolled', save the file and then do
-the `dbm:rolls,reload` command again to apply it.
+So the easiest fix is to alter the rtval attribute in the xml to 'dice_rolled'.
+````xml
+<table name="d20s"> <!-- d20s instead of dice -->
+  <utcnow>timestamp</utcnow>
+  <int rtval="dice_rolled">rolled</int> <!-- d20s replaced with dice -->
+</table>
+````
+Save the file and then do the `dbm:rolls,reload` command again to apply it. Then `dbm:rolls,tables` can be used to verify.
 
 **What the store uses**
 
-Just like the sqlite node, the store node also hides default attributes.
+By default the store determines the group to which the rtvals belong. But if the store itself doesn't define a store, the 
+id of the stream is used. Below is how the store is actually read by dcafs
 ````xml
-<store delimiter=":" group="dice">
-    <int index="1" unit="">rolled</int>
+<store delimiter=":" group="dice"> <!-- group with the id of the stream is used -->
+    <int index="1" unit="" >rolled</int>
 </store>
 ````
-The general rule is that if an attribute is defined in a node, the childnodes take the same value if it isn't defined.  
+There's a general rule that if a node (here 'int') expects a certain attribute that is defined by the parent node (here 'store') but
+not in the node itself, it will use the value of the parent node.
 So because int doesn't have a group node, it takes the value from the store node and becomes 'dice'.
 
 Because all the rtval can belong to the other group, just using `store:dice,group,d20s` makes the changes.
 ````xml
-<store delimiter=":" group="d20s">
+<store delimiter=":" group="d20s"> <!-- change the group for the whole store -->
     <int index="1" unit="">rolled</int>
 </store>
 ````
@@ -432,12 +442,13 @@ It's called rollover (db rolls over to the next), the command for it `dbm:id,add
 * pattern is the text that is added in front of .sqlite of the filename, and allows for datetime patterns.
   * Alternative position can be given be adding `{rollover}` in the filename, this will be replaced 
 
-So as an example a monthly rollover: `dbm:rolls,addrollover,1,month,_yyMM`.  
-To apply it: `dbm:rolls,reload` (but note that you'll lose the queries in the buffer)
+So as an example a monthly rollover: `dbm:rolls,addrollover,5,min,_HHmm`. 
+Other options for unit are: hour, day, month, year.
+To apply it: `dbm:rolls,reload` 
 ```xml
     <databases>
       <sqlite id="rolls" path="db\rolls.sqlite"> 
-        <rollover count="1" unit="month">yyyy_MM</rollover>
+        <rollover count="5" unit="minutes">_HHmm</rollover>
         <flush age="30s" batchsize="30"/>
         <idleclose>-1</idleclose>
         <table name="dice">
@@ -447,7 +458,8 @@ To apply it: `dbm:rolls,reload` (but note that you'll lose the queries in the bu
       </sqlite>
     </databases>
 ```
-Suppose this is active in may 2023, the filename will be rolls_2305.sqlite.
+Suppose this is active at 10:12:15, the filename will be rolls_1012.sqlite.
+Dcafs will make the next filename be a 'cleaner' division, so it will be named rolls_1015.sqlite and so on. 
 
 #### Using a database server?
 
@@ -480,7 +492,7 @@ All the rest is the same as the SQLite. (meaning adding the table and using the 
 ### 6. Summary
 This should serve as a broad, toplevel overview of what happens and what goes where or has which function.
 
-* Create a `stream`. The ID will be what you use to refer to it afterwards.
+* Create a `stream`. The ID will be what you use to refer to it afterward.
     * Some references that can be altered: `ttl`, `eol`.
 * A `store` will process the data by splitting it at the delimiter.
     * Each "field" that results from the split can be given a name and type (int, text ...)
@@ -498,8 +510,7 @@ Restore the settings.xml to restart from a clean slate.
     <telnet port="23" title="dcafs"/> <!-- The telnet server is available on port 23 and the title presented is dcafs -->
   </settings>
   <databases>
-     <sqlite id="rolls" path="db\rolls.sqlite"> <!-- fe. db\rolls_2021_05.sqlite -->
-        <rollover count="1" unit="month">yyyy_MM</rollover>
+     <sqlite id="rolls" path="db\rolls.sqlite"> <!-- fe. db\rolls_2021_05.sqlite -->        
         <flush age="30s" batchsize="30"/>
         <idleclose>-1</idleclose>
         <table name="dice">
@@ -521,34 +532,34 @@ Then use the `sd` command to shut down dcafs and start a new instance (launch th
 
 ### 1. Creating a path
 
-As the name implies, a path defines how the data is processed in dcafs.
+As the name implies, a path defines how the path the data travels in dcafs.
 
 There are two options for the path nodes, either inside the settings.xml or in their own file.
 For small projects, inside the settings.xml is fine.
 
 But when working with multiple (longer) paths it's recommended to give each path their own file.
-This also enables easier reuse.
+This also makes it easier to copy-paste them between projects.
 
 For this example, the path will be added inside the settings.xml.
 Paths have their own cmd's, which are listed with the `pf:?` cmd (pf=pathforward).
 
-So create an empty path with: `pf:cheat,new,raw:dice`.
-* cheat is the id of the path
+So create an empty path with: `pf:dice,new,raw:dice`.
+* dice is the id of the path, we'll use it to cheat the dice rolls with it
 * raw:dice is the source of the data
 
 The result is an extra node added:
 ````xml
   <paths>
-    <path delimiter="," id="cheat" src="raw:dice"/>
+    <path delimiter="," id="dice" src="raw:dice"/>
   </paths>
 ````
 For now the path is empty, but 'steps' will be added (as childnodes in the xml).
-These are the 'steps' the data takes while being forwarded in the path.
+These are the 'steps' the data takes while being travelling along the path.
 
 A path doesn't need a delimiter, but the steps might. That's why a default delimiter can be set
-that will be used by a step (if none is specified by it).
+that will be used by a step (if none is specified by the step).
 
-Because we'll use the same data as before, the delimiter can be altered to ':': `pf:cheat,delim,:`.
+Because we'll use the same data as before, the delimiter can be altered to ':': `pf:dice,delim,:`.
 
 ### 1. Filter
 There's very little data to filter... unless you want to cheat! (in a much too obvious way)   
@@ -557,22 +568,22 @@ Given how the data looks, choices are limited...
 > minlength : the minimum length the message should be
 
 Let us use that to claim we never roll below 10, the command to add a filter with a single rule `pf:pathid,addfilter/addf,rule:value`.  
-Filled in: `pf:cheat,addf,minlength:6`
+Filled in: `pf:dice,addf,minlength:6`
 
-Now use `path:cheat` to see the result. If you don't see anything, it either doesn't work, or the rolls are really unlucky.  
+Now use `path:dice` to see the result. If you don't see anything, it either doesn't work, or the rolls are really unlucky.  
 You could open a second telnet session and use `raw:dice` to see the unfiltered data.
 
 Below is what was added to the settings.xml.
 ````xml
 <paths>
-    <path delimiter=":" id="cheat" src="raw:dice">
+    <path delimiter=":" id="dice" src="raw:dice">
         <filter type="minlength">6</filter>
     </path>
 </paths>
 ````
 To write this to the database, a store node needs to be added. Because it's inside a path, the cmds are different.  
-All the cmds start with `pf:pathid,store,`, using !! again `pf:cheat,store,!!`
-* Because a store takes group from the parent id (cheat), alter it `group,dice`
+All the cmds start with `pf:pathid,store,`, using !! again `pf:dice,store,!!`
+* Because a store takes group from the parent id (dice), this doesn't need to be set
 * To add an int to a store: `addint,name<,index>`, so `addint,rolled,1`.
     * If a store is the last step in the path, the int will be added to that store
     * If no store is at the end, a new one will be created for it.
@@ -580,7 +591,7 @@ All the cmds start with `pf:pathid,store,`, using !! again `pf:cheat,store,!!`
 * Next `!!`, to go back to normal entry
 
 ````xml
-<store db="rolls:dice" group="dice">
+<store db="rolls:dice">
     <int i="1" unit="">rolled</int>
 </store>
 ````
@@ -590,20 +601,21 @@ be obvious that there are gaps... this could be fixed but that's for another sec
 > Note: For now, a message much comply with all filters. The only exception to that rule is startswith, you can add multiple
 > of those in a single filter, they will be or'd instead.
 
-This is a really short intro into FilterForward, check the dedicated wiki page for more.
+This is a really short intro into FilterForward, check the dedicated markdown page for more.
 
 ### 2. Math
 
 So we managed to cheat, but it's way too easy to spot, so we'll make it bit harder...
-* Again to use !!, `pf:cheat2,!!`
-    * We'll add another path, so `new,raw:dice`.
+* Start over by clearing the path, `pf:dice,clear`
+* To use the prefix'ing again `pf:dice,!!`
 * Then we want a filter that removes values below 10 `addf,maxlength:5`
 * Then add a math operation, `addm,i1=i1+5`
     * Like earlier with the store, math also splits the data and those i's refer to that (and start at 0)
     * The operation applied is i1=i1+5, so the number at index 1 will be increased with 5
+      * In contrast to the store op, the index number must be specified because the math gets everything 
     * After this is done, the data is reconstructed fe. d20:5 -> d20:10
 * Then just copy-paste the earlier made store underneath it or...
-    * `pf:cheat2,store,!!` , `group,dice`, `addi,rolled,1`, `db,rolls:dice`
+    * `store,addi,rolled,1`, `store,db,rolls:dice`
 * Back to normal input with `!!`
 
 Below is how it will look in xml.
@@ -619,7 +631,7 @@ Below is how it will look in xml.
 </paths>
 ````
 
-So now if we use `integer:dice_rolled` we'll see rolled as it's updated. Add `raw:dice` to see the raw that is
+So now if we use `int:dice_rolled` we'll see rolled as it's updated. Add `raw:dice` to see the raw that is
 used.
 ````
 d20:16
@@ -645,7 +657,7 @@ There's no function (yet) for logical operations in MathForward nor FilterForwar
 It still might be obvious that 1 to 5 never appear but there's little that can be done about that (for now), besides
 its random, so we might just be lucky.
 
-This was a really short intro into MathForward, check the dedicated wiki page for more.
+This was a really short intro into MathForward, check the dedicated markdown page for more.
 
 ### 3. Editor
 
@@ -660,9 +672,9 @@ The most commonly used ones:
 Usage is pretty much the same as filters, this editor will pretend that we actually wanted a d10 instead of a d20 if the
 result was less than 10.
 
-Start of with altering cheat2 to this.
+Start of with resetting the path to `pf:dice,clear` and `pf:dice,addf,maxlength:5`
 ````xml
-<path delimiter=":" id="cheat2" src="raw:dice">
+<path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
 </path>
 ````
@@ -671,16 +683,9 @@ To add an editor that does a replace, check the earlier `help:editor` for the co
 > replace -> Replace 'find' with the replacement
 > cmd pf:pathid,adde,replace:find|replacement
 
-So this becomes: `pf:cheat2,adde,replace,d2|d1`
-
+So this becomes: `pf:dice,adde,replace,d2|d1`
 ````xml
-<path delimiter=":" id="cheat2" src="raw:dice">
-    <filter type="maxlength">5</filter>
-</path>
-````
-Or if you want to reduce it to a single line:
-````xml
-<path delimiter=":" id="cheat2" src="raw:dice">
+<path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
     <editor>
         <!-- Replace d2 with d1 -->
@@ -688,7 +693,8 @@ Or if you want to reduce it to a single line:
     </editor>
 </path>
 ````
-Now remove the last node with `pf:cheat2,delete,last`.
+You can compare the result wih the raw data using `raw:dice` and `path:dice`.
+We'll try a different edit, so remove the last node with `pf:dice,delete,last`.
 
 The resplit one is a bit more complex so to give an example of yet another cheat method.  
 According to `help:editor`, the cmd is `pf:pathid,adde,resplit,delimiter|append/remove|format`.  
@@ -699,9 +705,9 @@ The reason for using '|' instead of ',' is because it's highly likely that delim
 * Format will be `i0:1i1` so just add a 1 in front of the second item. Because the filter only allows rolls below 10 to
   go through, this results in those rolls becoming much better.
 
-Based on that the cmd becomes: `pf:cheat2,adde,resplit,:|append|i0:1i1`
+Based on that the cmd becomes: `pf:dice,adde,resplit,:|append|i0:1i1`
 ````xml
-<path delimiter=":" id="cheat2" src="raw:dice">
+<path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
     <editor>
         <!-- Split on : then combine according to i0:1i1 -->
@@ -710,34 +716,34 @@ Based on that the cmd becomes: `pf:cheat2,adde,resplit,:|append|i0:1i1`
 </path>
 ````
 
-Check the result with `path:cheat2`.
+Check the result with `path:dice`.
 
 ### 4. Multiple filters in a single path
 
 So far we made a path for each filter, but it's actually the same when combining.
 ````xml
-<path delimiter=":" id="cheat" src="raw:dice">
+<path delimiter=":" id="dice" src="raw:dice">
     <filter type="minlength">6</filter>
-    <store db="rolls:dice" group="dice">
-        <int index="1" unit="">rolled</int>
+    <store db="rolls:dice">
+        <int i="1" unit="">rolled</int>
     </store>
     <!-- because the previous step was a 'store', dcafs assumes you're done with the filtered data -->
     <!-- So the next step will get the discarded data -->
     <filter type="maxlength">5</filter>
     <math>i1=i1+5</math>
-    <store db="rolls:dice" group="dice">
-        <int index="1" unit="">rolled</int>
+    <store db="rolls:dice">
+        <int i="1" unit="">rolled</int>
     </store>
 </path>
 ````
-Note that the output of the `path:cheat` will be the result of the second filter because that's what reaches the end of
+Note that the output of the `path:dice` will be the result of the second filter because that's what reaches the end of
 the path.  
 If this is unwanted behaviour, it's possible to override it.
 ````xml
 <paths>
-    <path delimiter=":" id="cheat" src="raw:dice">
+    <path delimiter=":" id="dice" src="raw:dice">
         <filter id="f1" type="minlength">6</filter> <!--  the filter was given an id -->
-        <store db="rolls:dice" group="dice">
+        <store db="rolls:dice">
             <int i="1" unit="">rolled</int>
         </store>
         <!-- because the previous step was a 'store', dcafs assumes you're done with the filtered data -->
