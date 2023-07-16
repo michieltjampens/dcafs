@@ -538,19 +538,42 @@ public class RealtimeValues implements Commandable {
 
 			}
 		}else if(cmds.length==2){
-			if (cmds[0].equals("group")) {
-				return getRTValsGroupList(cmds[1], true, true, true, true, html);
-			}else if( cmds[0].equals("resetgroup")){
-				var vals = getGroupVals(cmds[1]);
-				if( vals.isEmpty()) {
-					Logger.error( "No vals found in group "+cmds[1]);
-					return "No vals with that group";
+			return switch( cmds[0] ){
+				case "group" -> getRTValsGroupList(cmds[1], true, true, true, true, html);
+				case "resetgroup" -> {
+					var vals = getGroupVals(cmds[1]);
+					if( vals.isEmpty()) {
+						Logger.error( "No vals found in group "+cmds[1]);
+						yield "! No vals with that group";
+					}
+					getGroupVals(cmds[1]).forEach(AbstractVal::resetValue);
+					yield "Values reset";
 				}
-				getGroupVals(cmds[1]).forEach(AbstractVal::resetValue);
-				return "Values reset";
-			}
+				case "name" -> getNameVals(cmds[1]);
+				default -> "! No such subcommand in rtvals: "+args;
+			};
 		}
 		return "! No such subcommand in rtvals: "+args;
+	}
+	public String getNameVals( String regex){
+		var join = new StringJoiner("\r\n");
+		for( var val : realVals.values() ) {
+			if (val.name.matches(regex))
+				join.add(val.group+"_"+val.name+" : "+val.stringValue());
+		}
+		for( var val : integerVals.values() ) {
+			if (val.name.matches(regex))
+				join.add(val.group+"_"+val.name+" : "+val.stringValue());
+		}
+		for( var val : flagVals.values() ) {
+			if (val.name.matches(regex))
+				join.add(val.group+"_"+val.name+" : "+val.stringValue());
+		}
+		for( var val : textVals.values() ) {
+			if (val.name.matches(regex))
+				join.add(val.group+"_"+val.name+" : "+val.stringValue());
+		}
+		return join.toString();
 	}
 	public ArrayList<AbstractVal> getGroupVals( String group ){
 		var vals = new ArrayList<AbstractVal>();
