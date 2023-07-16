@@ -14,6 +14,7 @@ import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import org.tinylog.Logger;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -48,10 +49,10 @@ public class TelnetServer implements Commandable {
         this.dQueue=dQueue;
         this.workerGroup = eventGroup;
         this.settingsPath=settingsPath;
-        this.readSettingsFromXML();
+        readSettingsFromXML();
     }
     public String getTitle(){
-        return this.title;
+        return title;
     }
 
     public void addMessage( String message ){
@@ -60,17 +61,20 @@ public class TelnetServer implements Commandable {
 
     public void readSettingsFromXML( ) {
         if( dQueue != null ) {
-            XMLtools.getFirstElementByTag(settingsPath, XML_PARENT_TAG).ifPresentOrElse( ele -> {
-                port = XMLtools.getIntAttribute(ele, "port", 23);
-                title = XMLtools.getStringAttribute(ele, "title", "DCAFS");
-                ignore = XMLtools.getChildStringValueByTag(ele, "ignore", "");
-                defColor = TelnetCodes.colorToCode(XMLtools.getChildStringValueByTag(ele,"textcolor","yellow"),defColor);
-            },()->addBlankTelnetToXML(settingsPath));
+            var dig = XMLdigger.goIn(settingsPath,"dcafs","settings","telnet");
+            if( dig.isValid()){
+                port = dig.attr("port",23);
+                title = dig.attr( "title", "DCAFS");
+                ignore = dig.attr( "ignore", "");
+                defColor = TelnetCodes.colorToCode(dig.attr("textcolor","yellow"),defColor);
+            }else {
+                addBlankTelnetToXML(settingsPath);
+            }
         }
     }
     public static void addBlankTelnetToXML(Path xmlPath ){
-        XMLfab.withRoot(xmlPath, "settings")
-                .addParentToRoot(XML_PARENT_TAG, "Settings related to the telnet server").attr("title", "DCAFS").attr("port", 23)
+        XMLfab.withRoot(xmlPath,"dcafs", "settings")
+                .addParentToRoot("telnet", "Settings related to the telnet server").attr("title", "DCAFS").attr("port", 23)
                 .addChild("textcolor","lightgray")
                 .build();
     }
