@@ -810,16 +810,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					if (cmds.length < 3) {
 						return "! Wrong amount of arguments -> ss:id," + cmds[1] + ",when,cmd";
 					}
-					if (cmds[2].split(":").length == 1)
-						return "! Doesn't contain a proper when:data pair";
-					var data = request.substring(request.indexOf(":") + 1);
-					var when = cmds[2].substring(0, cmds[2].indexOf(":"));
-					if (Arrays.asList(WHEN).contains(when)) {
-						fab.addChild(cmds[1].substring(3), data).attr("when", when).build();
-						stream.addTriggeredAction(when, data);
-						return "Added triggered " + cmds[1].substring(3) + " to " + cmds[0];
-					}
-					return "! Failed to add, invalid when";
+					if( !Arrays.asList(WHEN).contains(cmds[2]))
+						return "! Not a valid when.";
+					var from = request.indexOf(","+cmds[2]+",");
+					from+=cmds[2].length()+2;
+					var cmd = request.substring(from);
+					fab.addChild(cmds[1].substring(3), cmd).attr("when", cmds[2]).build();
+					stream.addTriggeredAction(cmds[2], cmd);
+					return "Added triggered " + cmds[1].substring(3) + " to " + cmds[0];
 				}
 				case "echo" -> {
 					if (cmds.length != 3) // Make sure we got the correct amount of arguments
