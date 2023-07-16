@@ -47,26 +47,24 @@ public class CommandLineInterface {
                 Logger.debug("Received: "+ (char)b+ " or " +Integer.toString(b)+" "+Integer.toString(data[a])+Integer.toString(data[a+1]));
                 if( data[a]==91){
                     a++;
-                    switch(data[a]){
-                        case 65: // Arrow Up
-                            sendHistory(-1);
-                            break;
-                        case 66: // Arrow Down
-                            sendHistory(1);
-                            break;
-                        case 67: // Arrow Right
+                    switch (data[a]) {
+                        case 65 -> // Arrow Up
+                                sendHistory(-1);
+                        case 66 -> // Arrow Down
+                                sendHistory(1);
+                        case 67 -> { // Arrow Right
                             // Only move to the right if current space is used
-                            if( buffer.getByte(buffer.writerIndex()) != 0 ) {
+                            if (buffer.getByte(buffer.writerIndex()) != 0) {
                                 buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() + 1);
                                 writeString(TelnetCodes.CURSOR_RIGHT);
                             }
-                            break;
-                        case 68: // Arrow Left
-                            if( buffer.writerIndex() != 0 ) {
+                        }
+                        case 68 -> { // Arrow Left
+                            if (buffer.writerIndex() != 0) {
                                 writeString(TelnetCodes.CURSOR_LEFT);
                                 buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() - 1);
                             }
-                            break;
+                        }
                     }
                 }
             }else if( b == '\n'){ //LF
@@ -183,12 +181,16 @@ public class CommandLineInterface {
         if (cmdHistoryIndex == cmdHistory.size() ) // Shouldn't go out of bounds
             cmdHistoryIndex = cmdHistory.size() - 1;
 
-        Logger.info("Sending "+ cmdHistoryIndex);
+        Logger.info("Sending "+ cmdHistoryIndex+ " -> "+cmdHistory.get(cmdHistoryIndex));
         writeString("\r>" + cmdHistory.get(cmdHistoryIndex));//Move cursor and send history
         writeString(TelnetCodes.CLEAR_LINE_END); // clear the rest of the line
         buffer.clear(); // reset the reader and writer index
         buffer.writeBytes(cmdHistory.get(cmdHistoryIndex).getBytes()); // fill the buffer
-        buffer.setZero( buffer.writerIndex(),BUFFER_SIZE-1); // clear the rest of the buffer
+        try {
+            buffer.setZero(buffer.writerIndex(), BUFFER_SIZE - buffer.writerIndex()); // clear the rest of the buffer
+        }catch(Exception e){
+            Logger.error("Zerosetting failed:"+e.getMessage());
+        }
     }
 
     /**
