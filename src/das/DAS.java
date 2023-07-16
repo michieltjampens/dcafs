@@ -393,7 +393,8 @@ public class DAS implements Commandable{
                 dbManager.flushAll();
 
                 // Collectors
-                collectorPool.flushAll();
+                if( collectorPool!=null)
+                    collectorPool.flushAll();
 
                 // Try to send email...
                 if (emailWorker != null) {
