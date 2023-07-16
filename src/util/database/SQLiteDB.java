@@ -305,13 +305,18 @@ public class SQLiteDB extends SQLDB{
 
         if(  unit == TimeTools.RolloverUnit.NONE || unit == null) {
             Logger.warn(id+" -> Bad rollover given");
-            return this;
+            return null;
+        }
+        try {
+            format = DateTimeFormatter.ofPattern(dateFormat);
+        }catch(IllegalArgumentException e){
+            Logger.error(id+" -> "+e.getMessage());
+            return null;
         }
         this.rollCount=rollCount;
         rollUnit=unit;
         oriFormat=dateFormat;
 
-        format = DateTimeFormatter.ofPattern(dateFormat);
         rolloverTimestamp = LocalDateTime.now(ZoneOffset.UTC).withNano(0);
 
         rolloverTimestamp = TimeTools.applyTimestampRollover(true,rolloverTimestamp,rollCount,rollUnit);// figure out the next rollover moment

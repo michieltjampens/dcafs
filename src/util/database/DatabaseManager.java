@@ -485,8 +485,10 @@ public class DatabaseManager implements QueryWriting, Commandable {
                         if (cmds.length < 5)
                             return "! Not enough arguments, needs to be dbm:dbid,addrollover,count,unit,pattern";
                         if (db instanceof SQLiteDB) {
-                            ((SQLiteDB) db).setRollOver(cmds[4], NumberUtils.createInteger(cmds[2]), cmds[3])
-                                    .writeToXml(XMLfab.withRoot(settingsPath, "dcafs", "databases"));
+                            var sql =  ((SQLiteDB) db).setRollOver(cmds[4], NumberUtils.createInteger(cmds[2]), cmds[3]);
+                            if( sql==null)
+                                return "! Bad arguments given, probably format?";
+                            sql.writeToXml(XMLfab.withRoot(settingsPath, "dcafs", "databases"));
                             ((SQLiteDB) db).forceRollover();
                             return "Rollover added";
                         }
