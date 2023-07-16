@@ -1,6 +1,6 @@
 ## Introduction
 
->**Note: Document up to date for 2.4.2**
+>**Note: Document up to date for 2.5.0**
 
 The purpose of this (probably in the end very long) page is to slowly introduce the different components in dcafs and how to use them.
 The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
@@ -205,7 +205,7 @@ Now defining the store:
 * Next up is adding an integer `store:streamid,addint,id<,index>`
     * which we'll call 'rolled' and it's at index 1 so this becomes `addint,rolled,1` or `addi,rolled,1`
 
-Now that the store is defined, use `!!` to remove the prepending.
+Now that the store is defined, use `!!` to remove the prefix.
 
 The result of those commands can be seen in the settings.xml.
 ```xml
@@ -257,6 +257,7 @@ Altering the store to increase the roll with 5: (for now, there's no command to 
       </int> 
 </store>
 ````
+This can be applied with the cmd `ss:dice,reloadstore`.
 Or if the roll was stored as a text instead. The node below replaces some bad rolls with better ones
 ````xml
 <store delimiter=":">
@@ -271,7 +272,7 @@ Or if the roll was stored as a text instead. The node below replaces some bad ro
       </text> 
 </store>
 ````
-Or if you just want to keep track of a bad or good roll
+Or if you just want to keep track of a bad or good roll (apply with `ss:dice,reloadstore`).
 ````xml
 <store delimiter=":">
       <flag index="1" name="rolled" unit="">
@@ -289,13 +290,13 @@ The code doesn't differ much between SQLite or a database server, so we'll go wi
 For a full list of database related commands, use `dbm:?`
 The one we are interested in now is `dbm:addsqlite,id(,filename)`, filename is optional, and the default is id.sqlite
 inside the db subfolder.  
-So `dbm:addsqlite,diceresults`
->Created SQLite at db\diceresults.sqlite and wrote to settings.xml
+So `dbm:addsqlite,rolls`
+>Created SQLite at db\rolls.sqlite and wrote to settings.xml
 
 And indeed in the settings.xml the following section has been added (comments here added for information):
 ```xml
     <databases>
-      <sqlite id="diceresults" path="db\diceresults.sqlite"> <!-- This will be an absolute path instead -->       
+      <sqlite id="rolls" path="db\rolls.sqlite"> <!-- This will be an absolute path instead -->       
         <flush batchsize="30" age="30s"/>
         <idleclose>-1</idleclose> <!-- Do note that this means the file remains locked till dcafs closes -->
         <!-- batchsize means, store x queries before flushing to db -->
@@ -307,18 +308,18 @@ And indeed in the settings.xml the following section has been added (comments he
 Next the database needs a table to store the results `dbm:id,addtable,tablename(,format)`
 There are two options to do this, but we'll just show the shortest:
 
-- Create the table with:`dbm:diceresults,addtable,dice`
-- Add the first column with: `dbm:diceresults,addcol,dice,utc:timestamp`
+- Create the table with:`dbm:rolls,addtable,dice`
+- Add the first column with: `dbm:rolls,addcol,dice,utc:timestamp`
     - addcol - short for add column
-    - dice - refers to the table, could also be diceresults:dice but given that there's only one dice this can be omitted
+    - dice - refers to the table, could also be rolls:dice but given that there's only one dice this can be omitted
     - utc:timestamp - utc is short for columntype 'utcnow' and the name is timestamp (utcnow is auto-filled)
 - Add the second column with: `dbm:addcol,dice,i:rolled`
     - All the same except it's i for integer (there's also t/text,r/real,ldt=localdt now,dt=datetime)
-> Note: `dbm:addcolumn,diceresults:dice,int:rolled` would have the same result
+> Note: `dbm:addcolumn,rolls:dice,int:rolled` would have the same result
 
 This will have altered the sqlite node accordingly:
 ````xml
-<sqlite id="diceresults" path="db\diceresults.sqlite"><!--will be absolute path -->
+<sqlite id="rolls" path="db\rolls.sqlite"><!--will be absolute path -->
   <flush age="30s" batchsize="30"/>
   <idleclose>-1</idleclose>
   <table name="dice">
@@ -328,10 +329,10 @@ This will have altered the sqlite node accordingly:
 </sqlite>
 ````
 
-To apply this `dbm:diceresults,reload`, this will generate the table in the database.
+To apply this `dbm:rolls,reload`, this will generate the table in the database.
 
-To check if it actually worked: `dbm:diceresults,tables`
->Info about diceresults  
+To check if it actually worked: `dbm:rolls,tables`
+>Info about rolls  
 > Table 'dice'  
 >\> timestamp TEXT (rtval=dice_timestamp)  
 >\> rolled INTEGER (rtval=dice_rolled)
@@ -347,17 +348,17 @@ the recommended columntype alternative.
 And `st` (for status) also got updated:
 > ...  
 > Databases  
-> diceresults : db\diceresults.sqlite -> 0/30 (NC)
+> rolls : db\rolls.sqlite -> 0/30 (NC)
 
 So now there's a database ready (go ahead and open the sqlite db in a viewer). But no connection is active (NC).  
 It is, however, still empty as no data gets written to it... yet.
 
 In order to actually get data in it, the store must know about where the data needs to go to.  
-Issue `store:id,db,dbid:table` which becomes `store:dice,db,diceresults:dice`.
+Issue `store:id,db,dbid:table` which becomes `store:dice,db,rolls:dice`.
 
 The result:
 ```xml
-    <store db="diceresults:dice"  delimiter=":" >
+    <store db="rolls:dice"  delimiter=":" >
         <int id="rolled" index="1" unit=""/>
     </store>
     <!-- db can contain multiple id's separated with "," but the table structure must match between databases.
@@ -386,7 +387,7 @@ There are two ways to fix this, either change what the table looks for or what t
 A lot of attributes are hidden if they contain the default value. Suppose this wasn't the case and the tablename
 was actually 'd20s', then the node would have looked like this
 ````xml
-<sqlite id="diceresults" path="db\diceresults.sqlite">
+<sqlite id="rolls" path="db\rolls.sqlite">
   <flush age="30s" batchsize="30"/>
   <idleclose>-1</idleclose>
   <table name="d20s"> <!-- d20s instead of dice -->
@@ -396,7 +397,7 @@ was actually 'd20s', then the node would have looked like this
 </sqlite>
 ````
 So the easiest fix is to alter the rtval attribute in the xml to 'dice_rolled', save the file and then do
-the `dbm:diceresults,reload` command again to apply it.
+the `dbm:rolls,reload` command again to apply it.
 
 **What the store uses**
 
@@ -431,11 +432,11 @@ It's called rollover (db rolls over to the next), the command for it `dbm:id,add
 * pattern is the text that is added in front of .sqlite of the filename, and allows for datetime patterns.
   * Alternative position can be given be adding `{rollover}` in the filename, this will be replaced 
 
-So as an example a monthly rollover: `dbm:diceresults,addrollover,1,month,_yyMM`.  
-To apply it: `dbm:diceresults,reload` (but note that you'll lose the queries in the buffer)
+So as an example a monthly rollover: `dbm:rolls,addrollover,1,month,_yyMM`.  
+To apply it: `dbm:rolls,reload` (but note that you'll lose the queries in the buffer)
 ```xml
     <databases>
-      <sqlite id="diceresults" path="db\diceresults.sqlite"> 
+      <sqlite id="rolls" path="db\rolls.sqlite"> 
         <rollover count="1" unit="month">yyyy_MM</rollover>
         <flush age="30s" batchsize="30"/>
         <idleclose>-1</idleclose>
@@ -446,7 +447,7 @@ To apply it: `dbm:diceresults,reload` (but note that you'll lose the queries in 
       </sqlite>
     </databases>
 ```
-Suppose this is active in may 2023, the filename will be diceresults_2305.sqlite.
+Suppose this is active in may 2023, the filename will be rolls_2305.sqlite.
 
 #### Using a database server?
 
@@ -461,13 +462,13 @@ Suppose:
 * It has a database with the same name as the sqlite one made earlier
 * Security isn't great and user is admin and pass stays pass
 
-The command becomes`dbm:addmariadb,diceserver,diceresults,localhost,admin:pass`  
+The command becomes`dbm:addmariadb,diceserver,rolls,localhost,admin:pass`  
 Which in turn fills in the xml.
 > Note: Attributes are sorted, that's why it's first pass and then user...
 ````xml
 <databases>
     <server id="diceserver" type="mariadb">
-        <db pass="pass" user="admin">diceresults</db>
+        <db pass="pass" user="admin">rolls</db>
         <flush age="30s" batchsize="30"/>
         <idleclose>-1</idleclose>
         <address>localhost</address>
@@ -497,7 +498,7 @@ Restore the settings.xml to restart from a clean slate.
     <telnet port="23" title="dcafs"/> <!-- The telnet server is available on port 23 and the title presented is dcafs -->
   </settings>
   <databases>
-     <sqlite id="diceresults" path="db\diceresults.sqlite"> <!-- fe. db\diceresults_2021_05.sqlite -->
+     <sqlite id="rolls" path="db\rolls.sqlite"> <!-- fe. db\rolls_2021_05.sqlite -->
         <rollover count="1" unit="month">yyyy_MM</rollover>
         <flush age="30s" batchsize="30"/>
         <idleclose>-1</idleclose>
@@ -575,11 +576,11 @@ All the cmds start with `pf:pathid,store,`, using !! again `pf:cheat,store,!!`
 * To add an int to a store: `addint,name<,index>`, so `addint,rolled,1`.
     * If a store is the last step in the path, the int will be added to that store
     * If no store is at the end, a new one will be created for it.
-* Then finally, to set the db reference, `db,diceresults:dice`
+* Then finally, to set the db reference, `db,rolls:dice`
 * Next `!!`, to go back to normal entry
 
 ````xml
-<store db="diceresults:dice" group="dice">
+<store db="rolls:dice" group="dice">
     <int i="1" unit="">rolled</int>
 </store>
 ````
@@ -602,7 +603,7 @@ So we managed to cheat, but it's way too easy to spot, so we'll make it bit hard
     * The operation applied is i1=i1+5, so the number at index 1 will be increased with 5
     * After this is done, the data is reconstructed fe. d20:5 -> d20:10
 * Then just copy-paste the earlier made store underneath it or...
-    * `pf:cheat2,store,!!` , `group,dice`, `addi,rolled,1`, `db,diceresults:dice`
+    * `pf:cheat2,store,!!` , `group,dice`, `addi,rolled,1`, `db,rolls:dice`
 * Back to normal input with `!!`
 
 Below is how it will look in xml.
@@ -611,7 +612,7 @@ Below is how it will look in xml.
     <path delimiter=":" id="cheat2" src="raw:dice">
         <filter type="maxlength">5</filter>
         <math>i1=i1+5</math>
-        <store db="diceresults:dice" group="dice">
+        <store db="rolls:dice" group="dice">
             <int i="1" unit="">rolled</int>
         </store>
     </path>
@@ -717,14 +718,14 @@ So far we made a path for each filter, but it's actually the same when combining
 ````xml
 <path delimiter=":" id="cheat" src="raw:dice">
     <filter type="minlength">6</filter>
-    <store db="diceresults:dice" group="dice">
+    <store db="rolls:dice" group="dice">
         <int index="1" unit="">rolled</int>
     </store>
     <!-- because the previous step was a 'store', dcafs assumes you're done with the filtered data -->
     <!-- So the next step will get the discarded data -->
     <filter type="maxlength">5</filter>
     <math>i1=i1+5</math>
-    <store db="diceresults:dice" group="dice">
+    <store db="rolls:dice" group="dice">
         <int index="1" unit="">rolled</int>
     </store>
 </path>
@@ -736,7 +737,7 @@ If this is unwanted behaviour, it's possible to override it.
 <paths>
     <path delimiter=":" id="cheat" src="raw:dice">
         <filter id="f1" type="minlength">6</filter> <!--  the filter was given an id -->
-        <store db="diceresults:dice" group="dice">
+        <store db="rolls:dice" group="dice">
             <int i="1" unit="">rolled</int>
         </store>
         <!-- because the previous step was a 'store', dcafs assumes you're done with the filtered data -->
@@ -943,7 +944,7 @@ Next a couple of alternative scenario's will be shown.
 #### What if there are multiple tables?
 
 We are also interested in the results of rolling a d6 (6 sided dice) and want to store that in another table.  
-So first close dcafs and dummy, delete the diceresults.sqlite file and overwrite the xml to match the one below.  
+So first close dcafs and dummy, delete the rolls.sqlite file and overwrite the xml to match the one below.  
 Anything new/added will be explained in the comments.
 
 ````xml
@@ -953,7 +954,7 @@ Anything new/added will be explained in the comments.
         <!-- Settings related to the telnet server -->
         <telnet port="23" title="dcafs"/>
         <databases>
-            <sqlite id="diceresults" path="db\diceresults.sqlite">
+            <sqlite id="rolls" path="db\rolls.sqlite">
                 <setup batchsize="10" flushtime="10s" idletime="-1"/>
                 <table name="d20s">
                     <utcnow>timestamp</utcnow>
@@ -973,12 +974,12 @@ Anything new/added will be explained in the comments.
     <paths>
         <path id="sort" src="raw:dice" delimiter=":">
             <filter type="start">d20</filter> <!-- redirect the d20's -->
-            <store db="diceresults:d20s" group="d20s">
+            <store db="rolls:d20s" group="d20s">
                 <int i="1">rolld20</int>
             </store>
             <!-- From this point, the data discarded by the previous filter is given -->
             <filter type="start">d6</filter> <!-- redirect the d6's -->
-            <store db="diceresults:d6s" group="d6s">
+            <store db="rolls:d6s" group="d6s">
                 <int i="1">rolld6</int>
             </store>
         </path>
@@ -1022,7 +1023,7 @@ Then the groups of the stores need to be altered.
 ````xml
 <path id="sort" src="raw:dice" delimiter=":">
     <filter type="start">d20</filter> <!-- redirect the d20's -->
-    <store db="diceresults:rolls" group="rolls">
+    <store db="rolls:rolls" group="rolls">
         <int i="1">rolld20</int>
     </store>
     <!-- From this point, the data discarded by the previous filter is given -->
