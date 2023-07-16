@@ -264,7 +264,6 @@ public class SQLiteDB extends SQLDB{
             String query = view.getTextContent();
             db.views.add( "CREATE VIEW  IF NOT EXISTS "+name+" AS "+query);
         });
-        dig.goUp();
 
         /* Tables */
         dig.peekOut("table").forEach( table -> SqlTable.readFromXml(table).ifPresent(t -> db.tables.put(t.name,t)));
