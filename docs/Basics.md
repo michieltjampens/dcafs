@@ -821,7 +821,7 @@ It's up to the user to add these or not (if using the defaults).
     <!-- For a serial stream -->
     <stream id="dice" type="serial">
         <!-- All of the above and... -->
-        <serialsettings>19200,8,1,,none</serialsettings> <!-- by default, baudrate is 19200 with 8 databits,one stopbit and no parity -->
+        <serialsettings>19200,8,1,none</serialsettings> <!-- by default, baudrate is 19200 with 8 databits,one stopbit and no parity -->
     </stream>
 </streams>
 ````
@@ -839,10 +839,9 @@ As always, this has a couple of extras...
 * hexadecimal escape characters are allowed, so `S1:hello?` and `S1:hello\x3F` send the same thing
     * alternatively, `S1:\h(0x68,0x65,0x6c,0x6c,0x6f,0x3f,0xd,0xa)` would do the same thing, note that the eol sequence needs to be added manually
 * ending with \0 will signal to dcafs to omit the eol sequence so `S1:hello?\0` won't get crlf appended.
-    * Since 1.0.9, it's also possible to use CTRL+s to omit sending eol sequence
+    * Using CTRL+s instead of enter will do the same
 * If you plan on transmitting multiple lines, you should start with `S1:!!` from then on, everything send via that
   telnet session will have S1: prepended and thus be transmitted to dice. Sending `!!` ends this.   
-  This feature can also be used to repeat a certain command over and over, because then it will just send the prepended part.
 
 So now you know pretty much everything there is to know about manually sending data.
 
@@ -851,14 +850,12 @@ Have two telnet sessions open:
 * `raw:dice` running in one to see the rolls come in
 * send `S1:dicer:stopd20s` in the other one, this should stop the d20 rolls to arrive in the first one
 
-The dicer accepts more commands, to test them out first send `S1:dicer:!!` so that is prepended.
+The dicer accepts more commands, to test them out start with `S1:dicer:!!`
 * `rolld6` rolls a single 6 sided die
 * `rolld20` rolls a single 20 sided die
 * `rolld100` rolls a 100 sided die
 * `stopd20s` stops the continuous d20 stream
 * `rolld20s` starts the continuous d20 stream
-
-(send `!!` to go back to normal)
 
 Next up will introduce triggered actions, which are also the final nodes for the stream.
 ````xml
@@ -874,10 +871,10 @@ A stream can have multiple of these cmd/write nodes and there are a couple 'when
     * `wakeup` to send something when the connection is idle
 
 Suppose we don't actually want to receive the d20s, but want a d6 every 5 seconds...
-The command to add a 'write' is `ss:addwrite,id,when:data` so:
-- `ss:addwrite,dice,hello:dicer:stopd20s` to send the stop
-- `ss:addwrite,dice,wakeup:dicer:rolld6` to request a d6 on idle
-- `ss:alter,dice,ttl:5s` to trigger idle after 5s of not receiving data
+The command to add a 'write' is `ss:addwrite,id,when,data` so:
+- `ss:dice,addwrite,hello,dicer:stopd20s` to send the stop
+- `ss:dice,addwrite,wakeup,dicer:rolld6` to request a d6 on idle
+- `ss:dice,ttl,5s` to trigger idle after 5s of not receiving data
 ````xml
     <stream id="dice" type="tcp">   
         <address>localhost:4000</address>   
@@ -898,7 +895,7 @@ The cmd node has four 'when' options, but those are for issuing (local) commands
 * `!idle` executed when idle is resolved
 * `close` executed when it's closed
 
-These can be added with the command `ss:addcmd,id,when:data`
+These can be added with the command `ss:id,addcmd,when,data`
 
 So the main difference is that hello and wakeup send data to somewhere, while open,idle and close are local commands.
 
