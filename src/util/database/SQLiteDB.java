@@ -441,9 +441,9 @@ public class SQLiteDB extends SQLDB{
                 Logger.error(id+" -> Failed to create the database");
             }
             if( renew ) {
-                Logger.info(id+" -> Current rollover date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
+                var d = rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER);
                 rolloverTimestamp = TimeTools.applyTimestampRollover(false,rolloverTimestamp,rollCount,rollUnit);// figure out the next rollover moment
-                Logger.info(id+" -> Next rollover date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
+                Logger.info(id+" -> Current " +d +" and next rollover date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
                 long next = Duration.between(LocalDateTime.now(ZoneOffset.UTC), rolloverTimestamp).toMillis();
                 rollOverFuture = scheduler.schedule(new DoRollOver(true), next, TimeUnit.MILLISECONDS);
             }
