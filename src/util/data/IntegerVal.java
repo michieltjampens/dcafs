@@ -102,6 +102,8 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         return this;
     }
     public void setParseOp( String op ){
+        op=op.replace("i","i0");
+        op=op.replace("i00","i0"); // just incase it was actually with i0
         parseOp = MathFab.newFormula(op);
         if( !parseOp.isValid() ){
             Logger.error(id() +" -> Tried to apply an invalid op for parsing "+op);
