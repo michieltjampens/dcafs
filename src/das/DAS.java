@@ -3,7 +3,6 @@ package das;
 import io.Writable;
 import io.collector.CollectorPool;
 import io.email.Email;
-import io.email.EmailSending;
 import io.email.EmailWorker;
 import io.forward.PathPool;
 import io.hardware.gpio.InterruptPins;
@@ -42,7 +41,7 @@ import java.util.concurrent.*;
 
 public class DAS implements Commandable{
 
-    private static final String version = "2.5.0";
+    private static final String version = "2.5.1";
 
     private final Path settingsPath; // Path to the settings.xml
     private String workPath; // Path to the working dir of dcafs
