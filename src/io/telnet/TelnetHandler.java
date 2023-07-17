@@ -8,6 +8,7 @@ import org.w3c.dom.Node;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -204,14 +205,22 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			switch (split[0]) {
 				case "id" -> {
 					id = split[1];
-					writeString(
-							XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").noChild("client", "id", id)
-									.map(f -> {
-										f.alterChild("client", "host", remote.getHostName())
-												.attr("id", id).build();
-										return "ID changed to " + id + "\r\n>";
-									}).orElse("ID already in use")
-					);
+					var dig = XMLdigger.goIn(settingsPath,"dcafs","settings","telnet");
+					if( dig.isInvalid() ) {
+						writeString("! No telnet node yet");
+						return;
+					}
+					if( dig.peekAt("client","id",id).hasValidPeek()){
+						writeLine("ID already in use");
+					}else{
+						var fabOpt = XMLfab.alterDigger(dig);
+						fabOpt.ifPresent( x-> {
+							x.addChild("client").attr("id",id).attr("host",remote.getHostName());
+							x.build();
+						});
+						writeLine("ID set to "+id);
+					}
+					return;
 				}
 				case "talkto" -> {
 					writeString("Talking to " + split[1] + ", send !! to stop\r\n>");

@@ -289,24 +289,24 @@ public class DatabaseManager implements QueryWriting, Commandable {
 
     /**
      * Add a blank table node to the given database (can be both server or sqlite)
-     * @param fab The fab to build the node
+     * @param settings The path to the settings file
      * @param id The id of the database the table belongs to
      * @param table The name of the table
      * @param format The format of the table
      * @return True if build
      */
-    public static boolean addBlankTableToXML( XMLfab fab, String id, String table, String format){
+    public static boolean addBlankTableToXML( Path settings, String id, String table, String format){
 
-        var serverOpt = fab.selectChildAsParent("server","id",id);
-        if( serverOpt.isPresent() ){
-            fab.selectChildAsParent("server","id",id);
+        var dig = XMLdigger.goIn(settings,"dcafs","databases");
+        if( dig.hasPeek("sqlite","id",id)){ // It's an sqlite
+            dig.usePeek();
+        }else if( dig.hasPeek("server","id",id)){ // it's a server
+            dig.usePeek();
         }else{
-            var sqliteOpt = fab.selectChildAsParent("sqlite","id",id);
-            if( sqliteOpt.isEmpty())
-                return false;
-            fab.selectChildAsParent("sqlite","id",id);
+            return false;
         }
-        return SqlTable.addBlankToXML( fab,table,format );
+        var fabOpt = XMLfab.alterDigger(dig);
+        return fabOpt.filter(xmLfab -> SqlTable.addBlankToXML(xmLfab, table, format)).isPresent();
     }
     /* ********************************** C O M M A N D A B L E *********************************************** */
 
@@ -495,7 +495,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                         return "! " + cmds[0] + " is not an SQLite";
                     }
                     case "addtable" -> {
-                        if (DatabaseManager.addBlankTableToXML(XMLfab.withRoot(settingsPath, "dcafs", "databases"), cmds[0], cmds[2], cmds.length == 4 ? cmds[3] : "")) {
+                        if (DatabaseManager.addBlankTableToXML(settingsPath,cmds[0], cmds[2], cmds.length == 4 ? cmds[3] : "")) {
                             if (cmds.length == 4)
                                 return "Added a partially setup table to " + cmds[0] + " in the settings.xml, edit it to set column names etc";
                             return "Created tablenode for " + cmds[0] + " inside the db node";
