@@ -925,7 +925,7 @@ Again this is purely to show the functionality, every command that can be issued
 For example,the two nodes below have exactly the same end result:
 ````xml
 <stream>
-    <cmd when="open">ss:send,dicer,hello!</cmd> <!-- execute ss:send,dicer,hello! on connectino established -->
+    <cmd when="open">ss:dice,send,hello!</cmd> <!-- execute ss:send,dicer,hello! on connectino established -->
     <write when="hello">hello!</write> <!-- send hello! on connection established-->
 </stream>
 ````
@@ -961,7 +961,7 @@ Anything new/added will be explained in the comments.
                 <setup batchsize="10" flushtime="10s" idletime="-1"/>
                 <table name="d20s">
                     <utcnow>timestamp</utcnow>
-                    <integer>rolld20</integer> <!-- column added to store the d20 -->
+                    <int>rolld20</int> <!-- column added to store the d20 -->
                 </table>
                 <table name="d6s"> <!-- Add an extra table for d6s -->
                     <utcnow>timestamp</utcnow>
@@ -997,7 +997,7 @@ What will happen:
     * If a d20 is received it will pass the first filter and thus be stored by the first store
     * If a d6 is received it will be discarded by the first filter but passed on to the second one etc.
 
-So the above shouldn't be anything new, next changes will be made.
+So the above shouldn't be anything new, now changes will be made.
 
 #### What if there's only a single table?
 

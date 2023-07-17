@@ -301,18 +301,6 @@ public class XMLfab {
 
     }
     /**
-     * Check if a child node with the given tag and attribute isn't present
-     * @param tag The tag of the child node to look for
-     * @param attr The attribute to look for
-     * @param value The value of the attribute
-     * @return The fab if not found
-     */
-    public Optional<XMLfab> noChild( String tag, String attr, String value){
-        return getChildren(tag).stream().anyMatch(x ->
-                x.getAttribute(attr).equalsIgnoreCase(value))?Optional.empty():Optional.of(this);
-
-    }
-    /**
      * Checks the children of the active node for a specific tag,attribute,value match and make that active and parent
      * @param tag The tag of the parent
      * @param attribute The attribute to check

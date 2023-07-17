@@ -7,7 +7,18 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.4.3 (wip)
+## 2.5.0 (17/07/23)
+
+- Rewrote a lot of the code involving XML reading/writing, this kinda effects everything. So plenty of new possibilities
+for bugs. It should however make the related source code easier to read.
+
+### Realtimevalues
+- `rtvals:name,regex` didn't seem to exist anymore... made it again
+- `text:id` now works
+- fixed, The op in a real or int now actually also works with i (instead of i0)
+
+### Other fixes
+- telnet, fixed issue with cmd history not being applied correctly due to error between length and index
 
 ## 2.4.2 (09/07/2023)
 - Fixed, filecollector checked if file and parent folder are both new, this wasn't right (was a bad fix of a old bug)
