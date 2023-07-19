@@ -4,7 +4,7 @@ dcafs
 
 A tool that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database.  If the device needs to be interrogated or any other sort of control, that's also possible.   
 
-It doesn't use a lot of resources (around 20MB RAM incl JVM, 24MB install with all libs), works headless via SSH/Telnet but lacka a GUI.  
+It doesn't use a lot of resources (around 20MB RAM incl JVM, 24MB install with all libs), works headless via SSH/Telnet but lacks a GUI.  
 Once it has been set up, projects like [Graphana](https://grafana.com/) can be used to display data.  
 
 The 'Getting Started' guide, can be read [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
