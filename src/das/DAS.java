@@ -155,7 +155,7 @@ public class DAS implements Commandable{
             addTransServer(); // Check if trans is in xml and if so, set it up
 
         /* MQTT worker */
-        if( digger.hasPeek("mqtt"))
+       // if( digger.hasPeek("mqtt"))
             addMqttPool();
 
         /* I2C */
