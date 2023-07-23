@@ -89,7 +89,9 @@ public class MqttPool implements Commandable, MqttWriting {
         return worker.addSubscription(topic, label);
     }
     public boolean addBroker( String id, String address, String defTopic){
-        mqttWorkers.put( id, new MqttWorker(address,defTopic,dQueue) );
+        var broker = new MqttWorker(address,defTopic,dQueue);
+        broker.setID(id);
+        mqttWorkers.put( id, broker);
         return updateMQTTsettings(id);
     }
     /**
@@ -114,7 +116,7 @@ public class MqttPool implements Commandable, MqttWriting {
      * @return True if updated
      */
     public boolean updateMQTTsettings(String id) {
-        XMLfab fab = XMLfab.withRoot(settingsFile,"settings")
+        XMLfab fab = XMLfab.withRoot(settingsFile,"dcafs")
                             .selectOrAddChildAsParent("mqtt")
                             .down();
 
@@ -187,7 +189,7 @@ public class MqttPool implements Commandable, MqttWriting {
                     join.add("The MQTT manager manages the workers that connect to brokers").add("");
                     join.add(cyan + "General" + reg)
                             .add(green + "   mqtt:?" + reg + " -> Show this message")
-                            .add(green + "   mqtt:addbroker,id,address " + reg + "-> Add a new broker with the given id found at the address")
+                            .add(green + "   mqtt:addbroker,id,address,topic " + reg + "-> Add a new broker with the given id found at the address")
                             .add(green + "   mqtt:brokers " + reg + "-> Get a listing of the current registered brokers")
                             .add(green + "   mqtt:id,reload " + reg + "-> Reload the settings for the broker from the xml.")
                             .add(green + "   mqtt:id,store" + reg + " -> Store the current settings of the broker to the xml.");
