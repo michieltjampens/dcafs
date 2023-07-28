@@ -129,7 +129,7 @@ public class SerialStream extends BaseStream implements Writable {
         }
     }
     protected void processListenerEvent( byte[] data ){
-        Logger.info(id+ " <-- "+Tools.fromBytesToHexString(data));
+        Logger.debug(id+ " <-- "+Tools.fromBytesToHexString(data));
         Logger.tag("RAW").warn(id() + "\t" + Tools.fromBytesToHexString(data));
 
         if( readerIdle ){
