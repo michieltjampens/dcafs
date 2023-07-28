@@ -132,7 +132,8 @@ public class XMLdigger {
     }
     public boolean hasPeek(String tag ){
         peekAt(tag);
-        return hasValidPeek();
+        peeked = hasValidPeek();
+        return peeked;
     }
     public Optional<Element> peekAndUse( String tag ){
         peekAt(tag);
