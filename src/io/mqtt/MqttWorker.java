@@ -4,10 +4,6 @@ import io.Writable;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
-import util.xml.XMLfab;
-import util.xml.XMLtools;
-import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,73 +28,45 @@ import java.util.concurrent.*;
  * option is to disconnect.
  */
 public class MqttWorker implements MqttCallbackExtended {
-
-	private final BlockingQueue<MqttWork> mqttQueue = new LinkedBlockingQueue<>(); // Queue that holds the messages to
-																				// publish
-
+	// Queue that holds the messages to publish
+	private final BlockingQueue<MqttWork> mqttQueue = new LinkedBlockingQueue<>();
 	private MqttClient client = null;
-	MemoryPersistence persistence = new MemoryPersistence();
-
+	private final MemoryPersistence persistence = new MemoryPersistence();
 	MqttConnectOptions connOpts = null;
 
-	String id = ""; // Name/if/title for this worker
-	String brokerAddress = ""; // The address of the broker
-	String clientId = ""; // Client id to use for the broker
-	String defTopic = ""; // The defaulttopic for this broker, will be prepended to publish/subscribe etc
+	private String id; // Name/if/title for this worker
+	private String brokerAddress = ""; // The address of the broker
+	private final String clientId; // Client id to use for the broker
+	private final String defTopic; // The defaulttopic for this broker, will be prepended to publish/subscribe etc
 
 	enum MQTT_FLAVOUR {
 		UBIDOTS, MOSQUITO
 	}
 
-	MQTT_FLAVOUR flavour = MQTT_FLAVOUR.UBIDOTS; // Incase the message layout is different depending on te broker
+	MQTT_FLAVOUR flavour; // In case the message layout is different depending on te broker
 
 	private boolean publishing = false; // Flag that shows if the worker is publishing data
 	private boolean connecting = false; // Flag that shows if the worker is trying to connect to the broker
 
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // Scheduler for the publish and
 																						// connect class
-	private BlockingQueue<Datagram> dQueue; // Queue for a BaseWorker
-
 	private final Map<String, String> subscriptions = new HashMap<>(); // Map containing all the subscriptions
-
-	private boolean settingsChanged = false; // Flag that shows if the settings were changed from what was read
-
 	private final ArrayList<Writable> targets = new ArrayList<>();
 
-	/**
-	 * Constructor to create a worker without the xml
-	 * 
-	 * @param address   The address of the broker
-	 * @param clientId The client id to connect to the broker
-	 * @param topic    The default topic (will be added to all subscribe/publish
-	 *                 requests)
-	 */
-	public MqttWorker(String address, String clientId, String topic) {
-		this.brokerAddress = address;
-		this.clientId = clientId;
-		this.defTopic = topic;
-		applySettings();
-	}
-
-	/**
-	 * Constructor that uses an xml element that contain the settings for connection
-	 * and possible subscriptions
-	 * 
-	 * @param mqtt The element containing the settings
-	 */
-	public MqttWorker(Element mqtt, BlockingQueue<Datagram> dQueue) {
-		readSettings(mqtt);
-		this.dQueue = dQueue;
-	}
-	public MqttWorker( String address, String defTopic, BlockingQueue<Datagram> dQueue ) {
-		this.dQueue = dQueue;
-		this.brokerAddress=address;
+	public MqttWorker( String id, String address, String clientId, String defTopic ) {
+		this.id=id;
+		setBrokerAddress(address);
+		this.clientId=clientId;
 		this.defTopic=defTopic;
-		settingsChanged = true;
+
+		if (address.contains("ubidots")) {
+			flavour = MqttWorker.MQTT_FLAVOUR.UBIDOTS;
+		} else {
+			flavour = MqttWorker.MQTT_FLAVOUR.MOSQUITO;
+		}
 	}
 	/**
-	 * Set the id of this worker, this is added to the work given to the
-	 * baseworker
+	 * Set the id of this worker
 	 * 
 	 * @param id The id for this worker
 	 */
@@ -114,7 +82,14 @@ public class MqttWorker implements MqttCallbackExtended {
 	public String getBrokerAddress() {
 		return this.brokerAddress;
 	}
-
+	public void setBrokerAddress( String addr){
+		if(!addr.contains(":"))
+			addr=addr+":1883";
+		brokerAddress = switch(addr.substring(0,3)){
+			case "tcp","ssl" -> addr;
+			default -> "tcp://"+addr;
+		};
+	}
 	/* ************************************ Q U E U E ************************************************************* **/
 	/**
 	 * Give work to the worker, it will be placed in the queue
@@ -125,11 +100,11 @@ public class MqttWorker implements MqttCallbackExtended {
 	public boolean addWork(MqttWork work) {
 		if( work.isEmpty() )
 			return false;
-		this.mqttQueue.add(work);
+		mqttQueue.add(work);
 		if (!client.isConnected()) { // If not connected, try to connect
 			if (!connecting) {
 				connecting = true;
-				this.scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS);
+				scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS);
 			}
 		} else if (!publishing) { // If currently not publishing ( there's a 30s timeout) enable publishing
 			publishing = true;
@@ -137,72 +112,14 @@ public class MqttWorker implements MqttCallbackExtended {
 		}
 		return true;
 	}
-	public boolean addWork( String topic, String value){
-		return addWork( new MqttWork(topic,value));
+	public void addWork(String topic, String value){
+		addWork(new MqttWork(topic, value));
 	}
 	/* ************************************** S E T T I N G S ****************************************************** */
 	/**
-	 * Read the settings for the worker from the xml element
-	 * 
-	 * @param mqtt The element containing the info
-	 */
-	public void readSettings(Element mqtt) {
-		this.brokerAddress = XMLtools.getChildStringValueByTag(mqtt, "address", "");
-		this.clientId = XMLtools.getChildStringValueByTag(mqtt, "clientid", "");
-		this.defTopic = XMLtools.getChildStringValueByTag(mqtt, "defaulttopic", "");
-		this.id = XMLtools.getStringAttribute(mqtt, "id", "general");
-
-		if (brokerAddress.contains("ubidots")) {
-			flavour = MQTT_FLAVOUR.UBIDOTS;
-		} else {
-			flavour = MQTT_FLAVOUR.MOSQUITO;
-		}
-		
-		subscriptions.clear();
-
-		for (Element e : XMLtools.getChildElements(mqtt, "subscribe")) {
-			String topic = e.getTextContent();
-			String label = e.getAttribute("label");			
-
-			if (topic != null) {
-				this.addSubscription(topic, label);
-			}
-		}
-		settingsChanged = false; // Because this was set to true by the earlier
-		applySettings();
-	}
-
-	/**
-	 * Alter the element to reflect current settings
-	 * 
-	 * @param fab The fab that points to the broker
-	 * @return True if something was changed
-	 */
-	public boolean updateXMLsettings(XMLfab fab, boolean build) {
-		if (!settingsChanged)
-			return false;
-
-		fab.selectOrAddChildAsParent("broker").attr("id",id);
-
-		fab.alterChild("address", brokerAddress)
-			.alterChild("clientid",clientId)
-			.alterChild("defaulttopic",defTopic);
-
-		subscriptions.forEach(
-			(topic,label) -> {
-				fab.alterChild("subscribe",topic).attr("label",label);
-			}
-		);
-		if( build ) {
-			fab.build();
-		}
-		settingsChanged=false;
-		return true;
-	}
-	/**
 	 * Apply the settings read from the xml element
 	 */
-	private void applySettings() {
+	public void applySettings() {
 
 		connOpts = new MqttConnectOptions();
 		connOpts.setCleanSession(false);
@@ -210,13 +127,13 @@ public class MqttWorker implements MqttCallbackExtended {
 			connOpts.setUserName(clientId);
 		connOpts.setAutomaticReconnect(true); //works
 		
-		Logger.info("Creating client for "+this.brokerAddress);
+		Logger.info("Creating client for "+brokerAddress);
 
 		try {
 			if( client != null ){
 				client.disconnect();
 			}
-			client = new MqttClient( this.brokerAddress, MqttClient.generateClientId(), persistence);
+			client = new MqttClient( brokerAddress, MqttClient.generateClientId(), persistence);
 			client.setTimeToWait(10000);
 			client.setCallback(this);
 			
@@ -236,7 +153,10 @@ public class MqttWorker implements MqttCallbackExtended {
 	 * @return True if added
 	 */
 	public boolean addSubscription( String topic, String label ){
-		settingsChanged=true;
+		if( topic==null){
+			Logger.error(id+"(mqtt) -> Invalid topic");
+			return false;
+		}
 		if( defTopic.endsWith("/") && topic.startsWith("/") )
 			topic = topic.substring(1);			
 		
@@ -249,7 +169,7 @@ public class MqttWorker implements MqttCallbackExtended {
 	 * @return True if a subscription to that topic existed and was removed
 	 */
 	public boolean removeSubscription( String topic ){
-		settingsChanged=true;
+
 		if( topic.equals("all")){
 			subscriptions.keySet().removeIf(this::unsubscribe);
 			return subscriptions.isEmpty();
@@ -285,7 +205,7 @@ public class MqttWorker implements MqttCallbackExtended {
 		if (!client.isConnected() ) { // If not connected, try to connect
 			if( !connecting ){
 				connecting=true;
-				this.scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS );
+				scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS );
 			}
 		} else{
 			try {
@@ -320,16 +240,12 @@ public class MqttWorker implements MqttCallbackExtended {
 
 		String load = new String(message.getPayload());	// Get the payload
 		String topicName = subscriptions.get(topic.substring(defTopic.length()));
-
+		Logger.info("Rec: "+topic+" load:"+load);
 		Logger.tag("RAW").warn(topicName+"\t"+load);  // Store it like any other received data
 
-		if( dQueue != null ){	// If there's a valid BaseWorker queue
-			dQueue.add( Datagram.build(load).label(topicName).origin(id) );
+		if( !targets.isEmpty() )
+			targets.removeIf(dt -> !dt.writeLine( load ) );
 
-			if( !targets.isEmpty() ){
-                targets.removeIf(dt -> !dt.writeLine( load ) );
-			}
-		}
 	}	
 	public void registerWritable(Writable wr ){
 		if(!targets.contains(wr))
@@ -340,7 +256,7 @@ public class MqttWorker implements MqttCallbackExtended {
 	}
   	/* ***************************************** C O N N E C T  ***************************************************** */
 	/**
-	 * Checks whether or not there's a connection to the broker
+	 * Checks whether there's a connection to the broker
 	 * @return True if connected
 	 */
 	public boolean isConnected() {
@@ -349,12 +265,22 @@ public class MqttWorker implements MqttCallbackExtended {
 		return client.isConnected();
 		
 	}
-
+	public boolean disconnect(){
+		if( client==null)
+			return false;
+		try {
+			client.disconnect();
+		}catch( MqttException e){
+			Logger.error(e);
+			return false;
+		}
+		return true;
+	}
 	@Override
 	public void connectionLost(Throwable cause) {
 		if (!mqttQueue.isEmpty()) {
 			Logger.debug("Connection lost but still work to do, reconnecting");
-			this.scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
+			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
 		}
 	}
 	@Override
@@ -392,10 +318,11 @@ public class MqttWorker implements MqttCallbackExtended {
 			if (!client.isConnected()) {
 				try {					
 					client.connect(connOpts);
-					Logger.debug("Connected to broker: " + brokerAddress + " ...");
+					Logger.info("Connected to broker: " + brokerAddress + " ...");
 				} catch (MqttException me) {					
 					attempt++;
-					Logger.warn("Failed to connect to "+ brokerAddress +", trying again later");
+					var time = Math.max(attempt*5,60);
+					Logger.warn("Failed to connect to "+ brokerAddress +",  trying again in "+ time+"s");
 					scheduler.schedule( new Connector(attempt), Math.max(attempt * 5, 60), TimeUnit.SECONDS );
 				}
 			}
@@ -417,7 +344,7 @@ public class MqttWorker implements MqttCallbackExtended {
 					if( flavour==MQTT_FLAVOUR.UBIDOTS){
 						client.publish(defTopic + work.getDevice(), work.getUbidotsMessage(1));
 					}else if( flavour==MQTT_FLAVOUR.MOSQUITO){
-						Logger.warn("Still to implement");
+						client.publish(defTopic + "dice/di", new MqttMessage(Integer.toString(10).getBytes()));
 					}
 				} catch (InterruptedException e) {
 					Logger.error(e);

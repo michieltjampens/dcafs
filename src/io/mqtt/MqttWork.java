@@ -35,7 +35,7 @@ public class MqttWork {
 		if( index == -1 ){
 			Logger.error( "No topic given in mqttwork: "+topic);
 		}else{
-			this.device = topic.substring(0,index);
+			device = topic.substring(0,index);
 			add( topic.substring(index+1),value);
 		}
 		

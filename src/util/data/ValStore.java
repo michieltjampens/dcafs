@@ -328,16 +328,16 @@ public class ValStore {
     }
     public String toString(){
         var join = new StringJoiner("\r\n");
-        join.add("Store splits on '"+delimiter+"'").add( "Targets:");
+        join.add("\r\nStore splits on '"+delimiter+"'").add( "Targets:");
         int index=0;
         for( var val :rtvals ){
             if( val !=null){
-                join.add("At index "+index+" -> "+val.id());
+                join.add("   At index "+index+" -> "+val.id());
             }
             index++;
         }
         for( var val : valMap.entrySet()){
-            join.add( "At key "+val.getKey()+" -> "+val.getValue());
+            join.add( "   At key "+val.getKey()+" -> "+val.getValue());
         }
         return join.toString();
     }

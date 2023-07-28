@@ -161,7 +161,7 @@ public class CommandPool {
 		split[0]=split[0].toLowerCase(); // make sure the cmd is in lowercase
 		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
 
-		result = switch (split[0]) { // check if it's a built in cmd instead of a commandable one
+		result = switch (split[0]) { // check if it's a built-in cmd instead of a commandable one
 			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"),workPath, html);
 			case "help", "h", "?" -> doHelp(split, eol);
 			case "upgrade" -> doUPGRADE(split, wr, eol);
@@ -208,7 +208,7 @@ public class CommandPool {
 			result = checkTaskManagers(split[0],split[1],wr,html); // Check if it matches the id of a taskmanager
 
 		if( result.equals(UNKNOWN_CMD)) // Check if any result so far
-			result = "! No such cmd group: "+ split[0]; // No result, so probably bad cmd
+			result = "! No such cmd group: |"+ split[0]+"|"; // No result, so probably bad cmd
 
 		if( wr!=null ) { // If a writable was given
 			if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
