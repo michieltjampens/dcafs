@@ -105,9 +105,7 @@ public class CommandLineInterface {
                     buffer.setByte(buffer.writerIndex()-1,0x00);
                     buffer.setIndex( buffer.readerIndex(),buffer.writerIndex()-1);
                 }
-            }else if( b==0 ){
-                Logger.info("Received a null?");
-            }else{
+            }else if( b!=0 ){
                 insertByte(b);
             }
         }
