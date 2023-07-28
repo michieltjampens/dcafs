@@ -90,12 +90,11 @@ public class PathForward {
             var importPath = importPathOpt.get();
             if( !importPath.isAbsolute()) // If the path isn't absolute
                 importPath = workPath.resolve(importPath); // Make it so
-            var p = XMLdigger.goIn(importPath,"dcafs").digDown("path")
-                    .current();
-            if(p.isPresent()) {
+            dig = XMLdigger.goIn(importPath,"dcafs","path");
+            if( dig.isValid() ){
                 if( id.isEmpty())
-                    id = XMLtools.getStringAttribute(pathEle,"id",id);
-                delimiter = XMLtools.getStringAttribute(pathEle,"delimiter",delimiter);
+                    id=dig.attr("id","");
+                delimiter=dig.attr("delimiter",delimiter);
                 Logger.info("Valid path script found at "+importPath);
             }else{
                 Logger.error("No valid path script found: "+importPath);
@@ -106,9 +105,7 @@ public class PathForward {
                 return error;
             }
         }
-
-        var steps = XMLtools.getChildElements(pathEle);
-
+        var steps = dig.peekOut("*");
         if( steps.size() > 0) {
             stepsForward = new ArrayList<>();
         }else{
@@ -127,21 +124,6 @@ public class PathForward {
                 readCustomSources(step);
                 continue;
             }
-           /* if(step.getTagName().equalsIgnoreCase("cmd")){
-                if( stepsForward.isEmpty() ){
-                    Logger.error(id + " -> Can't add a command before any steps");
-                    continue;
-                }
-                while( steps.size()>a && steps.get(a).getTagName().equalsIgnoreCase("cmd") ){ // Check if the index is possible
-                    stepsForward.get(stepsForward.size()-1).addAfterCmd(step.getTextContent());
-                    a++;
-                }
-                if( steps.size()>a){
-                    step = steps.get(a);
-                }else{
-                    continue;
-                }
-            }*/
             // Check if the next step is a store, if so process it to apply to current step
             if( a<steps.size()-1 ){
                 var next = steps.get(a+1);
