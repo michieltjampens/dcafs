@@ -64,7 +64,7 @@ public class SerialStream extends BaseStream implements Writable {
         }
 
         if (serialPort.openPort()) {
-            this.addListener();
+            addListener();
             Logger.info("Connected to serialport " + serialPort.getSystemPortName());
             listeners.forEach( l -> l.notifyOpened(id) );
         } else {
@@ -100,7 +100,7 @@ public class SerialStream extends BaseStream implements Writable {
         byte[] deli;
 
         public MessageListener(String delimiter) {
-            this.deli = delimiter.getBytes();
+            deli = delimiter.getBytes();
         }
 
         @Override
@@ -129,7 +129,7 @@ public class SerialStream extends BaseStream implements Writable {
         }
     }
     protected void processListenerEvent( byte[] data ){
-        Logger.debug(id+ " <-- "+Tools.fromBytesToHexString(data));
+        Logger.info(id+ " <-- "+Tools.fromBytesToHexString(data));
         Logger.tag("RAW").warn(id() + "\t" + Tools.fromBytesToHexString(data));
 
         if( readerIdle ){
@@ -142,7 +142,7 @@ public class SerialStream extends BaseStream implements Writable {
                 targets.forEach(dt -> eventLoopGroup.submit(()-> {
                     try {
                         if( dt.id().contains("telnet")) {
-                            dt.writeString(Tools.fromBytesToHexString(data)+" ");
+                            dt.writeString(new String(data)+" ");
                         }else{
                             dt.writeBytes(data);
                         }
