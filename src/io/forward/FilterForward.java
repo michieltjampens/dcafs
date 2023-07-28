@@ -121,9 +121,10 @@ public class FilterForward extends AbstractForward {
 
         var dig = XMLdigger.goIn(filter);
 
-        delimiter = dig.attr("delimiter",delimiter); // Allow for global delimiter
+        delimiter = dig.attr("delimiter",delimiter,true); // Allow for global delimiter
         ignoreFalse = dig.attr("ignores",0);
         negate = dig.attr("negate",false);
+
 
         rules.clear();
         if( dig.hasPeek("rule")){ // if rules are defined as nodes
@@ -149,10 +150,10 @@ public class FilterForward extends AbstractForward {
             }else if( starts.size()>1){
                 addStartOptions( starts.toArray(new String[1]) );
             }
-        }else if( filter.getTextContent() != null ){ // If only a single rule is defined
-            String type = dig.attr("type","");
+        }else if( !dig.value("").isEmpty() ){ // If only a single rule is defined
+            var type = dig.attr("type","");
             if( !type.isEmpty()){
-                addRule(type,dig.value(""),dig.attr("delimiter",delimiter,true));
+                addRule(type,dig.value(""),delimiter);
             }
         }
         return true;
