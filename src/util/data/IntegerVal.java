@@ -7,6 +7,7 @@ import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -55,11 +56,13 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      * @return The created node, still needs dQueue set
      */
     public static Optional<IntegerVal> build(Element rtval, String group){
-        String name = XMLtools.getStringAttribute(rtval,"name","");
-        name = XMLtools.getStringAttribute(rtval,"id",name);
+        var dig = XMLdigger.goIn(rtval);
+        String name = dig.attr("name","");
+        name = dig.attr("id",name);
+        group = dig.attr("group",group);
 
-        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
-            name = rtval.getTextContent();
+        if( name.isEmpty() && dig.peekOut("*").isEmpty() )
+            name = dig.value("");
 
         if( name.isEmpty()){
             Logger.error("Tried to create a IntegerVal without name, group "+group);

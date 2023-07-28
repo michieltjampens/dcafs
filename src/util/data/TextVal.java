@@ -3,6 +3,7 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -38,11 +39,13 @@ public class TextVal extends AbstractVal{
      * @return The created node, still needs dQueue set
      */
     public static Optional<TextVal> build(Element rtval, String group){
-        String name = XMLtools.getStringAttribute(rtval,"name","");
-        name = XMLtools.getStringAttribute(rtval,"id",name);
+        var dig = XMLdigger.goIn(rtval);
+        String name = dig.attr("name","");
+        name = dig.attr("id",name);
+        group = dig.attr("group",group);
 
-        if( name.isEmpty() && XMLtools.getChildElements(rtval).isEmpty() )
-            name = rtval.getTextContent();
+        if( name.isEmpty() && dig.peekOut("*").isEmpty() )
+            name = dig.value("");
 
         if( name.isEmpty()){
             Logger.error("Tried to create a TextVal without id/name, group "+group);
