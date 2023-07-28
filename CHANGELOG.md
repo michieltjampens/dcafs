@@ -7,6 +7,20 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
+## 2.5.1 (wip)
+- Fixes related to recent xml changes
+  - Filter no longer working if not using rules
+  - paths in files were no longer recognized properly
+  - after a peek, attr and value refer to the peek even if it failed, now refers back to last dig
+- Other fixes
+  - Telnet in linux adds a 0x00 after 0x0D, now this is filtered out 
+  - rtvals in a store can now actually define a group instead of using global one
+
+### MQTT
+- Rewrote the xml related code and general cleanup
+- Fixed, addbroker didn't set the id
+- Fixed, mqtt wasn't initialized if not present in xml... but then cmds cant be issued to add it to xml
+
 ## 2.5.0 (17/07/23)
 
 - Rewrote a lot of the code involving XML reading/writing, this kinda effects everything. So plenty of new possibilities
