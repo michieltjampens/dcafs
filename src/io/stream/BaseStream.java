@@ -78,18 +78,18 @@ public abstract class BaseStream {
         var dig = XMLdigger.goIn(stream);
 
         id = dig.attr("id", "");
-        label = dig.attr( "label", "");    // The label associated fe. nmea,sbe38 etc
-        priority = dig.attr("priority", 1);	 // Determine priority of the sensor
-        log = dig.attr("log", true);
+        label = dig.peekAt("label").value("");    // The label associated fe. nmea,sbe38 etc
+        priority = dig.peekAt("priority").value( 1);	 // Determine priority of the sensor
+        log = dig.peekAt("log").value(true);
 
         // delimiter
-        String deli = dig.attr("eol", "\r\n");
+        String deli = dig.peekAt("eol").value("\r\n");
         if( deli.equalsIgnoreCase("\\0"))
             deli="";// Delimiter used, default carriage return + line feed
         eol = Tools.getDelimiterString(deli);
 
         // ttl
-		String ttlString = dig.attr("ttl", "-1");
+		String ttlString = dig.peekAt("ttl").value("-1");
         if( !ttlString.equals("-1") ){
 			if( Tools.parseInt(ttlString, -999) != -999) // Meaning no time unit was added, use the default s
                 ttlString += "s";
