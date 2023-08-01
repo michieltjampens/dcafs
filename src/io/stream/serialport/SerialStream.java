@@ -171,7 +171,7 @@ public class SerialStream extends BaseStream implements Writable {
 
         // Implement the use of labels
         if( !label.isEmpty() && dQueue !=null ) { // No use adding to queue without label
-            dQueue.add( Datagram.build(msg).label(label).priority(priority) );
+            dQueue.add( Datagram.build(msg).label(label).priority(priority).writable(this) );
         }
 
         // Implement the use of store
