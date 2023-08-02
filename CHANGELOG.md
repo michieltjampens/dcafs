@@ -6,8 +6,9 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc?
+## 2.5.2 (wip)
 
-## 2.5.1 (wip)
+## 2.5.1 (02/08/23)
 - Fixes related to recent xml changes
   - Filter no longer working if not using rules
   - paths in files were no longer recognized properly
@@ -17,7 +18,8 @@ Note: Version numbering: x.y.z
   - rtvals in a store can now actually define a group instead of using global one
   - Serial connections that used 'label' didn't provide the writable to receive replies
   - ss:id,label,newlabel altered to parent node instead of the label node
-  
+ - Updated jserialcom dep
+
 ### MQTT
 - Rewrote the xml related code and general cleanup
 - Fixed, addbroker didn't set the id
