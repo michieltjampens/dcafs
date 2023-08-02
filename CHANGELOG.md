@@ -15,7 +15,9 @@ Note: Version numbering: x.y.z
 - Other fixes
   - Telnet in linux adds a 0x00 after 0x0D, now this is filtered out 
   - rtvals in a store can now actually define a group instead of using global one
-
+  - Serial connections that used 'label' didn't provide the writable to receive replies
+  - ss:id,label,newlabel altered to parent node instead of the label node
+  
 ### MQTT
 - Rewrote the xml related code and general cleanup
 - Fixed, addbroker didn't set the id
