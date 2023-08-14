@@ -43,10 +43,15 @@ public class TaskManagerPool implements Commandable {
         this.emailSender=emailSender;
     }
     public void readFromXML() {
-        var dig = XMLdigger.goIn(Path.of(workPath,"settings.xml"),"taskmanagers");
+        Path xml = Path.of(workPath, "settings.xml");
 
-        if( dig.isInvalid() )
+        var dig = XMLdigger.goIn(xml,"dcafs","taskmanagers");
+        if( dig.isInvalid() ) {
+            dig = XMLdigger.goIn(xml,"dcafs","settings");
+        }
+        if( dig.isInvalid() ) {
             return;
+        }
         dig.peekOut("taskmanager").forEach( tm -> {
             Logger.info("Found reference to TaskManager in xml.");
             var p = Path.of(tm.getTextContent());
