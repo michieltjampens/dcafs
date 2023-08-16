@@ -154,10 +154,6 @@ public class DAS implements Commandable{
         if( digger.hasPeek("transserver"))
             addTransServer(); // Check if trans is in xml and if so, set it up
 
-        /* MQTT worker */
-       // if( digger.hasPeek("mqtt"))
-            addMqttPool();
-
         /* I2C */
         if( digger.hasPeek("i2c"))
             addI2CWorker();
@@ -206,6 +202,9 @@ public class DAS implements Commandable{
         }else{
             Logger.info("No matrix settings");
         }
+
+        /* MQTT worker */
+        addMqttPool();
 
         /* TaskManagerPool */
         addTaskManager();
