@@ -145,12 +145,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 * Subscribe to a given topic on the associated broker
 	 * @param topic The topic so subscribe to
 	 * @param label The label used by the BaseWorker to process the received data
-	 * @return True if added
+	 * @return 0 if failed to add, 1 if ok, 2 if added but not send to broker
 	 */
-	public boolean addSubscription( String topic, String label ){
+	public int addSubscription( String topic, String label ){
 		if( topic==null){
 			Logger.error(id+"(mqtt) -> Invalid topic");
-			return false;
+			return 0;
 		}
 		if( defTopic.endsWith("/") && topic.startsWith("/") )
 			topic = topic.substring(1);			
@@ -158,10 +158,10 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		subscriptions.put(topic, label);
 		return subscribe( topic );
 	}
-	public boolean addSubscription( String topic, AbstractVal val ){
+	public int addSubscription( String topic, AbstractVal val ){
 		if( topic==null){
 			Logger.error(id+"(mqtt) -> Invalid topic");
-			return false;
+			return 0;
 		}
 		if( defTopic.endsWith("/") && topic.startsWith("/") )
 			topic = topic.substring(1);
@@ -204,10 +204,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	/**
 	 * Private method used to subscribe to the given topic
 	 * @param topic The topic to subscribe to
+	 * @return 0 if failed to add, 1 if ok, 2 if added but not send to broker
 	 */	
-	private boolean subscribe( String topic ){	
+	private int subscribe( String topic ){
 		if( client == null)
-			return false;			
+			return 0;
 		if (!client.isConnected() ) { // If not connected, try to connect
 			if( !connecting ){
 				connecting=true;
@@ -217,12 +218,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			try {
 				Logger.info("Subscribing to "+defTopic+topic);
 				client.subscribe( defTopic + topic );
-				return true;
+				return 1;
 			} catch (MqttException e) {
 				Logger.error(e);
 			}
 		}
-		return false;
+		return 2;
 	}
 	/**
 	 * Unsubscribe from the given topic

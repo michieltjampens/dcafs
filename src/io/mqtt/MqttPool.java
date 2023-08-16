@@ -142,12 +142,14 @@ public class MqttPool implements Commandable {
                             .add(green + "   mqtt:?" + reg + " -> Show this message")
                             .add(green + "   mqtt:addbroker,id,address,topic " + reg + "-> Add a new broker with the given id found at the address")
                             .add(green + "   mqtt:brokers " + reg + "-> Get a listing of the current registered brokers")
-                            .add(green + "   mqtt:id,reload " + reg + "-> Reload the settings for the broker from the xml.")
-                            .add(green + "   mqtt:id,store" + reg + " -> Store the current settings of the broker to the xml.");
+                            .add(green + "   mqtt:id,reload " + reg + "-> Reload the settings for the broker from the xml.");
                     join.add(cyan + "Subscriptions" + reg)
                             .add(green + "   mqtt:id,subscribe,label,topic " + reg + "-> Subscribe to a topic with given label on given broker")
                             .add(green + "   mqtt:id,unsubscribe,topic " + reg + "-> Unsubscribe from a topic on given broker")
                             .add(green + "   mqtt:id,unsubscribe,all " + reg + "-> Unsubscribe from all topics on given broker");
+                    join.add(cyan + "Rtvals" + reg)
+                            .add(green + "   mqtt:id,provide,rtval<,topic> " + reg + "-> Provide a certain rtval to the broker, topic is group/name by default.")
+                            .add(green + "   mqtt:id,store,topic,rtval " + reg + "-> Store a certain topic as a rtval.");
                     join.add(cyan + "Send & Receive" + reg)
                             .add(green + "   mqtt:id " + reg + "-> Forwards the data received from the given broker to the issuing writable")
                             .add(green + "   mqtt:id,send,topic:value " + reg + "-> Sends the value to the topic of the brokerid");
@@ -195,19 +197,41 @@ public class MqttPool implements Commandable {
             if( worker == null)
                 return "! Not a valid id: "+cmds[0];
 
+            var dig = XMLdigger.goIn(settingsFile,"dcafs","mqtt");
+            XMLfab fab;
+            if( dig.hasPeek("broker","id",cmds[0]) ) {
+                dig.usePeek();
+                var fabOpt = XMLfab.alterDigger(dig);
+                if( fabOpt.isEmpty())
+                    return "! Failed to create fab?";
+                fab =fabOpt.get();
+            }else{
+                return "! No valid broker found in xml";
+            }
+
             switch (cmds[1]) {
                 case "subscribe" -> {
                     if (cmds.length != 4)
                         return "! Wrong amount of arguments -> mqtt:id,subscribe,label,topic";
-                    if( worker.addSubscription(cmds[3], cmds[2]) )
-                        return "Subscription added, send 'mqtt:store," + cmds[0] + "' to save settings to xml";
+                    int res = worker.addSubscription(cmds[3], cmds[2]);
+                    if(  res != 0 ) {
+                        fab.addChild("subscribe").attr("label",cmds[2]).content(cmds[3]);
+                        if( fab.build() )
+                            return "Subscription added";
+                        return "! Failed to add subscription to xml";
+                    }
                     return "! Failed to add subscription";
                 }
                 case "unsubscribe" -> {
                     if (cmds.length != 3)
                         return "! Wrong amount of arguments -> mqtt:unsubscribe,brokerid,topic";
-                    if( worker.removeSubscription(cmds[2]))
-                        return "Subscription removed, send 'mqtt:"+cmds[0]+",store' to save settings to xml";
+                    if( worker.removeSubscription(cmds[2])) {
+                        if( fab.removeChild("subscribe",cmds[2])){
+                            fab.build();
+                            return "Subscription removed";
+                        }
+                        return "! Failed to remove subscription from xml.";
+                    }
                     return "! Failed to remove subscription, probably typo?";
                 }
                 case "send" -> {
@@ -220,6 +244,36 @@ public class MqttPool implements Commandable {
                     double val = rtvals.getReal(topVal[1], -999);
                     worker.addWork(topVal[0], String.valueOf(val));
                     return "Data send to " + cmds[0];
+                }
+                case "provide" ->{
+                    if (cmds.length < 3)
+                        return "! Wrong amount of arguments -> mqtt:id,provide,rtval<,topic>";
+                    var val = rtvals.getAbstractVal(cmds[2]);
+                    if( val.isEmpty() )
+                        return "! No such rtval: "+cmds[2];
+                    var topic = cmds.length==4?cmds[3]:"";
+
+                    fab.alterChild("provide").down();
+                    fab.addChild("rtval").content(cmds[2]);
+                    if( !topic.isEmpty() )
+                        fab.attr("topic",topic);
+                    fab.build();
+                    return "Provide added";
+                }
+                case "store" ->{
+                    if (cmds.length < 4)
+                        return "! Wrong amount of arguments -> mqtt:id,store,type,rtval<,topic>";
+
+                    var topic = cmds.length==5?cmds[4]:cmds[3].replace("_","/");
+                    var group = cmds[3].contains("_")?cmds[3].split("_")[0]:"";
+                    var name =  cmds[3].contains("_")?cmds[3].split("_")[1]:cmds[3];
+
+                    fab.alterChild("store").down();
+                    fab.addChild(cmds[2]).attr("topic",topic).content(name);
+                    if( !group.isEmpty())
+                        fab.attr("group",group);
+                    fab.build();
+                    return "Store added";
                 }
                 default -> {
                     return "! No such subcommand in " + cmd + ": " + cmds[0];
