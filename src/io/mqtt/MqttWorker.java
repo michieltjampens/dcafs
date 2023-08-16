@@ -4,6 +4,8 @@ import io.Writable;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.tinylog.Logger;
+import util.data.AbstractVal;
+import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,7 +29,7 @@ import java.util.concurrent.*;
  * For now nothing happens with the connection when no work is present and no subscriptions are made, an
  * option is to disconnect.
  */
-public class MqttWorker implements MqttCallbackExtended {
+public class MqttWorker implements MqttCallbackExtended,Writable {
 	// Queue that holds the messages to publish
 	private final BlockingQueue<MqttWork> mqttQueue = new LinkedBlockingQueue<>();
 	private MqttClient client = null;
@@ -38,32 +40,22 @@ public class MqttWorker implements MqttCallbackExtended {
 	private String brokerAddress = ""; // The address of the broker
 	private final String clientId; // Client id to use for the broker
 	private final String defTopic; // The defaulttopic for this broker, will be prepended to publish/subscribe etc
-
-	enum MQTT_FLAVOUR {
-		UBIDOTS, MOSQUITO
-	}
-
-	MQTT_FLAVOUR flavour; // In case the message layout is different depending on te broker
-
 	private boolean publishing = false; // Flag that shows if the worker is publishing data
 	private boolean connecting = false; // Flag that shows if the worker is trying to connect to the broker
 
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // Scheduler for the publish and
 																						// connect class
 	private final Map<String, String> subscriptions = new HashMap<>(); // Map containing all the subscriptions
+	private final Map<String, AbstractVal> rtvals = new HashMap<>();
+	private final Map<String, String> provide = new HashMap<>();
 	private final ArrayList<Writable> targets = new ArrayList<>();
-
-	public MqttWorker( String id, String address, String clientId, String defTopic ) {
+	private BlockingQueue<Datagram> dQueue;
+	public MqttWorker( String id, String address, String clientId, String defTopic, BlockingQueue<Datagram> dQueue ) {
 		this.id=id;
 		setBrokerAddress(address);
 		this.clientId=clientId;
 		this.defTopic=defTopic;
-
-		if (address.contains("ubidots")) {
-			flavour = MqttWorker.MQTT_FLAVOUR.UBIDOTS;
-		} else {
-			flavour = MqttWorker.MQTT_FLAVOUR.MOSQUITO;
-		}
+		this.dQueue=dQueue;
 	}
 	/**
 	 * Set the id of this worker
@@ -98,7 +90,7 @@ public class MqttWorker implements MqttCallbackExtended {
 	 * @return true if the work was accepted
 	 */
 	public boolean addWork(MqttWork work) {
-		if( work.isEmpty() )
+		if( work.isInvalid() )
 			return false;
 		mqttQueue.add(work);
 		if (!client.isConnected()) { // If not connected, try to connect
@@ -143,7 +135,10 @@ public class MqttWorker implements MqttCallbackExtended {
 		// Subscriptions
 		for( String key : subscriptions.keySet() ){
 			subscribe( key );
-		}	
+		}
+		for( String key : rtvals.keySet() ){
+			subscribe( key );
+		}
 	}	
 	/* ****************************************** S U B S C R I B E  *********************************************** */
 	/**
@@ -161,6 +156,17 @@ public class MqttWorker implements MqttCallbackExtended {
 			topic = topic.substring(1);			
 		
 		subscriptions.put(topic, label);
+		return subscribe( topic );
+	}
+	public boolean addSubscription( String topic, AbstractVal val ){
+		if( topic==null){
+			Logger.error(id+"(mqtt) -> Invalid topic");
+			return false;
+		}
+		if( defTopic.endsWith("/") && topic.startsWith("/") )
+			topic = topic.substring(1);
+
+		rtvals.put(topic, val);
 		return subscribe( topic );
 	}
 	/**
@@ -233,16 +239,29 @@ public class MqttWorker implements MqttCallbackExtended {
 		}
 		return true;
 	}
+	public void addProvide( String rtval, String topic){
+		if( !topic.equalsIgnoreCase(rtval))
+			provide.put(rtval,topic);
+	}
 	/* ****************************************** R E C E I V I N G  ************************************************ */
 
 	@Override
 	public void messageArrived(String topic, MqttMessage message) {
 
 		String load = new String(message.getPayload());	// Get the payload
-		String topicName = subscriptions.get(topic.substring(defTopic.length()));
-		Logger.info("Rec: "+topic+" load:"+load);
-		Logger.tag("RAW").warn(topicName+"\t"+load);  // Store it like any other received data
+		Logger.debug("Rec: "+topic+" load:"+load);
 
+		String label = subscriptions.get(topic.substring(defTopic.length()));
+		if( label!=null){
+			Logger.tag("RAW").warn(label+"\t"+topic+"\t"+load);  // Store it like any other received data
+			dQueue.add(Datagram.build(load).origin(topic).label(label));
+		}else{
+			Logger.tag("RAW").warn(topic+"\t"+load);
+			var rtval = rtvals.get(topic.substring(defTopic.length()));
+			if( rtval != null ){
+				rtval.parseValue(load);
+			}
+		}
 		if( !targets.isEmpty() )
 			targets.removeIf(dt -> !dt.writeLine( load ) );
 
@@ -297,6 +316,10 @@ public class MqttWorker implements MqttCallbackExtended {
 				subs=sub;
 				client.subscribe( defTopic+sub );
 			}
+			for( String sub:rtvals.keySet() ){
+				subs=sub;
+				client.subscribe( defTopic+sub );
+			}
 		} catch (MqttException e) {
 			Logger.error("Failed to subscribe to: "+defTopic+subs);
 		}
@@ -341,11 +364,9 @@ public class MqttWorker implements MqttCallbackExtended {
 						goOn=false;
 						continue;
 					}
-					if( flavour==MQTT_FLAVOUR.UBIDOTS){
-						client.publish(defTopic + work.getDevice(), work.getUbidotsMessage(1));
-					}else if( flavour==MQTT_FLAVOUR.MOSQUITO){
-						client.publish(defTopic + "dice/di", new MqttMessage(Integer.toString(10).getBytes()));
-					}
+					if( work.isInvalid())
+						continue;
+					client.publish(defTopic + work.getTopic(), work.getMessage() );
 				} catch (InterruptedException e) {
 					Logger.error(e);
 					// Restore interrupted state...
@@ -353,6 +374,7 @@ public class MqttWorker implements MqttCallbackExtended {
 				} catch (MqttException e) {
 					Logger.error(e.getMessage());
 					goOn=false;
+					work.incrementAttempt();
 					mqttQueue.add(work);
 				} 
 			}
@@ -361,6 +383,44 @@ public class MqttWorker implements MqttCallbackExtended {
 	}
 	@Override
 	public void deliveryComplete(IMqttDeliveryToken token) {
-		Logger.warn("This shouldn't be called...");
+		//Logger.warn("This shouldn't be called...");
+	}
+	/* ***************************************** W R I T A B L E  ******************************************************/
+	@Override
+	public boolean writeString(String data) {
+		return false;
+	}
+
+	@Override
+	public boolean writeLine(String data) {
+		return false;
+	}
+
+	@Override
+	public boolean writeLine(String origin, String data) {
+		var topic = provide.get(origin);
+		topic = topic==null?origin.replace("_","/"):topic;
+		addWork(topic,data);
+		return true;
+	}
+
+	@Override
+	public boolean writeBytes(byte[] data) {
+		return false;
+	}
+
+	@Override
+	public String id() {
+		return id;
+	}
+
+	@Override
+	public boolean isConnectionValid() {
+		return true;
+	}
+
+	@Override
+	public Writable getWritable() {
+		return this;
 	}
 }

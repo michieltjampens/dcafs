@@ -72,11 +72,51 @@ public class MqttPool implements Commandable {
             var clientid = broker.peekAt("clientid").value("");
             var defTopic = broker.peekAt("defaulttopic").value("");
 
-            var worker = new MqttWorker(id,addr,clientid,defTopic);
+            var worker = new MqttWorker(id,addr,clientid,defTopic,dQueue);
 
             broker.peekOut("subscribe").forEach( sub -> {
                 worker.addSubscription(sub.getTextContent(),sub.getAttribute("label"));
             });
+
+            if( broker.hasPeek( "store")){
+                broker.digDown("store");
+                broker.peekOut("*").forEach( rtval -> {
+                    var topic = rtval.getAttribute("topic");
+                    var group = rtval.getAttribute("group");
+                    if( group.isEmpty())
+                        group = id;
+                    var name = rtval.getTextContent();
+
+                    var val = rtvals.getAbstractVal( group+"_"+name);
+                    if( val.isEmpty() ){// doesn't exist yet, add it
+                        if( rtvals.processRtvalElement(rtval,group) ) {
+                            val = rtvals.getAbstractVal( group+"_"+name);
+                            if( val.isPresent()) {
+                                worker.addSubscription(topic, val.get());
+                            }else{
+                                Logger.error(id+" (mqtt) -> Failed to read the rtval, after creation? "+group+"_"+name);
+                            }
+                        }else{
+                            Logger.error(id+" (mqtt) -> Failed to read the rtval "+group+"_"+name);
+                        }
+                    }else{
+                        worker.addSubscription(topic,val.get());
+                    }
+                });
+                broker.goUp();
+            }
+            broker.digDown("provide");
+            if( broker.isValid() ){
+                broker.peekOut("rtval").forEach( sub -> {
+                    if( !rtvals.addRequest(worker,sub.getTextContent())) {
+                        Logger.error(id + " -> Tried requesting " + sub.getTextContent() + ", but no such rtval.");
+                    }else{
+                        var topic = sub.getAttribute("provide");
+                        if( !topic.isEmpty())
+                            worker.addProvide(sub.getTextContent(),topic);
+                    }
+                });
+            }
             worker.applySettings();
             mqttWorkers.put(id,worker);
         });
