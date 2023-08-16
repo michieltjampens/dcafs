@@ -7,7 +7,9 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.5.2 (wip)
+## 2.5.3 (wip)
+
+## 2.5.2 (16/08/23)
 - Fixed, taskmanager scripts had different node paths for storing and reading.
 
 ### MQTT
@@ -22,7 +24,7 @@ Note: Version numbering: x.y.z
         <rtval topic="dice/d6">dice_rolledd6</rtval> <!-- or alternative topic -->
       </provide>
 </broker>
-```` 
+````
 
 ## 2.5.1 (02/08/23)
 - Fixes related to recent xml changes
