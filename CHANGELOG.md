@@ -9,6 +9,11 @@ Note: Version numbering: x.y.z
 
 ## 2.5.3 (wip)
 
+### MQTT
+- Added cmds for the mqtt provide and store
+- Changed subscribe/unsubscribe cmds to no longer need to save afterwards
+- Removed cmd to save settings (old store)
+
 ## 2.5.2 (16/08/23)
 - Fixed, taskmanager scripts had different node paths for storing and reading.
 
