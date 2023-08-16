@@ -6,7 +6,23 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc?
+
 ## 2.5.2 (wip)
+- Fixed, taskmanager scripts had different node paths for storing and reading.
+
+### MQTT
+- Added option to have mqtt topic linked to rtvals, no cmds for it yet
+````xml
+<broker id="mosq">
+      <store> <!-- to store the value of a topic in a rtval -->
+        <int topic="dice/rolled" group="dice">rolled</int>
+      </store>
+      <provide> <!-- to provide a rtval when updated this will be send to mqtt broker -->
+        <rtval>dice_rolled</rtval> <!-- uses group/name as topic so dice/rolled -->
+        <rtval topic="dice/d6">dice_rolledd6</rtval> <!-- or alternative topic -->
+      </provide>
+</broker>
+```` 
 
 ## 2.5.1 (02/08/23)
 - Fixes related to recent xml changes
