@@ -14,10 +14,9 @@ public class MqttWork {
 	String topic;
 	int qos=0;
 	int attempt = 0;
-	TYPE type=TYPE.DOUBLE;
-	Object value;
 	boolean valid=true;
-	enum TYPE{INT,DOUBLE,BOOLEAN,TEXT};
+	byte[] data;
+
 	/**
 	 * Constructor that also adds a value 
 	 * @param group The group this data is coming from
@@ -27,8 +26,6 @@ public class MqttWork {
 	public MqttWork( String group, String parameter, Object value) {
 		topic=group+"/"+parameter;
 		setValue(value);
-
-
 	}
 	public MqttWork( String topic, Object value) {
 		int index = topic.indexOf("/");
@@ -42,15 +39,14 @@ public class MqttWork {
 		
 	}
 	private void setValue( Object val){
-		value=val;
-		if (value.getClass().equals(Double.class)) {
-			type=TYPE.DOUBLE;
-		} else if (value.getClass().equals(Integer.class)) {
-			type=TYPE.INT;
-		} else if (value.getClass().equals(Boolean.class)) {
-			type=TYPE.BOOLEAN;
-		} else if (value.getClass().equals(String.class)) {
-			type=TYPE.TEXT;
+		if (val.getClass().equals(Double.class)) {
+			data = Double.toString((double)val).getBytes();
+		} else if (val.getClass().equals(Integer.class)) {
+			data = Integer.toString((int)val).getBytes();
+		} else if (val.getClass().equals(Boolean.class)) {
+			data = Boolean.toString((boolean)val).getBytes();
+		} else if (val.getClass().equals(String.class)) {
+			data = ((String)val).getBytes();
 		}else{
 			Logger.error("mqtt -> Invalid class given, topic:"+topic);
 			valid=false;
@@ -75,12 +71,7 @@ public class MqttWork {
 		return !valid;
 	}
 	public MqttMessage getMessage(){
-		return switch(type){
-			case INT -> new MqttMessage(Integer.toString((int)value).getBytes());
-			case DOUBLE -> new MqttMessage(Double.toString((double)value).getBytes());
-			case BOOLEAN -> new MqttMessage(Boolean.toString((boolean)value).getBytes());
-			case TEXT -> new MqttMessage(((String)value).getBytes());
-		};
+		return new MqttMessage(data);
 	}
 	/* ********************************* ADDING DATA ******************************************************** */
 	public MqttWork qos(int qos){
