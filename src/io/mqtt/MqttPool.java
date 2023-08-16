@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 
-public class MqttPool implements Commandable, MqttWriting {
+public class MqttPool implements Commandable {
 
     Map<String, MqttWorker> mqttWorkers = new HashMap<>();
     Path settingsFile;
@@ -27,16 +27,6 @@ public class MqttPool implements Commandable, MqttWriting {
 
         if( !readXMLsettings() )
             Logger.info("No MQTT settings in settings.xml");
-    }
-    public boolean sendToBroker( String id, String device, String param, double value) {
-        MqttWorker worker = mqttWorkers.get(id);
-
-        if (worker != null) {
-            if (value != -999) {
-                return worker.addWork( new MqttWork(device, param, value) );
-            }
-        }
-        return false;
     }
     /**
      * Get a list of all the MQTTWorker id's
