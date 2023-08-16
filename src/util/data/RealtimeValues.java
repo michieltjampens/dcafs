@@ -72,36 +72,52 @@ public class RealtimeValues implements Commandable {
 	/**
 	 * Process a Val node
 	 * @param rtval The node to process
-	 * @param group The group of the Val
+	 * @param group The group of the Val incase none is specified
 	 */
-	private void processRtvalElement(Element rtval, String group ){
-
-		switch (rtval.getTagName()) {
+	public boolean processRtvalElement(Element rtval, String group ){
+		return switch (rtval.getTagName()) {
 			case "double", "real" -> {
-				RealVal.build(rtval,group).ifPresent( r->{
-					r.enableTriggeredCmds(dQueue);
-					realVals.put(r.id(),r);
-				});
+				var r = RealVal.build(rtval,group);
+				if( r.isPresent() ){
+					var rr = r.get();
+					rr.enableTriggeredCmds(dQueue);
+					realVals.put(rr.id(),rr);
+					yield true;
+				}
+				yield false;
 			}
 			case "integer", "int" -> {
-				IntegerVal.build(rtval,group).ifPresent( r->{
-					r.enableTriggeredCmds(dQueue);
-					integerVals.put(r.id(),r);
-				});
+				var i = IntegerVal.build(rtval,group);
+				if( i.isPresent() ){
+					var ii = i.get();
+					ii.enableTriggeredCmds(dQueue);
+					integerVals.put(ii.id(),ii);
+					yield true;
+				}
+				yield false;
 			}
 			case "flag" -> {
-				FlagVal.build(rtval, group).ifPresent(r -> {
-					r.enableTriggeredCmds(dQueue);
-					flagVals.put(r.id(), r);
-				});
+				var f = FlagVal.build(rtval, group);
+				if( f.isPresent()){
+					var ff =f.get();
+					ff.enableTriggeredCmds(dQueue);
+					flagVals.put(ff.id(), ff);
+					yield true;
+				}
+				yield false;
 			}
 			case "text" -> {
-				TextVal.build(rtval, group).ifPresent(r -> {
-					r.enableTriggeredCmds(dQueue);
-					textVals.put(r.id(), r);
-				});
+				var t = TextVal.build(rtval, group);
+				if( t.isPresent()){
+					var tt = t.get();
+					tt.enableTriggeredCmds(dQueue);
+					textVals.put(tt.id(), tt);
+					yield true;
+				}
+				yield false;
 			}
-		}
+			default -> false;
+		};
 	}
 	public void removeVal( AbstractVal val ){
 		if( val == null)
@@ -324,6 +340,29 @@ public class RealtimeValues implements Commandable {
 			default -> Logger.warn("Requested unknown type: " + type);
 		}
 		return 0;
+	}
+	public boolean addRequest(Writable writable, String rtval) {
+		var rv = realVals.get(rtval);
+		if( rv!=null){
+			rv.addTarget(writable);
+			return true;
+		}
+		var iv = integerVals.get(rtval);
+		if( iv!=null){
+			iv.addTarget(writable);
+			return true;
+		}
+		var fv = flagVals.get(rtval);
+		if( fv!=null){
+			fv.addTarget(writable);
+			return true;
+		}
+		var tv = textVals.get(rtval);
+		if( tv!=null){
+			tv.addTarget(writable);
+			return true;
+		}
+		return false;
 	}
 	public boolean removeWritable(Writable writable ) {
 		realVals.values().forEach(rv -> rv.removeTarget(writable));
