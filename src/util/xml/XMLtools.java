@@ -414,7 +414,7 @@ public class XMLtools {
 	 * @param xmlDoc The document which the parent belongs to
 	 * @param parent The parent node
 	 * @param node The name of the child node
-	 * @return The created element if successful or null if failed
+	 * @return The created element if successful or empty optional if failed
 	 */
 	public static Optional<Element> createChildElement( Document xmlDoc, Element parent, String node ){
 		

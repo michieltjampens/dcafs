@@ -225,7 +225,20 @@ public class XMLfab {
         getChild(tag).ifPresent( ch -> parent.removeChild(ch));
         return this;
     }
-
+    /**
+     * Remove a single child node from the current parent node
+     * @param tag The tag of the childnode to remove
+     * @param content The content of the tag to remove
+     * @return True if removed
+     */
+    public boolean removeChild( String tag, String content ){
+        var chOpt = getChild(tag,content);
+        if( chOpt.isPresent()){
+            parent.removeChild(chOpt.get());
+            return true;
+        }
+        return false;
+    }
     /**
      * Remove the last child node with the given tag.
      * @param tag The tag to find or * for 'any'
@@ -276,6 +289,17 @@ public class XMLfab {
      */
     public Optional<Element> getChild( String tag ){
         return getChildren(tag).stream().findFirst();
+    }
+    /**
+     * Get the child node with the given tag and content
+     * @param tag The tag of the childnode, * for any
+     * @param content The content of the tag
+     * @return An optional of the result of the search
+     */
+    public Optional<Element> getChild( String tag, String content ){
+        return getChildren(tag).stream().filter(
+                x -> x.getTextContent().equals(content)
+        ).findFirst();
     }
     /**
      * Get the last child node with the given tag
