@@ -4,7 +4,6 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.math.BigDecimal;
@@ -140,14 +139,14 @@ public class FlagVal extends AbstractVal implements NumericVal{
         this.group=group;
         return this;
     }
-    public FlagVal setState( String state ){
+    public FlagVal value(String state ){
         if( state.equalsIgnoreCase("true")
                 || state.equalsIgnoreCase("1")
                 || state.equalsIgnoreCase("on")) {
-            setState(true);
+            value(true);
         }else if( state.equalsIgnoreCase("false")|| state.equalsIgnoreCase("0")
                 || state.equalsIgnoreCase("off")) {
-            setState(false);
+            value(false);
         }
         return this;
     }
@@ -156,7 +155,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
      * @param val The new state
      * @return This object with altered state
      */
-    public FlagVal setState( boolean val){
+    public FlagVal value(boolean val){
         /* Keep time of last value */
         if( keepTime )
             timestamp= Instant.now();
@@ -176,15 +175,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
      * Toggle the state of the flag and return the new state
      */
     public void toggleState(){
-        if( keepTime )
-            timestamp= Instant.now();
-        state=!state;// toggle the state
-        /* Check if valid and issue commands if trigger is met */
-        if( state ){ // If the flag goes from FALSE to TRUE => raised
-            raisedList.forEach( c -> dQueue.add(Datagram.system(c.replace("$","true"))));
-        }else{ // If the flag goes from TRUE to FALSE => lowered
-            loweredList.forEach( c -> dQueue.add(Datagram.system(c.replace("$","false"))));
-        }
+        value(!state);
     }
     /**
      * Alter the default state (default is false)
@@ -211,23 +202,23 @@ public class FlagVal extends AbstractVal implements NumericVal{
         if( TRUE.isEmpty() ){
             if( !trueRegex.isEmpty() ) {
                 if (state.matches(trueRegex)) {
-                    setState(true);
+                    value(true);
                     return true;
                 }
             }
         }else if( TRUE.contains(state) ) {
-            setState(true);
+            value(true);
             return true;
         }
         if( FALSE.isEmpty() ){
             if( !falseRegex.isEmpty() ) {
                 if (state.matches(falseRegex)) {
-                    setState(false);
+                    value(false);
                     return true;
                 }
             }
         }else if( FALSE.contains(state)) {
-            setState(false);
+            value(false);
             return true;
         }
         Logger.error( id() + " -> Couldn't parse "+state);
@@ -241,7 +232,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
      */
     @Override
     public void updateValue(double val) {
-        setState( Double.compare(val,0.0)!=0 );
+        value( Double.compare(val,0.0)!=0 );
     }
 
     @Override

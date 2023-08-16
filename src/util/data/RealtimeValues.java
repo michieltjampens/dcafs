@@ -479,11 +479,11 @@ public class RealtimeValues implements Commandable {
 
 		switch (cmds[1]) {
 			case "raise", "set" -> {
-				flag.setState(true);
+				flag.value(true);
 				return "Flag raised";
 			}
 			case "lower", "clear" -> {
-				flag.setState(false);
+				flag.value(false);
 				return  "Flag lowered";
 			}
 			case "toggle" -> {
@@ -502,7 +502,7 @@ public class RealtimeValues implements Commandable {
 					return "! Not enough arguments, fv:id,match,targetflag";
 				if (!hasFlag(cmds[2]))
 					return "! No such flag: " + cmds[2];
-				getFlagVal(cmds[2]).ifPresent(to -> flag.setState(to.state));
+				getFlagVal(cmds[2]).ifPresent(to -> flag.value(to.state));
 				return "Flag matched accordingly";
 			}
 			case "negated" -> {
@@ -510,7 +510,7 @@ public class RealtimeValues implements Commandable {
 					return "Not enough arguments, fv:id,negated,targetflag";
 				if (!hasFlag(cmds[2]))
 					return "! No such flag: " + cmds[2];
-				getFlagVal(cmds[2]).ifPresent(to -> flag.setState(!to.state));
+				getFlagVal(cmds[2]).ifPresent(to -> flag.value(!to.state));
 				return "Flag negated accordingly";
 			}
 		}

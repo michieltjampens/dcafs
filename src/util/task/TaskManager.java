@@ -758,11 +758,11 @@ public class TaskManager implements CollectorFuture {
 							case "raiseflag" ->
 								Arrays.stream(com[1].split(","))
 										.forEach( flag -> rtvals.getFlagVal(flag)
-												.ifPresent( f->f.setState(true)));
+												.ifPresent( f->f.value(true)));
 							case "lowerflag" ->
 								Arrays.stream(com[1].split(","))
 										.forEach( flag -> rtvals.getFlagVal(flag)
-												.ifPresent( f->f.setState(false)));
+												.ifPresent( f->f.value(false)));
 							case "start" -> startTaskset(com[1]);
 							case "stop" -> {
 								int a = stopTaskSet(com[1]);
