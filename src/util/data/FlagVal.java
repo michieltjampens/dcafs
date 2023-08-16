@@ -167,6 +167,8 @@ public class FlagVal extends AbstractVal implements NumericVal{
                 loweredList.forEach( c -> dQueue.add(Datagram.system(c.replace("$","false"))));
             }
         }
+        targets.forEach( x -> x.writeLine(id(),Boolean.toString(val)));
+
         state=val;// update the state
         return this;
     }
