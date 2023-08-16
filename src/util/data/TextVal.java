@@ -146,7 +146,7 @@ public class TextVal extends AbstractVal{
         }
 
         if( targets!=null ){
-            targets.forEach( wr -> wr.writeLine(id()+":"+val));
+            targets.forEach( wr -> wr.writeLine(id(),val));
         }
         return this;
     }

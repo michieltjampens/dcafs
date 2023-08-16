@@ -214,7 +214,7 @@ public class RealVal extends AbstractVal implements NumericVal{
 
         if( targets!=null ){
             double v = val;
-            targets.forEach( wr -> wr.writeLine(id()+":"+v));
+            targets.forEach( wr -> wr.writeLine(id(),Double.toString(v)));
         }
         return this;
     }

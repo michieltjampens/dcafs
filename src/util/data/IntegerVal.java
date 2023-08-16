@@ -177,7 +177,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         value=val;
         if( targets!=null ){
             int v = val;
-            targets.forEach( wr -> wr.writeLine(id()+":"+v));
+            targets.forEach( wr -> wr.writeLine(id(), Integer.toString(v)));
         }
         return this;
     }
