@@ -43,7 +43,7 @@ public class Waypoint implements Comparable<Waypoint>{
 	ArrayList<Travel> travels = new ArrayList<>();
 
 	public Waypoint( String name ){
-		this.name=name;
+		this.name=name.trim();
 	}
 
 	public static Waypoint build( String name){
@@ -203,9 +203,6 @@ public class Waypoint implements Comparable<Waypoint>{
 	public double getRange(){
 		return range;
 	}
-	public boolean isNear() {
-		return state == STATE.INSIDE || state == STATE.ENTER;
-	}
 	public void updatePosition( double lat, double lon ){
 		this.lat=lat;
 		this.lon=lon;
@@ -300,10 +297,7 @@ public class Waypoint implements Comparable<Waypoint>{
 			return cmds;
 		}
 		public String getDirection(){
-			return switch (direction) {
-				case LEAVE -> "out";
-				default -> "in";
-			};
+			return direction==STATE.LEAVE?"out":"in";
 		}
 		public String toString(){
 			String info = name +" = "+(direction==STATE.ENTER?" coming closer than "+range+"m":" going further away than "+range+"m");
