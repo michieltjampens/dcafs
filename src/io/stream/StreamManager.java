@@ -842,9 +842,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					if (cmds.length != 3) // Make sure we got the correct amount of arguments
 						return "! Wrong amount of arguments -> ss:fromid,tunnel,toid";
 
-					int s1_ok = getWritable(cmds[1]).map(wr -> addTargetRequest(cmds[2], wr) ? 1 : 0).orElse(-1);
+					int s1_ok = getWritable(cmds[0]).map(wr -> addTargetRequest(cmds[2], wr) ? 1 : 0).orElse(-1);
 					if (s1_ok != 1)
-						return s1_ok == -1 ? "! No writable " + cmds[1] : "! No such source " + cmds[2];
+						return s1_ok == -1 ? "! No writable " + cmds[0] : "! No such source " + cmds[2];
 
 					int s2_ok = getWritable(cmds[2]).map(wr -> addTargetRequest(cmds[0], wr) ? 1 : 0).orElse(-1);
 					if (s2_ok != 1)
