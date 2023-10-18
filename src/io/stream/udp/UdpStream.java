@@ -136,7 +136,7 @@ public class UdpStream extends BaseStream implements Writable {
 
     @Override
     public String getInfo() {
-        return "UDP ["+id+"|"+label+"] "+ ipsock.toString();
+        return "UDP writer["+id+"|"+label+"] "+ ipsock.toString();
     }
 
     @Override
