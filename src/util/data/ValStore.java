@@ -113,7 +113,7 @@ public class ValStore {
                 }
             }
             if(mapSize()!=vals.size()){
-                Logger.error("Failed to create an AbstractVal for " + groupID);
+                Logger.error("Failed to create an AbstractVal for " + groupID+" while mapping.");
                 return false;
             }
         }else{ // index based
@@ -137,7 +137,7 @@ public class ValStore {
                     }
                 }
                 if (rtvals.size() == b) {
-                    Logger.error("Failed to create an AbstractVal for " + groupID);
+                    Logger.error("Failed to create an AbstractVal for " + groupID+" of type "+val.getTagName());
                     return false;
                 }
             }
