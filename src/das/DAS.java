@@ -155,8 +155,7 @@ public class DAS implements Commandable{
             addTransServer(); // Check if trans is in xml and if so, set it up
 
         /* I2C */
-        if( digger.hasPeek("i2c"))
-            addI2CWorker();
+        addI2CWorker();
 
         /* Forwards */
         PathPool pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup);

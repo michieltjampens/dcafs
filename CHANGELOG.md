@@ -8,6 +8,13 @@ Note: Version numbering: x.y.z
 - back up path for sqlite db etc?
 
 ## 2.5.3 (wip)
+- Fixed, FlagVals weren't sending updates to targets
+- Fixed, ss:id1,tunnel,id2 command was using wrong indexes
+- Updated deps
+  - jSerialcom
+  - Netty
+  - SQLite
+- Fixed, i2c cmds weren't active if there wasn't an i2c node in the settings  
 
 ### MQTT
 - Added cmds for the mqtt provide and store
