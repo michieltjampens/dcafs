@@ -252,8 +252,8 @@ public class MathForward extends AbstractForward {
         if( log )
             Logger.tag("RAW").info( id() + "\t" + result);
         if( store!=null) {
-            for( int a=0;a<bds.length;a++){
-                if( bds[a] != null){
+            for( int a=0;a<store.size();a++){
+                if( bds.length > a && bds[a] != null){
                     store.setValueAt(a,bds[a]);
                 }else{
                     store.setValueAt(a,split[a]);
