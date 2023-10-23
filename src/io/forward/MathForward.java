@@ -259,6 +259,9 @@ public class MathForward extends AbstractForward {
                     store.setValueAt(a,split[a]);
                 }
             }
+            var db = store.dbTrigger();
+            if( !db.isEmpty())
+                dQueue.add(Datagram.system(db));
         }
 
         if( !cmds.isEmpty())

@@ -306,6 +306,11 @@ public class ValStore {
             val.parseValue(d.toPlainString());
         }
     }
+    public String dbTrigger(){
+        if (!db[0].isEmpty())  // if a db is present
+            return "dbm:"+db[0]+",store," + db[1];
+        return "";
+    }
     public void setValueAt(int index, String d){
         if( map)
             return;
