@@ -133,6 +133,10 @@ public class ValStore {
                     case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(rtvals::add);
                     case "ignore" -> rtvals.add(null);
                     case "text" -> TextVal.build(val, groupID).ifPresent(rtvals::add);
+                    case "macro" -> {
+                        Logger.warn("Val of type macro ignored");
+                        rtvals.add(null);
+                    }
                     default -> {
                     }
                 }
