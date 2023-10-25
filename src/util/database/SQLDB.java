@@ -441,8 +441,10 @@ public class SQLDB extends Database{
         }
         return Optional.of(data);
     }
-
-    public synchronized boolean buildInsert(String table, RealtimeValues rtvals, String macro) {
+    public void buildStores( RealtimeValues rtvals ){
+        tables.values().forEach(x->x.buildStore(rtvals));
+    }
+    public synchronized boolean insertStore(String table ) {
         if (!hasRecords())
             firstPrepStamp = Instant.now().toEpochMilli();
 
@@ -451,7 +453,7 @@ public class SQLDB extends Database{
             return false;
         }
 
-        if (getTable(table).map(t -> t.buildInsert(rtvals, macro)).orElse(false)) {
+        if (getTable(table).map(t -> t.insertStore("")).orElse(false)) {
             if(tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
                 flushPrepared();
             return true;

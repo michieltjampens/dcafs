@@ -216,7 +216,7 @@ public class I2CWorker implements Commandable {
                 cmd.setReadBits( c.attr( "bits", 8) );
                 cmd.setMsbFirst( c.attr( "msbfirst",true) );
 
-                dig.peekOut("*").forEach( step -> {
+                c.peekOut("*").forEach( step -> {
                     if( step.getTagName().equalsIgnoreCase("repeat")){
                         cmd.addRepeat( NumberUtils.toInt(step.getAttribute("cnt")));
                         for(Element sub : XMLtools.getChildElements(step))

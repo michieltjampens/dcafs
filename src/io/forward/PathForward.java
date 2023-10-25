@@ -7,6 +7,7 @@ import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.data.ValTools;
+import util.database.QueryWriting;
 import util.database.SQLiteDB;
 import util.tools.FileTools;
 import util.tools.TimeTools;
@@ -44,11 +45,13 @@ public class PathForward {
     private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
     String error=""; // Last error that occurred
     boolean valid=false; // Whether this path is valid (xml processing went ok)
+    QueryWriting db;
 
-    public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup ){
+    public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, QueryWriting db){
         this.rtvals = rtvals;
         this.dQueue=dQueue;
         this.nettyGroup=nettyGroup;
+        this.db=db;
     }
     public String id(){
         return id;
@@ -106,7 +109,7 @@ public class PathForward {
             }
         }
         var steps = dig.peekOut("*");
-        if( steps.size() > 0) {
+        if(!steps.isEmpty()) {
             stepsForward = new ArrayList<>();
         }else{
             error = "No child nodes found";
@@ -168,7 +171,7 @@ public class PathForward {
                         }
                     }
                     if( store!=null)
-                        ff.setStore(store);
+                        ff.setStore(store,db);
                     lastff = ff;
                     stepsForward.add(ff);
                 }
@@ -183,7 +186,7 @@ public class PathForward {
                         addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastStore));
                     }
                     if( store!=null)
-                        mf.setStore(store);
+                        mf.setStore(store,db);
                     stepsForward.add(mf);
                 }
                 case "editor" -> {
@@ -202,7 +205,7 @@ public class PathForward {
                         addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastStore));
                     }
                     if( store!=null)
-                        ef.setStore(store);
+                        ef.setStore(store,db);
                     stepsForward.add(ef);
                 }
                 case "cmds","cmd" -> {
@@ -217,7 +220,7 @@ public class PathForward {
                         addAsTarget(cf, cf.getSrc(),!(lastff!=null && lastStore));
                     }
                     if( store!=null)
-                        cf.setStore(store);
+                        cf.setStore(store,db);
                     hasCmd=true;
                     stepsForward.add(cf);
                 }
@@ -258,6 +261,12 @@ public class PathForward {
     public void clearStores(){
         if( stepsForward!=null)
             stepsForward.forEach( x -> x.clearStore(rtvals));
+    }
+    public ArrayList<ValStore> getStores(){
+        ArrayList<ValStore> stores = new ArrayList<>();
+        for( AbstractForward fw : stepsForward)
+            fw.getStore().ifPresent(stores::add);
+        return stores;
     }
     public boolean isValid(){
         return valid;

@@ -49,7 +49,7 @@ public class FilterForward extends AbstractForward {
                 Logger.tag("RAW").info( id() + "\t" + data);
 
             if( store!=null)
-                store.apply(data,dQueue);
+                store.apply(data,db);
         }else{
             reversed.forEach( t-> t.writeLine(data) );
         }

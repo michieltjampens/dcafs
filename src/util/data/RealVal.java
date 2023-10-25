@@ -156,6 +156,7 @@ public class RealVal extends AbstractVal implements NumericVal{
     }
     public boolean parseValue( String val ){
         var res = NumberUtils.toDouble(val,Double.NaN);
+
         if(!Double.isNaN(res)){
             rawValue=res;
             if( parseOp != null) {

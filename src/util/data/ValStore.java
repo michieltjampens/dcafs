@@ -2,6 +2,7 @@ package util.data;
 
 import io.forward.AbstractForward;
 import org.tinylog.Logger;
+import util.database.QueryWriting;
 import util.xml.XMLtools;
 
 import java.math.BigDecimal;
@@ -14,7 +15,8 @@ import worker.Datagram;
 public class ValStore {
     private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
     private String delimiter = ",";
-    private final String[] db={"",""}; // dbid,table
+    private String dbids; // dbid,table
+    private String dbtable;
     private String id;
 
     /* * MAPPED * */
@@ -33,12 +35,17 @@ public class ValStore {
         return delimiter;
     }
     public void db( String db, String table ){
-        this.db[0]=db;
-        this.db[1]=table;
+        dbids=db;
+        dbtable=table;
+    }
+    public boolean needsDB(){
+        return !dbids.isEmpty();
     }
     public String db(){
-        return db[0]+":"+db[1];
+        return dbids+":"+dbtable;
     }
+    public String dbTable(){ return dbtable; }
+    public String dbIds(){ return dbids; }
     public String id(){
         return id;
     }
@@ -92,8 +99,8 @@ public class ValStore {
                 Logger.error( id+" -> Failed to read db tag, must contain dbids:table, multiple dbids separated with ','");
             }
         }else{
-            db[0]="";
-            db[1]="";
+            dbids="";
+            dbtable="";
         }
 
         var vals = XMLtools.getChildElements(store);
@@ -239,6 +246,9 @@ public class ValStore {
     private void mapFlag( boolean state){
         map=state;
     }
+    public ArrayList<AbstractVal> getAllVals(){
+        return rtvals;
+    }
     /* ****************************** M A P P E D **************************************************** */
     public boolean mapped(){
         return map;
@@ -251,7 +261,7 @@ public class ValStore {
         return valMap.size();
     }
     /* ************************************************************************************************ */
-    public boolean apply( String line, BlockingQueue<Datagram> dQueue) {
+    private boolean apply(String line){
         var items = line.split(delimiter);
         boolean dbOk;
         if( map ){
@@ -269,7 +279,7 @@ public class ValStore {
             dbOk = items[0].equalsIgnoreCase(lastKey);
         }else {
             if (items.length < rtvals.size()) {
-                Logger.warn(id + " -> Can't apply store, not enough data in the line received");
+                Logger.warn(id + " -> Can't apply store, not enough data in the line received.");
                 return false;
             }
             dbOk = true;
@@ -279,14 +289,31 @@ public class ValStore {
                 }
             }
         }
-        if (dbOk) {
-            if (!db[0].isEmpty()) { // if a db is present
-                // dbm needs to retrieve everything
-                Arrays.stream(db[0].split(",")) //iterate over the databases
-                        .forEach(id -> dQueue.add(Datagram.system("dbm:"+id+",store," + db[1])));
+
+        return dbOk;
+    }
+    public boolean apply(String line, QueryWriting db) {
+        if( apply(line) ){
+            if (!dbids.isEmpty()) { // if a db is needed
+                if( db!=null) {
+                    db.insertStores(dbids, dbtable);
+                }else{
+                    Logger.error("No valid db connection provided to store.");
+                }
             }
+            return true;
         }
-        return true;
+        return false;
+    }
+    public boolean apply(String line, BlockingQueue<Datagram> dQueue) {
+        if( apply(line) ){
+            if (!dbids.isEmpty()) { // if a db is needed
+                Arrays.stream(dbids.split(",")) //iterate over the databases
+                        .forEach(id -> dQueue.add(Datagram.system("dbm:"+id+",store," + dbtable)));
+            }
+            return true;
+        }
+        return false;
     }
     public void setValueAt(int index, BigDecimal d){
         if( map)
@@ -305,11 +332,6 @@ public class ValStore {
         }else{
             val.parseValue(d.toPlainString());
         }
-    }
-    public String dbTrigger(){
-        if (!db[0].isEmpty())  // if a db is present
-            return "dbm:"+db[0]+",store," + db[1];
-        return "";
     }
     public void setValueAt(int index, String d){
         if( map)

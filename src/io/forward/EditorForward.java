@@ -71,9 +71,9 @@ public class EditorForward extends AbstractForward{
         if( log )
             Logger.tag("RAW").info( id() + "\t" + data);
 
-        if( store != null )
-            store.apply(data,dQueue);
-
+        if( store != null ) {
+            store.apply(data, db);
+        }
         if( !cmds.isEmpty())
             cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
 

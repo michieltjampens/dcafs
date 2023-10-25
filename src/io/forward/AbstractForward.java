@@ -5,11 +5,13 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
+import util.database.QueryWriting;
 import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
@@ -38,6 +40,8 @@ public abstract class AbstractForward implements Writable {
     public enum RESULT{ERROR,EXISTS,OK}
     protected boolean inPath=true;
     protected boolean parsedOk=true;
+    protected QueryWriting db;
+
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
         this.rtvals=rtvals;
@@ -48,6 +52,9 @@ public abstract class AbstractForward implements Writable {
     protected AbstractForward( BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         this.dQueue=dQueue;
         this.rtvals=rtvals;
+    }
+    public void setQueryWriting( QueryWriting qWrite){
+        db=qWrite;
     }
     public void setDebug( boolean debug ){
         this.debug=debug;
@@ -193,12 +200,16 @@ public abstract class AbstractForward implements Writable {
         return true;
     }
 
-    public void setStore( ValStore store){
+    public void setStore( ValStore store, QueryWriting qw){
         this.store=store;
+        this.db=qw;
         if( !valid && store!=null){
             valid=true;
             sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
         }
+    }
+    public Optional<ValStore> getStore(){
+        return Optional.ofNullable(store);
     }
     public void clearStore(RealtimeValues rtv){
         if( store!=null)

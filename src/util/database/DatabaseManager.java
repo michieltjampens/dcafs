@@ -156,6 +156,10 @@ public class DatabaseManager implements QueryWriting, Commandable {
         }
         return Optional.empty();
     }
+    public void buildStores(RealtimeValues rtvals){
+        sqls.values().forEach( x -> x.buildStores(rtvals));
+        lites.values().forEach( x -> x.buildStores(rtvals));
+    }
     public void recheckRollOver(){
         lites.values().forEach( lite -> lite.updateFileName(LocalDateTime.now(ZoneId.of("UTC"))));
     }
@@ -191,17 +195,16 @@ public class DatabaseManager implements QueryWriting, Commandable {
         return 0;
     }
 
-    @Override
-    public boolean buildInsert(String ids, String table, String macro) {
+    public boolean insertStores( String ids, String table ) {
         int ok=0;
         for( var id : ids.split(",")) {
            for (SQLiteDB sqlite : lites.values()) {
                if (sqlite.getID().equalsIgnoreCase(id))
-                  ok+=sqlite.buildInsert(table, rtvals, macro)?1:0;
+                  ok += sqlite.insertStore(table)?1:0;
            }
            for (SQLDB sqldb : sqls.values()) {
                if (sqldb.getID().equalsIgnoreCase(id))
-                   ok+=sqldb.buildInsert(table, rtvals, macro)?1:0;
+                   ok += sqldb.insertStore(table)?1:0;
            }
        }
        return ok==ids.split(",").length;
@@ -460,6 +463,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                     case "reload" -> {
                         var r = reloadDatabase(cmds[0]);
                         if( r.isPresent() ){
+                            ((SQLDB)r.get()).buildStores(rtvals);
                             var error = r.get().getLastError();
                             yield error.isEmpty() ? "Database reloaded" : error;
                         }
@@ -552,13 +556,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                         return "Column(s) added";
                     }
                     case "store" -> {
-                            var macro = cmds.length==4?cmds[3]:"";
-                            if( macro.isEmpty() ){
-                                var ms = cmds[2].split(":");
-                                if( ms.length==2)
-                                    macro=ms[1];
-                            }
-                            if( buildInsert(cmds[0],cmds[2],macro) )
+                            if( insertStores(cmds[0],cmds[2] ) )
                                 return "Wrote record";
                             Logger.error("Tried to do store on "+cmds[0]+"->"+cmds[2]+", but failed.");
                             return "! Failed to write record";
