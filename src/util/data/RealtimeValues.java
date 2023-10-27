@@ -609,7 +609,7 @@ public class RealtimeValues implements Commandable {
 				join.add(val.group+"_"+val.name+" : "+val.stringValue());
 		}
 		for( var val : textVals.values() ) {
-			if (val.name.matches(regex))
+			if (val.name.matches(regex) && !val.group.equals("dcafs"))
 				join.add(val.group+"_"+val.name+" : "+val.stringValue());
 		}
 		return join.toString();
