@@ -313,6 +313,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public double value() {
         return value;
     }
+    public Object valueAsObject(){ return value;}
     public String stringValue(){ return String.valueOf(value);}
     @Override
     public int intValue() {
