@@ -54,7 +54,8 @@ public class StoreForward extends AbstractForward{
     @Override
     public boolean readFromXML(Element fwElement) {
         tis.clear();
-        ValStore.build(fwElement).ifPresent( x->store=x ); // Get the store
+        id = fwElement.getAttribute("id");
+        ValStore.build(fwElement,id,rtvals).ifPresent( x->store=x ); // Get the store
         // Check if db link is needed. If not, remove any existing
         if( store !=null && store.dbIds().isEmpty()){
             tis.clear();
