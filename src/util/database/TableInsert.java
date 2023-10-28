@@ -1,6 +1,6 @@
 package util.database;
 
 public interface TableInsert {
-    public boolean insertStore(  String id );
+    boolean insertStore( String id );
 
 }

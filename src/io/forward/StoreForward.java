@@ -29,7 +29,7 @@ public class StoreForward extends AbstractForward{
     protected boolean addData(String data) {
         if( store !=null ) {
             store.apply(data);
-            tis.forEach(ti -> ti.insertStore(""));
+            tis.forEach(ti -> ti.insertStore(store.dbTable()));
         }else{
             Logger.error(id+" -> Forward without a valid store...");
         }
@@ -48,9 +48,7 @@ public class StoreForward extends AbstractForward{
             return "";
         return store.dbIds();
     }
-    public void addTableInsert( TableInsert ti ){
-        tis.add(ti);
-    }
+
     @Override
     public boolean readFromXML(Element fwElement) {
         tis.clear();

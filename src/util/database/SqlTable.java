@@ -16,7 +16,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 
-public class SqlTable implements TableInsert{
+public class SqlTable{
 
     String name;
 

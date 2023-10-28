@@ -50,7 +50,7 @@ public class FilterForward extends AbstractForward {
 
             if( store !=null ) {
                 store.apply(data);
-                tis.forEach(ti -> ti.insertStore(""));
+                tis.forEach(ti -> ti.insertStore(store.dbTable()));
             }
         }else{
             reversed.forEach( t-> t.writeLine(data) );

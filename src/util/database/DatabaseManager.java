@@ -2,7 +2,7 @@ package util.database;
 
 import das.Commandable;
 import io.Writable;
-import io.forward.StoreForward;
+import io.forward.*;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import util.data.RealtimeValues;
@@ -597,8 +597,9 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 var tiOpt = db.getTableInsert(cmds[2]);
                 if( tiOpt.isEmpty())
                     return "! No such table id "+cmds[2]+" in "+cmds[0];
-                if( payload.getClass() == StoreForward.class ){
-                    ((StoreForward)payload).addTableInsert(tiOpt.get());
+                if( payload.getClass() == MathForward.class ||  payload.getClass() == EditorForward.class
+                        || payload.getClass() == FilterForward.class || payload.getClass() == StoreForward.class || payload.getClass() == CmdForward.class ){
+                    ((AbstractForward)payload).addTableInsert(tiOpt.get());
                     return "TableInsert added";
                 }
                 return "! Payload isn't the correct object type for "+cmd+":"+args;

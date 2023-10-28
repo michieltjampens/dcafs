@@ -210,6 +210,9 @@ public abstract class AbstractForward implements Writable {
         if( store!=null)
             store.removeRealtimeValues(rtv);
     }
+    public void addTableInsert( TableInsert ti ){
+        tis.add(ti);
+    }
     public void addAfterCmd( String cmd){
         cmds.add(cmd);
     }
