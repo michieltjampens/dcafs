@@ -4,7 +4,6 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
-import util.database.TableInsert;
 import worker.Datagram;
 import java.util.concurrent.BlockingQueue;
 
@@ -13,8 +12,10 @@ public class StoreForward extends AbstractForward{
     public StoreForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals  ){
         super(dQueue,rtvals);
         readOk = readFromXML(ele);
-        if( readOk )
+        if( readOk ) {
             store.shareRealtimeValues(rtvals);
+            valid=true;
+        }
     }
     public boolean reload( Element el, RealtimeValues rtvals ){
         if( store != null )
@@ -33,7 +34,7 @@ public class StoreForward extends AbstractForward{
         }else{
             Logger.error(id+" -> Forward without a valid store...");
         }
-        return false;
+        return true;
     }
     public boolean needsDB(){
         return store!=null && !store.dbIds().isEmpty();
