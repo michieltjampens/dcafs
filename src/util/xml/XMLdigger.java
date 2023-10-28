@@ -195,6 +195,9 @@ public class XMLdigger {
     public Optional<Element> current(){
         return valid?Optional.of(last):Optional.empty();
     }
+    public Element currentTrusted(){
+        return last;
+    }
     /**
      * Get All child elements of the current active
      * @return List of the child elements
