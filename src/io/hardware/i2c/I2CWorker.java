@@ -595,6 +595,9 @@ public class I2CWorker implements Commandable {
             }
         }
     }
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     /**
      * Add work to the worker
      *

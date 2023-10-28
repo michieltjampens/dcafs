@@ -201,8 +201,8 @@ public class CommandPool {
 			default -> UNKNOWN_CMD;
 		};
 
-		if( result.equals(UNKNOWN_CMD)) // Meaning bad first cmd
-			result = checkCommandables(split[0],split[1],wr,html);// Check the stored Commandables
+		if( result.equals(UNKNOWN_CMD)) // Meaning not a standard first cmd
+			result = checkCommandables(split[0],split[1],wr,html,d);// Check the stored Commandables
 
 		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
 			result = checkTaskManagers(split[0],split[1],wr,html); // Check if it matches the id of a taskmanager
@@ -227,7 +227,7 @@ public class CommandPool {
 
 		return result + (html ? "<br>" : "\r\n");
 	}
-	private String checkCommandables(String cmd, String question, Writable wr,boolean html){
+	private String checkCommandables(String cmd, String question, Writable wr, boolean html, Datagram d){
 		final String f = cmd.replaceAll("\\d+","_"); // For special ones like sending data
 		var cmdOpt = commandables.entrySet().stream()
 				.filter( ent -> {
@@ -238,8 +238,13 @@ public class CommandPool {
 				}).map(Map.Entry::getValue).findFirst();
 
 		if( cmdOpt.isPresent()) { // If requested cmd exists
-			String result = cmdOpt.get().replyToCommand(cmd,question, wr, html);
-			if( result == null){
+			String result;
+			if( d.payload()!=null) {
+				result = cmdOpt.get().payloadCommand(cmd, question, d.payload());
+			}else {
+				result = cmdOpt.get().replyToCommand(cmd, question, wr, html);
+			}
+			if( result == null||result.isEmpty()){
 				Logger.error("Got a null as response to "+question);
 				return "! Something went wrong processing: "+question;
 			}

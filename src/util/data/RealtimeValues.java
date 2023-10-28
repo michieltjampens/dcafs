@@ -416,6 +416,9 @@ public class RealtimeValues implements Commandable {
 			return ora+result+reg;
 		return green+result+reg;
 	}
+	public String payloadCommand( String cmd, String args, Object payload){
+		return "! No such cmds in "+cmd;
+	}
 	public String replyToNumericalCmd( String cmd, String args ){
 
 		var cmds = args.split(",");

@@ -585,7 +585,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			default -> "Unknown Command";
 		};
 	}
-
+	public String payloadCommand( String cmd, String args, Object payload){
+		return "! No such cmds in "+cmd;
+	}
 	private static void addBaseToXML( XMLfab fab, String id, String type ){
 		fab.addChild("stream").attr("id", id).attr("type", type).down();
 		fab.addChild("eol", "crlf");

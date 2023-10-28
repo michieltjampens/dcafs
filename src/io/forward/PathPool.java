@@ -119,7 +119,9 @@ public class PathPool implements Commandable {
             }
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     @Override
     public boolean removeWritable( Writable wr) {
         paths.values().forEach( p -> p.removeTarget(wr));

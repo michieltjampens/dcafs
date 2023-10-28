@@ -579,7 +579,9 @@ public class DatabaseManager implements QueryWriting, Commandable {
             }
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such command " + cmd + ": " + args;
+    }
     /**
      * Response to MySQLdump related commands
      * @param args The command

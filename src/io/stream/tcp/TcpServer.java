@@ -413,7 +413,9 @@ public class TcpServer implements StreamListener, Commandable {
 				return "! No such subcommand in "+cmd+": "+args;
 		}
 	}
-
+	public String payloadCommand( String cmd, String args, Object payload){
+		return "! No such cmds in "+cmd;
+	}
 	@Override
 	public boolean removeWritable(Writable wr) {
 		boolean removed=false;

@@ -885,7 +885,9 @@ public class MatrixClient implements Writable, Commandable {
             }
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     @Override
     public boolean removeWritable(Writable wr) {
         return false;

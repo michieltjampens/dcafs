@@ -610,7 +610,9 @@ public class DAS implements Commandable{
             return getStatus(html);
         return "Unknown command";
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     /**
      * Part of the commandable interface but not used here
      * @param wr The writable to remove

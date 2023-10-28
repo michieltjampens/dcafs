@@ -312,7 +312,9 @@ public class TaskManagerPool implements Commandable {
                 return "! No such TaskManager: "+cmds[0];
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     @Override
     public boolean removeWritable(Writable wr) {
         return false;

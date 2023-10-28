@@ -48,6 +48,10 @@ public class CollectorPool implements Commandable, CollectorFuture {
             default -> "Wrong commandable...";
         };
     }
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
+
     public void flushAll(){
         fileCollectors.values().forEach(FileCollector::flushNow);
     }

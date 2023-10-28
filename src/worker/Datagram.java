@@ -12,7 +12,8 @@ public class Datagram {
     int priority = 1;        // The priority of the data source
     String label="";         // The label of the data source
     String originID ="";     // ID of the origin of the message
-    Writable writable;  //
+    Writable writable;      //
+    Object payload;         //
     boolean silent = true;
 
     public Datagram(String data){
@@ -86,5 +87,12 @@ public class Datagram {
     public Datagram toggleSilent(){
         silent = !silent;
         return this;
+    }
+    public Datagram payload( Object pl ){
+        payload=pl;
+        return this;
+    }
+    public Object payload(){
+        return payload;
     }
 }
