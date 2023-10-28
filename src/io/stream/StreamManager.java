@@ -440,27 +440,34 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 	}
 	private boolean addStore( Element st, BaseStream bs){
-		st.setAttribute("id",bs.id()); // make sure it has an id
+		if( !st.hasAttribute("group"))
+			st.setAttribute("group",bs.id());
+		if( !st.hasAttribute("id"))
+			st.setAttribute("id",bs.id());
 		// First make sure it doesn't exist yet
-		StoreForward store;
-		var stOpt = stores.stream().filter( s -> s.id().equals(bs.id())).findFirst();
+		StoreForward sf;
+		var stOpt = stores.stream().filter( s -> s.id().equals("store:"+bs.id())).findFirst();
 		if( stOpt.isPresent() ){ // Already has a store for that stream
-			store=stOpt.get();
-			bs.removeTarget(store);
-			if( store.reload(st,rtvals) ) { // Rebuild store
+			sf=stOpt.get();
+			bs.removeTarget(sf);
+			if( sf.reload(st,rtvals) ) { // Rebuild store
 				Logger.info( bs.id() +" -> Reloaded store");
 			}else{
 				Logger.error( bs.id() +" -> Failed to reload store");
 				return false;
 			}
 		}else{
-			store = new StoreForward(st,dQueue,rtvals);
-			stores.add(store); // Add it to the stores
+			sf = new StoreForward(st,dQueue,rtvals);
+			if( sf.getStore().isEmpty()){
+				Logger.error(bs.id()+" -> Failed to load store");
+			}else {
+				stores.add(sf); // Add it to the stores
+			}
 		}
-		bs.addTarget(store); // Make sure the forward is a target of the stream
-		if( store.needsDB() ){ // If it contains db writing, ask for a link
-			for( var dbid : store.dbids().split(",") ){ // Request the table insert object
-				dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(store));
+		bs.addTarget(sf); // Make sure the forward is a target of the stream
+		if( sf.needsDB() ){ // If it contains db writing, ask for a link
+			for( var dbid : sf.dbids().split(",") ){ // Request the table insert object
+				dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+sf.dbTable()).payload(sf));
 			}
 		}
 		return true;
