@@ -16,7 +16,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 
-public class SqlTable {
+public class SqlTable implements TableInsert{
 
     String name;
 
@@ -669,7 +669,7 @@ public class SqlTable {
     }
 
     /**
-     * Gives all the data as strings to be parsed to the correct object so it can use the prepared statement
+     * Gives all the data as strings to be parsed to the correct object, so it can use the prepared statement
      * @param id The id of the prepared statement to use
      * @param data The array of data
      * @return True if it works

@@ -12,7 +12,6 @@ import util.database.SQLiteDB;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -170,8 +169,15 @@ public class PathForward {
                             addAsTarget(ff,"");
                         }
                     }
-                    if( store!=null)
-                        ff.setStore(store,db);
+                    if( store!=null) {
+                        // Add the store to the forward
+                        ff.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(ff));
+                        }
+                    }
                     lastff = ff;
                     stepsForward.add(ff);
                 }
@@ -185,8 +191,15 @@ public class PathForward {
                     }else{
                         addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastStore));
                     }
-                    if( store!=null)
-                        mf.setStore(store,db);
+                    if( store!=null) {
+                        // Add the store to the forward
+                        mf.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(mf));
+                        }
+                    }
                     stepsForward.add(mf);
                 }
                 case "editor" -> {
@@ -204,8 +217,15 @@ public class PathForward {
                     }else{
                         addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastStore));
                     }
-                    if( store!=null)
-                        ef.setStore(store,db);
+                    if( store!=null) {
+                        // Add the store to the forward
+                        ef.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(ef));
+                        }
+                    }
                     stepsForward.add(ef);
                 }
                 case "cmds","cmd" -> {
@@ -219,8 +239,15 @@ public class PathForward {
                     }else{
                         addAsTarget(cf, cf.getSrc(),!(lastff!=null && lastStore));
                     }
-                    if( store!=null)
-                        cf.setStore(store,db);
+                    if( store!=null) {
+                        // Add the store to the forward
+                        cf.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(cf));
+                        }
+                    }
                     hasCmd=true;
                     stepsForward.add(cf);
                 }

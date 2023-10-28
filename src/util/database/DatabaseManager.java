@@ -2,6 +2,7 @@ package util.database;
 
 import das.Commandable;
 import io.Writable;
+import io.forward.StoreForward;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import util.data.RealtimeValues;
@@ -580,6 +581,29 @@ public class DatabaseManager implements QueryWriting, Commandable {
         }
     }
     public String payloadCommand( String cmd, String args, Object payload){
+        String[] cmds = args.split(",");
+        if( payload==null)
+            return "! No valid payload given with "+cmd+":"+args;
+        if( cmds.length>=2) {
+            if (cmds[1].equals("tableinsert")) {
+                if (cmds.length < 3)
+                    return "! Not enough arguments, needs to be dbm:dbid,tableinsert,tableid";
+                var dbOpt = getDatabase(cmds[0]);
+                if( dbOpt.isEmpty() ) {
+                    Logger.error(cmd+":"+args+" -> Failed because no such database: "+cmds[0]);
+                    return "! No such database: " + cmds[0];
+                }
+                var db = dbOpt.get();
+                var tiOpt = db.getTableInsert(cmds[2]);
+                if( tiOpt.isEmpty())
+                    return "! No such table id "+cmds[2]+" in "+cmds[0];
+                if( payload.getClass() == StoreForward.class ){
+                    ((StoreForward)payload).addTableInsert(tiOpt.get());
+                    return "TableInsert added";
+                }
+                return "! Payload isn't the correct object type for "+cmd+":"+args;
+            }
+        }
         return "! No such command " + cmd + ": " + args;
     }
     /**

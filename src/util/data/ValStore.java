@@ -2,15 +2,10 @@ package util.data;
 
 import io.forward.AbstractForward;
 import org.tinylog.Logger;
-import util.database.QueryWriting;
 import util.xml.XMLtools;
-
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-
 import org.w3c.dom.Element;
-import worker.Datagram;
 
 public class ValStore {
     private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
@@ -37,9 +32,6 @@ public class ValStore {
     public void db( String db, String table ){
         dbids=db;
         dbtable=table;
-    }
-    public boolean needsDB(){
-        return !dbids.isEmpty();
     }
     public String db(){
         return dbids+":"+dbtable;
@@ -261,7 +253,7 @@ public class ValStore {
         return valMap.size();
     }
     /* ************************************************************************************************ */
-    private boolean apply(String line){
+    public boolean apply(String line){
         var items = line.split(delimiter);
         boolean dbOk;
         if( map ){
@@ -291,29 +283,6 @@ public class ValStore {
         }
 
         return dbOk;
-    }
-    public boolean apply(String line, QueryWriting db) {
-        if( apply(line) ){
-            if (!dbids.isEmpty()) { // if a db is needed
-                if( db!=null) {
-                    db.insertStores(dbids, dbtable);
-                }else{
-                    Logger.error("No valid db connection provided to store.");
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-    public boolean apply(String line, BlockingQueue<Datagram> dQueue) {
-        if( apply(line) ){
-            if (!dbids.isEmpty()) { // if a db is needed
-                Arrays.stream(dbids.split(",")) //iterate over the databases
-                        .forEach(id -> dQueue.add(Datagram.system("dbm:"+id+",store," + dbtable)));
-            }
-            return true;
-        }
-        return false;
     }
     public void setValueAt(int index, BigDecimal d){
         if( map)

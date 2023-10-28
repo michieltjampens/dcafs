@@ -259,7 +259,7 @@ public class MathForward extends AbstractForward {
                     store.setValueAt(a,split[a]);
                 }
             }
-            db.insertStores(store.dbIds(),store.dbTable());
+            tis.forEach( ti -> ti.insertStore("") );
         }
 
         if( !cmds.isEmpty())

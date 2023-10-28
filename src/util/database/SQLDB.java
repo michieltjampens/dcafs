@@ -441,6 +441,10 @@ public class SQLDB extends Database{
         }
         return Optional.of(data);
     }
+    public Optional<TableInsert> getTableInsert( String tableid ){
+        tableid=tableid.substring(0,tableid.indexOf(":"));
+        return Optional.ofNullable( tables.get(tableid));
+    }
     public void buildStores( RealtimeValues rtvals ){
         tables.values().forEach(x->x.buildStore(rtvals));
     }

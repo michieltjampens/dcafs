@@ -71,12 +71,13 @@ public class EditorForward extends AbstractForward{
         if( log )
             Logger.tag("RAW").info( id() + "\t" + data);
 
-        if( store != null ) {
-            store.apply(data, db);
-        }
         if( !cmds.isEmpty())
             cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
 
+        if( store !=null ) {
+            store.apply(data);
+            tis.forEach(ti -> ti.insertStore(""));
+        }
         // If there are no target, no label, this no longer needs to be a target
         if( targets.isEmpty() && !log && store==null){
             valid=false;

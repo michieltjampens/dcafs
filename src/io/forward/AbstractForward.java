@@ -5,7 +5,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
-import util.database.QueryWriting;
+import util.database.TableInsert;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -26,7 +26,7 @@ public abstract class AbstractForward implements Writable {
     protected final ArrayList<String> cmds = new ArrayList<>();            // Commands to execute after processing
     protected final ArrayList<Writable> targets = new ArrayList<>();       // To where the data needs to be send
     protected final ArrayList<String[]> rulesString = new ArrayList<>();   // Readable info regarding rules
-
+    protected ArrayList<TableInsert> tis = new ArrayList<>();
     protected String id="";                                   // The identifier for this object
     protected final ArrayList<String> sources = new ArrayList<>();  // The commands that provide the data to filter
     protected boolean valid = false;           // Flag that determines of data should be received or not
@@ -40,7 +40,6 @@ public abstract class AbstractForward implements Writable {
     public enum RESULT{ERROR,EXISTS,OK}
     protected boolean inPath=true;
     protected boolean parsedOk=true;
-    protected QueryWriting db;
 
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
@@ -52,9 +51,6 @@ public abstract class AbstractForward implements Writable {
     protected AbstractForward( BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         this.dQueue=dQueue;
         this.rtvals=rtvals;
-    }
-    public void setQueryWriting( QueryWriting qWrite){
-        db=qWrite;
     }
     public void setDebug( boolean debug ){
         this.debug=debug;
@@ -200,9 +196,8 @@ public abstract class AbstractForward implements Writable {
         return true;
     }
 
-    public void setStore( ValStore store, QueryWriting qw){
+    public void setStore( ValStore store ){
         this.store=store;
-        this.db=qw;
         if( !valid && store!=null){
             valid=true;
             sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
