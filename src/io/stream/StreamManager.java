@@ -5,6 +5,7 @@ import das.IssuePool;
 import io.Writable;
 import io.collector.CollectorFuture;
 import io.collector.ConfirmCollector;
+import io.forward.StoreForward;
 import io.stream.serialport.ModbusStream;
 import io.stream.serialport.MultiStream;
 import io.stream.serialport.SerialStream;
@@ -64,6 +65,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
 	static String[] NEWSTREAM={"addserial","addmodbus","addtcp","addudpclient","addlocal","addudpserver","addtcpserver"};
+
+	private ArrayList<StoreForward> stores = new ArrayList<>();
 
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
 		this.dQueue = dQueue;
@@ -174,7 +177,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String getConfirmBuffers() {
 		StringJoiner join = new StringJoiner("\r\n");
-		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.id()).add( cw.getStored().length() == 0 ? " empty" : cw.getStored()));
+		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.id()).add(cw.getStored().isEmpty() ? " empty" : cw.getStored()));
 		return join.toString();
 	}
 
@@ -353,23 +356,27 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			return "! Failed to read xml";
 		}
 
-		var childOpt = XMLfab.withRoot(settingsPath,"dcafs","streams").getChild("stream","id",id);
-		var baseOpt = getStream(id);
-		if( childOpt.isEmpty() )
-			return "! No stream named "+id+" found.";
+		var streamDig = XMLdigger.goIn(settingsPath,"dcafs","streams");
+		streamDig.peekAt("stream","id",id);
+		if( !streamDig.hasValidPeek())
+			return "! No stream named "+id+" found, so can't reload.";
 
+		streamDig.usePeek(); // now point to the stream node
+
+		var baseOpt = getStream(id);
 		if( baseOpt.isPresent() ){ // meaning reloading an existing one
 			var str = baseOpt.get();
 			str.disconnect();
-			str.getValStore().ifPresent( store -> store.removeRealtimeValues(rtvals));
-			str.readFromXML(childOpt.get());
-			str.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
+			str.readFromXML(streamDig.currentTrusted());
+			if( streamDig.hasPeek("store")){
+				streamDig.usePeek();
+				addStore(streamDig.currentTrusted(),str);
+			}
 			if( !str.getType().contains("server"))
 				str.reconnectFuture = scheduler.schedule( new DoConnection( str ), 0, TimeUnit.SECONDS );
 			return "Reloaded and trying to reconnect";
 		}else{
-			var str = addStreamFromXML(childOpt.get());
-			str.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
+			addStreamFromXML(streamDig.currentTrusted());
 			return "Loading new stream.";
 		}
 	}
@@ -381,7 +388,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public boolean reloadStore( String id ){
 		// meaning reloading an existing one
-		return getStream(id).map(baseStream -> baseStream.reloadStore(settingsPath, rtvals)).orElse(false);
+		var streamDig = XMLdigger.goIn(settingsPath,"dcafs","streams");
+		streamDig.digDown("stream","id",id);
+		streamDig.digDown("store");
+		if( streamDig.isValid() && getStream(id).isPresent()){
+			return addStore(streamDig.currentTrusted(),getStream(id).get());
+		}
+		return false;
 	}
 	/* ***************************** A D D I N G  S T R E A M S  ******************************************/
 
@@ -400,21 +413,58 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( !streams.isEmpty()){
 			streams.values().forEach(BaseStream::disconnect);
 		}
-		streams.values().forEach( s -> s.getValStore().ifPresent( store -> store.removeRealtimeValues(rtvals)));
+		// Make sure the rtvals created earlier are deleted incase they don't exist anymore
+		stores.forEach( st -> st.getStore().ifPresent( s -> s.removeRealtimeValues(rtvals)));
 		streams.clear(); // Clear out before the reread
 
-		XMLtools.getFirstElementByTag( settingsPath, "streams").ifPresent( ele -> {
-			retryDelayIncrement = XMLtools.getChildIntValueByTag(ele, "retrydelayincrement", 5);
-			retryDelayMax = XMLtools.getChildIntValueByTag(ele, "retrydelaymax", 90);
+		XMLdigger dig = XMLdigger.goIn(settingsPath,"dcafs","streams");
+		if( !dig.isValid())
+			return;
 
-			for( Element el : XMLtools.getChildElements( ele, "stream")){
-				BaseStream bs = addStreamFromXML(el);
-				bs.getValStore().ifPresent( store -> store.shareRealtimeValues(rtvals));
+		retryDelayIncrement = dig.attr("retrydelayincrement", 5);
+		retryDelayMax = dig.attr( "retrydelaymax", 90);
+
+		if( !dig.hasPeek("stream"))
+			return;
+
+		for( var stream : dig.digOut("stream")){
+			var eleOpt = stream.current();
+			if( eleOpt.isPresent() ){
+				BaseStream bs = addStreamFromXML(eleOpt.get());
 				streams.put(bs.id().toLowerCase(), bs);
+				if( stream.hasPeek("store")) {
+					stream.usePeek();
+					addStore( stream.currentTrusted(),bs);
+				}
 			}
-		});
+		}
 	}
-
+	private boolean addStore( Element st, BaseStream bs){
+		st.setAttribute("id",bs.id()); // make sure it has an id
+		// First make sure it doesn't exist yet
+		StoreForward store;
+		var stOpt = stores.stream().filter( s -> s.id().equals(bs.id())).findFirst();
+		if( stOpt.isPresent() ){ // Already has a store for that stream
+			store=stOpt.get();
+			bs.removeTarget(store);
+			if( store.reload(st,rtvals) ) { // Rebuild store
+				Logger.info( bs.id() +" -> Reloaded store");
+			}else{
+				Logger.error( bs.id() +" -> Failed to reload store");
+				return false;
+			}
+		}else{
+			store = new StoreForward(st,dQueue,rtvals);
+			stores.add(store); // Add it to the stores
+		}
+		bs.addTarget(store); // Make sure the forward is a target of the stream
+		if( store.needsDB() ){ // If it contains db writing, ask for a link
+			for( var dbid : store.dbids().split(",") ){ // Request the table insert object
+				dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(store));
+			}
+		}
+		return true;
+	}
 	/**
 	 * Add a single stream from an XML element
 	 *

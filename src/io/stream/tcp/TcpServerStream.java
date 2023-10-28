@@ -64,7 +64,6 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
                             handler.setTargets(targets);
                             handler.addStreamListener( TcpServerStream.this );
                             handler.setEventLoopGroup(eventLoopGroup);
-                            handler.setValStore(store);
                             clients.add(handler);
                             ch.pipeline().addLast(handler);
                         }
@@ -90,9 +89,6 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
             serverOk=false;
         }
         return false;
-    }
-    public void updateHandlerStore(){
-        clients.forEach( x->x.setValStore(store));
     }
     /**
      * Disconnect the stream

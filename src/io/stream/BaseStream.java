@@ -2,20 +2,16 @@ package io.stream;
 
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
-import io.stream.tcp.TcpStream;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.*;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledFuture;
@@ -50,7 +46,6 @@ public abstract class BaseStream {
     protected ScheduledFuture<?> reconnectFuture=null;
     protected ArrayList<TriggerAction> triggeredActions = new ArrayList<>();
 
-    protected ValStore store;
     protected enum TRIGGER{OPEN,IDLE,CLOSE,HELLO,WAKEUP, IDLE_END}
 
     protected EventLoopGroup eventLoopGroup;		    // Eventloop used by the netty stuff
@@ -98,9 +93,6 @@ public abstract class BaseStream {
         if( dig.attr("echo", false) ){
             enableEcho();
         }
-        // Store
-        ValStore.build(stream).ifPresent(valStore -> store = valStore);
-
         // cmds
         triggeredActions.clear();
         for( Element cmd : XMLtools.getChildElements(stream, "cmd") ){
@@ -115,44 +107,6 @@ public abstract class BaseStream {
         }
         return readExtraFromXML(stream);
     }
-
-    /**
-     * If the store exists, remove its vals from rtvals. Then read the store from the xml
-     * @param settingsPath The path to the settings.xml
-     * @param rtvals The rtvals to update
-     * @return True if ok
-     */
-    protected boolean reloadStore(Path settingsPath, RealtimeValues rtvals){
-
-        var dig = XMLdigger.goIn(settingsPath,"dcafs").digDown("streams").digDown("stream","id",id);
-        var eleOpt = dig.current();
-        if( eleOpt.isEmpty())
-            return false;
-
-        if( store != null) { // If this already exists
-            dig.digDown("store");
-            if( dig.current().isEmpty()){ // doesn't exist anymore
-                store=null;
-            }else{
-                store.reload(dig.current().get(),rtvals); // Remove the 'old' rtvals
-            }
-        }else{
-            var ele = eleOpt.get();
-            return ValStore.build(ele).map( st -> {
-                store=st;
-                store.shareRealtimeValues(rtvals);
-                if( this instanceof TcpStream){
-                    ((TcpStream)this).updateHandlerStore();
-                }
-                return true;
-            }).orElseGet(()->false);
-        }
-        return true;
-    }
-    public Optional<ValStore> getValStore(){
-        return Optional.ofNullable(store);
-    }
-
     protected abstract boolean readExtraFromXML( Element stream );
 
     // Abstract methods
@@ -255,7 +209,6 @@ public abstract class BaseStream {
     public void flagAsIdle(){
         applyTriggeredAction(BaseStream.TRIGGER.IDLE);
         applyTriggeredAction(BaseStream.TRIGGER.WAKEUP);
-        getValStore().ifPresent(ValStore::resetValues);
         flagIdle();
         readerIdle=true;
     }

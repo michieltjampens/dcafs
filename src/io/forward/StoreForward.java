@@ -13,6 +13,17 @@ public class StoreForward extends AbstractForward{
     public StoreForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals  ){
         super(dQueue,rtvals);
         readOk = readFromXML(ele);
+        if( readOk )
+            store.shareRealtimeValues(rtvals);
+    }
+    public boolean reload( Element el, RealtimeValues rtvals ){
+        if( store != null )
+            store.removeRealtimeValues(rtvals);
+        if( readFromXML(el) ) {
+            store.shareRealtimeValues(rtvals);
+            return true;
+        }
+        return false;
     }
     @Override
     protected boolean addData(String data) {
@@ -24,6 +35,19 @@ public class StoreForward extends AbstractForward{
         }
         return false;
     }
+    public boolean needsDB(){
+        return store!=null && !store.dbIds().isEmpty();
+    }
+    public String dbTable(){
+        if( store==null)
+            return "";
+        return store.dbTable();
+    }
+    public String dbids(){
+        if( store==null)
+            return "";
+        return store.dbIds();
+    }
     public void addTableInsert( TableInsert ti ){
         tis.add(ti);
     }
@@ -31,7 +55,10 @@ public class StoreForward extends AbstractForward{
     public boolean readFromXML(Element fwElement) {
         tis.clear();
         ValStore.build(fwElement).ifPresent( x->store=x ); // Get the store
-        // Request the ti?
+        // Check if db link is needed. If not, remove any existing
+        if( store !=null && store.dbIds().isEmpty()){
+            tis.clear();
+        }
         return store!=null;
     }
 
