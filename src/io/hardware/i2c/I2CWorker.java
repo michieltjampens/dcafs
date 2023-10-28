@@ -568,12 +568,12 @@ public class I2CWorker implements Commandable {
                     for (var dev : devices.entrySet()) {
                         if (dev.getKey().matches(cmds[0])) {
                             dev.getValue().addTarget(wr);
-                            if (oks.length() > 0)
+                            if (!oks.isEmpty())
                                 oks.append(", ");
                             oks.append(dev.getKey());
                         }
                     }
-                    if (oks.length() > 0) {
+                    if (!oks.isEmpty()) {
                         return "Request for i2c:" + cmds[0] + " accepted for " + oks;
                     } else {
                         Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());

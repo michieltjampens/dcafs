@@ -22,8 +22,8 @@ Note: Version numbering: x.y.z
 - Fixed, i2c cmds weren't active if there wasn't an i2c node in the settings  
 
 ### Database
-- Rewrote the way the 'store' and 'database' interacted. This was based on cmd but this gives issues when processing 
-at high speed. Now an insert is triggered directly instead.
+- Rewrote the way the 'store' and 'database' interact. This was based on cmd but this gives issues when processing 
+at high speed. Now an insert is triggered directly instead when using forwards, streams not yet.
 
 ### MQTT
 - Added cmds for the mqtt provide and store
