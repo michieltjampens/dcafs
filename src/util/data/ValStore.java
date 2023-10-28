@@ -96,6 +96,7 @@ public class ValStore {
                 Logger.error( id+" -> Failed to read db tag, must contain dbids:table, multiple dbids separated with ','");
             }
         }else{
+            Logger.info( id + " -> No database referenced.");
             dbids="";
             dbtable="";
         }

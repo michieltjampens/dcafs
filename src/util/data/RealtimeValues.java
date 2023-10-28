@@ -167,7 +167,7 @@ public class RealtimeValues implements Commandable {
 		}
 		var opt = Optional.ofNullable(realVals.get(id));
 		if( opt.isEmpty())
-			Logger.error( "Tried to retrieve non existing realval "+id);
+			Logger.warn( "Tried to retrieve non existing realval "+id);
 		return opt;
 	}
 	/**
@@ -218,7 +218,7 @@ public class RealtimeValues implements Commandable {
 	 */
 	public Optional<IntegerVal> getIntegerVal( String id ){
 		if( integerVals.get(id)==null)
-			Logger.error( "Tried to retrieve non existing IntegerVal "+id);
+			Logger.warn( "Tried to retrieve non existing IntegerVal "+id);
 		return Optional.ofNullable(integerVals.get(id));
 	}
 	/* *********************************** T E X T S  ************************************************************* */
@@ -241,8 +241,8 @@ public class RealtimeValues implements Commandable {
 	 * @return The requested TextVal or empty optional if not found
 	 */
 	public Optional<TextVal> getTextVal( String id ){
-		if( textVals.get(id)==null)
-			Logger.error( "Tried to retrieve non existing TextVal "+id);
+		if( textVals.get(id)==null && !id.startsWith("dcafs"))
+			Logger.warn( "Tried to retrieve non existing TextVal "+id);
 		return Optional.ofNullable(textVals.get(id));
 	}
 	/**

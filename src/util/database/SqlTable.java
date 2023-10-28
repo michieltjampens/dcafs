@@ -101,7 +101,7 @@ public class SqlTable{
                         }
                     }
                     case "text" -> table.addText(val, rtval);
-                    case "localdtnow" -> table.addLocalDateTime(val, rtval, true);
+                    case "localdtnow","localnow" -> table.addLocalDateTime(val, rtval, true);
                     case "utcdtnow", "utcnow" -> table.addUTCDateTime(val, rtval, true);
                     case "datetime" -> table.addLocalDateTime(val, rtval, false);
                     default -> {

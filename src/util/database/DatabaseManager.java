@@ -364,7 +364,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             .add("").add(cyan + "Working with tables" + reg)
                             .add(green + "  dbm:id,addtable,tablename " + reg + "-> Adds a table to the given database id")
                             .add(green + "  dbm:id,addcol,tablename,columntype:columnname<:rtval> " + reg + "-> Add a column to the given table")
-                            .add("        - columntypes: r(eal),t(ime)s(tamp),i(nteger),t(ext), utc(now)")
+                            .add("        - columntypes: r(eal),t(ime)s(tamp),i(nteger),t(ext), utc(now), ltc")
                             .add(green + "  dbm:id,tablexml,tablename " + reg + "-> Write the table in memory to the xml file, use * as tablename for all")
                             .add(green + "  dbm:id,tables " + reg + "-> Get info about the given id (tables etc)")
                             .add(green + "  dbm:id,fetch " + reg + "-> Read the tables from the database directly, not overwriting stored ones.")
