@@ -64,13 +64,18 @@ public class ValStore {
         return Optional.empty();
     }
     public static Optional<ValStore> build( Element parentNode ){
-        var storeOpt = XMLtools.getFirstChildByTag(parentNode,"store");
+        Element storeNode;
+        if( parentNode.getTagName().equals("store")){ // If already in the node
+            storeNode=parentNode;
+        }else{ // If not
+            var storeOpt = XMLtools.getFirstChildByTag(parentNode,"store");
+            if( storeOpt.isEmpty())
+                return Optional.empty();
+            storeNode=storeOpt.get();
+        }
+        String id = storeNode.getAttribute("id");
 
-        if( storeOpt.isEmpty())
-            return Optional.empty();
-        String id = parentNode.getAttribute("id");
-
-        return ValStore.build(storeOpt.get(),id,null);
+        return ValStore.build(storeNode,id,null);
     }
     public boolean reload(Element store, RealtimeValues rtv){
         if( rtv!=null)
