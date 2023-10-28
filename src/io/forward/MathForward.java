@@ -268,8 +268,8 @@ public class MathForward extends AbstractForward {
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         return !noTargets() || log || store != null;
     }
-    private boolean showError(String error){
-        return showError(true,error);
+    private void showError(String error){
+        showError(true,error);
     }
     private boolean showError(boolean count, String error){
         if( count)

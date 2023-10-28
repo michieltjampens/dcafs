@@ -21,6 +21,12 @@ Note: Version numbering: x.y.z
   - SQLite
 - Fixed, i2c cmds weren't active if there wasn't an i2c node in the settings  
 
+### Store implementation
+- General code cleanup
+- Removed 'store' from the BaseStream and replaced this with a new forward 'StoreForward'. That way it's works the same
+as any other data processing method (making it easier to understand and debug).
+- A forward can now request a link to a specific sqltable to trigger an insert.
+
 ### Database
 - Rewrote the way the 'store' and 'database' interact. This was based on cmd but this gives issues when processing 
 at high speed. Now an insert is triggered directly instead when using forwards, streams not yet.

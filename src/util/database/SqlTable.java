@@ -578,7 +578,7 @@ public class SqlTable{
         }
         validStore=true;
     }
-    public boolean insertStore(  String id ){
+    public boolean insertStore( String id ){
         if( stores.isEmpty())
             return false;
 
