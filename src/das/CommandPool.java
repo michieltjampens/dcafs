@@ -244,7 +244,7 @@ public class CommandPool {
 			}else {
 				result = cmdOpt.get().replyToCommand(cmd, question, wr, html);
 			}
-			if( result == null||result.isEmpty()){
+			if( result == null || result.isEmpty()){
 				Logger.error("Got a null as response to "+question);
 				return "! Something went wrong processing: "+question;
 			}

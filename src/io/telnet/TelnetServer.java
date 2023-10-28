@@ -172,7 +172,7 @@ public class TelnetServer implements Commandable {
                         }
                     }
                     writables.removeIf(w -> !w.writeLine(send + TelnetCodes.TEXT_DEFAULT));
-                    return "";
+                    return "Broadcasted";
                 }
                 case "write" -> {
                     var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
