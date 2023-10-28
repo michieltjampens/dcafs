@@ -51,8 +51,6 @@ public class FilterForward extends AbstractForward {
             if( store !=null ) {
                 store.apply(data);
                 tis.forEach(ti -> ti.insertStore(""));
-            }else{
-                Logger.error(id+" -> Forward without a valid store...");
             }
         }else{
             reversed.forEach( t-> t.writeLine(data) );
