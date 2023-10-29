@@ -66,7 +66,8 @@ public class TelnetServer implements Commandable {
                 port = dig.attr("port",23);
                 title = dig.attr( "title", "DCAFS");
                 ignore = dig.attr( "ignore", "");
-                defColor = TelnetCodes.colorToCode(dig.attr("textcolor","yellow"),defColor);
+                dig.digDown("textcolor");
+                defColor = TelnetCodes.colorToCode( dig.value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
             }else {
                 addBlankTelnetToXML(settingsPath);
             }
