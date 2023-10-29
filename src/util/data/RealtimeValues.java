@@ -246,7 +246,7 @@ public class RealtimeValues implements Commandable {
 		return Optional.ofNullable(textVals.get(id));
 	}
 	/**
-	 * Set the value of a textval and create it if it doesn't exist yet
+	 * Set the value of a TextVal and create it if it doesn't exist yet
 	 *
 	 * @param id    The name/id of the val
 	 * @param value The new content

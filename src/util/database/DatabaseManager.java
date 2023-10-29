@@ -2,6 +2,7 @@ package util.database;
 
 import das.Commandable;
 import io.Writable;
+import io.collector.StoreCollector;
 import io.forward.*;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -598,9 +599,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 if( tiOpt.isEmpty())
                     return "! No such table id "+cmds[2]+" in "+cmds[0];
                 if( payload.getClass() == MathForward.class ||  payload.getClass() == EditorForward.class
-                        || payload.getClass() == FilterForward.class || payload.getClass() == StoreForward.class || payload.getClass() == CmdForward.class ){
+                        || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class ){
                     ((AbstractForward)payload).addTableInsert(tiOpt.get());
                     return "TableInsert added";
+                }else if( payload.getClass() == StoreCollector.class ){
+                    ((StoreCollector)payload).addTableInsert(tiOpt.get());
                 }
                 return "! Payload isn't the correct object type for "+cmd+":"+args;
             }

@@ -5,7 +5,7 @@ import das.IssuePool;
 import io.Writable;
 import io.collector.CollectorFuture;
 import io.collector.ConfirmCollector;
-import io.forward.StoreForward;
+import io.collector.StoreCollector;
 import io.stream.serialport.ModbusStream;
 import io.stream.serialport.MultiStream;
 import io.stream.serialport.SerialStream;
@@ -66,7 +66,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
 	static String[] NEWSTREAM={"addserial","addmodbus","addtcp","addudpclient","addlocal","addudpserver","addtcpserver"};
 
-	private ArrayList<StoreForward> stores = new ArrayList<>();
+	private ArrayList<StoreCollector> stores = new ArrayList<>();
 
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
 		this.dQueue = dQueue;
@@ -445,8 +445,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( !st.hasAttribute("id"))
 			st.setAttribute("id",bs.id());
 		// First make sure it doesn't exist yet
-		StoreForward sf;
-		var stOpt = stores.stream().filter( s -> s.id().equals("store:"+bs.id())).findFirst();
+		StoreCollector sf;
+		var stOpt = stores.stream().filter( s -> s.id().equals(bs.id())).findFirst();
 		if( stOpt.isPresent() ){ // Already has a store for that stream
 			sf=stOpt.get();
 			bs.removeTarget(sf);
@@ -457,7 +457,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return false;
 			}
 		}else{
-			sf = new StoreForward(st,dQueue,rtvals);
+			sf = new StoreCollector(st,rtvals);
 			if( sf.getStore().isEmpty()){
 				Logger.error(bs.id()+" -> Failed to load store");
 			}else {
@@ -466,7 +466,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		bs.addTarget(sf); // Make sure the forward is a target of the stream
 		if( sf.needsDB() ){ // If it contains db writing, ask for a link
-			for( var dbid : sf.dbids().split(",") ){ // Request the table insert object
+			for( var dbid : sf.dbids() ){ // Request the table insert object
 				dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+sf.dbTable()).payload(sf));
 			}
 		}
