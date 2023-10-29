@@ -1,17 +1,14 @@
 package util.xml;
 
 import org.apache.commons.lang3.math.NumberUtils;
-import org.tinylog.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import util.tools.Tools;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 /**
  * Class that can be used to 'dig' through a XML structure for a certain element and get info from it.
@@ -19,18 +16,16 @@ import java.util.stream.Stream;
  */
 public class XMLdigger {
 
-    boolean valid = true;
-    Path xmlPath;
-    Document xmlDoc;        // The xml document
-    Element root;
-    Element last;
-    Element peek;
-    boolean peeked=false;
-    ArrayList<Element> siblings = new ArrayList<>();
+    private boolean valid = true;
+    private Document xmlDoc;        // The xml document
+    private Element root;
+    private Element last;
+    private Element peek;
+    private boolean peeked=false;
+    private final ArrayList<Element> siblings = new ArrayList<>();
 
     private XMLdigger( Path xml ){
-        xmlPath=xml;
-        XMLtools.readXML(xml).ifPresentOrElse( d -> xmlDoc=d,()->invalidate());
+        XMLtools.readXML(xml).ifPresentOrElse( d -> xmlDoc=d, this::invalidate);
     }
     private XMLdigger( Element cur ){
         if( cur == null){
@@ -68,6 +63,13 @@ public class XMLdigger {
     public Document doc(){
         return xmlDoc;
     }
+
+    /**
+     * Try to follow successive child elements in the xml. If successfull, the digger wil be at the last element.
+     * If not, it will have invalidated the digger.
+     * @param tags The successive tags to follow
+     * @return This - now possibly invalid - digger
+     */
     public XMLdigger digDown(String... tags ){
         if(!valid)
             return this;
@@ -90,6 +92,14 @@ public class XMLdigger {
         }
         return this;
     }
+
+    /**
+     * Dig down (one level) to the element that matches tag,attr and value, invalidates the digger if not found.
+     * @param tag The tag of the element to look for.
+     * @param attr The attribute in found element to look for
+     * @param value The value that must match the one of the found attribute
+     * @return This - now possibly invalid - digger
+     */
     public XMLdigger digDown(String tag, String attr, String value ){
         if(!valid)
             return this;
@@ -100,6 +110,12 @@ public class XMLdigger {
         siblings.clear();
         return this;
     }
+    /**
+     * Dig down (one level) to the element that matches tag and content. Invalidates the digger if not found.
+     * @param tag The tag of the element to look for.
+     * @param content The content to match in found element
+     * @return This - now possibly invalid - digger
+     */
     public XMLdigger digDown(String tag, String content ){
         if(!valid)
             return this;
@@ -110,11 +126,26 @@ public class XMLdigger {
         return this;
     }
 
+    /**
+     * Check if the current element contains a child with the given tag. If not found, the digger remains valid.
+     * The result of the peek, can be checked with 'hasValidPeek'.
+     * @param tag The tag to look for.
+     * @return This digger.
+     */
     public XMLdigger peekAt(String tag ){
         peeked=true;
         peek = XMLtools.getFirstChildByTag(last,tag).orElse(null);
         return this;
     }
+
+    /**
+     * Check if the current element contains a child with the given tag, attr + value. If not found, the digger remains valid.
+     * The result of the peek, can be checked with 'hasValidPeek'.
+     * @param tag The tag to look for.
+     * @param attr The attribute to look for in the found element
+     * @param value The value to match with the found attribute value
+     * @return This digger.
+     */
     public XMLdigger peekAt(String tag, String attr, String value ){
         peeked=true;
         var eleOpt = XMLtools.getChildElements(last==null?root:last, tag).stream().filter(x ->
@@ -122,7 +153,20 @@ public class XMLdigger {
         peek=eleOpt.orElse(null);
         return this;
     }
+
+    /**
+     * Check if the last peek was successful
+     * @return True if peek was ok
+     */
     public boolean hasValidPeek(){ return peeked && peek!=null; }
+
+    /**
+     * Check if the current element contains a child with the given tag and textcontent.
+     * If not found the digger remains valid.
+     * @param tag The tag to look for.
+     * @param content The content to match with the found element.
+     * @return True if successful.
+     */
     public boolean peekAtContent( String tag, String content ){
         peeked=true;
         var eleOpt = XMLtools.getChildElements(last==null?root:last, tag).stream().filter(x ->
@@ -130,26 +174,55 @@ public class XMLdigger {
         peek=eleOpt.orElse(null);
         return hasValidPeek();
     }
+
+    /**
+     * Check if the current element has a childnode with the given tag, returns true if so.
+     * Does the same thing as peekAt(tag).hasValidPeek(), just shorter.
+     * @param tag The tag to look for.
+     * @return True if found.
+     */
     public boolean hasPeek(String tag ){
         peekAt(tag);
         peeked = hasValidPeek();
         return peeked;
     }
+
+    /**
+     * Peek at a tag and return an optional element
+     * @param tag The tag to look for
+     * @return An optional containing the found element or nothing
+     */
     public Optional<Element> peekAndUse( String tag ){
         peekAt(tag);
         return hasValidPeek()?Optional.of(peek):Optional.empty();
     }
+
+    /**
+     * Peeks for the given tag, attr, value combination and return true if found
+     * @param tag The tag to look for
+     * @param attr The attribute to look for
+     * @param value The value of the attribute to look for
+     * @return True if the peek was successful
+     */
     public boolean hasPeek(String tag, String attr, String value ){
         peekAt(tag,attr,value);
         return hasValidPeek();
     }
 
+    /**
+     * Make the peeked element the active element, which means the following peeks/digs are going to start from it.
+     * @return This object
+     */
     public XMLdigger usePeek(){
         last=peek;
         valid = last!=null;
         return this;
     }
-    public XMLdigger goUp(){
+
+    /**
+     * Go back up to the parent element
+     */
+    public void goUp(){
         last = root;
         peeked=false;
 
@@ -157,7 +230,6 @@ public class XMLdigger {
         if(  validated(parent!=null) ) {
             root = (Element)root.getParentNode();
         }
-        return this;
     }
 
     /**
@@ -185,9 +257,18 @@ public class XMLdigger {
         }
         last = ele;
     }
+
+    /**
+     * Check if this digger is still valid. Digging to a non-existing element invalidates it.
+     * @return True if valid
+     */
     public boolean isValid(){
         return valid;
     }
+    /**
+     * Check if this digger is invalid. Digging to a non-existing element invalidates it.
+     * @return True if invalid
+     */
     public boolean isInvalid(){
         return !valid;
     }
@@ -228,13 +309,12 @@ public class XMLdigger {
         peeked=false;
         return validated(!siblings.isEmpty());
     }
-    public XMLdigger toLastSibling(){
+    public void toLastSibling(){
         if( !siblings.isEmpty() ) {
             last = siblings.get(siblings.size() - 1);
         }else{
             invalidate();
         }
-        return this;
     }
 
     /**
@@ -265,6 +345,11 @@ public class XMLdigger {
     }
     /* ************* Getting content **************************************** */
 
+    /**
+     * Get the string textcontent of either the last valid dig or last valid peek
+     * @param def The value to return if invalid
+     * @return The string read if any or def if not
+     */
     public String value( String def){
         if( !valid )
             return def;
@@ -276,6 +361,11 @@ public class XMLdigger {
         return c.isEmpty()?def:c;
 
     }
+    /**
+     * Get the integer textcontent of either the last valid dig or last valid peek
+     * @param def The value to return if invalid
+     * @return The integer read if any or def if not
+     */
     public int value( int def ){
         if( !valid )
             return def;
@@ -284,6 +374,11 @@ public class XMLdigger {
             return NumberUtils.toInt( peek!=null?peek.getTextContent():"",def );
         return NumberUtils.toInt(last.getTextContent(),def);
     }
+    /**
+     * Get the double textcontent of either the last valid dig or last valid peek
+     * @param def The value to return if invalid
+     * @return The double read if any or def if not
+     */
     public double value( double def ){
         if( !valid )
             return def;
@@ -293,6 +388,11 @@ public class XMLdigger {
 
         return NumberUtils.toDouble(last.getTextContent(),def);
     }
+    /**
+     * Get the boolean textcontent of either the last valid dig or last valid peek
+     * @param def The value to return if invalid
+     * @return The boolean textcontent found if any or def if not
+     */
     public boolean value( boolean def ){
         if( !valid )
             return def;
@@ -301,6 +401,11 @@ public class XMLdigger {
             return Tools.parseBool( peek!=null?peek.getTextContent():"",def );
         return Tools.parseBool(last.getTextContent(),def);
     }
+    /**
+     * Get the path textcontent of either the last valid dig or last valid peek
+     * @param parent The parent folder to use if the path isn't absolute
+     * @return The path read if absolute or appended to parent if not
+     */
     public Optional<Path> value( Path parent ){
         if( !valid )
             return Optional.empty();
@@ -322,6 +427,12 @@ public class XMLdigger {
         }
     }
     /* ****** */
+
+    /**
+     * Get the tagname of the current active element
+     * @param def The tagname to return if not valid
+     * @return The tagname read or def if none
+     */
     public String tagName(String def){
         if( !valid )
             return def;
@@ -334,6 +445,12 @@ public class XMLdigger {
         return def;
     }
     /*  ************ Getting attributes ************************************* */
+    /**
+     * Read the value of the given tag, return the def string if not found
+     * @param tag The tag to look for
+     * @param def The string to return if not found
+     * @return The value of the tag or def if not found
+     */
     public String attr( String tag, String def){
         if( !valid )
             return def;
@@ -345,6 +462,14 @@ public class XMLdigger {
         }
         return def;
     }
+
+    /**
+     * Read the value of the given tag, return the def string if not found
+     * @param tag The tag to look for
+     * @param def The string to return if not found
+     * @param esc If True then found escape code will be converted to bytes (fe. \r )
+     * @return The content of the tag with possibly altered escape codes
+     */
     public String attr( String tag, String def, boolean esc){
         var val = attr(tag,def);
         if(esc)
@@ -366,6 +491,12 @@ public class XMLdigger {
             return Optional.of(def);
         return p;
     }
+    /**
+     * Read the value of the given tag as an integer, return the def integer if not found
+     * @param tag The tag to look for
+     * @param def The integer to return if not found
+     * @return The value of the tag or def if not found
+     */
     public int attr( String tag, int def){
         if( !valid )
             return def;
@@ -377,6 +508,12 @@ public class XMLdigger {
         }
         return def;
     }
+    /**
+     * Read the value of the given tag as a double, return the def double if not found
+     * @param tag The tag to look for
+     * @param def The double to return if not found
+     * @return The value of the tag or def if not found
+     */
     public double attr( String tag, double def){
         if( !valid )
             return def;
@@ -388,6 +525,13 @@ public class XMLdigger {
         }
         return def;
     }
+    /**
+     * Read the value of the given tag as a boolean, return the def boolean if not found.
+     * true,TRUE,1,yes will result in true, the opposites in false
+     * @param tag The tag to look for
+     * @param def The boolean to return if not found
+     * @return The value of the tag or def if not found
+     */
     public boolean attr( String tag, boolean def){
         if( !valid )
             return def;
