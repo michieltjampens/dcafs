@@ -167,7 +167,7 @@ public class RealtimeValues implements Commandable {
 		}
 		var opt = Optional.ofNullable(realVals.get(id));
 		if( opt.isEmpty())
-			Logger.error( "Tried to retrieve non existing realval "+id);
+			Logger.warn( "Tried to retrieve non existing realval "+id);
 		return opt;
 	}
 	/**
@@ -218,7 +218,7 @@ public class RealtimeValues implements Commandable {
 	 */
 	public Optional<IntegerVal> getIntegerVal( String id ){
 		if( integerVals.get(id)==null)
-			Logger.error( "Tried to retrieve non existing IntegerVal "+id);
+			Logger.warn( "Tried to retrieve non existing IntegerVal "+id);
 		return Optional.ofNullable(integerVals.get(id));
 	}
 	/* *********************************** T E X T S  ************************************************************* */
@@ -241,12 +241,12 @@ public class RealtimeValues implements Commandable {
 	 * @return The requested TextVal or empty optional if not found
 	 */
 	public Optional<TextVal> getTextVal( String id ){
-		if( textVals.get(id)==null)
-			Logger.error( "Tried to retrieve non existing TextVal "+id);
+		if( textVals.get(id)==null && !id.startsWith("dcafs"))
+			Logger.warn( "Tried to retrieve non existing TextVal "+id);
 		return Optional.ofNullable(textVals.get(id));
 	}
 	/**
-	 * Set the value of a textval and create it if it doesn't exist yet
+	 * Set the value of a TextVal and create it if it doesn't exist yet
 	 *
 	 * @param id    The name/id of the val
 	 * @param value The new content
@@ -415,6 +415,9 @@ public class RealtimeValues implements Commandable {
 		if( result.startsWith("!"))
 			return ora+result+reg;
 		return green+result+reg;
+	}
+	public String payloadCommand( String cmd, String args, Object payload){
+		return "! No such cmds in "+cmd;
 	}
 	public String replyToNumericalCmd( String cmd, String args ){
 
@@ -609,7 +612,7 @@ public class RealtimeValues implements Commandable {
 				join.add(val.group+"_"+val.name+" : "+val.stringValue());
 		}
 		for( var val : textVals.values() ) {
-			if (val.name.matches(regex))
+			if (val.name.matches(regex) && !val.group.equals("dcafs"))
 				join.add(val.group+"_"+val.name+" : "+val.stringValue());
 		}
 		return join.toString();

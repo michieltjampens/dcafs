@@ -41,7 +41,7 @@ import java.util.concurrent.*;
 
 public class DAS implements Commandable{
 
-    private static final String version = "2.5.3";
+    private static final String version = "2.6.0";
 
     private final Path settingsPath; // Path to the settings.xml
     private String workPath; // Path to the working dir of dcafs
@@ -74,7 +74,7 @@ public class DAS implements Commandable{
     private final BlockingQueue<Datagram> dQueue = new LinkedBlockingQueue<>(); // Queue for datagrams for the labelworker
     boolean rebootOnShutDown = false; // Flag to set to know if the device should be rebooted on dcafs shutdown (linux only)
     private InterruptPins isrs; // Manager for working with IO pins
-
+    private PathPool pathPool;
     private MatrixClient matrixClient; // Client for working with matrix connections
     private FileMonitor fileMonitor; // Monitor files for changes
 
@@ -158,7 +158,7 @@ public class DAS implements Commandable{
         addI2CWorker();
 
         /* Forwards */
-        PathPool pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup);
+        pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
         addCommandable(pathPool,"paths","path","pf","paths");
         addCommandable(pathPool, "");
 
@@ -211,6 +211,9 @@ public class DAS implements Commandable{
         /* Check if the system clock was changed */
         nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
         bootOK = true;
+
+        /* Build the stores in the sqltables */
+        dbManager.buildStores(rtvals);
 
         /* Telnet */
         addTelnetServer();
@@ -607,7 +610,9 @@ public class DAS implements Commandable{
             return getStatus(html);
         return "Unknown command";
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     /**
      * Part of the commandable interface but not used here
      * @param wr The writable to remove

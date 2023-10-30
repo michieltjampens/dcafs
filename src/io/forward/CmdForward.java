@@ -6,7 +6,6 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.AbstractVal;
 import util.data.RealtimeValues;
-import util.data.ValTools;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -37,8 +36,10 @@ public class CmdForward extends AbstractForward implements Writable {
             dQueue.add(Datagram.system(cmd.applyData(split)));
         });
         targets.forEach(t->t.writeLine(id(), data));
-        if( store!=null)
-            store.apply(data,dQueue);
+        if( store!=null) {
+            store.apply(data);
+            tis.forEach( ti -> ti.insertStore(store.dbTable()) );
+        }
         return true;
     }
 

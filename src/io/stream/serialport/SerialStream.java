@@ -6,12 +6,9 @@ import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.Tools;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
-
 import java.time.Instant;
-import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -65,10 +62,10 @@ public class SerialStream extends BaseStream implements Writable {
 
         if (serialPort.openPort()) {
             addListener();
-            Logger.info("Connected to serialport " + serialPort.getSystemPortName());
+            Logger.info("Connected to serial port " + serialPort.getSystemPortName());
             listeners.forEach( l -> l.notifyOpened(id) );
         } else {
-            Logger.info("FAILED connection to serialport " + serialPort.getSystemPortName());
+            Logger.info("FAILED connection to serial port " + serialPort.getSystemPortName());
             return false;
         }
         return true;
@@ -153,7 +150,7 @@ public class SerialStream extends BaseStream implements Writable {
                 }));
                 targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
             }catch(Exception e){
-                Logger.error(id+" -> Something bad in serialport");
+                Logger.error(id+" -> Something bad in serial port");
                 Logger.error(e);
             }
         }
@@ -173,10 +170,6 @@ public class SerialStream extends BaseStream implements Writable {
         if( !label.isEmpty() && dQueue !=null ) { // No use adding to queue without label
             dQueue.add( Datagram.build(msg).label(label).priority(priority).writable(this) );
         }
-
-        // Implement the use of store
-        if( store!=null )
-            store.apply(new String(data),dQueue);
 
         forwardData(msg);
 
@@ -200,7 +193,7 @@ public class SerialStream extends BaseStream implements Writable {
                 }));
                 targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
             }catch(Exception e){
-                Logger.error(id+" -> Something bad in serialport");
+                Logger.error(id+" -> Something bad in serial port");
                 Logger.error(e);
             }
         }
@@ -323,11 +316,11 @@ public class SerialStream extends BaseStream implements Writable {
             }
             return  res == data.length;
         }else if( serialPort==null){
-            Logger.error(id+" -> No write done, serialport is null.");
+            Logger.error(id+" -> No write done, serial port is null.");
 
             return false;
         }else if( !serialPort.isOpen()){
-            Logger.error(id+" -> No write done, serialport is closed.");
+            Logger.error(id+" -> No write done, serial port is closed.");
         }
         if( serialPort.bytesAwaitingWrite()<8000 ){
             Logger.error("Data not being read from "+id);
@@ -346,11 +339,6 @@ public class SerialStream extends BaseStream implements Writable {
         if (serialPort == null || serialPort.bytesAwaitingWrite()>8000)
             return false;
         return serialPort.isOpen();
-    }
-
-    @Override
-    public String id() {
-        return id;
     }
 
     @Override

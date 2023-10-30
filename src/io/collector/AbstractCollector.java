@@ -11,12 +11,12 @@ import java.util.concurrent.TimeUnit;
 
 public abstract class AbstractCollector implements Writable {
 
-    final String id;                                                   // unique identifier
-    final ArrayList<CollectorFuture> listeners = new ArrayList<>();    // collection of the listeners
-    protected String source="";                                        // The command that provide the data to the collector
-    boolean valid=true;                                                // boolean to indicate that this collector wants to collect
+    protected String id;                                                        // unique identifier
+    protected final ArrayList<CollectorFuture> listeners = new ArrayList<>();   // collection of the listeners
+    protected String source="";                                                 // The command that provide the data to the collector
+    protected boolean valid=true;                                               // boolean to indicate that this collector wants to collect
     protected ScheduledFuture<?> timeoutFuture;                        // the future of the timeout submit in order to cancel it
-    long secondsTimeout=0;
+    protected long secondsTimeout=0;
 
     public AbstractCollector( String id ){
         this.id=id;

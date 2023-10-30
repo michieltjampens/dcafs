@@ -176,10 +176,6 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
                        );
             }
 
-           // Implement the use of store
-           if( store!=null )
-               store.apply(new String(data),dQueue);
-
             // Forward data to targets
 			if( !targets.isEmpty() ){
                 String tosend=new String(data);

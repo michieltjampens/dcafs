@@ -15,7 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-public class SQLDB extends Database{
+public class SQLDB extends Database implements TableInsert{
 
     private final String tableRequest;   // The query to request table information
     private final String columnRequest;  // The query to request column information
@@ -441,22 +441,32 @@ public class SQLDB extends Database{
         }
         return Optional.of(data);
     }
-
-    public synchronized boolean buildInsert(String table, RealtimeValues rtvals, String macro) {
+    public Optional<TableInsert> getTableInsert( String tableid ){
+        int index = tableid.indexOf(":");
+        if( index != -1)
+            tableid=tableid.substring(0,index);
+        if( tables.get(tableid)==null)
+            return Optional.empty();
+        return Optional.of( this );
+    }
+    public void buildStores( RealtimeValues rtvals ){
+        tables.values().forEach(x->x.buildStore(rtvals));
+    }
+    public synchronized boolean insertStore(String table ) {
         if (!hasRecords())
             firstPrepStamp = Instant.now().toEpochMilli();
 
         if( getTable(table).isEmpty() ){
-            Logger.error(id+"(db) ->  No such table "+table);
+            Logger.error(id+"(db) ->  No such table <"+table+">");
             return false;
         }
 
-        if (getTable(table).map(t -> t.buildInsert(rtvals, macro)).orElse(false)) {
+        if (getTable(table).map(t -> t.insertStore("")).orElse(false)) {
             if(tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
                 flushPrepared();
             return true;
         }else{
-            Logger.error(id+"(db) -> Build insert failed for "+table);
+            Logger.error(id+"(db) -> Build insert failed for <"+table+">");
         }
         return false;
     }

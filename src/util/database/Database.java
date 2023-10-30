@@ -171,12 +171,10 @@ public abstract class Database{
     public abstract void addQuery(String query);
 
     /**
-     * Build the insert for the given table based on current data and add it to the buffer
+     * Insert the current content of the store in the table
      * @param table The name of the table
-     * @param rtvals Instance that holds the data
-     * @param macro The macro argument to fill in
      * @return True If successful
      */
-    public abstract boolean buildInsert(String table, RealtimeValues rtvals, String macro);
+    public abstract boolean insertStore(String table);
 
 }

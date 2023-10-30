@@ -170,6 +170,9 @@ public class IssuePool implements Commandable{
         }
         return "! No such subcommand in issues: "+args;
     }
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     public String getReport( boolean html, boolean clear ){
         String nl = html?"<br>":"\r\n";
         var join = new StringJoiner(nl,html?"<b>Active Issues</b><br>":"Active Issues\r\n","");

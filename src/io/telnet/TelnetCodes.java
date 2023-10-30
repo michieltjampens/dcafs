@@ -97,6 +97,13 @@ public class TelnetCodes {
     	
     	return b.toString().replaceAll("-999.0", TEXT_RED+"-999"+TEXT_GREEN)+defaultTextColor;
     }
+
+	/**
+	 * Convert a textual color to the telnet code for it
+	 * @param color The color to convert
+	 * @param error The telnetcode to use if the color isn't recognized
+	 * @return The resulting telnet code
+	 */
 	public static String colorToCode( String color, String error ){
 		return switch (color) {
 			case "yellow" -> TelnetCodes.TEXT_BRIGHT_YELLOW;

@@ -2,6 +2,8 @@ package util.database;
 
 import das.Commandable;
 import io.Writable;
+import io.collector.StoreCollector;
+import io.forward.*;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import util.data.RealtimeValues;
@@ -156,6 +158,10 @@ public class DatabaseManager implements QueryWriting, Commandable {
         }
         return Optional.empty();
     }
+    public void buildStores(RealtimeValues rtvals){
+        sqls.values().forEach( x -> x.buildStores(rtvals));
+        lites.values().forEach( x -> x.buildStores(rtvals));
+    }
     public void recheckRollOver(){
         lites.values().forEach( lite -> lite.updateFileName(LocalDateTime.now(ZoneId.of("UTC"))));
     }
@@ -191,17 +197,16 @@ public class DatabaseManager implements QueryWriting, Commandable {
         return 0;
     }
 
-    @Override
-    public boolean buildInsert(String ids, String table, String macro) {
+    public boolean insertStores( String ids, String table ) {
         int ok=0;
         for( var id : ids.split(",")) {
            for (SQLiteDB sqlite : lites.values()) {
                if (sqlite.getID().equalsIgnoreCase(id))
-                  ok+=sqlite.buildInsert(table, rtvals, macro)?1:0;
+                  ok += sqlite.insertStore(table)?1:0;
            }
            for (SQLDB sqldb : sqls.values()) {
                if (sqldb.getID().equalsIgnoreCase(id))
-                   ok+=sqldb.buildInsert(table, rtvals, macro)?1:0;
+                   ok += sqldb.insertStore(table)?1:0;
            }
        }
        return ok==ids.split(",").length;
@@ -360,7 +365,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             .add("").add(cyan + "Working with tables" + reg)
                             .add(green + "  dbm:id,addtable,tablename " + reg + "-> Adds a table to the given database id")
                             .add(green + "  dbm:id,addcol,tablename,columntype:columnname<:rtval> " + reg + "-> Add a column to the given table")
-                            .add("        - columntypes: r(eal),t(ime)s(tamp),i(nteger),t(ext), utc(now)")
+                            .add("        - columntypes: r(eal),t(ime)s(tamp),i(nteger),t(ext), utc(now), ltc")
                             .add(green + "  dbm:id,tablexml,tablename " + reg + "-> Write the table in memory to the xml file, use * as tablename for all")
                             .add(green + "  dbm:id,tables " + reg + "-> Get info about the given id (tables etc)")
                             .add(green + "  dbm:id,fetch " + reg + "-> Read the tables from the database directly, not overwriting stored ones.")
@@ -460,6 +465,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                     case "reload" -> {
                         var r = reloadDatabase(cmds[0]);
                         if( r.isPresent() ){
+                            ((SQLDB)r.get()).buildStores(rtvals);
                             var error = r.get().getLastError();
                             yield error.isEmpty() ? "Database reloaded" : error;
                         }
@@ -552,13 +558,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                         return "Column(s) added";
                     }
                     case "store" -> {
-                            var macro = cmds.length==4?cmds[3]:"";
-                            if( macro.isEmpty() ){
-                                var ms = cmds[2].split(":");
-                                if( ms.length==2)
-                                    macro=ms[1];
-                            }
-                            if( buildInsert(cmds[0],cmds[2],macro) )
+                            if( insertStores(cmds[0],cmds[2] ) )
                                 return "Wrote record";
                             Logger.error("Tried to do store on "+cmds[0]+"->"+cmds[2]+", but failed.");
                             return "! Failed to write record";
@@ -581,7 +581,35 @@ public class DatabaseManager implements QueryWriting, Commandable {
             }
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        String[] cmds = args.split(",");
+        if( payload==null)
+            return "! No valid payload given with "+cmd+":"+args;
+        if( cmds.length>=2) {
+            if (cmds[1].equals("tableinsert")) {
+                if (cmds.length < 3)
+                    return "! Not enough arguments, needs to be dbm:dbid,tableinsert,tableid";
+                var dbOpt = getDatabase(cmds[0]);
+                if( dbOpt.isEmpty() ) {
+                    Logger.error(cmd+":"+args+" -> Failed because no such database: "+cmds[0]);
+                    return "! No such database: " + cmds[0];
+                }
+                var db = dbOpt.get();
+                var tiOpt = db.getTableInsert(cmds[2]);
+                if( tiOpt.isEmpty())
+                    return "! No such table id "+cmds[2]+" in "+cmds[0];
+                if( payload.getClass() == MathForward.class ||  payload.getClass() == EditorForward.class
+                        || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class ){
+                    ((AbstractForward)payload).addTableInsert(tiOpt.get());
+                    return "TableInsert added";
+                }else if( payload.getClass() == StoreCollector.class ){
+                    ((StoreCollector)payload).addTableInsert(tiOpt.get());
+                }
+                return "! Payload isn't the correct object type for "+cmd+":"+args;
+            }
+        }
+        return "! No such command " + cmd + ": " + args;
+    }
     /**
      * Response to MySQLdump related commands
      * @param args The command

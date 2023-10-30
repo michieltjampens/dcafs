@@ -3,6 +3,7 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -20,6 +21,8 @@ public class TextVal extends AbstractVal{
     private final HashMap<String,String> parser = new HashMap<>();
     private String keepOrignal;
     private boolean regex=false;
+    private enum TYPE{STATIC,LOCALDT,UTCDT};
+    private TYPE type = TYPE.STATIC;
     /* ********************************* Constructing ************************************************************ */
     /**
      * Constructs a new RealVal with the given group and name
@@ -31,7 +34,12 @@ public class TextVal extends AbstractVal{
     public static TextVal newVal(String group, String name){
         return new TextVal().group(group).name(name);
     }
-
+    public static TextVal newLocalTimeVal(String group, String name){
+        return new TextVal().group(group).name(name).makeLocalDT();
+    }
+    public static TextVal newUTCTimeVal(String group, String name){
+        return new TextVal().group(group).name(name).makeUTCDT();
+    }
     /**
      * Create a new TextVal based on a rtval text node
      * @param rtval The node
@@ -53,7 +61,14 @@ public class TextVal extends AbstractVal{
         }
         return Optional.of(TextVal.newVal(group,name).reload(rtval));
     }
-
+    public TextVal makeLocalDT(){
+        type=TYPE.LOCALDT;
+        return this;
+    }
+    public TextVal makeUTCDT(){
+        type=TYPE.UTCDT;
+        return this;
+    }
     /**
      * Change the RealVal according to a xml node
      * @param rtval The node
@@ -114,11 +129,18 @@ public class TextVal extends AbstractVal{
         this.name=name;
         return this;
     }
-    public String value(){ return value; }
+    public String value() {
+        return switch (type) {
+            case STATIC -> value;
+            case LOCALDT -> TimeTools.formatLongNow();
+            case UTCDT -> TimeTools.formatLongUTCNow();
+        };
+    }
+    public Object valueAsObject(){ return value();}
     public void defValue(String def){
         this.def=def;
     }
-    public String stringValue(){ return value;}
+    public String stringValue(){ return value();}
 
     @Override
     public void resetValue() {

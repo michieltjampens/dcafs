@@ -5,11 +5,13 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
+import util.database.TableInsert;
 import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
@@ -24,7 +26,7 @@ public abstract class AbstractForward implements Writable {
     protected final ArrayList<String> cmds = new ArrayList<>();            // Commands to execute after processing
     protected final ArrayList<Writable> targets = new ArrayList<>();       // To where the data needs to be send
     protected final ArrayList<String[]> rulesString = new ArrayList<>();   // Readable info regarding rules
-
+    protected ArrayList<TableInsert> tis = new ArrayList<>();
     protected String id="";                                   // The identifier for this object
     protected final ArrayList<String> sources = new ArrayList<>();  // The commands that provide the data to filter
     protected boolean valid = false;           // Flag that determines of data should be received or not
@@ -38,6 +40,7 @@ public abstract class AbstractForward implements Writable {
     public enum RESULT{ERROR,EXISTS,OK}
     protected boolean inPath=true;
     protected boolean parsedOk=true;
+
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
         this.rtvals=rtvals;
@@ -193,16 +196,22 @@ public abstract class AbstractForward implements Writable {
         return true;
     }
 
-    public void setStore( ValStore store){
+    public void setStore( ValStore store ){
         this.store=store;
         if( !valid && store!=null){
             valid=true;
             sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
         }
     }
+    public Optional<ValStore> getStore(){
+        return Optional.ofNullable(store);
+    }
     public void clearStore(RealtimeValues rtv){
         if( store!=null)
             store.removeRealtimeValues(rtv);
+    }
+    public void addTableInsert( TableInsert ti ){
+        tis.add(ti);
     }
     public void addAfterCmd( String cmd){
         cmds.add(cmd);

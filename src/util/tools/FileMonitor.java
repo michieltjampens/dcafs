@@ -157,7 +157,9 @@ public class FileMonitor implements Commandable {
         }
         return "! No such subcommand in "+cmd+": "+args;
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     @Override
     public boolean removeWritable(Writable wr) {
         files.forEach( fm -> fm.targets.remove(wr));

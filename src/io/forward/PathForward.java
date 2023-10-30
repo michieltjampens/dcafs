@@ -7,11 +7,11 @@ import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.data.ValTools;
+import util.database.QueryWriting;
 import util.database.SQLiteDB;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -44,11 +44,13 @@ public class PathForward {
     private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
     String error=""; // Last error that occurred
     boolean valid=false; // Whether this path is valid (xml processing went ok)
+    QueryWriting db;
 
-    public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup ){
+    public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, QueryWriting db){
         this.rtvals = rtvals;
         this.dQueue=dQueue;
         this.nettyGroup=nettyGroup;
+        this.db=db;
     }
     public String id(){
         return id;
@@ -106,7 +108,7 @@ public class PathForward {
             }
         }
         var steps = dig.peekOut("*");
-        if( steps.size() > 0) {
+        if(!steps.isEmpty()) {
             stepsForward = new ArrayList<>();
         }else{
             error = "No child nodes found";
@@ -167,8 +169,15 @@ public class PathForward {
                             addAsTarget(ff,"");
                         }
                     }
-                    if( store!=null)
+                    if( store!=null) {
+                        // Add the store to the forward
                         ff.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(ff));
+                        }
+                    }
                     lastff = ff;
                     stepsForward.add(ff);
                 }
@@ -182,8 +191,15 @@ public class PathForward {
                     }else{
                         addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastStore));
                     }
-                    if( store!=null)
+                    if( store!=null) {
+                        // Add the store to the forward
                         mf.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(mf));
+                        }
+                    }
                     stepsForward.add(mf);
                 }
                 case "editor" -> {
@@ -201,8 +217,15 @@ public class PathForward {
                     }else{
                         addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastStore));
                     }
-                    if( store!=null)
+                    if( store!=null) {
+                        // Add the store to the forward
                         ef.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(ef));
+                        }
+                    }
                     stepsForward.add(ef);
                 }
                 case "cmds","cmd" -> {
@@ -216,8 +239,15 @@ public class PathForward {
                     }else{
                         addAsTarget(cf, cf.getSrc(),!(lastff!=null && lastStore));
                     }
-                    if( store!=null)
+                    if( store!=null) {
+                        // Add the store to the forward
                         cf.setStore(store);
+                        // Now add the link to the database table
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(cf));
+                        }
+                    }
                     hasCmd=true;
                     stepsForward.add(cf);
                 }
@@ -258,6 +288,12 @@ public class PathForward {
     public void clearStores(){
         if( stepsForward!=null)
             stepsForward.forEach( x -> x.clearStore(rtvals));
+    }
+    public ArrayList<ValStore> getStores(){
+        ArrayList<ValStore> stores = new ArrayList<>();
+        for( AbstractForward fw : stepsForward)
+            fw.getStore().ifPresent(stores::add);
+        return stores;
     }
     public boolean isValid(){
         return valid;

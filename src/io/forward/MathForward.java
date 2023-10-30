@@ -252,16 +252,14 @@ public class MathForward extends AbstractForward {
         if( log )
             Logger.tag("RAW").info( id() + "\t" + result);
         if( store!=null) {
-            for( int a=0;a<bds.length;a++){
-                if( bds[a] != null){
+            for( int a=0;a<store.size();a++){
+                if( bds.length > a && bds[a] != null){
                     store.setValueAt(a,bds[a]);
                 }else{
                     store.setValueAt(a,split[a]);
                 }
             }
-            var db = store.dbTrigger();
-            if( !db.isEmpty())
-                dQueue.add(Datagram.system(db));
+            tis.forEach( ti -> ti.insertStore(store.dbTable()) );
         }
 
         if( !cmds.isEmpty())
@@ -270,8 +268,8 @@ public class MathForward extends AbstractForward {
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         return !noTargets() || log || store != null;
     }
-    private boolean showError(String error){
-        return showError(true,error);
+    private void showError(String error){
+        showError(true,error);
     }
     private boolean showError(boolean count, String error){
         if( count)

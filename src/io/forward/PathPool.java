@@ -8,6 +8,8 @@ import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.data.ValStore;
+import util.database.QueryWriting;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
@@ -24,11 +26,13 @@ public class PathPool implements Commandable {
     private final Path settingsPath;
     private final RealtimeValues rtvals;
     private final EventLoopGroup nettyGroup;
+    private final QueryWriting qw;
 
-    public PathPool(BlockingQueue<Datagram> dQueue, Path settingsPath, RealtimeValues rtvals, EventLoopGroup group){
+    public PathPool(BlockingQueue<Datagram> dQueue, Path settingsPath, RealtimeValues rtvals, EventLoopGroup group, QueryWriting qw){
         this.dQueue=dQueue;
         this.settingsPath=settingsPath;
         this.rtvals=rtvals;
+        this.qw=qw;
         nettyGroup=group;
         readPathsFromXML();
     }
@@ -50,7 +54,7 @@ public class PathPool implements Commandable {
         // From the paths section
         XMLdigger.goIn(settingsPath,"dcafs","paths").peekOut("path").forEach(
                 pathEle -> {
-                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
+                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup,qw);
                     path.readFromXML( pathEle,settingsPath.getParent() );
                     var p = paths.get(path.id());
                     if( p!=null) {
@@ -67,7 +71,7 @@ public class PathPool implements Commandable {
                 .map( e -> XMLtools.getFirstChildByTag(e,"path").get())
                 .forEach(
                         pathEle -> {
-                            PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
+                            PathForward path = new PathForward(rtvals,dQueue,nettyGroup,qw);
                             var parentId = XMLtools.getStringAttribute((Element) pathEle.getParentNode(), "id", "");
                             // The functionality to import a path, relies on an attribute while this will be a content instead but may be...
                             if( !pathEle.hasAttribute("import")) {
@@ -115,7 +119,9 @@ public class PathPool implements Commandable {
             }
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     @Override
     public boolean removeWritable( Writable wr) {
         paths.values().forEach( p -> p.removeTarget(wr));
@@ -218,7 +224,7 @@ public class PathPool implements Commandable {
                         if (!res.startsWith("!")) { // If cmd worked
                             if (pEle.isPresent()) { // If an existing path was altered
                                 if( res.equalsIgnoreCase("path created")){
-                                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup);
+                                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup,qw);
                                     path.readFromXML( pEle.get(),settingsPath.getParent() );
                                     paths.put(path.id(),path);
                                 }
@@ -250,5 +256,12 @@ public class PathPool implements Commandable {
     }
     private void clearStores(){
         paths.values().forEach(PathForward::clearStores);
+    }
+    public ArrayList<ValStore> getStores(){
+        ArrayList<ValStore> stores = new ArrayList<>();
+        for( PathForward pf : paths.values()){
+            stores.addAll(pf.getStores());
+        }
+        return stores;
     }
 }

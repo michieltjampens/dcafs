@@ -506,7 +506,9 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			}
 		}
 	}
-
+	public String payloadCommand( String cmd, String args, Object payload){
+		return "! No such cmds in "+cmd;
+	}
 	/**
 	 * Send an email
 	 * @param email The email to send

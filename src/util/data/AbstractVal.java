@@ -113,6 +113,7 @@ public abstract class AbstractVal {
     public abstract boolean parseValue( String value );
     public abstract String stringValue();
     public abstract void resetValue();
+    public abstract Object valueAsObject();
     /* ********************************* Requests/Targets ********************************************************** */
     public void addTarget( Writable wr){
         if( targets==null)

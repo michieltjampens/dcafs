@@ -281,7 +281,9 @@ public class MqttPool implements Commandable {
             }
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     @Override
     public boolean removeWritable(Writable wr) {
         int cnt=0;

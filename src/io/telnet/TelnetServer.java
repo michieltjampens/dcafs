@@ -66,7 +66,7 @@ public class TelnetServer implements Commandable {
                 port = dig.attr("port",23);
                 title = dig.attr( "title", "DCAFS");
                 ignore = dig.attr( "ignore", "");
-                defColor = TelnetCodes.colorToCode(dig.attr("textcolor","yellow"),defColor);
+                defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
             }else {
                 addBlankTelnetToXML(settingsPath);
             }
@@ -172,7 +172,7 @@ public class TelnetServer implements Commandable {
                         }
                     }
                     writables.removeIf(w -> !w.writeLine(send + TelnetCodes.TEXT_DEFAULT));
-                    return "";
+                    return "Broadcasted";
                 }
                 case "write" -> {
                     var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
@@ -191,7 +191,9 @@ public class TelnetServer implements Commandable {
             }
         }
     }
-
+    public String payloadCommand( String cmd, String args, Object payload){
+        return "! No such cmds in "+cmd;
+    }
     @Override
     public boolean removeWritable(Writable wr) {
         return false;

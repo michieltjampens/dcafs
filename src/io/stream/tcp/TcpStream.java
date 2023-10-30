@@ -106,7 +106,6 @@ public class TcpStream extends BaseStream implements Writable {
                     handler.setTargets(targets);
                     handler.setStreamListeners( listeners );
                     handler.setEventLoopGroup(eventLoopGroup);
-                    handler.setValStore(store);
                     if( idle )
                         handler.flagAsIdle();
                     ch.pipeline().addLast( handler );
@@ -131,10 +130,6 @@ public class TcpStream extends BaseStream implements Writable {
             return false;
         }
         return f.isSuccess();
-    }
-    public void updateHandlerStore(){
-        if( handler !=null)
-            handler.setValStore(store);
     }
     /**
      * Disconnect the stream

@@ -241,7 +241,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
     public String asValueString() {
         return toString();
     }
-
+    public Object valueAsObject(){return state;}
     /**
      * Convert the flag state to a big decimal value
      * @return BigDecimal.ONE if the state is true or ZERO if not

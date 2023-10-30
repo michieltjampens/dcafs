@@ -7,14 +7,29 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.5.3 (wip)
-- Fixed, FlagVals weren't sending updates to targets
-- Fixed, ss:id1,tunnel,id2 command was using wrong indexes
-- Updated deps
+## 2.6.0 (wip)
+
+### Fixes
+- FlagVals weren't sending updates to targets.
+- ss:id1,tunnel,id2 command was using wrong indexes.
+- Mathforward didn't set all values in the store if they weren't used by it.
+- I2C cmds weren't read correctly from script, kept using the write/read etc from the first cmd.
+- Telnet text color was read from attribute instead of element.
+
+### Updated deps
   - jSerialcom
   - Netty
   - SQLite
-- Fixed, i2c cmds weren't active if there wasn't an i2c node in the settings  
+
+### Store implementation
+- General code cleanup
+- Removed 'store' from the BaseStream and replaced this with a new collector 'StoreCollector'. That way it's works the same
+as any other data processing method (making it easier to understand and debug).
+- A forward or storecollector can now request a link to a specific sqltable to trigger an insert.
+
+### Database
+- Rewrote the way the 'store' and 'database' interact. This was based on cmd but this gives issues when processing 
+at high speed. Now an insert is triggered directly instead when using forwards and streams.
 
 ### MQTT
 - Added cmds for the mqtt provide and store

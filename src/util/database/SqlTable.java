@@ -1,10 +1,9 @@
 package util.database;
 
-import util.data.RealtimeValues;
+import util.data.*;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.ValStore;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
@@ -17,7 +16,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 
-public class SqlTable {
+public class SqlTable{
 
     String name;
 
@@ -40,7 +39,7 @@ public class SqlTable {
         this.name = name;
         preps.put("", new PrepStatement());
     }
-
+    boolean validStore=false;
     /**
      * By default, this assumes it's for sqlite, with this it's toggled to be for a server instead
      */
@@ -102,7 +101,7 @@ public class SqlTable {
                         }
                     }
                     case "text" -> table.addText(val, rtval);
-                    case "localdtnow" -> table.addLocalDateTime(val, rtval, true);
+                    case "localdtnow","localnow" -> table.addLocalDateTime(val, rtval, true);
                     case "utcdtnow", "utcnow" -> table.addUTCDateTime(val, rtval, true);
                     case "datetime" -> table.addLocalDateTime(val, rtval, false);
                     default -> {
@@ -487,22 +486,107 @@ public class SqlTable {
     public int doInsert(Object[] values){
         return getPrep("").map( p -> p.addData(values)?1:0).orElse(-1);
     }
-    /**
-     * Use the given rtvals to fill in the create statement, rtval/title must match elements
-     * @param rtvals The RealtimeValues object containing the values
-     * @return The INSERT statement or an empty string if a value wasn't found
-     */
-    public boolean buildInsert( RealtimeValues rtvals ,String macro ){
-        return buildInsert("",rtvals,macro);
+
+    public void buildStore( RealtimeValues rtvals ){
+        PrepStatement prep = preps.get("");
+        if( prep==null){
+            Logger.error(name+" -> No such prep: "+name);
+            return;
+        }
+        stores.clear(); // Start from scratch
+        stores.put("", new ValStore(""));
+        var store = stores.get("");
+
+        for( int colPos : prep.getIndexes() ){
+            Column col = columns.get(colPos);
+            String ref = col.rtval;
+            try{
+                switch( col.type ){
+                    case EPOCH -> store.addEmptyVal();
+                    case REAL -> {
+                        var v = rtvals.getRealVal(ref);
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            if( col.hasDefault) {
+                                Logger.warn(name+" -> Couldn't find "+ref+" using column default");
+                                var rv = RealVal.newVal(name,col.title);
+                                if( rv.parseValue(col.defString) ) {
+                                    store.addAbstractVal(rv);
+                                }else{
+                                    Logger.error(name +" -> Failed to parse the default of "+col.title+" to a real.");
+                                }
+                            }else{
+                                Logger.error(name+" -> Couldn't find "+ref+" using AND no column default, abort store building");
+                                return;
+                            }
+                        }
+                    }
+                    case INTEGER -> {
+                        var v = rtvals.getIntegerVal(ref);
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            if( col.hasDefault) {
+                                Logger.warn(name+" -> Couldn't find the IntVal "+ref+" using column default");
+                                var iv = IntegerVal.newVal(name,col.title);
+                                if( iv.parseValue(col.defString) ) {
+                                    store.addAbstractVal(iv);
+                                }else{
+                                    Logger.error(name +" -> Failed to parse the default of "+col.title+" to an integer.");
+                                }
+                            }else{
+                                Logger.error(name+" -> Couldn't find the IntVal "+ref+" using AND no column default, abort store building");
+                                return;
+                            }
+                        }
+                    }
+                    case UTCDTNOW -> {
+                        var v = rtvals.getTextVal("dcafs_utcdt");
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            var tv = TextVal.newUTCTimeVal("dcafs","utcdt");
+                            rtvals.addTextVal(tv);
+                            store.addAbstractVal(tv);
+                        }
+                    }
+                    case LOCALDTNOW -> {
+                        var v = rtvals.getTextVal("dcafs_localdt");
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            var tv = TextVal.newLocalTimeVal("dcafs","localdt");
+                            rtvals.addTextVal(tv);
+                            store.addAbstractVal(tv);
+                        }
+                    }
+                    case TEXT,DATETIME -> {
+                        var v = rtvals.getTextVal(ref);
+                        if( v.isPresent()){
+                            store.addAbstractVal(v.get());
+                        }else{
+                            Logger.error(name+" -> Couldn't find "+ref);
+                            store.addEmptyVal();
+                        }
+                    }
+
+                }
+            }catch( NullPointerException e ){
+                Logger.error(name+" -> Null pointer when looking for "+ref + " type:"+col.type);
+            }
+        }
+        validStore=true;
     }
-    /**
-     * Use the given rtvals object and macro to fill in the INSERT statement (@macro defined in xml)
-     * @param rtvals The RealtimeValues object containing the values
-     * @param macro The string to replace the @macro in the rtval with
-     * @return The INSERT statement or an empty string if a value wasn't found
-     */
-    public boolean buildInsert( String id, RealtimeValues rtvals, String macro ){
-       
+    public boolean insertStore( String id ){
+        if( stores.isEmpty())
+            return false;
+
+        if( !validStore ){
+            Logger.error(name+" -> No valid store, aborting insert.");
+            return false;
+        }
+
         PrepStatement prep = preps.get(id);
         if( prep==null){
             Logger.error(name+" -> No such prep: "+id);
@@ -511,124 +595,62 @@ public class SqlTable {
 
         Object[] record = new Object[columns.size()];
 
-        if( stores.get(macro)==null) {
-            stores.put(macro, new ValStore(id));
-        }
-        var store = stores.get(macro);
+        var store = stores.get("");
+        var rt = store.getAllVals();
+
         int index=-1;
         for( int colPos : prep.getIndexes() ){
             Column col = columns.get(colPos);
-            index++;    
+            index++;
             String def = col.getDefault();
-            
-            String ref = col.rtval.replace("@macro", macro);
             Object val = null;
             try{
-                if( col.type == COLUMN_TYPE.EPOCH){
-                    record[index]=Instant.now().toEpochMilli();
-                    if( index >= store.size())
-                        store.addEmptyVal();
-                    continue;
-                }else if( col.type == COLUMN_TYPE.TEXT){
-                    if( index >= store.size() ){
-                        var v = rtvals.getTextVal(ref);
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
+                switch( col.type ){
+                    case EPOCH -> val=Instant.now().toEpochMilli();
+                    case TEXT,INTEGER,REAL -> {
+                        var v = rt.get(index);
+                        if( v!=null){
+                            val = v.stringValue();
+                        }
+                    }
+                    case LOCALDTNOW -> {
+                        if( server ){
+                            val = OffsetDateTime.now();
                         }else{
-                            store.addEmptyVal();
-                        }
-                    }else if( store.isEmptyAt(index)){
-                        var v = rtvals.getTextVal(ref);
-                        if( v.isPresent()){
-                            store.setAbstractVal(index,v.get());
+                            var v = rt.get(index);
+                            if( v!=null){
+                                val = v.stringValue();
+                            }
                         }
                     }
-                    val = store.getValueAt(index);
-                }else if( col.type == COLUMN_TYPE.INTEGER ){
-                    if( index >= store.size() ){
-                        var v = rtvals.getIntegerVal(ref);
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
+                    case UTCDTNOW -> {
+                        if( server ){
+                            val = OffsetDateTime.now(ZoneOffset.UTC);
                         }else{
-                            store.addEmptyVal();
-                        }
-                    }else if( store.isEmptyAt(index)){
-                        var v = rtvals.getIntegerVal(ref);
-                        if( v.isPresent()){
-                            store.setAbstractVal(index,v.get());
+                            var v = rt.get(index);
+                            if( v!=null){
+                                val = v.stringValue();
+                            }
                         }
                     }
-                    val = store.getIntValueAt(index);
-                    if( val==null ){
-                        if( col.hasDefault) {
-                            Logger.debug(id + " -> Didn't find integer with id " + ref);
-                        }else {
-                            Logger.error(id + " -> Didn't find integer with id " + ref);
-                        }
-                        val = col.hasDefault?NumberUtils.createInteger(def):null;
-                    }
-                }else if( col.type == COLUMN_TYPE.REAL){
-                    if( index >= store.size() ){
-                        var v = rtvals.getRealVal(ref);
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
-                        }else{
-                            store.addEmptyVal();
-                        }
-                    }else if( store.isEmptyAt(index)){
-                        var v = rtvals.getRealVal(ref);
-                        if( v.isPresent()){
-                            store.setAbstractVal(index,v.get());
+                    case DATETIME -> {
+                        var v = rt.get(index);
+                        if( v!=null ){
+                            val = TimeTools.parseDateTime(v.stringValue(),"yyyy-MM-dd HH:mm:ss.SSS");
+                            if( !server )
+                                val = val.toString();
                         }
                     }
-                    val = store.getRealValueAt(index);
-                    if( val==null ){
-                        if( col.hasDefault) {
-                            Logger.debug(id + " -> Didn't find real with id " + ref);
-                        }else {
-                            Logger.error(id + " -> Didn't find real with id " + ref);
-                        }
-                        val = col.hasDefault?NumberUtils.createDouble(def):null;
-                    }
-                }else if( col.type == COLUMN_TYPE.LOCALDTNOW){
-                    if( index >= store.size() )
-                        store.addEmptyVal();
-                    val = OffsetDateTime.now();
-                    if( !server )
-                        val = val.toString();
-                }else if( col.type == COLUMN_TYPE.UTCDTNOW){
-                    if( index >= store.size() )
-                        store.addEmptyVal();
-                    val = OffsetDateTime.now(ZoneOffset.UTC);
-                    if( !server )
-                        val = val.toString();
-                }else if( col.type == COLUMN_TYPE.DATETIME){
-                    if( index >= store.size() ) {
-                        var v = rtvals.getTextVal(ref);
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
-                        }else{
-                            store.addEmptyVal();
-                        }
-                    }else if( store.isEmptyAt(index)){
-                        var v = rtvals.getTextVal(ref);
-                        if( v.isPresent()){
-                            store.setAbstractVal(index,v.get());
-                        }
-                    }
-                    val = TimeTools.parseDateTime(store.getValueAt(index),"yyyy-MM-dd HH:mm:ss.SSS");
-                    if( !server )
-                        val = val.toString();
                 }
             }catch( NullPointerException e ){
-                Logger.error(id+" -> Null pointer when looking for "+ref + " type:"+col.type);
+                Logger.error(id+" -> Null pointer when looking for "+col.rtval + " type:"+col.type);
             }
 
             if( val == null && col.hasDefault ){
                 record[index]= def;
             }else{
                 if( val == null) {
-                    Logger.error(id+" -> Couldn't find " + ref + " for " + name + " aborted insert.");
+                    Logger.error(id+" -> Couldn't find " + col.rtval + " for " + name + " aborted insert.");
                     return false;
                 }
                 record[index] = val;
@@ -647,7 +669,7 @@ public class SqlTable {
     }
 
     /**
-     * Gives all the data as strings to be parsed to the correct object so it can use the prepared statement
+     * Gives all the data as strings to be parsed to the correct object, so it can use the prepared statement
      * @param id The id of the prepared statement to use
      * @param data The array of data
      * @return True if it works
@@ -710,7 +732,7 @@ public class SqlTable {
 
         public Column( String title, String rtval, COLUMN_TYPE type){
             this.title=title;
-            if( rtval.equals("")) // if no rtval is given, we assume it's the same as the title
+            if(rtval.isEmpty()) // if no rtval is given, we assume it's the same as the title
                 rtval=name+"_"+title;
             this.rtval =rtval;
             this.type=type;
