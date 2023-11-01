@@ -139,8 +139,14 @@ public class CommandPool {
 	 * @return The response to the command/question
 	 */
 	public String executeCommand(Datagram d, boolean remember, boolean html) {
-
+		boolean removeTelnetCodes=false;
 		String question = d.getData();
+
+		if( question.contains( " -r")){
+			removeTelnetCodes=true;
+			question=question.replace(" -r","");
+		}
+
 		var wr = d.getWritable();
 		// Some receivers of the result prefer html style (if possible)
 		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:"))){
@@ -210,9 +216,16 @@ public class CommandPool {
 		if( result.equals(UNKNOWN_CMD)) // Check if any result so far
 			result = "! No such cmd group: |"+ split[0]+"|"; // No result, so probably bad cmd
 
+		if( wr!=null && !wr.id().contains("telnet"))
+			removeTelnetCodes=true;
+
+		if( removeTelnetCodes ){ // Remove the telnetcodes
+			result = TelnetCodes.removeCodes(result);
+		}
+
 		if( wr!=null ) { // If a writable was given
 			if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
-				wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origing in front
+				wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origin in front
 			}else if (wr.id().startsWith("file:")) { // if the target is a file
 				result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
 				result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
