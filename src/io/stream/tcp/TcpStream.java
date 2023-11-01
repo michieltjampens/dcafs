@@ -103,6 +103,7 @@ public class TcpStream extends BaseStream implements Writable {
                     // For some reason the handler needs to be remade in order to restore the connection...
                     handler = new TcpHandler( id, dQueue, TcpStream.this );
                     handler.setPriority(priority);
+                    handler.setLabel(label);
                     handler.setTargets(targets);
                     handler.setStreamListeners( listeners );
                     handler.setEventLoopGroup(eventLoopGroup);
