@@ -155,7 +155,7 @@ public class I2CWorker implements Commandable {
      */
     private void readFromXML() {
 
-        var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
+       /* var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
         if( i2cOpt.isPresent() ){
             Logger.info("Found settings for a I2C bus");
             devices.values().forEach(I2CDevice::close);
@@ -185,7 +185,7 @@ public class I2CWorker implements Commandable {
         }else{
             Logger.info("No settings found for I2C, no use reading the commandsets.");
             return;
-        }                            
+        }        */
         reloadSets();
     }
 
@@ -314,7 +314,7 @@ public class I2CWorker implements Commandable {
      * @param com The command to send
      * @return The bytes received as reply to the command
      */
-    private synchronized List<Double> doCommand(ExtI2CDevice device, I2CCommand com  ) throws RuntimeIOException{
+    private synchronized List<Double> doCommand(ExtI2CDevice device, I2CCommand com, byte[] args  ) throws RuntimeIOException{
 
         var result = new ArrayList<Double>();
         device.probeIt();
@@ -363,7 +363,14 @@ public class I2CWorker implements Commandable {
                                 continue;
                             }
                         }
-                        case WRITE -> device.writeBytes(toWrite);
+                        case WRITE -> {
+                            if( cmd.args == null ) {
+                                device.writeBytes(toWrite);
+                            }else{
+                                if( !cmd.updateArgs(args) )
+                                    Logger.error( " -> Failed to update the write according to given args");
+                            }
+                        }
                         case ALTER_OR -> { // Read the register, alter it and write it again
                             device.writeBytes(toWrite[0]);
                             toWrite[1] |= device.readByte();
@@ -563,7 +570,7 @@ public class I2CWorker implements Commandable {
                 }
             }
             default -> {
-                if (cmds.length != 2) {
+                if (cmds.length == 1) {
                     StringBuilder oks = new StringBuilder();
                     for (var dev : devices.entrySet()) {
                         if (dev.getKey().matches(cmds[0])) {
@@ -587,7 +594,11 @@ public class I2CWorker implements Commandable {
                         addTarget(cmds[0], wr);
                     }
                 }
-                if (addWork(cmds[0], cmds[1])) {
+                var arg = cmds[1];
+                if( cmds.length>2) // if there are args added to the cmd
+                    arg = args.substring(args.indexOf(","));
+
+                if (addWork(cmds[0], arg)) {
                     return "Command added to the queue.";
                 } else {
                     return "! Failed to add command to the queue, probably wrong device or command";
@@ -619,12 +630,23 @@ public class I2CWorker implements Commandable {
         return true;
     }
     public void doWork(ExtI2CDevice device, String cmdID) {
+        byte[] args = new byte[0];
+        // Strip the arguments from the cmdID
+        if( cmdID.contains(",")){
+            var arg = cmdID.substring(cmdID.indexOf(",")+1);
+            if( cmdID.contains(",0x")) {
+                args = Tools.fromBaseToBytes(16, arg.split(","));
+            }else{
+                args = Tools.fromDecStringToBytes(arg);
+            }
+            cmdID=cmdID.substring(0,cmdID.indexOf(","));
+        }
 
         // Execute the command
         I2CCommand com = commands.get(device.getScript()+":"+cmdID);
         List<Double> altRes;
         try {
-            altRes = doCommand(device, com);
+            altRes = doCommand(device, com, args);
             device.updateTimestamp();
         }catch( RuntimeIOException e ){
             Logger.error("Failed to run command for "+device.getAddr()+":"+e.getMessage());

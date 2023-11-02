@@ -456,7 +456,29 @@ public class Tools {
         }
         return out.toByteArray();
     }
-
+    public static Optional<Byte> fromBaseToByte( int base, String number ){
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            if( number.isEmpty()) // skip empty strings
+                return Optional.empty();
+            if (base == 16) {
+                number = number.replace("0x", "");
+            } else if (base == 2) {
+                number = number.replace("0b", "");
+            }
+            int result = Integer.parseInt(number, base);
+            if (result <= 0xFF) {
+                out.write((byte) result);
+            } else {
+                out.write((byte) (result >> 8));
+                out.write((byte) (result % 256));
+            }
+        } catch (java.lang.NumberFormatException e) {
+            Logger.error("Bad number format: " + number);
+            return Optional.empty();
+        }
+        return Optional.of(out.toByteArray()[0]);
+    }
     /**
      * Converts an integer to a hex formatted string
      * 
