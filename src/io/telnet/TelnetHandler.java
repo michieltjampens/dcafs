@@ -151,11 +151,13 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
     @Override
     public void channelRead0(ChannelHandlerContext ctx, byte[] data) {
 
-		var recOpt= cli.receiveData(data);
+		var recOpt = cli.receiveData(data);
 
 		if( recOpt.isEmpty())
 			return;
 		var rec = recOpt.get();
+
+		writeString(newLine); // Without this, the reply will overwrite the data
 
 		if( dQueue==null ){
 			System.exit(0);
