@@ -49,7 +49,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	ArrayList<String> ids = new ArrayList<>();
 	private boolean prefix=false,ts=false,ds=false;
 	private String format="HH:mm:ss.SSS";
-	private String default_text_color=TelnetCodes.TEXT_BRIGHT_YELLOW;
+	private String default_text_color=TelnetCodes.TEXT_LIGHT_GRAY;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
@@ -151,11 +151,13 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
     @Override
     public void channelRead0(ChannelHandlerContext ctx, byte[] data) {
 
-		var recOpt= cli.receiveData(data);
+		var recOpt = cli.receiveData(data);
 
 		if( recOpt.isEmpty())
 			return;
 		var rec = recOpt.get();
+
+		writeString(newLine); // Without this, the reply will overwrite the data
 
 		if( dQueue==null ){
 			System.exit(0);

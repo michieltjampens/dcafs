@@ -1,5 +1,7 @@
 package io.telnet;
 
+import java.util.regex.Matcher;
+
 public class TelnetCodes {
 
 	private TelnetCodes() {
@@ -123,6 +125,15 @@ public class TelnetCodes {
 			case "black" -> TelnetCodes.TEXT_BLACK;
 			default -> error;
 		};
+	}
+	public static String removeCodes( String input ){
+		//[48;5;7m
+		//"[1C"
+		//"[0;0F"
+		// "[0;38;5;208m"
+		// char(27)
+		input=input.replace("[tdc]","");
+		return input.replaceAll(ESCAPE+"\\[\\d(;)?\\d*(;)?\\d*(;)?\\d*(m)?","");
 	}
 	public static String colorText( String defaultTextColor, String s, String text) {
 		StringBuilder b = new StringBuilder();

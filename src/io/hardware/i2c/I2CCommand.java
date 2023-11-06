@@ -9,9 +9,7 @@ import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLtools;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -19,8 +17,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class I2CCommand{
     
-    enum CMD_TYPE {READ,WRITE,ALTER_OR,ALTER_AND,ALTER_XOR,ALTER_NOT, WAIT_ACK,MATH,WAIT,DISCARD,REPEAT,RETURN}
-    enum OUTPUT_TYPE{DEC,HEX,BIN,CHAR}
+    public enum CMD_TYPE {READ,WRITE,ALTER_OR,ALTER_AND,ALTER_XOR,ALTER_NOT, WAIT_ACK,MATH,WAIT,DISCARD,REPEAT,RETURN}
+    public enum OUTPUT_TYPE{DEC,HEX,BIN,CHAR}
 
     private final ArrayList<CommandStep> steps = new ArrayList<>(); // The various steps in the command
 
@@ -29,9 +27,10 @@ public class I2CCommand{
     String info=""; // Descriptive text about this command
     int bits = 8;   // How many bits are in the returned data fe. 16 means combine two bytes etc
     int lastRepeat=-1;
-    private boolean runOnce=false; // Flag that removes this command if it has run
+    private final boolean runOnce=false; // Flag that removes this command if it has run
     private boolean msbFirst=true;
     private OUTPUT_TYPE outType=OUTPUT_TYPE.DEC;
+    private MathFab preFab;
 
     public I2CCommand(){}
 
@@ -41,9 +40,8 @@ public class I2CCommand{
     public void setMsbFirst( boolean msb){
         this.msbFirst=msb;
     }
-    public I2CCommand setReadBits( int bits ){
+    public void setReadBits(int bits ){
         this.bits=bits;
-        return this;
     }
     public String getInfo(){
         return info;
@@ -56,10 +54,13 @@ public class I2CCommand{
             case "char": outType=OUTPUT_TYPE.CHAR; break;
         }
     }
+    public Optional<MathFab> getPreFab(){
+        return Optional.ofNullable(preFab);
+    }
     public OUTPUT_TYPE getOutType(){
         return outType;
     }
-    public boolean addStep( Element ele ){
+    public void addStep(Element ele ){
 
         String reg = XMLtools.getStringAttribute( ele , "reg", "" );
 
@@ -81,13 +82,15 @@ public class I2CCommand{
                         , signed) != null;
                 break;
             case "write":
-                if( ele.getTextContent().isEmpty() && !reg.isEmpty()){
-                    ok = addWrite( Tools.fromHexStringToBytes( reg ) ) != null;
-                }else if( reg.isEmpty() && !ele.getTextContent().isEmpty() ){
-                    ok = addWrite( Tools.fromHexStringToBytes( ele.getTextContent() )) != null;
-                }else{
-                    ok = addWrite( ArrayUtils.addAll( Tools.fromHexStringToBytes( reg ),
-                            Tools.fromHexStringToBytes( ele.getTextContent() )) ) != null;
+                var comb = reg;
+                if( !reg.isEmpty()) // If register has data, add a delimiter
+                    comb+=" ";
+                comb += ele.getTextContent(); // Add the content
+
+                if( comb.contains("i")){ // Check if it contains a reference to an args
+                    ok = decodeWrite(comb);
+                }else{ // No references, so plain data
+                    ok = addWrite( Tools.fromHexStringToBytes( comb ) ) != null;
                 }
                 break;
             case "alter":
@@ -140,8 +143,36 @@ public class I2CCommand{
         if(!ok ){
             Logger.error("Invalid data received for command");
         }
-        return ok;
 
+    }
+    private boolean decodeWrite( String wr ){
+        wr = wr.toLowerCase().replace("0x", "");
+        var list = Tools.splitList(wr);
+        var bytes = new byte[list.length];
+        var args = new int[list.length];
+
+        for( int a=0;a<list.length;a++ ){
+            if( list[a].startsWith("i")){ // so reference to an arg
+                bytes[a]=0;
+                if( list[a].length()>1) {
+                    args[a] = Integer.parseInt(list[a].substring(1));
+                }else{
+                    Logger.error("Invalid index given in "+wr);
+                    return false;
+                }
+            }else{ // so an actual number
+                var opt = Tools.fromBaseToByte(16,list[a]);
+                if( opt.isEmpty()) {
+                    Logger.error("Failed to convert "+wr);
+                    return false;
+                }else{
+                    bytes[a]=opt.get();
+                    args[a]=-1;
+                }
+            }
+        }
+        steps.add(new CommandStep(bytes,args, 0, CMD_TYPE.WRITE));
+        return true;
     }
      /* ******************************************************************************* */
      /**
@@ -198,25 +229,16 @@ public class I2CCommand{
     public I2CCommand addAlter(  byte[] data, String op ){
         if( data == null || data.length==0 )
             return null;
-        CMD_TYPE cmdType;
-        switch (op) {
-            case "and":
-                cmdType = CMD_TYPE.ALTER_AND;
-                break;
-            case "xor":
-                cmdType = CMD_TYPE.ALTER_XOR;
-                break;
-            case "not":
-                cmdType = CMD_TYPE.ALTER_NOT;
-                break;
-            default:
-                cmdType = CMD_TYPE.ALTER_OR;
-            break;
-        }
+        CMD_TYPE cmdType = switch (op) {
+            case "and" -> CMD_TYPE.ALTER_AND;
+            case "xor" -> CMD_TYPE.ALTER_XOR;
+            case "not" -> CMD_TYPE.ALTER_NOT;
+            default -> CMD_TYPE.ALTER_OR;
+        };
         steps.add(new CommandStep(data, 0, cmdType));
         return this;
     }
-    public I2CCommand addMath( String op ){
+    public void addMath(String op ){
         var ops = op.split("=");
         var fab = MathFab.newFormula(ops[1]);
         if( fab.isValid() ){
@@ -226,7 +248,6 @@ public class I2CCommand{
             Logger.error("Failed to parse "+op+" to a mathfab");
         }
 
-        return this;
     }
     public void addRepeat( int count ){
         if( count == 0){
@@ -287,6 +308,7 @@ public class I2CCommand{
     public static class CommandStep{
         CMD_TYPE type;
         byte[] write;
+        int[] args;
         int readCount;
         int bits=8;
         boolean signed = false;
@@ -299,6 +321,12 @@ public class I2CCommand{
             this.write=write;
             this.readCount=readCount;
         }
+        public CommandStep( byte[] write, int[] args, int readCount, CMD_TYPE type){
+            this.type=type;
+            this.write=write;
+            this.args=args;
+            this.readCount=readCount;
+        }
         public CommandStep( int readCount, CMD_TYPE type){
             this.type=type;
             this.readCount=readCount;
@@ -307,6 +335,18 @@ public class I2CCommand{
             this.fab=fab;
             type=CMD_TYPE.MATH;
             this.index=index;
+        }
+        public boolean updateArgs(byte[] argVal){
+            if( args==null)
+                return false;
+            for( int a=0;a<args.length;a++){
+                if( args[a]!=-1 ){
+                    if( args[a]>=argVal.length)
+                        return false;
+                    write[a]=argVal[args[a]];
+                }
+            }
+            return true;
         }
         public void setBits( int bits ){this.bits=bits;}
         public void setSigned(boolean signed){ this.signed=signed;}
