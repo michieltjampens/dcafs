@@ -299,6 +299,12 @@ public class DAS implements Commandable{
 
        streamManager.readSettingsFromXML(settingsPath);
     }
+    public Optional<Writable> getStreamWritable( String id ){
+        var opt = streamManager.getStream(id);
+        if( opt.isPresent())
+            return Optional.of((Writable)opt.get());
+        return Optional.empty();
+    }
     /* *************************************  L A B E L W O R K E R **********************************************/
     /**
      * Adds the LabelWorker that will process the datagrams
@@ -307,6 +313,9 @@ public class DAS implements Commandable{
         if (this.labelWorker == null)
             labelWorker = new LabelWorker(dQueue);
         labelWorker.setCommandReq(commandPool);
+    }
+    public BlockingQueue<Datagram> getDataQueue(){
+        return dQueue;
     }
     /* ***************************************** M Q T T ******************************************************** */
 
