@@ -78,12 +78,12 @@ The store would be created with (check `store:?` for syntax):
 </stream>
 ```
 Or if not using index.
-````xml
+```xml
     <store group="meteo" delimiter=":">
         <ignore/> <!-- ignore the item at 0 -->
         <int unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
     </store>
-````
+```
 ### Multiline key:value pair data
 
 If the data is multiline `key:value` pairs for example:  
@@ -131,7 +131,7 @@ This is why it might be important for key:pair data that the last pair received 
 Otherwise old and new data might get mixed.
 
 To give a simple example:
-````xml
+```xml
 <dcafs>
     <!-- doesn't include the telnet node -->
     <databases>
@@ -156,7 +156,7 @@ To give a simple example:
         </stream>
     </streams>
 </dcafs>
-````
+```
 **Resetting values**
 
 There are multiple ways to deal with rtvals if a stream is no longer sending data.
@@ -169,7 +169,7 @@ update the vals to their default value, if those are set...
 **Calculations**
 
 It's possible to do calculations with the values in a store.
-````xml
+```xml
 <store>
       <real group="o1" i="1" unit="V">voltage</real>
       <real group="o1" i="2" unit="mA">current</real>
@@ -177,9 +177,9 @@ It's possible to do calculations with the values in a store.
       <!-- Instead of 'i' (for input) the letter 'o' is used -->  
       <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
 </store>
-````
+```
 
-````xml
+```xml
 <stream id="meteo" type="tcp">
     <eol>crlf</eol>
     <ttl>1m</ttl> <!-- TTL needs to be set so that it is known when the stream is idle -->
@@ -190,7 +190,7 @@ It's possible to do calculations with the values in a store.
         <int key="winddir" def="-1" unit="°">winddir</int>
     </store>
 </stream>
-````
+```
 
 ## Inside a path node
 
