@@ -260,6 +260,7 @@ public class MathForward extends AbstractForward {
                 }
             }
             tis.forEach( ti -> ti.insertStore(store.dbTable()) );
+            store.doCalVals();
         }
 
         if( !cmds.isEmpty())
