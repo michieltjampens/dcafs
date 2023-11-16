@@ -7,7 +7,36 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 
-## 2.6.0 (wip)
+## 2.6.1 (wip)
+- When cmds are issued from non-telnet, the telnet escape codes are removed. Adding -r at the end has the same result.
+- Fixed, TCP streams no longer had the label applied.
+- Fixed, the reply to a cmd in telnet wrote on the same line as the given cmd
+
+### I2C
+- It's now possible to add extra arguments to a i2c cmd to set data send. Next step applying a
+math operation to the argument first.
+```xml
+	<command id="init" info="Set default control, not enabled, no oc retry, retry on ov and uv">
+		<arg></arg>
+		<write reg="0xD0">i0</write> <!-- i0 will get replaced with the first arg -->
+		<write reg="0xD4">0x13</write>
+	</command> 
+```
+
+### Store
+
+It's now possible to math operations with parsed values.
+````xml
+<store>
+      <real group="o1" i="1" unit="V">voltage</real>
+      <real group="o1" i="2" unit="mA">current</real>
+     <!-- calculate the product of the voltage and current to get the power in watt -->
+      <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
+</store>
+````
+
+
+## 2.6.0 (29/10/2023)
 
 ### Fixes
 - FlagVals weren't sending updates to targets.

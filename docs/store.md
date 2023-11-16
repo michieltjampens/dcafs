@@ -24,12 +24,12 @@ Suppose there's stream that continuously outputs the humidity and nothing more.
     <address>localhost:4000</address>
 </stream>
 ```
-````
+```
 45
 44
 43
 43
-````
+```
 To create the store: `store:meteo,addint,humidity`. 
 ```xml
 <stream id="meteo" type="tcp">
@@ -48,7 +48,7 @@ But the above would have actually been read like this:
     <eol>crlf</eol>
     <address>localhost:4000</address>
     <store group="meteo" map="false" db="" delimiter=","> <!-- group is taken from the id of the stream, ',' is the default delimiter -->
-        <int index="0" unit="">humidity</int> <!-- Index is the position after split on the delimiter -->
+        <int index="0" unit="">humidity</int> <!-- Index is the position after split on the delimiter, 'i' is also ok -->
     </store>
 </stream>
 ```
@@ -73,7 +73,7 @@ The store would be created with (check `store:?` for syntax):
     <eol>crlf</eol>
     <address>localhost:4000</address>
     <store group="meteo" delimiter=":"> <!-- group is taken from the id of the stream, ',' is the default delimiter -->
-        <int index="1" unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
+        <int i="1" unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
     </store>
 </stream>
 ```
@@ -166,6 +166,19 @@ There are multiple ways to deal with rtvals if a stream is no longer sending dat
 For the second one, the `idlereset` attribute is adedd. Setting this to `idlereset="true"` will cause the store to 
 update the vals to their default value, if those are set...
 
+**Calculations**
+
+It's possible to do calculations with the values in a store.
+````xml
+<store>
+      <real group="o1" i="1" unit="V">voltage</real>
+      <real group="o1" i="2" unit="mA">current</real>
+      <!-- calculate the product of the voltage and current to get the power in watt -->
+      <!-- Instead of 'i' (for input) the letter 'o' is used -->  
+      <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
+</store>
+````
+
 ````xml
 <stream id="meteo" type="tcp">
     <eol>crlf</eol>
@@ -179,9 +192,9 @@ update the vals to their default value, if those are set...
 </stream>
 ````
 
-## Inside a stream node
+## Inside a path node
 
-The functionality is almost the same as inside a stream node, the difference is mainly in the commands.
+The functionality is almost the same as inside a path node, the difference is mainly in the commands.
 To refer to a store inside a path: `pf:pathid,store,cmd,value(s)`.  
 
 **Restrictions**
