@@ -61,9 +61,9 @@ public class SerialStream extends BaseStream implements Writable {
         }
 
         if (serialPort.openPort()) {
+            serialPort.flushIOBuffers(); // Make sure we don't process stuff that was in there before startup
             addListener();
             Logger.info("Connected to serial port " + serialPort.getSystemPortName());
-            serialPort.flushIOBuffers(); // Make sure we don't process stuff that was in there before startup
             listeners.forEach( l -> l.notifyOpened(id) );
         } else {
             Logger.info("FAILED connection to serial port " + serialPort.getSystemPortName());
