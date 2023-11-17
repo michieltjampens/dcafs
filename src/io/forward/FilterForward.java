@@ -10,7 +10,6 @@ import util.math.MathUtils;
 import util.taskblocks.CheckBlock;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -50,7 +49,7 @@ public class FilterForward extends AbstractForward {
 
             if( store !=null ) {
                 store.apply(data);
-                tis.forEach(ti -> ti.insertStore(store.dbTable()));
+                tableInserters.forEach(ti -> ti.insertStore(store.dbTable()));
             }
         }else{
             reversed.forEach( t-> t.writeLine(data) );

@@ -38,7 +38,7 @@ public class CmdForward extends AbstractForward implements Writable {
         targets.forEach(t->t.writeLine(id(), data));
         if( store!=null) {
             store.apply(data);
-            tis.forEach( ti -> ti.insertStore(store.dbTable()) );
+            tableInserters.forEach(ti -> ti.insertStore(store.dbTable()) );
         }
         return true;
     }
