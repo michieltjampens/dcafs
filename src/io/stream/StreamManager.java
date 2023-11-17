@@ -792,7 +792,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			if( !dig.hasValidPeek())
 				return "! No such stream yet.";
 			dig.digDown("stream","id",cmds[0]);
-
+			var type = dig.attr("type","");
 			var fabOpt = XMLfab.alterDigger(dig);
 			if( fabOpt.isEmpty() )
 				return "! Failed to find in xml";
@@ -858,6 +858,28 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					fab.build();
 					reloadStream(cmds[0]);
 					return "TTL altered";
+				}
+				case "port" -> {
+					if( type.equals("serial")){
+						if( Tools.getSerialPorts(false).contains(cmds[2]) ){
+							fab.alterChild("port", cmds[2]);
+						}else{
+							return "! No such serial port available";
+						}
+					}else if( type.equals("tcp")){
+						var addr = dig.attr("address","");
+						if( addr.contains(":")) {
+							var ip = addr.split(":")[0];
+							fab.alterChild("address", ip+":"+cmds[2]);
+						}else{
+							return "! No valid/empty address node?";
+						}
+					}else{
+						return "! Command not supported for this type (yet)";
+					}
+					fab.build();
+					reloadStream(cmds[0]);
+					return "Port altered to "+cmds[2];
 				}
 				case "eol" -> {
 					fab.alterChild("eol", cmds[2]);
