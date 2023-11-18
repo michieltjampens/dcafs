@@ -721,7 +721,7 @@ Check the result with `path:dice`.
 ### 4. Multiple filters in a single path
 
 So far we made a path for each filter, but it's actually the same when combining.
-````xml
+```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <filter type="minlength">6</filter>
     <store db="rolls:dice">
@@ -735,8 +735,28 @@ So far we made a path for each filter, but it's actually the same when combining
         <int i="1" unit="">rolled</int>
     </store>
 </path>
-````
-Note that the output of the `path:dice` will be the result of the second filter because that's what reaches the end of
+```
+But because this might be confusing, in v2.6.1 the 'if' was added. Using that node, the above becomes. Which might not
+make much sense in  this case (because if max length isn't 5 than minlength is 6), but it's just an example.  
+And if/else doesn't exist yet.
+```xml
+<path delimiter=":" id="dice" src="raw:dice">
+    <if minlength="6">
+        <store db="rolls:dice">
+            <int i="1" unit="">rolled</int>
+        </store>
+    </if>
+    <!-- Both if's get the same raw data -->
+    <if maxlength="5">
+        <math>i1=i1+5</math>
+        <store db="rolls:dice">
+            <int i="1" unit="">rolled</int>
+        </store>
+    </if>
+</path>
+```
+
+Note that the output of `path:dice` will be the result of the second filter because that's what reaches the end of
 the path.  
 If this is unwanted behaviour, it's possible to override it.
 ````xml
