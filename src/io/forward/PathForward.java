@@ -151,6 +151,7 @@ public class PathForward {
     private boolean processIt( ArrayList<Element> steps, String delimiter, FilterForward lastff ){
         boolean reqData=false;
         boolean leftover=false;
+        boolean ifLast=false;
 
         for( Element step : steps ){
             if(step.getTagName().endsWith("src")){
@@ -167,33 +168,32 @@ public class PathForward {
             switch( step.getTagName() ){
                 case "if" -> {
                     FilterForward ff = new FilterForward( step, dQueue);
-                    applySrc(lastff,ff,leftover);
+                    applySrc(lastff,ff,leftover,ifLast);
                     var subs = new ArrayList<>(XMLtools.getChildElements(step));
                     stepsForward.add(ff);
                     reqData |= processIt( subs, delimiter, ff);
-                    lastff=ff;
-                    leftover=true;
+                    ifLast=true;
                     continue;
                 }
                 case "filter" -> {
                     FilterForward ff = new FilterForward(step, dQueue);
-                    applySrc(lastff,ff,leftover);
+                    applySrc(lastff,ff,leftover,ifLast);
                     lastff = ff;
                     stepsForward.add(ff);
                 }
                 case "math" -> {
                     MathForward mf = new MathForward(step, dQueue, rtvals);
-                    applySrc(lastff,mf,leftover);
+                    applySrc(lastff,mf,leftover,ifLast);
                     stepsForward.add(mf);
                 }
                 case "editor" -> {
                     var ef = new EditorForward(step, dQueue, rtvals);
-                    applySrc(lastff,ef,leftover);
+                    applySrc(lastff,ef,leftover,ifLast);
                     stepsForward.add(ef);
                 }
                 case "cmd" -> {
                     var cf = new CmdForward(step,dQueue,rtvals);
-                    applySrc(lastff,cf,leftover);
+                    applySrc(lastff,cf,leftover,ifLast);
                     stepsForward.add(cf);
                     reqData=true;
                 }
@@ -214,10 +214,19 @@ public class PathForward {
                 }
             }
             leftover=false; // clear the reminder flag
+            ifLast=false;
         }
         return reqData;
     }
-    private void applySrc( FilterForward lastff, AbstractForward step, boolean reverse ){
+
+    /**
+     * Connect the current step to the correct previous one
+     * @param lastff The last filter that was processed
+     * @param step The current step
+     * @param leftover If this step should get the data the last filter discarded
+     * @param ifLast If the before this step a if block was processed
+     */
+    private void applySrc( FilterForward lastff, AbstractForward step, boolean leftover, boolean ifLast ){
         if( step.hasSrc() ) {
             var s = getStep(src);
             if( s != null ) {
@@ -230,9 +239,11 @@ public class PathForward {
                 Logger.error(id+" -> Couldn't find "+src+" to give target "+step.id());
             }
         }else{
-            if (lastff != null && reverse) {
+            if( ifLast ) { // If previous step was an if block
+                lastff.addTarget(step);
+            }else if( lastff !=null && leftover){ // If it should get the reverse of the last filter
                 lastff.addReverseTarget(step);
-            }else {
+            }else{ // If it's just the next step
                 if( !stepsForward.isEmpty() ) {
                     if( lastStep().isPresent() ){
                         var ls = lastStep().get();
