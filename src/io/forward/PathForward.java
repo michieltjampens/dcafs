@@ -130,7 +130,9 @@ public class PathForward {
                 if(stepsForward.isEmpty()) {
                     Logger.error(id+" -> No steps to take, this often means something went wrong processing it");
                 }else{
-                    dQueue.add(Datagram.system(this.src).writable(stepsForward.get(0)));
+                    for( var step : stepsForward )
+                        if( step.getSrc().equals(this.src))
+                            dQueue.add(Datagram.system(this.src).writable(step));
                 }
             } else {// If custom sources
                 if( !stepsForward.isEmpty()) { // and there are steps
