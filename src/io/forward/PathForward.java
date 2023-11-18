@@ -114,155 +114,18 @@ public class PathForward {
             error = "No child nodes found";
             return error;
         }
+        // If the step doesn't have a source and it's the first step
+        var src = XMLtools.getStringAttribute(steps.get(0),"src","");
+        if( stepsForward.isEmpty() && src.isEmpty())
+            steps.get(0).setAttribute("src",this.src);
 
-        FilterForward lastff=null;
-        boolean hasStore=false; // If there's a store, consider this valid to get data
-        boolean hasCmd=false; // If there's a cmd, consider this valid to get data
+        // Now process all the steps
+        var validData = processIt(steps, delimiter,null);
 
-        for( int a=0;a<steps.size();a++  ){
-            Element step = steps.get(a);
-            ValStore store=null;
-            if(step.getTagName().endsWith("src")){
-                readCustomSources(step);
-                continue;
-            }
-            // Check if the next step is a store, if so process it to apply to current step
-            if( a<steps.size()-1 ){
-                var next = steps.get(a+1);
-                if( !next.hasAttribute("delimiter")&& !delimiter.isEmpty())
-                    next.setAttribute("delimiter",delimiter);
-                if(next.getTagName().equalsIgnoreCase("store")){// Next element is a store
-                    var storeOpt = ValStore.build(next,id,rtvals);
-                    if( storeOpt.isPresent()) {
-                        store = storeOpt.get();
-                        hasStore=true;
-                    }
-                }
-            }
-
-            boolean lastStore = false; // Used to determine end of 'filter' and start of '!filter'
-            if( !stepsForward.isEmpty() ) {
-                var prev = steps.get(a - 1);
-                lastStore = prev.getTagName().equalsIgnoreCase("store");
-            }
-
-            // If this step doesn't have a delimiter, alter it
-            if( !step.hasAttribute("delimiter")&& !delimiter.isEmpty())
-                step.setAttribute("delimiter",delimiter);
-
-            if( !step.hasAttribute("id"))
-                step.setAttribute("id",id+"_"+stepsForward.size());
-
-            var src = XMLtools.getStringAttribute(step,"src","");
-            if( stepsForward.isEmpty() && src.isEmpty())
-                step.setAttribute("src",this.src);
-
-            switch (step.getTagName()) {
-                case "filter" -> {
-                    FilterForward ff = new FilterForward(step, dQueue);
-                    if (!src.isEmpty()) {
-                        addAsTarget(ff, src);
-                    } else{
-                        if( lastff!=null && lastStore ) {
-                            lastff.addReverseTarget(ff);
-                        }else if( !stepsForward.isEmpty()){
-                            addAsTarget(ff,"");
-                        }
-                    }
-                    if( store!=null) {
-                        // Add the store to the forward
-                        ff.setStore(store);
-                        // Now add the link to the database table
-                        var ids = store.dbIds().split(",");
-                        for( var dbid : ids ){
-                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(ff));
-                        }
-                    }
-                    lastff = ff;
-                    stepsForward.add(ff);
-                }
-                case "math" -> {
-                    MathForward mf = new MathForward(step, dQueue, rtvals);
-                    mf.removeSources();
-                    if( !mf.hasSrc() ) {
-                        if (lastff != null && lastStore)
-                            lastff.addReverseTarget(mf);
-                        addAsTarget(mf, src, !(lastff != null && lastStore));
-                    }else{
-                        addAsTarget(mf, mf.getSrc(),!(lastff!=null && lastStore));
-                    }
-                    if( store!=null) {
-                        // Add the store to the forward
-                        mf.setStore(store);
-                        // Now add the link to the database table
-                        var ids = store.dbIds().split(",");
-                        for( var dbid : ids ){
-                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(mf));
-                        }
-                    }
-                    stepsForward.add(mf);
-                }
-                case "editor" -> {
-                    var ef = new EditorForward(step, dQueue, rtvals);
-                    if( !ef.readOk) {
-                        error="Failed to read EditorForward";
-                        return error;
-                    }
-                    if( !ef.hasSrc() ) {
-                        if (lastff != null && lastStore) {
-                            lastff.addReverseTarget(ef);
-                        }
-                        ef.removeSources();
-                        addAsTarget(ef, src,!(lastff!=null && lastStore));
-                    }else{
-                        addAsTarget(ef, ef.getSrc(),!(lastff!=null && lastStore));
-                    }
-                    if( store!=null) {
-                        // Add the store to the forward
-                        ef.setStore(store);
-                        // Now add the link to the database table
-                        var ids = store.dbIds().split(",");
-                        for( var dbid : ids ){
-                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(ef));
-                        }
-                    }
-                    stepsForward.add(ef);
-                }
-                case "cmds","cmd" -> {
-                    var cf = new CmdForward(step,dQueue,rtvals);
-                    if( !cf.hasSrc() ) {
-                        if (lastff != null && lastStore) {
-                            lastff.addReverseTarget(cf);
-                        }
-                        cf.removeSources();
-                        addAsTarget(cf, src,!(lastff!=null && lastStore));
-                    }else{
-                        addAsTarget(cf, cf.getSrc(),!(lastff!=null && lastStore));
-                    }
-                    if( store!=null) {
-                        // Add the store to the forward
-                        cf.setStore(store);
-                        // Now add the link to the database table
-                        var ids = store.dbIds().split(",");
-                        for( var dbid : ids ){
-                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(cf));
-                        }
-                    }
-                    hasCmd=true;
-                    stepsForward.add(cf);
-                }
-            }
-            var f = stepsForward.get(stepsForward.size()-1);
-            if( !f.hasParsed()){
-                error = "Failed to parse: "+f.id();
-                return error;
-            }
-
-        }
         if( !oldTargets.isEmpty()&&!stepsForward.isEmpty()){ // Restore old requests
             oldTargets.forEach(this::addTarget);
         }
-        if( !lastStep().map(AbstractForward::noTargets).orElse(false) || hasStore || hasCmd ) {
+        if( !lastStep().map(AbstractForward::noTargets).orElse(false) || validData ) {
             if (customs.isEmpty() ) { // If no custom sources
                 if(stepsForward.isEmpty()) {
                     Logger.error(id+" -> No steps to take, this often means something went wrong processing it");
@@ -285,6 +148,103 @@ public class PathForward {
         }
         return "";
     }
+    private boolean processIt( ArrayList<Element> steps, String delimiter, FilterForward lastff ){
+        boolean reqData=false;
+        boolean leftover=false;
+
+        for( Element step : steps ){
+            if(step.getTagName().endsWith("src")){
+                readCustomSources(step);
+                continue;
+            }
+            // If this step doesn't have a delimiter, alter it
+            if( !step.hasAttribute("delimiter")&& !delimiter.isEmpty())
+                step.setAttribute("delimiter",delimiter);
+            // If this step doesn't have an id, alter it
+            if( !step.hasAttribute("id"))
+                step.setAttribute("id",id+"_"+stepsForward.size());
+
+            switch( step.getTagName() ){
+                case "if" -> {
+                    FilterForward ff = new FilterForward( step, dQueue);
+                    applySrc(lastff,ff,leftover);
+                    var subs = new ArrayList<>(XMLtools.getChildElements(step));
+                    stepsForward.add(ff);
+                    reqData |= processIt( subs, delimiter, ff);
+                    lastff=ff;
+                    leftover=true;
+                    continue;
+                }
+                case "filter" -> {
+                    FilterForward ff = new FilterForward(step, dQueue);
+                    applySrc(lastff,ff,leftover);
+                    lastff = ff;
+                    stepsForward.add(ff);
+                }
+                case "math" -> {
+                    MathForward mf = new MathForward(step, dQueue, rtvals);
+                    applySrc(lastff,mf,leftover);
+                    stepsForward.add(mf);
+                }
+                case "editor" -> {
+                    var ef = new EditorForward(step, dQueue, rtvals);
+                    applySrc(lastff,ef,leftover);
+                    stepsForward.add(ef);
+                }
+                case "cmd" -> {
+                    var cf = new CmdForward(step,dQueue,rtvals);
+                    applySrc(lastff,cf,leftover);
+                    stepsForward.add(cf);
+                    reqData=true;
+                }
+                case "store" -> {
+                    var storeOpt = ValStore.build(step,id,rtvals);
+                    if( storeOpt.isPresent()) { // If processed properly
+                        var store = storeOpt.get();
+                        var fw = stepsForward.get(stepsForward.size()-1);
+                        fw.setStore(store);
+                        var ids = store.dbIds().split(",");
+                        for( var dbid : ids ){
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(fw));
+                        }
+                        reqData=true;
+                    }
+                    leftover=true; // Reminder that a store was processed last
+                    continue;
+                }
+            }
+            leftover=false; // clear the reminder flag
+        }
+        return reqData;
+    }
+    private void applySrc( FilterForward lastff, AbstractForward step, boolean reverse ){
+        if( step.hasSrc() ) {
+            var s = getStep(src);
+            if( s != null ) {
+                if( s instanceof FilterForward && src.startsWith("!")){
+                    ((FilterForward) s).addReverseTarget(step);
+                }else {
+                    s.addTarget(step);
+                }
+            }else{
+                Logger.error(id+" -> Couldn't find "+src+" to give target "+step.id());
+            }
+        }else{
+            if (lastff != null && reverse) {
+                lastff.addReverseTarget(step);
+            }else {
+                if( !stepsForward.isEmpty() ) {
+                    if( lastStep().isPresent() ){
+                        var ls = lastStep().get();
+                        ls.addTarget(step);
+                        step.addSource(ls.id());
+                    }
+                }else{
+                    Logger.error(id+" -> Trying to give a target to the last step, but no steps yet");
+                }
+            }
+        }
+    }
     public void clearStores(){
         if( stepsForward!=null)
             stepsForward.forEach( x -> x.clearStore(rtvals));
@@ -301,27 +261,7 @@ public class PathForward {
     public String getLastError(){
         return error;
     }
-    private void addAsTarget( AbstractForward f, String src ){
-        addAsTarget(f,src,true);
-    }
-    private void addAsTarget( AbstractForward f, String src, boolean notReversed ){
-        if( !src.isEmpty() ){
-            var s = getStep(src);
-            if( s!= null ) {
-                if( s instanceof FilterForward && src.startsWith("!")){
-                    ((FilterForward) s).addReverseTarget(f);
-                }else {
-                    s.addTarget(f);
-                }
-            }
-        }else if( !stepsForward.isEmpty() && notReversed) {
-            if( lastStep().isPresent() ){
-                var ls = lastStep().get();
-                ls.addTarget(f);
-                f.addSource(ls.id());
-            }
-        }
-    }
+
     public String debugStep( String step, Writable wr ){
         var join = new StringJoiner(", ", "Request for ", " received");
         join.setEmptyValue("No such step");
