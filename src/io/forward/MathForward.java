@@ -174,7 +174,7 @@ public class MathForward extends AbstractForward {
     /**
      * Give data to this forward for processing
      * @param data The data received
-     * @return True if given to a target afterwards, false if not
+     * @return True if given to a target afterward, false if not
      */
     @Override
     protected boolean addData(String data) {

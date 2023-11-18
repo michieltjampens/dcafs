@@ -6,11 +6,18 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc?
+- pf:reload doesn't seem to reload the db tag of a store?
 
 ## 2.6.1 (wip)
+
+Biggest change is a rewrite of the code that reads the path xml. This now can have 'if' structures (but no 'else' yet).
+
 - When cmds are issued from non-telnet, the telnet escape codes are removed. Adding -r at the end has the same result.
 - Fixed, TCP streams no longer had the label applied.
 - Fixed, the reply to a cmd in telnet wrote on the same line as the given cmd
+- Fixed, serialport buffers seem to be filled even if nothing is listening, all that data gets dumped on connection. So
+flush the buffers on opening the port.
+- Added `ss:id,port,newport` to change the port of the stream
 
 ### I2C
 - It's now possible to add extra arguments to a i2c cmd to set data send. Next step applying a
@@ -21,6 +28,22 @@ math operation to the argument first.
 		<write reg="0xD0">i0</write> <!-- i0 will get replaced with the first arg -->
 		<write reg="0xD4">0x13</write>
 	</command> 
+```
+### Path
+- Rewrote the code that reads paths from xml
+- Fixed, type nmea was ignored because it was expecting a value.
+- It's now possible to add filter rules with attributes
+- Added a new tag 'if', this is actually a filter but one that allows nesting
+- The only node that expects other forwards to be inside it. In other words, it allows nesting.
+  - Given how to code works, it should be possible to add multiple levels...  
+```xml
+<if start="$GPVTG">
+  <store>
+    <real def="0" i="1" unit="°">cog</real>
+    <real def="0" i="5" unit="kn">sogknots</real>
+    <real def="0" i="7" unit="m/s">sogms</real>
+  </store>
+</if>
 ```
 
 ### Store

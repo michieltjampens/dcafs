@@ -33,6 +33,7 @@ public class ValStore {
         return delimiter;
     }
     public void db( String db, String table ){
+        Logger.info( id+" (Store) -> DB set to "+db+"->"+table);
         dbids=db;
         dbtable=table;
     }

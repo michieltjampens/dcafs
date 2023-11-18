@@ -81,7 +81,7 @@ public class DAS implements Commandable{
     private Instant lastCheck; // Timestamp of the last clock check, to know if the clock was changed after das booted
 
     /* Threading */
-    private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and streampool can share it
+    private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
 
     public DAS() {
         // Note: Don't use tinylog yet!
@@ -272,7 +272,7 @@ public class DAS implements Commandable{
     }
     /* ***************************************  T A S K M A N A G E R ********************************************/
     /**
-     * Create a Taskmanager to handle tasklist scripts
+     * Create a TaskManager to handle tasklist scripts
      */
     private void addTaskManager() {
 
@@ -287,7 +287,7 @@ public class DAS implements Commandable{
     }
     /* ******************************************  S T R E A M P O O L ***********************************************/
     /**
-     * Adds the streammanager that will manage the various streams (tcp,udp,serial)
+     * Adds the StreamManager that will manage the various streams (tcp,udp,serial)
      */
     private void addStreamManager() {
 
@@ -325,9 +325,9 @@ public class DAS implements Commandable{
 
         Logger.info("Adding TransServer");
         trans = new TcpServer(settingsPath, nettyGroup);
-        trans.setDataQueue(dQueue); // Uses the same queue for datagrams like streammanager etc
+        trans.setDataQueue(dQueue); // Uses the same queue for datagrams like StreamManager etc
 
-        addCommandable(trans,"ts","trans"); // Add ts/trans commands to commandpool
+        addCommandable(trans,"ts","trans"); // Add ts/trans commands to CommandPool
     }
 
     /* **********************************  E M A I L W O R K E R *********************************************/
