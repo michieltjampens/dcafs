@@ -128,6 +128,7 @@ public class FilterForward extends AbstractForward {
 
 
         rules.clear();
+        // For a filter with multiple rules
         if( dig.hasPeek("rule")){ // if rules are defined as nodes
             // Process all the types except 'start'
             dig.peekOut("rule")
@@ -151,11 +152,28 @@ public class FilterForward extends AbstractForward {
             }else if( starts.size()>1){
                 addStartOptions( starts.toArray(new String[1]) );
             }
-        }else if( !dig.value("").isEmpty() ){ // If only a single rule is defined
+            return true;
+        }
+
+        // For a filter without rules or an if tag
+        if( !dig.value("").isEmpty() || dig.tagName("").equals("if") || dig.hasAttr("check")){ // If only a single rule is defined
             var type = dig.attr("type","");
-            if( !type.isEmpty()){
-                addRule(type,dig.value(""),delimiter);
+            // If an actual type is given
+            if( !type.isEmpty() )
+                return addRule(type,dig.value(""),delimiter)==1;
+            // If no type is given but there's a 'check' attribute
+            if(  dig.hasAttr("check") ){
+                type = dig.attr("check", "");
+                var tt = type.split(":");
+                return addRule(tt[0],tt.length==2?tt[1]:"true",delimiter)==1;
             }
+            // If no type attribute nor a check attribute
+            boolean ok=true;
+            for( var att: dig.allAttr().split(",") ){
+                if( !(att.equals("id")||att.startsWith("delim")) )
+                    ok &= addRule( att,dig.attr(att,""))==1; // If any returns an error, make it false
+            }
+            return ok;
         }
         return true;
     }
