@@ -42,7 +42,8 @@ public class FilterForward extends AbstractForward {
     protected boolean addData(String data) {
 
         if( doFilter(data) ){
-            targets.forEach(wr -> wr.writeLine( id(),data ) );
+            // Use multithreading so the writables don't have to wait for the whole process
+            targets.parallelStream().forEach( wr -> wr.writeLine(id(),data));
 
             if( log )
                 Logger.tag("RAW").info( id() + "\t" + data);
