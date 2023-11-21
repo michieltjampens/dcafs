@@ -10,7 +10,6 @@ import util.math.MathUtils;
 import util.taskblocks.CheckBlock;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
@@ -43,14 +42,15 @@ public class FilterForward extends AbstractForward {
     protected boolean addData(String data) {
 
         if( doFilter(data) ){
-            targets.forEach(wr -> wr.writeLine( id(),data ) );
+            // Use multithreading so the writables don't have to wait for the whole process
+            targets.parallelStream().forEach( wr -> wr.writeLine(id(),data));
 
             if( log )
                 Logger.tag("RAW").info( id() + "\t" + data);
 
             if( store !=null ) {
                 store.apply(data);
-                tis.forEach(ti -> ti.insertStore(store.dbTable()));
+                tableInserters.forEach(ti -> ti.insertStore(store.dbTable()));
             }
         }else{
             reversed.forEach( t-> t.writeLine(data) );
@@ -129,6 +129,7 @@ public class FilterForward extends AbstractForward {
 
 
         rules.clear();
+        // For a filter with multiple rules
         if( dig.hasPeek("rule")){ // if rules are defined as nodes
             // Process all the types except 'start'
             dig.peekOut("rule")
@@ -152,11 +153,28 @@ public class FilterForward extends AbstractForward {
             }else if( starts.size()>1){
                 addStartOptions( starts.toArray(new String[1]) );
             }
-        }else if( !dig.value("").isEmpty() ){ // If only a single rule is defined
+            return true;
+        }
+
+        // For a filter without rules or an if tag
+        if( !dig.value("").isEmpty() || dig.tagName("").equals("if") || dig.hasAttr("check")){ // If only a single rule is defined
             var type = dig.attr("type","");
-            if( !type.isEmpty()){
-                addRule(type,dig.value(""),delimiter);
+            // If an actual type is given
+            if( !type.isEmpty() )
+                return addRule(type,dig.value(""),delimiter)==1;
+            // If no type is given but there's a 'check' attribute
+            if(  dig.hasAttr("check") ){
+                type = dig.attr("check", "");
+                var tt = type.split(":");
+                return addRule(tt[0],tt.length==2?tt[1]:"true",delimiter)==1;
             }
+            // If no type attribute nor a check attribute
+            boolean ok=true;
+            for( var att: dig.allAttr().split(",") ){
+                if( !(att.equals("id")||att.startsWith("delim")) )
+                    ok &= addRule( att,dig.attr(att,""))==1; // If any returns an error, make it false
+            }
+            return ok;
         }
         return true;
     }

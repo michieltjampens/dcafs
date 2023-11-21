@@ -26,7 +26,7 @@ public abstract class AbstractForward implements Writable {
     protected final ArrayList<String> cmds = new ArrayList<>();            // Commands to execute after processing
     protected final ArrayList<Writable> targets = new ArrayList<>();       // To where the data needs to be send
     protected final ArrayList<String[]> rulesString = new ArrayList<>();   // Readable info regarding rules
-    protected ArrayList<TableInsert> tis = new ArrayList<>();
+    protected ArrayList<TableInsert> tableInserters = new ArrayList<>();
     protected String id="";                                   // The identifier for this object
     protected final ArrayList<String> sources = new ArrayList<>();  // The commands that provide the data to filter
     protected boolean valid = false;           // Flag that determines of data should be received or not
@@ -211,7 +211,7 @@ public abstract class AbstractForward implements Writable {
             store.removeRealtimeValues(rtv);
     }
     public void addTableInsert( TableInsert ti ){
-        tis.add(ti);
+        tableInserters.add(ti);
     }
     public void addAfterCmd( String cmd){
         cmds.add(cmd);

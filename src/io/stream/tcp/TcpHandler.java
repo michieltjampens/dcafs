@@ -179,7 +179,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
             // Forward data to targets
 			if( !targets.isEmpty() ){
                 String tosend=new String(data);
-                targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine(id,tosend)));
+                targets.parallelStream().forEach( wr -> wr.writeLine(id,tosend));// Concurrent sending to multiple writables
                 targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
 			}
 

@@ -2,6 +2,7 @@ package util.data;
 
 import io.forward.AbstractForward;
 import org.tinylog.Logger;
+import util.math.MathUtils;
 import util.xml.XMLtools;
 import java.math.BigDecimal;
 import java.util.*;
@@ -9,6 +10,8 @@ import org.w3c.dom.Element;
 
 public class ValStore {
     private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
+    private final ArrayList<AbstractVal> calVal = new ArrayList<>();
+    private final ArrayList<String> calOps = new ArrayList<>();
     private String delimiter = ",";
     private String dbids; // dbid,table
     private String dbtable;
@@ -30,6 +33,7 @@ public class ValStore {
         return delimiter;
     }
     public void db( String db, String table ){
+        Logger.info( id+" (Store) -> DB set to "+db+"->"+table);
         dbids=db;
         dbtable=table;
     }
@@ -82,6 +86,7 @@ public class ValStore {
             removeRealtimeValues(rtv);
 
         rtvals.clear();
+        calVal.clear();
 
         String groupID = XMLtools.getStringAttribute(store,"group",id);
         delimiter( XMLtools.getStringAttribute(store,"delimiter",delimiter())); // delimiter
@@ -123,21 +128,43 @@ public class ValStore {
             }
         }else{ // index based
             ArrayList<AbstractVal> rtvals = new ArrayList<>();
+            calOps.clear();
+
             for (var val : vals) {
+                String o = XMLtools.getStringAttribute(val, "o", "");
+                if( !o.isEmpty()) { // Skip o's
+                    calOps.add(o);
+                    switch (val.getTagName()) {
+                        case "real" -> RealVal.build(val, groupID).ifPresent(calVal::add);
+                        case "int", "integer" -> IntegerVal.build(val, groupID).ifPresent(calVal::add);
+                        default -> Logger.error("Can't do calculation on any other than real and int for now");
+                    }
+                    continue;
+                }
+
+                // Find the index wanted
                 int i = XMLtools.getIntAttribute(val, "index", -1);
                 if( i == -1 )
                     i = XMLtools.getIntAttribute(val, "i", -1);
                 if (i != -1) {
-                    while (i > rtvals.size())
+                    while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
                         rtvals.add(null);
                 }
-                var b = rtvals.size();
+
+                if( i==-1){
+                    var grid = val.getAttribute("group");
+                    if(grid.isEmpty())
+                        grid=groupID;
+                    Logger.error("No valid index given for "+grid+"_"+val.getTextContent());
+                    return false;
+                }
+                final int pos=i; // need a final to use in lambda's
                 switch (val.getTagName()) {
-                    case "real" -> RealVal.build(val, groupID).ifPresent(rtvals::add);
-                    case "int","integer" -> IntegerVal.build(val, groupID).ifPresent(rtvals::add);
-                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(rtvals::add);
+                    case "real" -> RealVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
+                    case "int","integer" -> IntegerVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
+                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
                     case "ignore" -> rtvals.add(null);
-                    case "text" -> TextVal.build(val, groupID).ifPresent(rtvals::add);
+                    case "text" -> TextVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
                     case "macro" -> {
                         Logger.warn("Val of type macro ignored");
                         rtvals.add(null);
@@ -145,7 +172,7 @@ public class ValStore {
                     default -> {
                     }
                 }
-                if (rtvals.size() == b) {
+                if (rtvals.get(pos)==null) {
                     Logger.error("Failed to create an AbstractVal for " + groupID+" of type "+val.getTagName());
                     return false;
                 }
@@ -189,10 +216,21 @@ public class ValStore {
                     valMap.put(set.getKey(),rtv.getTextVal(val.id()).get());
             }
         }
+        for( int index=0;index<calVal.size();index++){
+            var val = calVal.get(index);
+            if( val instanceof RealVal ){
+                if( rtv.addRealVal((RealVal)val) == AbstractForward.RESULT.EXISTS)
+                    calVal.set(index, rtv.getRealVal(val.id()).get());
+            }else if( val instanceof IntegerVal ){
+                if( rtv.addIntegerVal((IntegerVal)val) == AbstractForward.RESULT.EXISTS)
+                    calVal.set(index, rtv.getIntegerVal(val.id()).get());
+            }
+        }
     }
     public void removeRealtimeValues( RealtimeValues rtv){
         rtvals.forEach(rtv::removeVal);
         valMap.values().forEach(rtv::removeVal);
+        calVal.forEach(rtv::removeVal);
     }
     public int size(){
         return rtvals.size();
@@ -261,7 +299,7 @@ public class ValStore {
     /* ************************************************************************************************ */
     public boolean apply(String line){
         var items = line.split(delimiter);
-        boolean dbOk;
+        boolean dbOk; // Ok to apply db write
         if( map ){
             if( items.length<2) {
                 Logger.error( id+" -> Not enough arguments after splitting: "+line);
@@ -287,8 +325,27 @@ public class ValStore {
                 }
             }
         }
-
+        // Now try the calvals?
+        doCalVals();
         return dbOk;
+    }
+    public void doCalVals(){
+        for( int op=0;op<calOps.size();op++ ){
+            var form = calOps.get(op);
+            for (AbstractVal val : rtvals) {
+                if (val == null)
+                    continue;
+                form = form.replace(val.id(), val.stringValue()); // Replace the id with the value
+                if (!form.contains("_"))// Means all id's were replaced, so stop looking
+                    break;
+            }
+            var result = MathUtils.simpleCalculation(form,Double.NaN,false);
+            if( !Double.isNaN(result)){
+                calVal.get(op).parseValue(String.valueOf(result));
+            }else{
+                Logger.error("Failed to calculate for "+calVal.get(op).id());
+            }
+        }
     }
     public void setValueAt(int index, BigDecimal d){
         if( map)

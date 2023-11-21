@@ -9,7 +9,6 @@ import util.data.ValTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.time.DateTimeException;
@@ -76,7 +75,7 @@ public class EditorForward extends AbstractForward{
 
         if( store !=null ) {
             store.apply(data);
-            tis.forEach(ti -> ti.insertStore(store.dbTable()));
+            tableInserters.forEach(ti -> ti.insertStore(store.dbTable()));
         }
         // If there are no target, no label, this no longer needs to be a target
         if( targets.isEmpty() && !log && store==null){

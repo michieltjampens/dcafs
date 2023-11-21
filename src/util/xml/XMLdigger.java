@@ -3,12 +3,14 @@ package util.xml;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
 import util.tools.Tools;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 /**
  * Class that can be used to 'dig' through a XML structure for a certain element and get info from it.
@@ -463,6 +465,34 @@ public class XMLdigger {
         return def;
     }
 
+    /**
+     * Check if the given attribute is present
+     * @param tag The attribute to look for
+     * @return True if found
+     */
+    public boolean hasAttr( String tag){
+        if( !valid )
+            return false;
+        if( peeked )
+            return peek!=null && peek.hasAttribute(tag);
+        return  last.hasAttribute(tag);
+    }
+    public String allAttr(){
+        if( !valid )
+            return "";
+        NamedNodeMap atts;
+        if( peeked ){
+            atts = peek.getAttributes();
+        }else{
+            atts = last.getAttributes();
+        }
+        if( atts.getLength()==0 ) // Check if any attributes
+            return "";
+        var join = new StringJoiner(",");
+        for( int a =0;a<atts.getLength();a++)
+            join.add( atts.item(a).getNodeName() );
+        return join.toString();
+    }
     /**
      * Read the value of the given tag, return the def string if not found
      * @param tag The tag to look for

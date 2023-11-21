@@ -656,8 +656,7 @@ public class MathUtils {
             Logger.error("Brackets don't match, (="+opens+" and )="+closes);
             return error;
         }
-        if( formula.charAt(0)!='(') // Then make sure it has surrounding brackets
-            formula= "("+formula+")";
+        formula= "("+formula+")";// Make sure it has surrounding brackets
 
         formula=formula.replace(" ",""); // But doesn't contain any spaces
 
