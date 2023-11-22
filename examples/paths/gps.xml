@@ -3,7 +3,7 @@
   <!-- GPS -->
   <path delimiter="," id="gps">
         <!-- Global filter, check if data received is valid nmea  -->
-        <filter id="nmea" check="nmea"/>
+        <filter check="nmea"/>
 		<!-- Check if it's a GPGGA -->
 		<if start="$GPGGA">
 			<editor>
@@ -18,7 +18,7 @@
 				<!-- In: $GPGGA,204418.00,5113.583474,N,00256.13867,E,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
 				<op scale="8">i2=i3*((i2-(i2%100))/100+(i2%100)/60)</op> <!-- scale=8 so 8 decimals -->
 				<op scale="8">i4=i5*((i4-(i4%100))/100+(i4%100)/60)</op>
-				<!-- Out: $GPGGA,20:44:18.000,5113.583474,1,00256.13867,1,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
+				<!-- Out: $GPGGA,20:44:18.000,51.22639123,1,2.9356445,1,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
 			</math>
 			<store> <!-- Store without group specified, so group will be 'rtk' (id of the path) -->
 				<text i="1">fixtime</text> <!-- Timestamp of last gps fix -->
