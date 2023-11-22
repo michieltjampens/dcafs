@@ -42,7 +42,7 @@ public abstract class BaseStream {
     protected boolean clean=true;
     protected boolean log=true;
     protected boolean echo=false;
-
+    protected boolean addDataOrigin=false;
     protected ScheduledFuture<?> reconnectFuture=null;
     protected ArrayList<TriggerAction> triggeredActions = new ArrayList<>();
 
@@ -76,7 +76,7 @@ public abstract class BaseStream {
         label = dig.peekAt("label").value("");    // The label associated fe. nmea,sbe38 etc
         priority = dig.peekAt("priority").value( 1);	 // Determine priority of the sensor
         log = dig.peekAt("log").value(true);
-
+        addDataOrigin = dig.peekAt("prefixorigin").value(false);
         // delimiter
         String deli = dig.peekAt("eol").value("\r\n");
         if( deli.equalsIgnoreCase("\\0"))
@@ -127,7 +127,9 @@ public abstract class BaseStream {
     public void setPriority(int priority ){
 		this.priority=priority;
     }
-    
+    public void showOriginAsPrefix( boolean show ){
+        addDataOrigin=show;
+    }
     public void addListener( StreamListener listener ){
 		listeners.add(listener);
     }
