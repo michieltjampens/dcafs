@@ -171,7 +171,7 @@ public class FilterForward extends AbstractForward {
             // If no type attribute nor a check attribute
             boolean ok=true;
             for( var att: dig.allAttr().split(",") ){
-                if( !(att.equals("id")||att.startsWith("delim")) )
+                if( !(att.equals("id")||att.startsWith("delim")||att.startsWith("src")) )
                     ok &= addRule( att,dig.attr(att,""))==1; // If any returns an error, make it false
             }
             return ok;
