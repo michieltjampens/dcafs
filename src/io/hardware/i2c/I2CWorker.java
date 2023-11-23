@@ -598,11 +598,7 @@ public class I2CWorker implements Commandable {
                 if( cmds.length>2) // if there are args added to the cmd
                     arg = args.substring(args.indexOf(","));
 
-                if (addWork(cmds[0], arg)) {
-                    return "Command added to the queue.";
-                } else {
-                    return "! Failed to add command to the queue, probably wrong device or command";
-                }
+                return addWork(cmds[0], arg);
             }
         }
     }
@@ -614,20 +610,20 @@ public class I2CWorker implements Commandable {
      *
      * @param id  The device that needs to execute a command
      * @param command The command the device needs to execute
-     * @return True if the command was valid
+     * @return Result
      */
-    private boolean addWork(String id, String command) {
+    private String addWork(String id, String command) {
         ExtI2CDevice device = devices.get(id.toLowerCase());
         if (device == null) {
             Logger.error("Invalid job received, unknown device '" + id + "'");
-            return false;
+            return "! Invalid job received, unknown device '" + id + "'";
         }
         if (!commands.containsKey(device.getScript()+":"+command)) {
             Logger.error("Invalid command received '" + device.getScript()+":"+command + "'.");
-            return false;
+            return "! Invalid command received '" + device.getScript()+":"+command + "'.";
         }
         executor.submit(()->doWork(device,command));
-        return true;
+        return "ok";
     }
     public void doWork(ExtI2CDevice device, String cmdID) {
         byte[] args = new byte[0];
