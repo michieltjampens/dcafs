@@ -238,7 +238,7 @@ public class PathForward {
                 }else {
                     s.addTarget(step);
                 }
-            }else {
+            }else if( !src.startsWith("raw")){
                 Logger.warn(id+" -> Couldn't find "+src+" to give target "+step.id()+", missing or not a step?");
             }
         }else{
