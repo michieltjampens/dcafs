@@ -172,7 +172,7 @@ public class FilterForward extends AbstractForward {
             boolean ok=true;
             for( var att: dig.allAttr().split(",") ){
                 if( !(att.equals("id")||att.startsWith("delim")||att.startsWith("src")) )
-                    ok &= addRule( att,dig.attr(att,""))==1; // If any returns an error, make it false
+                    ok &= addRule( att,dig.attr(att,""),delimiter)==1; // If any returns an error, make it false
             }
             return ok;
         }
@@ -205,8 +205,16 @@ public class FilterForward extends AbstractForward {
             case "regex" -> addRegex(value);
             case "math" -> addCheckBlock(delimiter, value);
             default -> {
+                if( type.startsWith("at") ){
+                    var in = type.substring(2);
+                    int index = NumberUtils.toInt(in,-1);
+                    if( index!=-1) {
+                        addItemAtIndex(index,delimiter,value);
+                        return 1;
+                    }
+                }
                 Logger.error(id + " -> Unknown type chosen " + type);
-                parsedOk=false;
+                parsedOk = false;
                 return -1;
             }
         }
@@ -217,6 +225,12 @@ public class FilterForward extends AbstractForward {
     }
 
     /* Filters */
+    public void addItemAtIndex( int index, String deli, String val ){
+        rules.add( p -> {
+            var items = p.split(deli);
+            return items.length > index && items[index].equals(val);
+        });
+    }
     public void addItemCount( String deli, int min, int max ){
         rules.add( p -> {
             var items = p.split(deli);
