@@ -18,6 +18,7 @@ Biggest change is a rewrite of the code that reads the path xml. This now can ha
 - Fixed, serialport buffers seem to be filled even if nothing is listening, all that data gets dumped on connection. So
 flush the buffers on opening the port.
 - Added `ss:id,port,newport` to change the port of the stream
+- Added option to prefix received data lines with the id of their origin.
 
 ### I2C
 - It's now possible to add extra arguments to a i2c cmd to set data send. Next step applying a
@@ -43,6 +44,11 @@ math operation to the argument first.
     <real def="0" i="5" unit="kn">sogknots</real>
     <real def="0" i="7" unit="m/s">sogms</real>
   </store>
+</if>
+```
+- Added new filter rule 'atx', check if value at index is a certain value
+```xml
+<if at1="hello"> <!--start at 0 -->
 </if>
 ```
 - Filter often has to send to multiple writables, so now uses concurrency to speed things up a bit. Which means that if

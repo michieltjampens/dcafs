@@ -413,7 +413,7 @@ By default the store determines the group to which the rtvals belong. But if the
 id of the stream is used. Below is how the store is actually read by dcafs
 ```xml
 <store delimiter=":" group="dice"> <!-- group with the id of the stream is used -->
-    <int index="1" unit="" >rolled</int>
+    <int index="1" unit="" >rolled</int> <!-- instead of index, short i is also valid --> 
 </store>
 ```
 There's a general rule that if a node (here 'int') expects a certain attribute that is defined by the parent node (here 'store') but
@@ -423,13 +423,13 @@ So because int doesn't have a group node, it takes the value from the store node
 Because all the rtval can belong to the other group, just using `store:dice,group,d20s` makes the changes.
 ```xml
 <store delimiter=":" group="d20s"> <!-- change the group for the whole store -->
-    <int index="1" unit="">rolled</int>
+    <int index="1" unit="">rolled</int> <!-- instead of index, short i is also valid -->
 </store>
 ```
 Another option would have been:
 ```xml
 <store delimiter=":">
-    <int group="d20s" index="1" unit="">rolled</int>
+    <int group="d20s" i="1" unit="">rolled</int>
 </store>
 ```
 
@@ -532,7 +532,7 @@ Then use the `sd` command to shut down dcafs and start a new instance (launch th
 
 ### 1. Creating a path
 
-As the name implies, a path defines how the path the data travels in dcafs.
+As the name implies, 'a' path defines 'the' path the data travels in dcafs.
 
 There are two options for the path nodes, either inside the settings.xml or in their own file.
 For small projects, inside the settings.xml is fine.
@@ -736,9 +736,9 @@ So far we made a path for each filter, but it's actually the same when combining
     </store>
 </path>
 ```
-But because this might be confusing, in v2.6.1 the 'if' was added. Using that node, the above becomes. Which might not
-make much sense in  this case (because if max length isn't 5 than minlength is 6), but it's just an example.  
-And if/else doesn't exist yet.
+But because this might be confusing, in v2.6.1 the 'if' was added. Using that node, see below for this alternative. 
+Which might not make much sense in this case (because if max length isn't 5 than minlength is 6), but it's just an example.  
+And if/else doesn't exist -yet-.
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <if minlength="6">
