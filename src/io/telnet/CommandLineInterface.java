@@ -12,7 +12,7 @@ import java.util.StringJoiner;
 public class CommandLineInterface {
     private static final int BUFFER_SIZE = 128;
     ByteBuf buffer = Unpooled.buffer(BUFFER_SIZE);       // Buffer that holds the received data
-    private final ArrayList<String> cmdHistory = new ArrayList<>(); // Buffer that holds the processed commands
+    private ArrayList<String> cmdHistory = new ArrayList<>(); // Buffer that holds the processed commands
     private int cmdHistoryIndex =-1; // Pointer to the last send historical cmd
 
     Channel channel;
@@ -84,7 +84,7 @@ public class CommandLineInterface {
                 String r = new String(rec);
                 cmdHistory.remove(r);
                 cmdHistory.add(r);
-                if( cmdHistory.size()>50)
+                if( cmdHistory.size()>20)
                     cmdHistory.remove(0);
                 cmdHistoryIndex = cmdHistory.size();
 
@@ -192,7 +192,12 @@ public class CommandLineInterface {
             Logger.error("Zerosetting failed:"+e.getMessage());
         }
     }
-
+    public void setHistory( ArrayList<String> cmds){
+        cmdHistory=cmds;
+    }
+    public void clearHistory(){
+        cmdHistory.clear();
+    }
     /**
      * Write a single byte to the channel this CLI is using
      * @param data The byte of data to send
