@@ -206,7 +206,9 @@ public class TcpStream extends BaseStream implements Writable {
     }
     @Override
     public boolean writeLine(String origin, String data) {
-        return writeLine(data);
+        if( addDataOrigin )
+            return writeString(origin+":"+data + eol);
+        return writeString(data + eol);
     }
     @Override
     public boolean writeBytes( byte[] data){

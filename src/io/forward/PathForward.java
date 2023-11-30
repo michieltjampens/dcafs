@@ -130,7 +130,9 @@ public class PathForward {
                 if(stepsForward.isEmpty()) {
                     Logger.error(id+" -> No steps to take, this often means something went wrong processing it");
                 }else{
-                    dQueue.add(Datagram.system(this.src).writable(stepsForward.get(0)));
+                    for( var step : stepsForward )
+                        if( step.getSrc().equals(this.src))
+                            dQueue.add(Datagram.system(this.src).writable(step));
                 }
             } else {// If custom sources
                 if( !stepsForward.isEmpty()) { // and there are steps
@@ -151,7 +153,7 @@ public class PathForward {
     private boolean processIt( ArrayList<Element> steps, String delimiter, FilterForward lastff ){
         boolean reqData=false;
         boolean leftover=false;
-        boolean ifLast=false;
+        int prefIF=-1;
 
         for( Element step : steps ){
             if(step.getTagName().endsWith("src")){
@@ -168,32 +170,33 @@ public class PathForward {
             switch( step.getTagName() ){
                 case "if" -> {
                     FilterForward ff = new FilterForward( step, dQueue);
-                    applySrc(lastff,ff,leftover,ifLast);
+                    applySrc(lastff,ff,leftover,prefIF);
                     var subs = new ArrayList<>(XMLtools.getChildElements(step));
                     stepsForward.add(ff);
+                    if( prefIF==-1)
+                        prefIF=stepsForward.size()-1;
                     reqData |= processIt( subs, delimiter, ff);
-                    ifLast=true;
                     continue;
                 }
                 case "filter" -> {
                     FilterForward ff = new FilterForward(step, dQueue);
-                    applySrc(lastff,ff,leftover,ifLast);
+                    applySrc(lastff,ff,leftover,prefIF);
                     lastff = ff;
                     stepsForward.add(ff);
                 }
                 case "math" -> {
                     MathForward mf = new MathForward(step, dQueue, rtvals);
-                    applySrc(lastff,mf,leftover,ifLast);
+                    applySrc(lastff,mf,leftover,prefIF);
                     stepsForward.add(mf);
                 }
                 case "editor" -> {
                     var ef = new EditorForward(step, dQueue, rtvals);
-                    applySrc(lastff,ef,leftover,ifLast);
+                    applySrc(lastff,ef,leftover,prefIF);
                     stepsForward.add(ef);
                 }
                 case "cmd" -> {
                     var cf = new CmdForward(step,dQueue,rtvals);
-                    applySrc(lastff,cf,leftover,ifLast);
+                    applySrc(lastff,cf,leftover,prefIF);
                     stepsForward.add(cf);
                     reqData=true;
                 }
@@ -214,7 +217,7 @@ public class PathForward {
                 }
             }
             leftover=false; // clear the reminder flag
-            ifLast=false;
+            prefIF=-1;
         }
         return reqData;
     }
@@ -224,9 +227,9 @@ public class PathForward {
      * @param lastff The last filter that was processed
      * @param step The current step
      * @param leftover If this step should get the data the last filter discarded
-     * @param ifLast If the before this step a if block was processed
+     * @param prevIf The index of the start of the previous if
      */
-    private void applySrc( FilterForward lastff, AbstractForward step, boolean leftover, boolean ifLast ){
+    private void applySrc( FilterForward lastff, AbstractForward step, boolean leftover, int prevIf ){
         if( step.hasSrc() ) {
             var s = getStep(src);
             if( s != null ) {
@@ -235,12 +238,17 @@ public class PathForward {
                 }else {
                     s.addTarget(step);
                 }
-            }else{
-                Logger.error(id+" -> Couldn't find "+src+" to give target "+step.id());
+            }else if( !src.startsWith("raw")){
+                Logger.warn(id+" -> Couldn't find "+src+" to give target "+step.id()+", missing or not a step?");
             }
         }else{
-            if( ifLast ) { // If previous step was an if block
-                lastff.addTarget(step);
+            if( prevIf!=-1 ) { // If previous step was an if block
+                if( prevIf==0 ){ // Meaning the if was the first step
+                    step.addSource(src);
+                }else{
+                    stepsForward.get(prevIf-1).addTarget(step);
+                    step.addSource(stepsForward.get(prevIf-1).id());
+                }
             }else if( lastff !=null && leftover){ // If it should get the reverse of the last filter
                 lastff.addReverseTarget(step);
             }else{ // If it's just the next step

@@ -16,11 +16,11 @@ import io.netty.handler.timeout.ReadTimeoutHandler;
 import org.tinylog.Logger;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
@@ -44,6 +44,7 @@ public class TelnetServer implements Commandable {
     private final Path settingsPath;
     private final ArrayList<String> messages=new ArrayList<>();
     private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
+    private HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
 
     public TelnetServer( BlockingQueue<Datagram> dQueue, Path settingsPath, EventLoopGroup eventGroup ) {
         this.dQueue=dQueue;
@@ -94,6 +95,9 @@ public class TelnetServer implements Commandable {
                         // and then business logic.
                         TelnetHandler handler = new TelnetHandler( dQueue,ignore,settingsPath ) ;
                         handler.setTitle(title);
+                        var remoteIp = ch.remoteAddress().getAddress().toString().substring(1);
+                        cmdHistory.computeIfAbsent(remoteIp, k -> new ArrayList<>());
+                        handler.setCmdHistory(cmdHistory.get(remoteIp));
                         handler.setDefaultColor(defColor);
                         messages.forEach(handler::addOneTime);
                         writables.add(handler.getWritable());

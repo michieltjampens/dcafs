@@ -271,6 +271,8 @@ public class SerialStream extends BaseStream implements Writable {
     }
     @Override
     public synchronized boolean writeLine(String origin, String message) {
+        if( addDataOrigin )
+            return writeString(origin+":"+message + eol);
         return writeString(message + eol);
     }
     /**

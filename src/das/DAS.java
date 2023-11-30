@@ -85,7 +85,7 @@ public class DAS implements Commandable{
 
     public DAS() {
         // Note: Don't use tinylog yet!
-        // Determine working dir base on the classpath
+        // Determine working dir based on the classpath
         var classPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
         classPath = classPath.replace("%20"," ");
         System.out.println("Checking for workpath at : "+classPath);

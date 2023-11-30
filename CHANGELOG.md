@@ -8,7 +8,7 @@ Note: Version numbering: x.y.z
 - back up path for sqlite db etc?
 - pf:reload doesn't seem to reload the db tag of a store?
 
-## 2.6.1 (wip)
+## 2.7.0 (wip)
 
 Biggest change is a rewrite of the code that reads the path xml. This now can have 'if' structures (but no 'else' yet).
 
@@ -18,13 +18,13 @@ Biggest change is a rewrite of the code that reads the path xml. This now can ha
 - Fixed, serialport buffers seem to be filled even if nothing is listening, all that data gets dumped on connection. So
 flush the buffers on opening the port.
 - Added `ss:id,port,newport` to change the port of the stream
+- Added option to prefix received data lines with the id of their origin.
 
 ### I2C
 - It's now possible to add extra arguments to a i2c cmd to set data send. Next step applying a
 math operation to the argument first.
 ```xml
 	<command id="init" info="Set default control, not enabled, no oc retry, retry on ov and uv">
-		<arg></arg>
 		<write reg="0xD0">i0</write> <!-- i0 will get replaced with the first arg -->
 		<write reg="0xD4">0x13</write>
 	</command> 
@@ -33,9 +33,10 @@ math operation to the argument first.
 - Rewrote the code that reads paths from xml
 - Fixed, type nmea was ignored because it was expecting a value.
 - It's now possible to add filter rules with attributes
-- Added a new tag 'if', this is actually a filter but one that allows nesting
-- The only node that expects other forwards to be inside it. In other words, it allows nesting.
-  - Given how to code works, it should be possible to add multiple levels...  
+- Added a new tag 'if', this is actually a filter but one that allows nesting, this should make it a bit more intuitive... right?
+  - The only node that expects other forwards to be inside it. In other words, it allows nesting.
+  - Given how to code works, it should be possible to add multiple levels...
+  - A If doesn't pass data on to a next step, instead the step after the if, get the same data as the if
 ```xml
 <if start="$GPVTG">
   <store>
@@ -45,10 +46,17 @@ math operation to the argument first.
   </store>
 </if>
 ```
+- Added new filter rule 'atx', check if value at index is a certain value
+```xml
+<if at1="hello"> <!--start at 0 -->
+</if>
+```
+- Filter often has to send to multiple writables, so now uses concurrency to speed things up a bit. Which means that if
+the path contains multiple
 
 ### Store
 
-It's now possible to math operations with parsed values.
+It's now possible to add math operations with values that are in the store.
 ````xml
 <store>
       <real group="o1" i="1" unit="V">voltage</real>

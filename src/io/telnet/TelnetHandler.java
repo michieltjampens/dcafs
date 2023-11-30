@@ -39,7 +39,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 	private final Path settingsPath;
 	private final HashMap<String,String> macros = new HashMap<>();
-
+	private ArrayList<String> hist;
  	String repeat = "";
 	String title = "dcafs";
 	String id="telnet";
@@ -105,6 +105,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}
 
 		cli = new CommandLineInterface(channel); // Start the cli
+		cli.setHistory(hist);
 		if( dQueue !=null ) {
 			writeString(TelnetCodes.TEXT_RED + "Welcome to " + title + "!\r\n" + TelnetCodes.TEXT_RESET);
 			writeString(TelnetCodes.TEXT_GREEN + "It is " + new Date() + " now.\r\n" + TelnetCodes.TEXT_RESET);
@@ -275,6 +276,9 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 					prefix = !prefix;
 					writeLine("Prefix " + (prefix ? "enabled" : "disabled"));
 				}
+				case "clearhistory","clrh" -> {
+					cli.clearHistory();
+				}
 				default -> {
 					writeLine("Unknown telnet command: " + d.getData());
 				}
@@ -421,4 +425,10 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	}
 
 
+	public void setCmdHistory(ArrayList<String> history) {
+		hist=history;
+		Logger.info("Giving history");
+		for( var h:history)
+			Logger.info("->"+h);
+	}
 }
