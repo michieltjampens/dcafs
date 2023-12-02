@@ -339,7 +339,7 @@ public class FilterForward extends AbstractForward {
                 .add("    fe. <filter type='nostart'>$</filter> --> The data can't start with $");
         join.add(gr+"end"+re+" -> Which text the data should end with")
                 .add("    fe. <filter type='end'>!?</filter> --> The data must end with !?");
-        join.add(gr+"contain"+re+""+re+" -> Which text the data should contain")
+        join.add(gr+"contain"+re+" -> Which text the data should contain")
                 .add("    fe. <filter type='contain'>zda</filter> --> The data must contain zda somewhere");
         join.add(gr+"c_start"+re+" -> Which character should be found on position c from the start (1=first)")
                 .add("    fe. <filter type='c_start'>1,+</filter> --> The first character must be a +");
@@ -355,6 +355,8 @@ public class FilterForward extends AbstractForward {
                 .add("    fe. <filter type='regex'>\\s[a,A]</filter> --> The data must contain an empty character followed by a in any case");
         join.add(gr+"math"+re+" -> Checks a mathematical comparison")
                 .add("    fe. <filter type='math' delimiter=','>i1 below 2500 and i1 above 10</filter>" );
+        join.add(gr+"match"+re+" -> Compare to the item at index x")
+                .add("    fe. <filter at1='test'> ");
         return join.toString();
     }
 }
