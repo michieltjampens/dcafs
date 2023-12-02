@@ -477,6 +477,30 @@ public class XMLdigger {
             return peek!=null && peek.hasAttribute(tag);
         return  last.hasAttribute(tag);
     }
+
+    /**
+     * Look for the first match of the list of attributes
+     * @param attr One or more attributes to look for
+     * @return The matching attribute of an empty string if none found
+     */
+    public String matchAttr( String... attr ){
+        if( !valid )
+            return "";
+        if( peeked ){
+            if( peek ==null)
+                return "";
+            for( var at :attr ){
+                if(peek.hasAttribute(at))
+                    return at;
+            }
+            return "";
+        }
+        for( var at :attr ){
+            if(last.hasAttribute(at))
+                return at;
+        }
+        return "";
+    }
     public String allAttr(){
         if( !valid )
             return "";
