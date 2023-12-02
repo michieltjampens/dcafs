@@ -11,6 +11,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.ValTools;
+import util.math.MathUtils;
 import util.task.Task.*;
 import util.taskblocks.CheckBlock;
 import util.tools.FileTools;
@@ -230,10 +231,11 @@ public class TaskManager implements CollectorFuture {
 	 * @param id The id of the task to start
 	 * @return True if the task was found and started
 	 */
-	public boolean startTask(String id) {
+	public boolean startTask(String id, String[] args) {
 		for (Task task : this.tasks) {
 			if (task.getID().equals(id)) {
 				Logger.tag(TINY_TAG).info("[" + this.id + "] Task with id " + id + " started.");
+				task.setArgs(args);
 				return startTask(task);
 			}
 		}
@@ -377,7 +379,6 @@ public class TaskManager implements CollectorFuture {
 			startTask(task);
 		}
 	}
-
 	/**
 	 * Try to start a single task.
 	 * 
@@ -599,7 +600,7 @@ public class TaskManager implements CollectorFuture {
 				try {
 					if (hasTaskset(setid)) {
 						Logger.tag(TINY_TAG).info("[" + this.id + "] " + startTaskset(setid));
-					} else if (!this.startTask(setid)) {
+					} else if (!startTask(setid,null)) {
 						Logger.tag(TINY_TAG).info("[" + this.id + "] No such task or taskset");
 					}
 				}catch( NullPointerException e){
@@ -607,9 +608,12 @@ public class TaskManager implements CollectorFuture {
 					return FAILREASON.ERROR;
 				}
 			} else { // If not a supposed to run a taskset, check if any of the text needs to be
-						// replaced
-				if (task.value.contains("{")) { // Meaning there's an { somewhere
-					fill = fillIn(task.value, task.value);
+				var value = task.getValue();
+				// replaced
+				if (task.getValue().contains("{")) { // Meaning there's an { somewhere
+					fill = fillIn(value, value);
+				}else{
+					fill=value;
 				}
 				String[] splits = fill.split(";");
 
@@ -620,7 +624,7 @@ public class TaskManager implements CollectorFuture {
 						splits[0] += ";";
 					}
 				}
-				if (task.value.startsWith("cmd") || ( task.out != OUTPUT.MQTT && task.out != OUTPUT.STREAM && task.out != OUTPUT.MANAGER && task.out != OUTPUT.TELNET && task.out != OUTPUT.MATRIX)) {
+				if (value.startsWith("cmd") || ( task.out != OUTPUT.MQTT && task.out != OUTPUT.STREAM && task.out != OUTPUT.MANAGER && task.out != OUTPUT.TELNET && task.out != OUTPUT.MATRIX)) {
 					// This is not supposed to be used when the output is a channel or no reqdata defined
 
 					if (commandPool == null) {
@@ -631,7 +635,7 @@ public class TaskManager implements CollectorFuture {
 						var d = Datagram.build(fill.replace("cmd:", "").replace("\r\n", ""));
 						response = commandPool.executeCommand( d, true);
 					} else if( task.out == OUTPUT.I2C ){
-						response = commandPool.executeCommand( Datagram.build("i2c:"+task.value), true);
+						response = commandPool.executeCommand( Datagram.build("i2c:"+value), true);
 					}else if( task.out == OUTPUT.EMAIL ){
 						if( splits.length==2){
 							String it = splits[1]+(splits[1].contains(":")?"":"html");
@@ -1009,6 +1013,21 @@ public class TaskManager implements CollectorFuture {
 			line = line.replace(line.substring(i,i+end+1),to);
 		}
 		line = ValTools.parseRTline(line,"",rtvals);
+		i = line.indexOf("{mint:");
+		if( i !=-1 ){
+			int end = line.substring(i).indexOf("}");
+			var cal = line.substring(i+6,i+end);
+			var res = MathUtils.simpleCalculation(cal,0,false);
+			to = String.valueOf((int)Math.rint(res));
+			line = line.replace(line.substring(i,i+end+1),to);
+		}
+		i = line.indexOf("{math:");
+		if( i !=-1 ){
+			int end = line.substring(i).indexOf("}");
+			var cal = line.substring(i+6,i+end);
+			to = String.valueOf(MathUtils.simpleCalculation(cal,0,false));
+			line = line.replace(line.substring(i,i+end+1),to);
+		}
     	line = line.replace("[EOL]", "\r\n");
     	return line;
     }
@@ -1252,7 +1271,7 @@ public class TaskManager implements CollectorFuture {
 			case "run" -> {
 				if (parts.length == 2) {
 					if (parts[1].startsWith("task:")) {
-						return startTask(parts[1].substring(5)) ? "Task started" : "Failed to start task";
+						return startTask(parts[1].substring(5),null) ? "Task started" : "Failed to start task";
 					} else {
 						return startTaskset(parts[1]);
 					}

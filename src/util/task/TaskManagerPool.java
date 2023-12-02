@@ -8,15 +8,14 @@ import das.Commandable;
 import io.telnet.TelnetCodes;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -249,7 +248,7 @@ public class TaskManagerPool implements Commandable {
                 tasklists.keySet().forEach(response::add);
                 return response.toString();
             case "run":
-                if( cmds.length != 2)
+                if( cmds.length < 2)
                     return "! Not enough parameters, missing manager:taskset";
                 String[] task = cmds[1].split(":");
 
@@ -259,7 +258,7 @@ public class TaskManagerPool implements Commandable {
                         if( t.hasTaskset(task[1])) {
                             a+=t.startTaskset(task[1]).isEmpty()?0:1;
                         }else{
-                            a+=t.startTask(task[1])?1:0;
+                            a+=t.startTask(task[1],null)?1:0;
                         }
                     }
                     if(a==0)
@@ -272,7 +271,11 @@ public class TaskManagerPool implements Commandable {
                     if( tl.hasTaskset(task[1])){
                         return tl.startTaskset(task[1]);
                     }else{
-                        return tl.startTask(task[1])?"Task ok":"! Failed/invalid "+task[1];
+                        String[] arg=null;
+                        if( cmds.length>=3 ){
+                            arg = Arrays.copyOfRange(cmds,2,cmds.length);
+                        }
+                        return tl.startTask(task[1],arg)?"Task ok":"! Failed/invalid "+task[1];
                     }
                 }
 

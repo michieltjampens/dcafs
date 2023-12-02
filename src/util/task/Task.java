@@ -62,7 +62,7 @@ public class Task implements Comparable<Task>{
 	/* trigger:Clock */
 	LocalTime time;				// The time at which the task is supposed to be executed
 	ArrayList<DayOfWeek> taskDays;   // On which days the task is to be executed
-
+	String[] args;
 	boolean utc = false;											// If the time is in UTC or not
 
 	/* Output */
@@ -229,6 +229,17 @@ public class Task implements Comparable<Task>{
 				link = linking[1];
 			}
 		}
+	}
+	public void setArgs( String[] args) {
+		this.args=args;
+	}
+	public String getValue(){
+		if( args==null)
+			return value;
+		var val = value;
+		for( int a=0;a<args.length;a++)
+			val = val.replace("i"+a,args[a]);
+		return val;
 	}
 	public String getBuildError(){
 		return buildError.toString();
