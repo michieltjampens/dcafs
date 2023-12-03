@@ -356,9 +356,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return peek==null?def:peek.getTextContent();
-
+        if( peeked ) {
+            peeked=false;
+            return peek == null ? def : peek.getTextContent();
+        }
         var c = last.getTextContent();
         return c.isEmpty()?def:c;
 
@@ -372,8 +373,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return NumberUtils.toInt( peek!=null?peek.getTextContent():"",def );
+        if( peeked ) {
+            peeked=false;
+            return NumberUtils.toInt(peek != null ? peek.getTextContent() : "", def);
+        }
         return NumberUtils.toInt(last.getTextContent(),def);
     }
     /**
@@ -385,9 +388,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return NumberUtils.toDouble( peek!=null?peek.getTextContent():"",def );
-
+        if( peeked ) {
+            peeked=false;
+            return NumberUtils.toDouble(peek != null ? peek.getTextContent() : "", def);
+        }
         return NumberUtils.toDouble(last.getTextContent(),def);
     }
     /**
@@ -399,8 +403,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return Tools.parseBool( peek!=null?peek.getTextContent():"",def );
+        if( peeked ) {
+            peeked=false;
+            return Tools.parseBool(peek != null ? peek.getTextContent() : "", def);
+        }
         return Tools.parseBool(last.getTextContent(),def);
     }
     /**
@@ -414,6 +420,7 @@ public class XMLdigger {
 
         String at = "";
         if( peeked ) {
+            peeked=false;
             at = peek == null ? "" : peek.getTextContent();
         }else{
             at = last.getTextContent();
