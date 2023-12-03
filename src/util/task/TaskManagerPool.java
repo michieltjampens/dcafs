@@ -268,6 +268,8 @@ public class TaskManagerPool implements Commandable {
                     tl = tasklists.get(task[0]);
                     if( tl == null)
                         return "! No such taskmanager: "+task[0];
+                    if( task.length==1)
+                        return "! Taskmanager exists, but no task id missing.";
                     if( tl.hasTaskset(task[1])){
                         return tl.startTaskset(task[1]);
                     }else{
