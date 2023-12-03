@@ -15,23 +15,32 @@ public class Room implements Writable {
 
     private String alias="";
     private boolean connected=false;
+    private Writable client;
+    private ArrayList<String> cmds=new ArrayList<>();
 
-    public Room(String localId){
+    public Room(String localId, Writable client){
+        this.client=client;
         this.localId=localId;
     }
 
-    public static Room withID(String localId ){
-        return new Room(localId);
+    public static Room withID(String localId,Writable client ){
+        return new Room(localId,client);
     }
     public Room url(String url){
         this.url=url;
         return this;
     }
     public String id(){
-        return localId;
+        return "matrix:"+localId;
     }
     public String url(){
         return url;
+    }
+    public void addTriggeredCmd(String cmd){
+        cmds.add(cmd);
+    }
+    public ArrayList<String> getTriggeredCmds(){
+        return cmds;
     }
     public Room welcome(String welcome){
         this.welcome=welcome;
@@ -54,7 +63,8 @@ public class Room implements Writable {
         targets.add(wr);
     }
     public void writeToTargets( String line ){
-        targets.forEach(wr->wr.writeLine("matrix:"+localId,line));
+        if( targets!=null)
+            targets.forEach(wr->wr.writeLine("matrix:"+localId,line));
     }
     public void connected( boolean state){
         this.connected=state;
@@ -62,12 +72,12 @@ public class Room implements Writable {
     /* Writable */
     @Override
     public boolean writeLine(String data) {
-        return false;
+        return client.writeLine(data);
     }
 
     @Override
     public boolean writeLine(String origin, String data) {
-        return false;
+        return client.writeLine(origin,data);
     }
 
     @Override

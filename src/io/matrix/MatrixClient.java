@@ -8,6 +8,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.tinylog.Logger;
+import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.tools.FileTools;
 import util.tools.Tools;
@@ -115,12 +116,17 @@ public class MatrixClient implements Writable, Commandable {
         for( var macro : dig.peekOut("macro") )
             macros.put(macro.getAttribute("id"),macro.getTextContent());
 
+
+
         for( var rm : dig.digOut("room") ){
             var rs = Room.withID( rm.attr("id",""),this )
                     .url( dig.peekAt("url").value("") )
                     .entering( dig.peekAt("entering").value(""))
                     .leaving( dig.peekAt("leaving").value(""))
                     .welcome( dig.peekAt("greet").value(""));
+            for( Element cmd : dig.peekOut("cmd") ){
+                rs.addTriggeredCmd(cmd.getTextContent());
+            }
             rooms.put(rs.id(),rs);
         }
     }
@@ -181,7 +187,7 @@ public class MatrixClient implements Writable, Commandable {
         Optional<String> filterOpt;
         try{
             filterOpt = FileTools.getResourceStringContent(this.getClass(),"/filter.json");
-        }catch( /*IllegalArgumentException |*/ Exception e ){
+        }catch( Exception e ){
             Logger.error(e);
             return;
         }
@@ -304,6 +310,8 @@ public class MatrixClient implements Writable, Commandable {
                         room.connected(true);
                         if( !room.entering().isEmpty())
                             sendMessage(room.url(), room.entering().replace("{user}",userName) );
+                        for( var cmd : room.getTriggeredCmds() )
+                            dQueue.add(Datagram.system(cmd).writable(room).toggleSilent());
                         if( wr!=null) {
                             wr.writeLine("Joined " + room.id() + " at " + room.url());
                         }
@@ -401,7 +409,12 @@ public class MatrixClient implements Writable, Commandable {
                                         sendMessage(originRoom, "Stored " + res + " as " + split[1]);
                                     }
                                 }else { // Respond to commands
-                                    var d = Datagram.build(body).label("matrix").origin(originRoom + "|" + from).writable(this);
+                                    var d = Datagram.build(body).label("matrix").origin(originRoom + "|" + from);
+                                    if( room.isPresent()) {
+                                        d.writable(room.get());
+                                    }else{
+                                        d.writable(this);
+                                    }
                                     dQueue.add(d);
                                 }
                             } else if (body.equalsIgnoreCase("hello?")) {
@@ -550,7 +563,8 @@ public class MatrixClient implements Writable, Commandable {
             Logger.error("Can't send matrix message if httpClient is null");
             return;
         }
-        String nohtml = message.replace("<br>","\r\n");
+        message=message.replace("\r","");
+        String nohtml = message.replace("<br>","\n");
         nohtml = nohtml.replaceAll("<.?b>|<.?u>",""); // Alter bold
 
         if(message.toLowerCase().startsWith("unknown command"))
@@ -560,7 +574,7 @@ public class MatrixClient implements Writable, Commandable {
 
             j = new JSONObject().put("body",nohtml)
                                 .put("msgtype", "m.text")
-                                .put("formatted_body", message)
+                                .put("formatted_body", message.replace("\n","<br>"))
                                 .put("format","org.matrix.custom.html");
 
         try {
@@ -610,11 +624,11 @@ public class MatrixClient implements Writable, Commandable {
                     case "You don't have permission to knock":
                         break;
                 }
-            case 500:
-                Logger.warn("matrix -> "+res.body());
+            case 403: case 500:
+                Logger.error("matrix -> ("+res.statusCode()+") "+body.getString("error"));
                 break;
             default:
-                Logger.error( "Code:"+res.statusCode()+" -> Unknown error");
+                Logger.error( "Code:"+res.statusCode()+" -> "+body.getString("error"));
                 break;
         }
     }
@@ -760,7 +774,7 @@ public class MatrixClient implements Writable, Commandable {
     @Override
     public boolean writeLine(String data) {
         var d = data.split("\\|"); //0=room,1=from,2=data
-        if( d.length==0) {
+        if( d.length==1) {
             if( rooms.size()==1){
                 rooms.values().forEach( r -> sendMessage(r.url(),data));
                 return true;
