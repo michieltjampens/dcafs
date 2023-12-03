@@ -11,8 +11,8 @@ import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.tools.FileTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.io.FileNotFoundException;
@@ -91,34 +91,36 @@ public class MatrixClient implements Writable, Commandable {
      * Reads the settings from the global settingsfile
      */
     private void readFromXML( ){
-        var matrixEle = XMLfab.withRoot(settingsFile,"dcafs","matrix").getCurrentElement();
-        String u = XMLtools.getStringAttribute(matrixEle,"user","");
-        if( u.isEmpty()) {
+        var dig = XMLdigger.goIn(settingsFile,"dcafs","matrix");
+
+        String user = dig.attr("user","");
+        if( user.isEmpty()) {
             Logger.error("Invalid matrix user");
             return;
         }
 
-        server = "http://"+XMLtools.getChildStringValueByTag(matrixEle,"server","");
-        if( !u.contains(":")) { // If the format is @xxx:yyyy.zzz
+        server = "http://"+dig.peekAt("server").value("");
+        if( !user.contains(":")) { // If the format is @xxx:yyyy.zzz
             Logger.error("Matrix user must be of @username:sever format");
             return;
         }
-        userID=u;
-        userName=u.substring(1,u.indexOf(":"));
-        if( server.length()<8)
-            server = "http://"+u.substring(u.indexOf(":")+1);
+        userID=user;
+        userName=user.substring(1,user.indexOf(":"));
+        if( server.length()<8) // Meaning nothing after http etc
+            server = "http://"+user.substring(user.indexOf(":")+1);
 
         server += server.endsWith("/")?"":"/";
-        pw = XMLtools.getStringAttribute(matrixEle,"pass","");
-        for( var macro : XMLtools.getChildElements(matrixEle,"macro"))
+        pw = dig.attr("pass","");
+
+        for( var macro : dig.peekOut("macro") )
             macros.put(macro.getAttribute("id"),macro.getTextContent());
 
-        for( var rm : XMLtools.getChildElements(matrixEle,"room") ){
-            var rs = Room.withID( rm.getAttribute("id") )
-                    .url( XMLtools.getChildStringValueByTag(rm,"url",""))
-                    .entering(XMLtools.getChildStringValueByTag(rm,"entering",""))
-                    .leaving(XMLtools.getChildStringValueByTag(rm,"leaving",""))
-                    .welcome(XMLtools.getChildStringValueByTag(rm,"greet",""));
+        for( var rm : dig.digOut("room") ){
+            var rs = Room.withID( rm.attr("id",""),this )
+                    .url( dig.peekAt("url").value("") )
+                    .entering( dig.peekAt("entering").value(""))
+                    .leaving( dig.peekAt("leaving").value(""))
+                    .welcome( dig.peekAt("greet").value(""));
             rooms.put(rs.id(),rs);
         }
     }
@@ -828,7 +830,7 @@ public class MatrixClient implements Writable, Commandable {
             case "join" -> {
                 if (cmds.length < 3)
                     return "! Not enough arguments: matrix:join,roomid,url";
-                var rs = Room.withID(cmds[1]).url(cmds[2]);
+                var rs = Room.withID(cmds[1],this).url(cmds[2]);
                 rooms.put(cmds[1], rs);
                 joinRoom(rs, wr);
                 return "Tried to join room";
