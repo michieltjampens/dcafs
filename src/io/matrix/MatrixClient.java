@@ -585,7 +585,7 @@ public class MatrixClient implements Writable, Commandable {
     }
     /* ******** Helper methods ****** */
     private void processError( HttpResponse<String> res ){
-        JSONObject body=null;
+        JSONObject body;
         if( res.body() !=null) {
             body = new JSONObject(res.body());
         }else{
@@ -758,7 +758,15 @@ public class MatrixClient implements Writable, Commandable {
     @Override
     public boolean writeLine(String data) {
         var d = data.split("\\|"); //0=room,1=from,2=data
-        sendMessage(d[0],d[2]);
+        if( d.length==0) {
+            if( rooms.size()==1){
+                rooms.values().forEach( r -> sendMessage(r.url(),data));
+                return true;
+            }
+            Logger.warn("matrix -> Trying to send message, but no active rooms yet.");
+        }else{
+            sendMessage(d[0],d[2]);
+        }
         return true;
     }
     public boolean writeLine(String origin, String data) { return writeLine(data); }
@@ -897,7 +905,7 @@ public class MatrixClient implements Writable, Commandable {
                                     return "! Not enough arguments: matrix:roomid,say/text,message";
                                 String what = args.substring(args.indexOf(cmds[1])+cmds[1].length()+1);
                                 sendMessage( room.url(), what );
-                                return "Message send to "+room.id()+".";
+                                return "Message send to "+room.id()+". (this doesn't mean it arrived)";
                             }
                             case "leave" -> {
                                 return "! Not implemented yet...";
