@@ -43,8 +43,8 @@ public class MatrixClient implements Writable, Commandable {
     public static String logout_all = client+"logout/all";
     public static String whoami = client+"account/whoami";
     public static String presence = client+"presence/";
-    public static String rooms = client+"rooms/";
-    public static String knock = client+"knock/";
+    public static String roomsBaseUrl = client+"rooms/";
+    public static String knockBaseUrl = client+"knock/";
     public static String sync = client+"sync";
     public static String user  = client+"user/";
     public static String upload = media+"upload/";
@@ -53,7 +53,7 @@ public class MatrixClient implements Writable, Commandable {
     public static String push = client+"pushers";
     public static String addPush =push+"/set";
 
-    HashMap<String,RoomSetup> roomSetups = new HashMap<>();
+    HashMap<String, Room> rooms = new HashMap<>();
 
     String userName;
     String pw;
@@ -114,12 +114,12 @@ public class MatrixClient implements Writable, Commandable {
             macros.put(macro.getAttribute("id"),macro.getTextContent());
 
         for( var rm : XMLtools.getChildElements(matrixEle,"room") ){
-            var rs = RoomSetup.withID( rm.getAttribute("id") )
+            var rs = Room.withID( rm.getAttribute("id") )
                     .url( XMLtools.getChildStringValueByTag(rm,"url",""))
                     .entering(XMLtools.getChildStringValueByTag(rm,"entering",""))
                     .leaving(XMLtools.getChildStringValueByTag(rm,"leaving",""))
                     .welcome(XMLtools.getChildStringValueByTag(rm,"greet",""));
-            roomSetups.put(rs.id(),rs);
+            rooms.put(rs.id(),rs);
         }
     }
     public void login(){
@@ -143,11 +143,11 @@ public class MatrixClient implements Writable, Commandable {
                                         setupFilter();
 
                                         sync(true);
-                                        for( var room : roomSetups.values())
+                                        for( var room : rooms.values())
                                             joinRoom(room,null);
                                         return true;
                                     }
-                                    Logger.warn("matrix -> Failed to login to the matrix network");
+                                    Logger.warn("matrix -> Failed to login to the matrix network (code:"+res.statusCode()+")");
                                     processError(res);
                                     return false;
                                 }
@@ -275,7 +275,7 @@ public class MatrixClient implements Writable, Commandable {
     }
     public void requestRoomInvite( String room ){
         Logger.info("Requesting invite to "+room);
-        asyncPOST( knock+room,new JSONObject().put("reason","i want to"),
+        asyncPOST( knockBaseUrl +room,new JSONObject().put("reason","i want to"),
                 res -> {
                     var body = new JSONObject(res.body());
                     if( res.statusCode()==200 ){
@@ -291,14 +291,15 @@ public class MatrixClient implements Writable, Commandable {
      * @param room The room to join
      * @param wr The writable if any to output the result to
      */
-    public void joinRoom( RoomSetup room, Writable wr ){
+    public void joinRoom(Room room, Writable wr ){
 
-        asyncPOST( rooms+room.url()+"/join",new JSONObject().put("reason","Feel like it"),
+        asyncPOST( roomsBaseUrl +room.url()+"/join",new JSONObject().put("reason","Feel like it"),
                 res -> {
                     var body = new JSONObject(res.body());
                     if( res.statusCode()==200 ){
                         // Joined the room
                         Logger.info("matrix -> Joined the room! " + body.getString("room_id"));
+                        room.connected(true);
                         if( !room.entering().isEmpty())
                             sendMessage(room.url(), room.entering().replace("{user}",userName) );
                         if( wr!=null) {
@@ -345,6 +346,7 @@ public class MatrixClient implements Writable, Commandable {
             switch (event.getString("type")) {
                 case "m.room.redaction" -> Logger.info("Ignored redaction event");
                 case "m.room.message" -> {
+                    var room = roomByUrl(js.keys().next());
                     var content = event.getJSONObject("content");
                     String body = content.getString("body");
                     switch (content.getString("msgtype")) {
@@ -355,8 +357,10 @@ public class MatrixClient implements Writable, Commandable {
                                 downloadFile(body, null, originRoom);
                         }
                         case "m.text" -> {
+                            final String send = body;
+                            room.ifPresent( r -> r.writeToTargets(send));
                             if (body.startsWith("das") || body.startsWith(userName)) { // check if message for us
-                                body = body.replaceAll("(" + userName + "|das):?", "").trim();
+                                body = body.substring(body.indexOf(":")+1).trim();
                                 if (body.matches(".+=[0-9]*$")) {
                                     var sp = body.split("=");
                                     double d = NumberUtils.toDouble(sp[1].trim(), Double.NaN);
@@ -401,7 +405,7 @@ public class MatrixClient implements Writable, Commandable {
                             } else if (body.equalsIgnoreCase("hello?")) {
                                 sendMessage(originRoom, "Yes?");
                             } else {
-                                Logger.info(from + " said " + body + " to someone/everyone");
+                                Logger.debug(from + " said " + body + " to someone/everyone");
                             }
                         }
                         default -> Logger.info("Event of type:" + event.getString("type"));
@@ -411,14 +415,20 @@ public class MatrixClient implements Writable, Commandable {
             }
         }
     }
-
+    public Optional<Room> roomByUrl(String url){
+        for( var room : rooms.values() ){
+            if( room.url().equals(url))
+                return Optional.of(room);
+        }
+        return Optional.empty();
+    }
     /**
      * Send a confirmation on receiving an event
      * @param room The room the event occurred in
      * @param eventID The id of the event
      */
     public void confirmRead(String room, String eventID){
-        asyncPOST( rooms+room+"/receipt/m.read/"+eventID,new JSONObject(),
+        asyncPOST( roomsBaseUrl +room+"/receipt/m.read/"+eventID,new JSONObject(),
                 res -> {
                     if(res.statusCode()==200){
                         return true;
@@ -451,7 +461,7 @@ public class MatrixClient implements Writable, Commandable {
                             System.out.println(res.body());
                             String mxc = new JSONObject(res.body()).getString("content_uri"); // Got a link... now post it?
                             if( !roomid.isEmpty())
-                                shareFile(roomSetups.get(roomid).url(),mxc,path.getFileName().toString());
+                                shareFile(rooms.get(roomid).url(),mxc,path.getFileName().toString());
                             if( wr!=null)
                                 wr.writeLine("File upload succeeded");
                             return true;
@@ -510,7 +520,7 @@ public class MatrixClient implements Writable, Commandable {
                 .put("msgtype", "m.file");
 
         try {
-            String url = server+rooms+room+"/send/m.room.message/"+ Instant.now().toEpochMilli()+"?access_token="+accessToken;
+            String url = server+ roomsBaseUrl +room+"/send/m.room.message/"+ Instant.now().toEpochMilli()+"?access_token="+accessToken;
             var request = HttpRequest.newBuilder(new URI(url))
                     .PUT(HttpRequest.BodyPublishers.ofString( j.toString()))
                     .build();
@@ -531,7 +541,7 @@ public class MatrixClient implements Writable, Commandable {
         }
     }
     public void broadcast( String message ){
-        roomSetups.forEach( (k,v) -> sendMessage(v.url(),message) );
+        rooms.forEach( (k, v) -> sendMessage(v.url(),message) );
     }
     public void sendMessage( String room, String message ){
         if(httpClient==null){
@@ -552,7 +562,7 @@ public class MatrixClient implements Writable, Commandable {
                                 .put("format","org.matrix.custom.html");
 
         try {
-            String url = server+rooms+room+"/send/m.room.message/"+ Instant.now().toEpochMilli()+"?access_token="+accessToken;
+            String url = server+ roomsBaseUrl +room+"/send/m.room.message/"+ Instant.now().toEpochMilli()+"?access_token="+accessToken;
             var request = HttpRequest.newBuilder(new URI(url))
                     .PUT(HttpRequest.BodyPublishers.ofString( j.toString()))
                     .build();
@@ -801,14 +811,14 @@ public class MatrixClient implements Writable, Commandable {
                 return "Tried reloading";
             }
             case "rooms" -> {
-                roomSetups.forEach((key, val) -> j.add(key + " -> " + val.url()));
+                rooms.forEach((key, val) -> j.add(key + " -> " + val.url()));
                 return j.toString();
             }
             case "join" -> {
                 if (cmds.length < 3)
                     return "! Not enough arguments: matrix:join,roomid,url";
-                var rs = RoomSetup.withID(cmds[1]).url(cmds[2]);
-                roomSetups.put(cmds[1], rs);
+                var rs = Room.withID(cmds[1]).url(cmds[2]);
+                rooms.put(cmds[1], rs);
                 joinRoom(rs, wr);
                 return "Tried to join room";
             }
@@ -816,7 +826,7 @@ public class MatrixClient implements Writable, Commandable {
                 if (cmds.length < 3)
                     return "! Not enough arguments: matrix:say,roomid,message";
                 String what = args.substring(5 + cmds[1].length());
-                sendMessage(roomSetups.get(cmds[1]).url(), what);
+                sendMessage(rooms.get(cmds[1]).url(), what);
                 return "Message send";
             }
             /* *************** Files ********************* */
@@ -830,8 +840,8 @@ public class MatrixClient implements Writable, Commandable {
                     return "! Not enough arguments: matrix:share,roomid,filepath";
                 p = Path.of(cmds[2]);
                 if (Files.exists(p)) {
-                    if (roomSetups.containsKey(cmds[1])) {
-                        sendFile(roomSetups.get(cmds[1]).url(), p, wr);
+                    if (rooms.containsKey(cmds[1])) {
+                        sendFile(rooms.get(cmds[1]).url(), p, wr);
                         return "File shared with " + cmds[1];
                     }
                     return "No such room (yet): " + cmds[1];
@@ -881,6 +891,11 @@ public class MatrixClient implements Writable, Commandable {
                 return "Initiated sync";
             }
             default -> {
+                var room = rooms.get(cmds[0]);
+                if( room != null) {
+                    room.addTarget(wr);
+                    return "Added "+wr.id()+" as target for room "+room.id();
+                }
                 return "! No such subcommand in " + cmd + ": " + cmds[0];
             }
         }
