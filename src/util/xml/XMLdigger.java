@@ -320,9 +320,9 @@ public class XMLdigger {
     }
 
     /**
-     * Get a list of all elements that result from digging to the tag
+     * Get a list of all elements that result from digging to the tag, this won't invalidate the digger.
      * @param tag The tag to dig for
-     * @return The elements found or an empty list if none or invalid digger
+     * @return The elements found or an empty list if none or invalid digger without invalidating it.
      */
     public ArrayList<XMLdigger> digOut( String tag ){
         var temp = new ArrayList<XMLdigger>();
@@ -334,7 +334,7 @@ public class XMLdigger {
     }
     /**
      * Get a list of all elements that result from peeking to the tag.
-     * Difference with digOut is that this doesn't invalidate the peek on failure
+     * Like all peek actions, this doesn't invalidate the digger
      * @param tag The tag to peek at
      * @return The elements found or an empty list if none or invalid peek
      */
