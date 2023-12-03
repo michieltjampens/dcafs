@@ -472,7 +472,7 @@ public class MatrixClient implements Writable, Commandable {
                         return false;
                     } );
         } catch (URISyntaxException | FileNotFoundException e) {
-            e.printStackTrace();
+            Logger.error(e);
         }
     }
     public boolean downloadFile( String id, Writable wr, String originRoom ){
@@ -537,7 +537,7 @@ public class MatrixClient implements Writable, Commandable {
                     });
 
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+            Logger.error(e);
         }
     }
     public void broadcast( String message ){
@@ -580,15 +580,18 @@ public class MatrixClient implements Writable, Commandable {
                     });
 
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+            Logger.error(e);
         }
     }
     /* ******** Helper methods ****** */
     private void processError( HttpResponse<String> res ){
         JSONObject body=null;
-        if( res.body() !=null)
+        if( res.body() !=null) {
             body = new JSONObject(res.body());
-
+        }else{
+            Logger.error("Failed to process error, body is null but code is "+res.statusCode());
+            return;
+        }
         switch( res.statusCode() ) {
             case 200: // Not an error
                 return;
@@ -609,7 +612,7 @@ public class MatrixClient implements Writable, Commandable {
                 Logger.warn("matrix -> "+res.body());
                 break;
             default:
-                Logger.error( "Code:"+res.statusCode()+" -> "+ (body!=null?body.getString("error"):""));
+                Logger.error( "Code:"+res.statusCode()+" -> Unknown error");
                 break;
         }
     }
@@ -623,7 +626,7 @@ public class MatrixClient implements Writable, Commandable {
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenApply(onCompletion::onCompletion);
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+            Logger.error(e);
         }
     }
     private void asyncPUT( String url, JSONObject data, CompletionEvent onCompletion){
@@ -637,13 +640,13 @@ public class MatrixClient implements Writable, Commandable {
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenApply(onCompletion::onCompletion);
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+            Logger.error(e);
         }
     }
     private void asyncPOST( String url, JSONObject data, CompletionEvent onCompletion){
         asyncPOST(url,data,onCompletion,fail -> {
                                             Logger.error(fail.getMessage());
-                                            executorService.schedule( ()->login(),retry,TimeUnit.SECONDS);
+                                            executorService.schedule(this::login,retry,TimeUnit.SECONDS);
                                             Logger.info("Retrying in "+retry+"s");
                                             retry += retry <RETRY_MAX?RETRY_STEP:0;
                                             return false;
@@ -712,7 +715,7 @@ public class MatrixClient implements Writable, Commandable {
                             }
                     );
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+            Logger.error(e);
         }
     }
     public void addDefaultPusher(){
@@ -743,7 +746,7 @@ public class MatrixClient implements Writable, Commandable {
                             }
                     );
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+           Logger.error(e);
         }
     }
     /* ******************* Writable **************************** */
@@ -793,9 +796,9 @@ public class MatrixClient implements Writable, Commandable {
                 String reg = html ? "" : TelnetCodes.TEXT_DEFAULT + TelnetCodes.UNDERLINE_OFF;
                 j.add(cyan + "Rooms" + reg)
                         .add(gre + "matrix:rooms" + reg + " -> Give a list of all the joined rooms")
-                        .add(gre + "matrix:leave,roomid" + reg + " -> Leave the given room")
+                        .add(gre + "matrix:roomid,leave" + reg + " -> Leave the given room")
                         .add(gre + "matrix:join,roomid,url" + reg + " -> Join a room with the given id and url")
-                        .add(gre + "matrix:say,roomid,message" + reg + " -> Send the given message to the room");
+                        .add(gre + "matrix:roomid,say,message" + reg + " -> Send the given message to the room");
                 j.add(cyan + "Files" + reg)
                         .add(gre + "matrix:files" + reg + " -> Get a listing of all the file links received")
                         .add(gre + "matrix:down,fileid" + reg + " -> Download the file with the given id to the downloads map")
@@ -822,17 +825,11 @@ public class MatrixClient implements Writable, Commandable {
                 joinRoom(rs, wr);
                 return "Tried to join room";
             }
-            case "say", "txt" -> {
-                if (cmds.length < 3)
-                    return "! Not enough arguments: matrix:say,roomid,message";
-                String what = args.substring(5 + cmds[1].length());
-                sendMessage(rooms.get(cmds[1]).url(), what);
-                return "Message send";
-            }
+
             /* *************** Files ********************* */
             case "files" -> {
                 j.setEmptyValue("! No files yet");
-                files.keySet().forEach(k -> j.add(k));
+                files.keySet().forEach(j::add);
                 return j.toString();
             }
             case "share" -> {
@@ -893,6 +890,20 @@ public class MatrixClient implements Writable, Commandable {
             default -> {
                 var room = rooms.get(cmds[0]);
                 if( room != null) {
+                    if(cmds.length >= 2){
+                        switch(cmds[1]){
+                            case "say", "txt" -> {
+                                if (cmds.length < 3)
+                                    return "! Not enough arguments: matrix:roomid,say/text,message";
+                                String what = args.substring(args.indexOf(cmds[1])+cmds[1].length()+1);
+                                sendMessage( room.url(), what );
+                                return "Message send to "+room.id()+".";
+                            }
+                            case "leave" -> {
+                                return "! Not implemented yet...";
+                            }
+                        }
+                    }
                     room.addTarget(wr);
                     return "Added "+wr.id()+" as target for room "+room.id();
                 }
