@@ -12,13 +12,20 @@ Note: Version numbering: x.y.z
 
 Biggest change is a rewrite of the code that reads the path xml. This now can have 'if' structures (but no 'else' yet).
 
-- When cmds are issued from non-telnet, the telnet escape codes are removed. Adding -r at the end has the same result.
 - Fixed, TCP streams no longer had the label applied.
 - Fixed, the reply to a cmd in telnet wrote on the same line as the given cmd
 - Fixed, serialport buffers seem to be filled even if nothing is listening, all that data gets dumped on connection. So
 flush the buffers on opening the port.
 - Added `ss:id,port,newport` to change the port of the stream
-- Added option to prefix received data lines with the id of their origin.
+- Added option to prefix received data lines with the id of their origin. Activated by adding the <prefixorigin> node in 
+the stream with true as content. Can be handy if you get data from different src's at the same time.
+- Telnet, Command history (up to 20) in telnet is now saved in ram on ip basis, can be cleared by sending >>clearhistory or >>clrh
+- Telnet, When cmds are issued from non-telnet, the telnet escape codes are removed. Adding -r at the end has the same result.
+
+### Matrix
+- Room text updates can now be requested with the 'matrix:roomid' cmd.
+- Changed cmd matrix:say,roomid,message to matrix:roomid,say,message.
+- Allow for cmds to be executed on joining a room with `<cmd></cmd` node inside room node.
 
 ### I2C
 - It's now possible to add extra arguments to a i2c cmd to set data send. Next step applying a
@@ -65,6 +72,19 @@ It's now possible to add math operations with values that are in the store.
       <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
 </store>
 ````
+### TaskManager
+- Allow for tasks started from cmd to include arguments to replace i0, i1 etc. This includes the 
+functionality to do math operations.
+For example:
+```xml
+<!-- Part of the taskmanager 'io' -->
+<!--
+{mint:formula} -> calculate the formula and return an integer 
+{math:formula} -> calculate the formula and return a real
+-->
+<task id="go" output="stream:test" >ovli0:{mint:i1*(65535/32)}</task>
+```
+When using the cmd `io:go,1,3.3` this will result in `ovl1:6758` being written to test. 
 
 
 ## 2.6.0 (29/10/2023)
