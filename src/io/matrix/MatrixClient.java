@@ -774,7 +774,7 @@ public class MatrixClient implements Writable, Commandable {
     @Override
     public boolean writeLine(String data) {
         var d = data.split("\\|"); //0=room,1=from,2=data
-        if( d.length==1) {
+        if( d.length<3) {
             if( rooms.size()==1){
                 rooms.values().forEach( r -> sendMessage(r.url(),data));
                 return true;
