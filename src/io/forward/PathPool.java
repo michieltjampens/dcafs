@@ -181,7 +181,7 @@ public class PathPool implements Commandable {
                 join.setEmptyValue("No paths yet");
                 paths.forEach((key, value) -> {
                     String src = key + " src: " + value.src();
-                    join.add(green+ "Path: " + src + reg).add(value.toString()).add("");
+                    join.add(green+ "Path: " + src + reg);//.add(value.toString()).add("");
                 });
                 return join.toString();
             }
@@ -212,6 +212,11 @@ public class PathPool implements Commandable {
                         var result = paths.get(cmds[1]).readFromXML(ele.get(), settingsPath.getParent());
                         return result.isEmpty() ? "Path reloaded" : result;
                     }
+                    case "list" -> {
+                        if (pp == null)
+                            return or+"! No such path: " + cmds[1]+reg;
+                        return green+ "Path: " + pp.id() + (html ? "<br>" : "\r\n") + pp;
+                    }
                     default -> {
                         var res = PathCmds.replyToCommand(cmd, html, settingsPath);
                         if( res.startsWith("Table added with ")){
@@ -219,7 +224,7 @@ public class PathPool implements Commandable {
                             dQueue.add( Datagram.system(reloadCmd));
                         }
                         // Reload the path
-                        var pEle = XMLfab.withRoot(settingsPath, "dcafs", "paths")
+                       /* var pEle = XMLfab.withRoot(settingsPath, "dcafs", "paths")
                                 .getChild("path", "id", cmds[0]);
                         if (!res.startsWith("!")) { // If cmd worked
                             if (pEle.isPresent()) { // If an existing path was altered
@@ -237,7 +242,7 @@ public class PathPool implements Commandable {
                             } else if (cmds[1].equalsIgnoreCase("delete")) { // meaning the path was removed from xml, remove it from paths
                                 removePath(cmds[0]);
                             }
-                        }
+                        }*/
                         // Add some color based on good or bad result
                         if (res.startsWith("!") || res.startsWith("unknown"))
                             return or + res + reg;
