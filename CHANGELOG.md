@@ -7,8 +7,11 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 - pf:reload doesn't seem to reload the db tag of a store?
+## 2.7.1
+- Fixed, Matrix out of bounds when sending something without room url etc.
 
-## 2.7.0 (wip)
+
+## 2.7.0 (03/12/23)
 
 Biggest change is a rewrite of the code that reads the path xml. This now can have 'if' structures (but no 'else' yet).
 
