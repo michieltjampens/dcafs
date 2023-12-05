@@ -37,6 +37,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     /* Triggering */
     private ArrayList<TriggeredCmd> triggered;
     private MathFab parseOp;
+    private boolean roundDoubles=false;
     /**
      * Constructs a new RealVal with the given group and name
      *
@@ -215,6 +216,16 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             value(res);
             return true;
         }catch( NumberFormatException e ){
+            try {
+                if (val.contains(".") && roundDoubles) {
+                    value = (int) Math.rint(NumberUtils.createDouble(val));
+                    return true;
+                }
+            }catch(NumberFormatException ed){
+                Logger.error(id() + " -> Failed to parse to int/double: "+val);
+                return false;
+            }
+            Logger.error(id()+" -> Failed to parse "+val+" to integer.");
             if( defVal != Integer.MAX_VALUE ) {
                 rawValue=defVal;
                 value(defVal);
