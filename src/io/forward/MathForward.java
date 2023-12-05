@@ -12,7 +12,7 @@ import util.math.Calculations;
 import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.Tools;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.math.BigDecimal;
@@ -99,19 +99,19 @@ public class MathForward extends AbstractForward {
             referencedNums.clear();
 
         highestI=-1;
-
-        setDelimiter(XMLtools.getEscapedStringAttribute( math, "delimiter", delimiter));
-        suffix = XMLtools.getStringAttribute(math,"suffix","");
+        var dig = XMLdigger.goIn(math);
+        setDelimiter( dig.attr("delimiter", delimiter));
+        suffix = dig.attr("suffix","");
         defines.clear();
         ops.clear();
-        String content = math.getTextContent();
+        String content = dig.value("");
 
-        if( content != null && XMLtools.getChildElements(math).isEmpty() ){
+        if( content != null && dig.peekOut("*").isEmpty() ){ // Has content but no child elements
             if( findReferences(content) ){
                 var op = addStdOperation(
                         content,
-                        XMLtools.getIntAttribute(math,"scale",-1),
-                        XMLtools.getStringAttribute(math,"cmd","")
+                        dig.attr("scale",-1),
+                        dig.attr("cmd","")
                 );
                 if(op.isEmpty()){
                     parsedOk=false;
@@ -124,7 +124,7 @@ public class MathForward extends AbstractForward {
             }
         }
         // Check for other subnodes besides 'op' those will be considered def's to reference in the op
-        XMLtools.getChildElements(math, "*")
+        dig.peekOut("*")
                 .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
                         .forEach( def -> {
                             var val = def.getTextContent().replace(",",".");
@@ -136,37 +136,34 @@ public class MathForward extends AbstractForward {
                         });
 
         boolean oldValid=valid;
-        for( var ops : XMLtools.getChildElements(math, "op") ){
+        for( var ops : dig.peekOut("op") ){
             if( !findReferences(ops.getTextContent())) {
                 parsedOk=false;
                 return false;
             }
         }
+        dig.digOut("op").forEach( ops -> {
+            try {
+                var type= fromStringToOPTYPE(ops.attr( "type", "complex"));
+                switch (Objects.requireNonNull(type)) {
+                    case COMPLEX -> addStdOperation(
+                            ops.value(""),
+                            ops.attr(  "scale", -1),
+                            ops.attr( "cmd", "")
+                    );
+                    case LN, SALINITY, SVC, TRUEWINDSPEED, TRUEWINDDIR, UTM, GDC -> addOperation(
+                            ops.attr(  "index", "-1"),
+                            ops.attr(  "scale", -1),
+                            type,
+                            ops.attr(  "cmd", ""),
+                            ops.value(""));
+                    default -> Logger.error("Bad type " + type);
+                }
 
-        XMLtools.getChildElements(math, "op")
-                .forEach( ops -> {
-                    try {
-                        var type= fromStringToOPTYPE(XMLtools.getStringAttribute(ops, "type", "complex"));
-                        switch (Objects.requireNonNull(type)) {
-                            case COMPLEX -> addStdOperation(
-                                    ops.getTextContent(),
-                                    XMLtools.getIntAttribute(ops, "scale", -1),
-                                    XMLtools.getStringAttribute(ops, "cmd", "")
-                            );
-                            case LN, SALINITY, SVC, TRUEWINDSPEED, TRUEWINDDIR, UTM, GDC -> addOperation(
-                                    XMLtools.getStringAttribute(ops, "index", "-1"),
-                                    XMLtools.getIntAttribute(ops, "scale", -1),
-                                    type,
-                                    XMLtools.getStringAttribute(ops, "cmd", ""),
-                                    ops.getTextContent());
-                            default -> Logger.error("Bad type " + type);
-                        }
-
-                    }catch( NumberFormatException e){
-                        Logger.error(id+" (mf)-> Number format Exception "+e.getMessage());
-                    }
-                } );
-
+            }catch( NumberFormatException e){
+                Logger.error(id+" (mf)-> Number format Exception "+e.getMessage());
+            }
+        });
         if( !oldValid && valid )// If math specific things made it valid
             sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
         return true;

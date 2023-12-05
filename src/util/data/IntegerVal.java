@@ -77,13 +77,15 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      */
     public IntegerVal alter( Element rtval ){
         reset();
-        unit(XMLtools.getStringAttribute(rtval, "unit", ""));
-        defValue( XMLtools.getIntAttribute(rtval, "def", defVal) );
-        defValue( XMLtools.getIntAttribute(rtval, "default", defVal) );
+        var dig = XMLdigger.goIn(rtval);
+        unit( dig.attr("unit","") );
+        defValue( dig.attr( "def", defVal) );
+        defValue( dig.attr( "default", defVal) );
+        roundDoubles = dig.attr("allowreal",false);
 
         value=defVal; // Set the current value to the default
 
-        String options = XMLtools.getStringAttribute(rtval, "options", "");
+        String options = dig.attr( "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
             switch (arg[0]) {
