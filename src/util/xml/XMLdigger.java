@@ -233,7 +233,19 @@ public class XMLdigger {
             root = (Element)root.getParentNode();
         }
     }
-
+    public boolean goUp( String tag ){
+        peeked=false;
+        while( !last.getTagName().equalsIgnoreCase(tag)) {
+            last = root;
+            var parent = (Element) root.getParentNode();
+            if (validated(parent != null)) {
+                root = (Element) root.getParentNode();
+            }else{
+                valid=false;
+            }
+        }
+        return valid;
+    }
     /**
      * Force this digger to be invalid
      */
