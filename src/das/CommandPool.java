@@ -270,8 +270,8 @@ public class CommandPool {
 
 		String res = switch (question) {
 			case "?", "list" -> doCmd("tm", cmd + ",sets", wr) + nl + doCmd("tm", cmd + ",tasks", wr);
-			case "reload" -> doCmd("tm", "reload," + cmd, wr);
-			default -> doCmd("tm", "run," + cmd + ":" + question, wr);
+			case "reload" -> doCmd("tm", cmd+",reload", wr);
+			default -> doCmd("tm", cmd+",run,"+ question, wr);
 		};
 		if (!res.toLowerCase().startsWith("! no such taskmanager") &&
 				!(res.toLowerCase().startsWith("! no taskmanager") && question.split(":").length==1))
