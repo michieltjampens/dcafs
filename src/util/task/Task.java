@@ -336,7 +336,7 @@ public class Task implements Comparable<Task>{
 				}
 			}
 			case "delay" -> {    /* delay:5m3s */
-				startDelay = TimeTools.parsePeriodStringToMillis(items[0]);
+				startDelay = TimeTools.parsePeriodStringToMillis(items[0])+50;
 				unit = TimeUnit.MILLISECONDS;
 				triggerType = TRIGGERTYPE.DELAY;
 			}
@@ -346,9 +346,9 @@ public class Task implements Comparable<Task>{
 				if (items.length == 1) {//Just interval
 					interval = TimeTools.parsePeriodStringToMillis(items[0]);
 					unit = TimeUnit.MILLISECONDS;
-					startDelay = -1;    // So first occurrence is not at 0!
+					startDelay = 50;   // First occurrence is directly
 				} else {//Delay and interval
-					startDelay = TimeTools.parsePeriodStringToMillis(items[0]);
+					startDelay = TimeTools.parsePeriodStringToMillis(items[0])+50;
 					interval = TimeTools.parsePeriodStringToMillis(items[1]);
 					unit = TimeUnit.MILLISECONDS;
 				}
