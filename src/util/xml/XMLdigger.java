@@ -465,6 +465,17 @@ public class XMLdigger {
         }
         return def;
     }
+    public boolean hasTagName(String tag){
+        if( !valid )
+            return false;
+        if( peeked ){
+            if( peek!=null)
+                return peek.getTagName().equals(tag);
+        }else{
+            return last.getTagName().equals(tag);
+        }
+        return false;
+    }
     /*  ************ Getting attributes ************************************* */
     /**
      * Read the value of the given tag, return the def string if not found
