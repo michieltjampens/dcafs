@@ -7,8 +7,52 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc?
 - pf:reload doesn't seem to reload the db tag of a store?
-## 2.7.1
+
+## 2.8.0
 - Fixed, Matrix out of bounds when sending something without room url etc.
+- IntVal, now accepts real for parsing if 'allowreal' attribute is set to true. Will round according to math rules. Will
+now give an error if this or regular parsing fails.
+
+### Vals
+- Added 'Dynamic Units' so it's possible to alter the unit depending on the amount.
+There are two options, either 'step' for integers or 'level' for real
+```xml
+ <!-- For example the unit is a time period in seconds -->
+  <rtvals>
+    <unit base="s"> <!-- the unit used  -->
+      <step cnt="60">m</step> <!-- the next step up 60s  to 1m -->
+      <step cnt="60">h</step> <!-- the next step up 60m to 1h -->
+    </unit>
+    <unit base="Hz">
+      <level div="1000" from="1500">kHz</level> <!-- Use A if the value is higher than 1500 and use 1000 as divider -->
+      <level div="1000">MHz</level> <!-- No 'from' so same as div, so kHz -->
+      <level div="1000">GHz</level>
+    </unit>
+</rtvals>
+<!--
+So an input of 3962s will result in 1h6m2s shown instead.
+Or an input of 1400Hz will result in 1400Hz 
+    but 1840mA will become 1.840kHz
+    and 1245358Hz will becom 1.245MHz, scale is taken from the realval 
+-->
+```
+
+### Paths
+- Changed `pf:list` so it actually gives a list of active paths instead of also listing steps in it
+- Added `pf:id,list` to give all the steps in the path with the provided id
+
+### TaskManager
+- Reordered parameters in some commands, so it's id first if it's interacting with that id, so `tm:id,cmd`.
+- Interval without an initial delay is now actually without a delay... (was 10% of interval)
+- Made it possible to refer to a trigger with an attribute of the type instead of the trigger attr. Should
+  be a bit more intuitive.
+```xml
+<tasklist>
+  <!-- Both tasks do the same -->
+  <task output="stream:powmon" trigger="interval:10m">ac1</task>
+  <task output="stream:powmon" interval="10m">ac1</task>
+</tasklist>
+```
 
 
 ## 2.7.0 (03/12/23)
