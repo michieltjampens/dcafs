@@ -785,7 +785,7 @@ public class RealtimeValues implements Commandable {
 				.filter(group -> !group.isEmpty() )
 				.distinct()
 				.forEach(groups::add);
-
+		groups.remove("dcafs"); // This group contains system variables, don't show it.
 		return groups.stream().distinct().sorted().toList();
 	}
 	/* ******************************** I S S U E P O O L ********************************************************** */
