@@ -371,7 +371,11 @@ public class RealVal extends AbstractVal implements NumericVal{
     public double max(){
         return max;
     }
-    public double raw() { return rawValue; }
+    public double raw() {
+        if( Double.isNaN(rawValue))
+            return value;
+        return rawValue;
+    }
     /**
      * Calculate the average of all the values stored in the history
      * @return The average of the stored values
