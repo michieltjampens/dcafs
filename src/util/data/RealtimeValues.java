@@ -724,7 +724,7 @@ public class RealtimeValues implements Commandable {
 			return nv.asValueString();
 		if( nv.getClass() == RealVal.class) {
 			var rv = (RealVal)nv;
-			return unit.apply(rv.value(), rv.scale() );
+			return unit.apply(rv.raw(), rv.scale() );
 		}
 		return unit.apply(nv.value(), 0);
 	}
