@@ -211,7 +211,7 @@ public class TaskManagerPool implements Commandable {
                     return "Loaded " + cmds[1];
                 }
                 return "! Failed to load tasks from " + cmds[1];
-            case "reloadall":
+            case "reloadall": case "reload":
                 for(TaskManager tam : tasklists.values() ) {
                     var res = tam.reloadTasks();
                     if( !res ){
@@ -232,7 +232,7 @@ public class TaskManagerPool implements Commandable {
 
             case "restored":
                 if( tasklists.isEmpty())
-                    return "No taskmanagers active";
+                    return "No TaskManagers active";
                 if( cmds.length != 2)
                     return "Missing id";
 
