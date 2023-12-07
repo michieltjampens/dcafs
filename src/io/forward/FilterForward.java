@@ -26,9 +26,7 @@ public class FilterForward extends AbstractForward {
     protected ArrayList<Predicate<String>> rules = new ArrayList<>();// Rules that define the filters
     private final ArrayList<Writable> reversed = new ArrayList<>();
     private String delimiter = ",";
-    private int ignoreFalse =0;
-    private int freePasses=0;
-    private boolean negate=false;
+    private boolean negate=false; // If the filter is negated or not
 
     public FilterForward(String id, String source, BlockingQueue<Datagram> dQueue ){
         super(id,source,dQueue,null);
@@ -121,10 +119,6 @@ public class FilterForward extends AbstractForward {
         if( !readBasicsFromXml(filter) )
             return false;
 
-        var dig = XMLdigger.goIn(filter);
-
-        delimiter = dig.attr("delimiter",delimiter,true); // Allow for global delimiter
-        ignoreFalse = dig.attr("ignores",0);
         negate = dig.attr("negate",false);
 
 
@@ -309,21 +303,13 @@ public class FilterForward extends AbstractForward {
         for( Predicate<String> check : rules ){
             boolean result = check.test(data);
             if( !result || negate ){
-                if( freePasses==0 ) {
-                    if( debug )
-                        Logger.info(id+" -> "+data + " -> Failed");
-                    return false;
-                }else{
-                    freePasses--;
-                    if( debug )
-                        Logger.info(id+" -> "+data + " -> Free Pass");
-                    return true;
-                }
+                if( debug )
+                    Logger.info(id+" -> "+data + " -> Failed");
+                return false;
             }
         }
         if( debug )
             Logger.info(id+" -> "+data + " -> Ok");
-        freePasses = ignoreFalse;
         return true;
     }
     public static String getHelp(String eol){
