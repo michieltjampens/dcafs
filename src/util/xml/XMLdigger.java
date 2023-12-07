@@ -216,7 +216,7 @@ public class XMLdigger {
      * @return This object
      */
     public XMLdigger usePeek(){
-        last=peek;
+        stepDown(peek);
         valid = last!=null;
         return this;
     }
