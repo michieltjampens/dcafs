@@ -3,8 +3,10 @@ package das;
 import io.email.Email;
 import io.email.EmailSending;
 import io.Writable;
+import io.email.EmailWorker;
 import io.forward.EditorForward;
 import io.forward.FilterForward;
+import io.matrix.MatrixClient;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import util.cmds.AdminCmds;
@@ -24,21 +26,18 @@ import java.util.*;
 public class CommandPool {
 
 	private final ArrayList<Commandable> stopCommandable = new ArrayList<>(); // the ones that 'stop' sending data
-	private final HashMap<String,Commandable> commandables = new HashMap<>();
+	private final HashMap<String,Commandable> commandables = new HashMap<>(); // The regular ones
 	private final String workPath; // Working path for dcafs
 	private final Path settingsPath; // Path to the settings.xml
-
 	static final String UNKNOWN_CMD = "unknown command"; // Default reply if the requested cmd doesn't exist
-
 	private EmailSending sendEmail = null; // Object to send emails
-
 	private String shutdownReason=""; // The reason given for shutting down
 
 
 	/* ******************************  C O N S T R U C T O R *********************************************************/
 
 	public CommandPool(String workPath ){
-		this.workPath=workPath;
+		this.workPath = workPath;
 		settingsPath = Path.of(workPath,"settings.xml");
 		Logger.info("CommandPool started with workpath: "+workPath);
 	}
@@ -142,6 +141,7 @@ public class CommandPool {
 		boolean removeTelnetCodes=false;
 		String question = d.getData();
 
+		// If the question contains -r that means it shouldn't contain telnet code
 		if( question.contains( " -r")){
 			removeTelnetCodes=true;
 			question=question.replace(" -r","");
@@ -165,9 +165,76 @@ public class CommandPool {
 			split[0]=question;
 		}
 		split[0]=split[0].toLowerCase(); // make sure the cmd is in lowercase
-		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
 
-		result = switch (split[0]) { // check if it's a built-in cmd instead of a commandable one
+		result = checkLocalCommandables(split,wr,html);// First check the standard commandables
+
+		if( result.equals(UNKNOWN_CMD)) // Meaning not a standard first cmd
+			result = checkCommandables(split[0],split[1],wr,html,d);// Check the stored Commandables
+
+		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
+			result = checkTaskManagers(split[0],split[1],wr,html); // Check if it matches the id of a TaskManager
+
+		if( result.equals(UNKNOWN_CMD)) // Check if any result so far
+			result = "! No such cmd group: |"+ split[0]+"|"; // No result, so probably bad cmd
+
+		if( result.startsWith("! No such cmd group") ){
+			if( result.contains("matrix")){
+				if( split[1].equals("add")) {
+					if( MatrixClient.addBlankElement(settingsPath) ) {
+						result = "Blank matrix element added to settings.xml, go fill it in!";
+					}else{
+						result = "! No valid settings.xml?";
+					}
+				}else{
+					result = "! No matrix yet, only available cmd is 'matrix:add' to add element to xml";
+				}
+			}else if( result.contains("email")){
+				if( split[1].equals("add")) {
+					if( EmailWorker.addBlankElement(settingsPath,true,false) ) {
+						result = "Blank email element added to settings.xml, go fill it in!";
+					}else{
+						result = "! No valid settings.xml?";
+					}
+				}else{
+					result = "! No email yet, only available cmd is 'email:add' to add element to xml";
+				}
+			}
+		}
+		if( wr!=null && !wr.id().contains("telnet"))
+			removeTelnetCodes=true;
+
+		if( removeTelnetCodes ){ // Remove the telnetcodes
+			result = TelnetCodes.removeCodes(result);
+		}
+
+		if( wr!=null ) { // If a writable was given
+			if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
+				wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origin in front
+			}else if (wr.id().startsWith("file:")) { // if the target is a file
+				result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
+				result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
+				wr.writeLine(result); // send the result
+			}else if(!d.isSilent()) { // Check if the receiver actually wants the reply
+				wr.writeLine(d.getOriginID(),result);
+			}
+		}
+		// If the receiver is a telnet session, change coloring on short results based on a ! prepended (! means bad news)
+		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
+			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
+
+		return result + (html ? "<br>" : "\r\n");
+	}
+
+	/**
+	 * Checks if the cmd/question is for a standard commandable
+	 * @param split the question split on :
+	 * @param wr The writable of the object that asked the question (if any)
+	 * @param html True means the answer should use html
+	 * @return The answer
+	 */
+	private String checkLocalCommandables(String[] split, Writable wr,boolean html){
+		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
+		return switch (split[0]) { // check if it's a built-in cmd instead of a commandable one
 			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"),workPath, html);
 			case "help", "h", "?" -> doHelp(split, eol);
 			case "upgrade" -> doUPGRADE(split, wr, eol);
@@ -206,40 +273,16 @@ public class CommandPool {
 			}
 			default -> UNKNOWN_CMD;
 		};
-
-		if( result.equals(UNKNOWN_CMD)) // Meaning not a standard first cmd
-			result = checkCommandables(split[0],split[1],wr,html,d);// Check the stored Commandables
-
-		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
-			result = checkTaskManagers(split[0],split[1],wr,html); // Check if it matches the id of a taskmanager
-
-		if( result.equals(UNKNOWN_CMD)) // Check if any result so far
-			result = "! No such cmd group: |"+ split[0]+"|"; // No result, so probably bad cmd
-
-		if( wr!=null && !wr.id().contains("telnet"))
-			removeTelnetCodes=true;
-
-		if( removeTelnetCodes ){ // Remove the telnetcodes
-			result = TelnetCodes.removeCodes(result);
-		}
-
-		if( wr!=null ) { // If a writable was given
-			if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
-				wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origin in front
-			}else if (wr.id().startsWith("file:")) { // if the target is a file
-				result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
-				result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
-				wr.writeLine(result); // send the result
-			}else if(!d.isSilent()) { // Check if the receiver actually wants the reply
-				wr.writeLine(d.getOriginID(),result);
-			}
-		}
-		// If the receiver is a telnet session, change coloring on short results based on a ! prepended (! means bad news)
-		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
-			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
-
-		return result + (html ? "<br>" : "\r\n");
 	}
+	/**
+	 * Check the list of Commandable's for the matching one and ask the question
+	 * @param cmd The cmd (group)
+	 * @param question The question to ask
+	 * @param wr The writable of the object asking the question (if any)
+	 * @param html True means the answer should use html
+	 * @param d The original datagram send to ask the question
+	 * @return The answer
+	 */
 	private String checkCommandables(String cmd, String question, Writable wr, boolean html, Datagram d){
 		final String f = cmd.replaceAll("\\d+","_"); // For special ones like sending data
 		var cmdOpt = commandables.entrySet().stream()
@@ -265,16 +308,26 @@ public class CommandPool {
 		}
 		return UNKNOWN_CMD;
 	}
-	private String checkTaskManagers(String cmd, String question, Writable wr,boolean html){
+
+	/**
+	 * If the cmd didn't have a corresponding commandable, check if there's a TaskManager of which the ID matches the cmd.
+	 * If so, the question is the task(set) to execute.
+	 * @param tmId The TaskManager id to look for
+	 * @param taskId The task(set) id
+	 * @param wr The writable of the object asking the question (if any)
+	 * @param html True means the answer should use html
+	 * @return The answer
+	 */
+	private String checkTaskManagers(String tmId, String taskId, Writable wr,boolean html){
 		var nl = html ? "<br>" : "\r\n";
 
-		String res = switch (question) {
-			case "?", "list" -> doCmd("tm", cmd + ",sets", wr) + nl + doCmd("tm", cmd + ",tasks", wr);
-			case "reload" -> doCmd("tm", cmd+",reload", wr);
-			default -> doCmd("tm", cmd+",run,"+ question, wr);
+		String res = switch (taskId) {
+			case "?", "list" -> doCmd("tm", tmId + ",sets", wr) + nl + doCmd("tm", tmId + ",tasks", wr);
+			case "reload" -> doCmd("tm", tmId+",reload", wr);
+			default -> doCmd("tm", tmId+",run,"+ taskId, wr);
 		};
 		if (!res.toLowerCase().startsWith("! no such taskmanager") &&
-				!(res.toLowerCase().startsWith("! no taskmanager") && question.split(":").length==1))
+				!(res.toLowerCase().startsWith("! no taskmanager") && taskId.split(":").length==1))
 			return res;
 		return UNKNOWN_CMD;
 	}

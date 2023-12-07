@@ -237,13 +237,13 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	/**
 	 * This creates the bare settings in the xml
 	 * 
-	 * @param fab An XMLfab to build upon
+	 * @param settingsPath Path to the settings.xml
 	 * @param sendEmails Whether to include sending emails
 	 * @param receiveEmails Whether to include checking for emails
 	 * @return True if changes were written to the xml
 	 */
-	public static boolean addBlankEmailToXML( XMLfab fab, boolean sendEmails, boolean receiveEmails ){
-		
+	public static boolean addBlankElement(Path settingsPath, boolean sendEmails, boolean receiveEmails ){
+		var fab = XMLfab.withRoot(settingsPath, "dcafs","settings");
 		if( fab.getChild("email").isPresent() ) // Don't overwrite if already exists?
 			return false;
 
@@ -422,7 +422,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
 
 		if( args.equalsIgnoreCase("addblank") ){
-			if( EmailWorker.addBlankEmailToXML(  XMLfab.withRoot(settingsPath, "settings"), true,true) )
+			if( EmailWorker.addBlankElement(  settingsPath, true,true) )
 				return "Adding default email settings";
 			return "! Failed to add default email settings";
 		}

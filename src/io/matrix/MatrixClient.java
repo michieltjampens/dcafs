@@ -935,6 +935,20 @@ public class MatrixClient implements Writable, Commandable {
             }
         }
     }
+    public static boolean addBlankElement( Path settingsPath ){
+        if( Files.notExists(settingsPath))
+            return false;
+        var fab = XMLfab.withRoot(settingsPath, "dcafs", "matrix");
+        fab.attr("user","@:matrix.org").attr("pass")
+                .addChild("server","")
+                .addChild("room").attr("id").down()
+                .addChild("url",":matrix.org")
+                .addChild("entering", "Hello!")
+                .addChild("leaving", "Bye :(")
+                .addChild("greet", "Welcome");
+        fab.build();
+        return true;
+    }
     public String payloadCommand( String cmd, String args, Object payload){
         return "! No such cmds in "+cmd;
     }
