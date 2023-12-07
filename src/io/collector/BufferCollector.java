@@ -8,9 +8,8 @@ import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * The purpose of this class is to provide an endpoint to collect the data from a stream.
- * Once the set amount of messages were received or the time out occurred
- *
- *  It's considered a collector because data arriving at it doesn't go any further.
+ * Once the set amount of messages were received or the time-out occurred
+ * It's considered a collector because data arriving at it doesn't go any further.
  */
 public class BufferCollector extends AbstractCollector {
     

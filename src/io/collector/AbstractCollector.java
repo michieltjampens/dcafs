@@ -13,7 +13,7 @@ public abstract class AbstractCollector implements Writable {
 
     protected String id;                                                        // unique identifier
     protected final ArrayList<CollectorFuture> listeners = new ArrayList<>();   // collection of the listeners
-    protected String source="";                                                 // The command that provide the data to the collector
+    protected String source="";                                                 // The command that provides the data to the collector
     protected boolean valid=true;                                               // boolean to indicate that this collector wants to collect
     protected ScheduledFuture<?> timeoutFuture;                        // the future of the timeout submit in order to cancel it
     protected long secondsTimeout=0;
