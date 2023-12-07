@@ -67,7 +67,7 @@ public class XMLdigger {
     }
 
     /**
-     * Try to follow successive child elements in the xml. If successfull, the digger wil be at the last element.
+     * Try to follow successive child elements in the xml. If successfully, the digger wil be at the last element.
      * If not, it will have invalidated the digger.
      * @param tags The successive tags to follow
      * @return This - now possibly invalid - digger
@@ -233,17 +233,30 @@ public class XMLdigger {
             root = (Element)root.getParentNode();
         }
     }
+
+    /**
+     * First make the digger valid again and then try to go to the parent element with the given tag
+     * @param tag The tag to look for
+     * @return True when found.
+     */
     public boolean goUp( String tag ){
         peeked=false;
+        if( root==null)
+            return false;
+        valid=true;
+        last = root;
         while( !last.getTagName().equalsIgnoreCase(tag)) {
-            last = root;
             var parent = (Element) root.getParentNode();
             if (validated(parent != null)) {
-                root = (Element) root.getParentNode();
+                root = parent;
+                last=root;
             }else{
                 valid=false;
             }
         }
+        var parent = (Element) root.getParentNode();
+        if( parent!=null)
+            root=parent;
         return valid;
     }
     /**
@@ -332,9 +345,9 @@ public class XMLdigger {
     }
 
     /**
-     * Get a list of all elements that result from digging to the tag, this won't invalidate the digger.
+     * Get a list of all elements that result from digging to the tag, this might invalidate the digger.
      * @param tag The tag to dig for
-     * @return The elements found or an empty list if none or invalid digger without invalidating it.
+     * @return The elements found or an empty list if none.
      */
     public ArrayList<XMLdigger> digOut( String tag ){
         var temp = new ArrayList<XMLdigger>();
