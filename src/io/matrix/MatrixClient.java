@@ -940,7 +940,7 @@ public class MatrixClient implements Writable, Commandable {
             return false;
         var fab = XMLfab.withRoot(settingsPath, "dcafs", "matrix");
         fab.attr("user","@:matrix.org").attr("pass")
-                .addChild("server","")
+                .addChild("server","matrix-client.matrix.org")
                 .addChild("room").attr("id").down()
                 .addChild("url",":matrix.org")
                 .addChild("entering", "Hello!")
