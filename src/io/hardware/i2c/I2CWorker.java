@@ -207,7 +207,7 @@ public class I2CWorker implements Commandable {
             }
             var script = dig.attr("script","");
             var defOut = dig.attr("output","dec");
-            dig.digOut("command").forEach( c -> {
+            dig.digOut("command").forEach( c -> { // dig out can invalidate, but it's last use anyway
                 I2CCommand cmd = new I2CCommand();
 
                 String cmdID = c.attr( "id", "");

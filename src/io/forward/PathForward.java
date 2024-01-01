@@ -266,7 +266,7 @@ public class PathForward {
     }
     public void clearStores(){
         if( stepsForward!=null)
-            stepsForward.forEach( x -> x.clearStore(rtvals));
+            stepsForward.forEach( x -> x.removeStoreVals(rtvals));
     }
     public ArrayList<ValStore> getStores(){
         ArrayList<ValStore> stores = new ArrayList<>();

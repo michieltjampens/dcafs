@@ -6,7 +6,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.AbstractVal;
 import util.data.RealtimeValues;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.util.ArrayList;
@@ -16,12 +16,9 @@ import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
 public class CmdForward extends AbstractForward implements Writable {
-    private ArrayList<Cmd> cmds = new ArrayList<>();
+    private final ArrayList<Cmd> cmds = new ArrayList<>();
     private String delimiter="";
 
-    protected CmdForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals) {
-        super(id, source, dQueue, rtvals);
-    }
     public CmdForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals  ){
         super(dQueue,rtvals);
         readOk = readFromXML(ele);
@@ -45,14 +42,13 @@ public class CmdForward extends AbstractForward implements Writable {
 
     @Override
     public boolean readFromXML(Element fwd) {
-        if( !readBasicsFromXml(fwd) )
+        var dig = XMLdigger.goIn(fwd);
+        // First read the basics (things common to all forwards)
+        if( !readBasicsFromXml(dig) )
             return false;
 
-        var tag = fwd.getTagName();
-        delimiter = XMLtools.getStringAttribute(fwd,"delimiter",delimiter);
-
-        if( tag.equalsIgnoreCase("cmds")){ // meaning multiple
-            XMLtools.getChildElements(fwd,"cmd").forEach( cmd -> cmds.add(new Cmd(cmd.getTextContent())));
+        if( fwd.getTagName().equals("cmds")){ // meaning multiple
+            dig.peekOut("cmd").forEach( cmd -> cmds.add(new Cmd(cmd.getTextContent())));
         }else{
             cmds.add(new Cmd(fwd.getTextContent()));
         }

@@ -170,11 +170,4 @@ public class EditorCmds {
         }
         return "unknown type: "+type;
     }
-    private XMLfab addEditNode( XMLfab fab, String type, String value, boolean build){
-        fab.addChild("edit",value).attr( "type",type)
-                .attr("delimiter",",");
-        if( build )
-            fab.build();
-        return fab;
-    }
 }

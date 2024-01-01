@@ -8,7 +8,6 @@ import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.ValStore;
 import util.database.QueryWriting;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -252,21 +251,8 @@ public class PathPool implements Commandable {
             }
         }
     }
-    private void removePath(String id){
-        var p = paths.get(id);
-        if( p!=null){
-            p.clearStores(); // reset the used stores
-            paths.remove(id);
-        }
-    }
     private void clearStores(){
         paths.values().forEach(PathForward::clearStores);
     }
-    public ArrayList<ValStore> getStores(){
-        ArrayList<ValStore> stores = new ArrayList<>();
-        for( PathForward pf : paths.values()){
-            stores.addAll(pf.getStores());
-        }
-        return stores;
-    }
+
 }

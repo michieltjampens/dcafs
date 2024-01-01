@@ -6,7 +6,7 @@ import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.database.TableInsert;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.nio.file.Path;
@@ -26,20 +26,21 @@ public abstract class AbstractForward implements Writable {
     protected final ArrayList<String> cmds = new ArrayList<>();            // Commands to execute after processing
     protected final ArrayList<Writable> targets = new ArrayList<>();       // To where the data needs to be send
     protected final ArrayList<String[]> rulesString = new ArrayList<>();   // Readable info regarding rules
-    protected ArrayList<TableInsert> tableInserters = new ArrayList<>();
+    protected ArrayList<TableInsert> tableInserters = new ArrayList<>();   // Links to database table for inserting data
     protected String id="";                                   // The identifier for this object
     protected final ArrayList<String> sources = new ArrayList<>();  // The commands that provide the data to filter
     protected boolean valid = false;           // Flag that determines of data should be received or not
     protected boolean debug = false;           // Flag that outputs more in the console for debugging purposes
     protected Path xml;                        // Path to the xml file containing the info
     protected int badDataCount=0;               // Keep track of the amount of bad data received
-    protected boolean log = false;
-    protected final RealtimeValues rtvals;
-    protected ValStore store;
+    protected boolean log = false;              // Log to raw files or not
+    protected final RealtimeValues rtvals;      // Link to rtvals for getting/settings realtime data
+    protected ValStore store;                   // A Store that holds links to rtvals used by the forward
     protected boolean readOk=false;
     public enum RESULT{ERROR,EXISTS,OK}
     protected boolean inPath=true;
     protected boolean parsedOk=true;
+    protected String delimiter = ","; // Delimiter to use for splitting
 
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
@@ -55,18 +56,11 @@ public abstract class AbstractForward implements Writable {
     public void setDebug( boolean debug ){
         this.debug=debug;
     }
-    public void enableDebug(){
-        debug=true;
-    }
-    public void disableDebug(){
-        debug=false;
-    }
     /**
-     * Add a source of data for this FilterWritable can be any command
-     * @param source The command that provides the data eg. raw:... calc:... etc
-     * @return True if the source is new, false if not
+     * Add a source of data for this forward, it can be any command
+     * @param source The command that provides the data fe. raw:... calc:... etc
      */
-    public boolean addSource( String source ){
+    public void addSource(String source ){
         if( !sources.contains(source) && !source.isEmpty()){
             sources.add(source);
             Logger.info(id() +" -> Adding source "+source);
@@ -74,17 +68,11 @@ public abstract class AbstractForward implements Writable {
                 Logger.info(id() +" -> Requesting data from "+source);
                 dQueue.add( Datagram.system( source ).writable(this) );
             }
-            return true;
         }
-        return false;
-    }
-    public void removeSources(){ sources.clear();}
-    public void removeSource( String source ){
-        sources.remove(source);
     }
     /**
-     * Add a writable that the result of the filter should be written to
-     * @param target The writable the result of the filter will be written to
+     * Add a writable that the result of the forward should be written to
+     * @param target The writable the result of the forward will be written to
      */
     public synchronized void addTarget( Writable target ){
         if( target.id().isEmpty()) {
@@ -95,7 +83,7 @@ public abstract class AbstractForward implements Writable {
             if( !valid ){
                 valid=true;
                 if( !inPath)
-                    sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+                    sources.forEach( source -> dQueue.add( Datagram.system( source ).writable(this) ) );
             }
             if( target.id().startsWith("telnet")) {
                 targets.add(0,target);
@@ -127,9 +115,7 @@ public abstract class AbstractForward implements Writable {
     public ArrayList<Writable> getTargets(){
         return targets;
     }
-    /**
-     * The forward will request to be deleted if there are no writables to write to
-     */
+
     public String toString(){
 
         StringJoiner join = new StringJoiner("\r\n" );
@@ -146,8 +132,8 @@ public abstract class AbstractForward implements Writable {
         return join.toString();
     }
     /**
-     * Get a readable list of the filter rules
-     * @return Te list of the rules
+     * Get a readable list of the rules
+     * @return The listing of the rules
      */
     public String getRules(){
         int index=0;
@@ -168,34 +154,41 @@ public abstract class AbstractForward implements Writable {
         }
         return join.toString();
     }
-    protected boolean readBasicsFromXml( Element fw ){
+    protected boolean readBasicsFromXml( XMLdigger dig ){
 
-        if( fw==null) { // Can't work if this is null
+        if( dig==null) { // Can't work if this is null
             parsedOk=false;
             return false;
         }
         /* Attributes */
-        id = XMLtools.getStringAttribute( fw, "id", "");
+        id = dig.attr("id","");
         if( id.isEmpty() ) {// Cant work without id
             parsedOk=false;
             return false;
         }
-        log = XMLtools.getBooleanAttribute(fw,"log",false);
+        // Read the delimiter and taking care of escape codes
+        delimiter=dig.attr("delimiter",delimiter,true);
+        delimiter=dig.attr("delim",delimiter,true); // Could have been shortened
 
+        log = dig.attr("log",false); // Logging to raw files or not
         if( log ){ // this counts as a target, so enable it
             valid=true;
         }
 
         /* Sources */
         sources.clear();
-        addSource(XMLtools.getStringAttribute( fw, "src", ""));
-        XMLtools.getChildElements(fw, "src").forEach( ele ->sources.add(ele.getTextContent()) );
+        addSource(dig.attr("src", ""));
+        dig.peekOut("src").forEach( ele ->sources.add(ele.getTextContent()) );
 
         rulesString.clear();
         Logger.info(id+" -> Reading from xml");
         return true;
     }
 
+    /**
+     * Set the store that is filled in with the result of this forward
+     * @param store The store to use
+     */
     public void setStore( ValStore store ){
         this.store=store;
         if( !valid && store!=null){
@@ -203,21 +196,30 @@ public abstract class AbstractForward implements Writable {
             sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
         }
     }
+
+    /**
+     * Get the store that is filled in with the result of this forward.
+     * @return The store if any or an empty optional if none.
+     */
     public Optional<ValStore> getStore(){
         return Optional.ofNullable(store);
     }
-    public void clearStore(RealtimeValues rtv){
+
+    /**
+     * Remove the vals associated with this store from the global pool of vals.
+     * @param rtv The global pool to remove them from
+     */
+    public void removeStoreVals(RealtimeValues rtv){
         if( store!=null)
             store.removeRealtimeValues(rtv);
     }
+
+    /**
+     * Add a table insert link to this forward that is needed for the store
+     * @param ti The table insert to add.
+     */
     public void addTableInsert( TableInsert ti ){
         tableInserters.add(ti);
-    }
-    public void addAfterCmd( String cmd){
-        cmds.add(cmd);
-    }
-    public boolean hasParsed(){
-        return parsedOk;
     }
     /* *********************** Abstract Methods ***********************************/
     /**

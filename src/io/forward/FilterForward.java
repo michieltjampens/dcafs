@@ -10,7 +10,6 @@ import util.math.MathUtils;
 import util.taskblocks.CheckBlock;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.util.ArrayList;
@@ -25,7 +24,6 @@ public class FilterForward extends AbstractForward {
 
     protected ArrayList<Predicate<String>> rules = new ArrayList<>();// Rules that define the filters
     private final ArrayList<Writable> reversed = new ArrayList<>();
-    private String delimiter = ",";
     private boolean negate=false; // If the filter is negated or not
 
     public FilterForward(String id, String source, BlockingQueue<Datagram> dQueue ){
@@ -115,32 +113,32 @@ public class FilterForward extends AbstractForward {
      */
     public boolean readFromXML( Element filter ){
         parsedOk=true;
-
-        if( !readBasicsFromXml(filter) )
+        var dig = XMLdigger.goIn(filter);
+        if( !readBasicsFromXml(dig) )
             return false;
 
         negate = dig.attr("negate",false);
-
 
         rules.clear();
         // For a filter with multiple rules
         if( dig.hasPeek("rule")){ // if rules are defined as nodes
             // Process all the types except 'start'
-            dig.peekOut("rule")
-                    .stream()
-                    .filter( rule -> !rule.getAttribute("type").equalsIgnoreCase("start"))
+            var ruleDigs = dig.digOut("rule");
+            dig.goUp(); // Go back up after down to rule
+
+            ruleDigs.stream()
+                    .filter( rule -> !rule.attr("type","").equalsIgnoreCase("start"))
                     .forEach( rule -> {
-                        String delimiter = XMLtools.getEscapedStringAttribute(rule,"delimiter",this.delimiter);
-                        addRule( rule.getAttribute("type"), rule.getTextContent(),delimiter);
+                        String delimiter = rule.attr("delimiter",this.delimiter);
+                        addRule( rule.attr("type",""), rule.value(""),delimiter);
                     } );
 
             ArrayList<String> starts = new ArrayList<>();
 
             // Process all the 'start' filters
-            dig.peekOut("rule")
-                    .stream()
-                    .filter( rule -> rule.getAttribute("type").equalsIgnoreCase("start"))
-                    .forEach( rule -> starts.add( rule.getTextContent() ) );
+            ruleDigs.stream()
+                    .filter( rule -> rule.attr("type","").equalsIgnoreCase("start"))
+                    .forEach( rule -> starts.add( rule.value("") ) );
 
             if( starts.size()==1){
                 addRule( "start", starts.get(0));
@@ -214,8 +212,8 @@ public class FilterForward extends AbstractForward {
         }
         return 1;
     }
-    public int addRule( String type, String value){
-        return addRule(type,value,"");
+    public void addRule(String type, String value){
+        addRule(type, value, "");
     }
 
     /* Filters */

@@ -95,13 +95,13 @@ public class TaskManager implements CollectorFuture {
 	}
 
 	/**
-	 * Add the Streampool to the TaskManager if it needs to interact with
+	 * Add the StreamManager to the TaskManager if it needs to interact with
 	 * streams/channels
 	 * 
-	 * @param streampool The streampool to set
+	 * @param streammanager The streammanager to set
 	 */
-	public void setStreamPool(StreamManager streampool) {
-		this.streams = streampool;
+	public void setStreamPool(StreamManager streammanager) {
+		this.streams = streammanager;
 	}
 
 	public void setCommandReq(CommandPool commandPool) {

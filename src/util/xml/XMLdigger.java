@@ -236,13 +236,13 @@ public class XMLdigger {
 
     /**
      * First make the digger valid again and then try to go to the parent element with the given tag
+     *
      * @param tag The tag to look for
-     * @return True when found.
      */
-    public boolean goUp( String tag ){
+    public void goUp(String tag ){
         peeked=false;
         if( root==null)
-            return false;
+            return;
         valid=true;
         last = root;
         while( !last.getTagName().equalsIgnoreCase(tag)) {
@@ -257,7 +257,6 @@ public class XMLdigger {
         var parent = (Element) root.getParentNode();
         if( parent!=null)
             root=parent;
-        return valid;
     }
     /**
      * Force this digger to be invalid

@@ -25,7 +25,6 @@ import java.util.regex.Pattern;
 
 public class MathForward extends AbstractForward {
 
-    private String delimiter = ",";
     private String suffix="";
 
     private final ArrayList<Operation> ops = new ArrayList<>();
@@ -49,18 +48,6 @@ public class MathForward extends AbstractForward {
         super(dQueue,rtvals);
         valid = rtvals!=null;
     }
-    /**
-     * Alter the delimiter used
-     * @param deli The new delimiter to use, fe. \x09  or \t is also valid for a tab
-     */
-    public void setDelimiter( String deli ){
-        if( deli.contains("\\")){
-            delimiter = Tools.fromEscapedStringToBytes(deli);
-        }else{
-            delimiter = deli;
-        }
-    }
-
     @Override
     public String getRules(){
         int index=0;
@@ -91,7 +78,8 @@ public class MathForward extends AbstractForward {
     @Override
     public boolean readFromXML(Element math) {
         parsedOk=true;
-        if( !readBasicsFromXml(math) )
+        var dig = XMLdigger.goIn(math);
+        if( !readBasicsFromXml(dig) )
             return false;
 
         // Reset the references
@@ -99,8 +87,6 @@ public class MathForward extends AbstractForward {
             referencedNums.clear();
 
         highestI=-1;
-        var dig = XMLdigger.goIn(math);
-        setDelimiter( dig.attr("delimiter", delimiter));
         suffix = dig.attr("suffix","");
         defines.clear();
         ops.clear();

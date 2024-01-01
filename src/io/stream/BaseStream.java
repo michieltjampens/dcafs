@@ -94,12 +94,14 @@ public abstract class BaseStream {
         }
         // cmds
         triggeredActions.clear();
-        for( var cmd : dig.digOut("cmd") ){
-            var c=cmd.value("");
-            if( !c.isEmpty())
-                triggeredActions.add(new TriggerAction(dig.attr("when","open"), c));
+        if( dig.hasPeek("cmd") ) {
+            for (var cmd : dig.digOut("cmd")) {
+                var c = cmd.value("");
+                if (!c.isEmpty())
+                    triggeredActions.add(new TriggerAction(dig.attr("when", "open"), c));
+            }
+            dig.goUp();
         }
-        dig.goUp();
         for( var write : dig.digOut("write") ){
             String c = write.value("");
             if( !c.isEmpty())
