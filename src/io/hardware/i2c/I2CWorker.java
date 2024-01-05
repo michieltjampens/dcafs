@@ -192,7 +192,7 @@ public class I2CWorker implements Commandable {
     private String reloadSets( ){
         List<Path> xmls;
         try (Stream<Path> files = Files.list(scriptsPath)){
-            xmls = files.filter(p -> p.toString().endsWith(".xml")).collect(Collectors.toList());
+            xmls = files.filter(p -> p.toString().endsWith(".xml")).toList();
         }catch (IOException e) {            
             Logger.error("Something went wrong trying to read the commandset files");
             return "Failed to read files in i2cscripts folder";
@@ -550,7 +550,7 @@ public class I2CWorker implements Commandable {
                 opt.ifPresent(d -> d.storeInXml(XMLfab.withRoot(settingsPath, "dcafs", "settings").digRoot("i2c")));
 
                 // Check if the script already exists, if not build it
-                var p = scriptsPath.resolve(cmds[4] + ".xml");
+                var p = scriptsPath.resolve(cmds[4] + (cmds[4].endsWith(".xml")?"":".xml"));
                 if (!Files.exists(p)) {
                     XMLfab.withRoot(p, "commandset").attr("script", cmds[4])
                             .addParentToRoot("command", "An empty command to start with")
