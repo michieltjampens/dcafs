@@ -6,12 +6,25 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc?
-- pf:reload doesn't seem to reload the db tag of a store?
+- pf:reload doesn't seem to reload the db tag of a store? 
+- pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
 ## 2.8.0
 - Fixed, Matrix out of bounds when sending something without room url etc.
 - IntVal, now accepts real for parsing if 'allowreal' attribute is set to true. Will round according to math rules. Will
 now give an error if this or regular parsing fails.
+- Rewrote I2C code
+
+### I2C
+- Rewrite in progress, mainly to make the code easier to understand and adapt. All the basics work.
+  - Read/Write/alter registers, delay before executing read.
+- Now allow for read data to be split according to bit list, fe. 8,20,20,8 means read 7 bytes and split those according 
+to that sequence.
+- Removed use of label 
+- Can now use math and store node inside the scripts, for now the store must be after a math
+
+### Admin cmds
+- Added a cmd that uses phytool to power down or up a phy, could be used to save power.
 
 ### Vals
 - Added 'Dynamic Units' so it's possible to alter the unit depending on the amount.
@@ -33,7 +46,7 @@ There are two options, either 'step' for integers or 'level' for real
 So an input of 3962s will result in 1h6m2s shown instead.
 Or an input of 1400Hz will result in 1400Hz 
     but 1840mA will become 1.840kHz
-    and 1245358Hz will becom 1.245MHz, scale is taken from the realval 
+    and 1245358Hz will become 1.245MHz, scale is taken from the realval 
 -->
 ```
 
