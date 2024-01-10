@@ -21,6 +21,10 @@
 *.rar
 *.sqlite
 
+/target/
+/todo/
+/paths/
+/i2cscripts/
 #IntelliJ
 .idea/
 
