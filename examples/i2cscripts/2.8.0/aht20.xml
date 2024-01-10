@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<commandset script="aht20">
+	<command id="status" info="Read the status register" bits="8">
+		<read reg="0x71" return="1"/> <!-- If it returns 0x18 then device is ready -->
+	</command>
+	<command id="sample" info="Get a temp/hum measurement">
+		<write reg="0xAC">0x33 0x00</write> <!-- Trigger a conversion -->
+		<read delay="100ms" reg="0x71" bitsplit="8,20,20,8"/> <!-- Wait 100ms before reading result -->
+		<!--
+			8bits  -> i0 -> status (ignoring)
+			20bits -> i1 -> raw humidity
+			20bits -> i2 -> raw temperature
+			8bits  -> i3 -> crc (ignoring)
+		-->
+		<math>
+			<op>i1=(i1/2^20)*100</op> <!-- Raw humidity to percentage -->
+			<op>i2=(i2/2^20)*200-50</op> <!-- Raw temperature to °C -->
+		</math>
+		<store group="aht">
+			<real i="1" name="humidity" scale="1" unit="%"/>
+			<real i="2" name="temperature" scale="2" unit="°C"/>
+		</store>
+	</command>
+</commandset>
