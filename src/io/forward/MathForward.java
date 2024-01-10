@@ -44,9 +44,9 @@ public class MathForward extends AbstractForward {
         super(dQueue,rtvals);
         valid = readFromXML(ele);
     }
-    public MathForward(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
-        super(dQueue,rtvals);
-        valid = rtvals!=null;
+    public MathForward( Element ele, RealtimeValues rtvals ){
+        super(null,rtvals);
+        valid = readFromXML(ele);
     }
     @Override
     public String getRules(){
@@ -275,6 +275,75 @@ public class MathForward extends AbstractForward {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Alternative addData method that takes integers and just does the math.
+     * @param numbers The number to apply the ops to
+     * @return An optional Double array with the results
+     */
+    public ArrayList<Double> addData( ArrayList<Integer> numbers ){
+        // First check if the operations are actually valid
+        if( !valid ){
+            showError("Not processing data because the operations aren't valid");
+            return new ArrayList<>();
+        }
+
+        // Then make sure there's enough items in split
+        if( numbers.size() < highestI+1){ // Need at least one more than the highestI (because it starts at 0)
+            showError("Need at least "+(highestI+1)+" items, got "+numbers.size() );
+            return new ArrayList<>();
+        }
+
+        // Convert the split data to bigdecimals
+        BigDecimal[] bds = new BigDecimal[numbers.size()];
+        try {
+            for( int a=0;a<numbers.size();a++)
+                bds[a]= BigDecimal.valueOf(numbers.get(a));
+        }catch(Exception e){
+            Logger.error(e);
+            return new ArrayList<>();
+        }
+
+        // After doing all possible initial test, do the math
+        int cnt=0;
+        for( var op : ops ){
+            var res = op.solve(bds);
+            if (res == null) {
+                cnt++;
+                showError(cnt==1,"(mf) -> Failed to process " + numbers + " for "+op.ori);
+            }
+        }
+        if( cnt > 0 ) {
+            Logger.error(id+"(mf) -> Issues during math, returning empty array");
+            return new ArrayList<>();
+        }
+        // If we got to this point, processing went fine so reset badcounts
+        if( badDataCount !=0 )
+            Logger.info(id+" (mf) -> Executed properly after previous issues, resetting bad count" );
+        badDataCount=0;
+
+        if( debug ){ // extra info given if debug is active
+            Logger.info(id()+" -> Before: "+numbers);   // how the data looked before
+            Logger.info(id()+" -> After:  "+Arrays.toString(bds)); // after applying the operations
+        }
+
+        if( log )
+            Logger.tag("RAW").info( id() + "\t" + Arrays.toString(bds));
+
+        ArrayList<Double> results = new ArrayList<>();
+        for (BigDecimal bd : bds) results.add(bd.doubleValue());
+
+        if( store!=null) {
+            for( int a=0;a<store.size();a++){
+                if( bds.length > a && bds[a] != null){
+                    store.setValueAt(a,bds[a]);
+                }
+            }
+            tableInserters.forEach(ti -> ti.insertStore(store.dbTable()) );
+            store.doCalVals();
+        }
+        return results;
     }
     /* ************************************** ADDING OPERATIONS **************************************************** */
     /**
