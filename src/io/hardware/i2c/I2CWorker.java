@@ -5,39 +5,43 @@ import com.diozero.api.DeviceBusyException;
 import com.diozero.api.I2CDevice;
 import com.diozero.api.RuntimeIOException;
 import io.Writable;
+import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
 import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.math.MathUtils;
+import util.data.RealtimeValues;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
+import worker.Datagram;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
 
 public class I2CWorker implements Commandable {
     private final HashMap<String, ExtI2CDevice> devices = new HashMap<>();
-    private final LinkedHashMap<String,I2CCommand> commands = new LinkedHashMap<>();
+    private final LinkedHashMap<String, I2COpSet> opSets = new LinkedHashMap<>();
 
     private boolean debug = false;
 
     private final Path scriptsPath; // Path to the scripts
     private final Path settingsPath; // Path to the settingsfile
-    private ExecutorService executor; // Executor to run the commands
+    private final EventLoopGroup eventloop; // Executor to run the commands
+    private final RealtimeValues rtvals;
+    private final BlockingQueue<Datagram> dQueue;
 
-    public I2CWorker(Path settings) {
+    public I2CWorker(Path settings, EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
         this.settingsPath=settings;
+        this.rtvals=rtvals;
+        this.eventloop=eventloop;
+        this.dQueue=dQueue;
         scriptsPath = settings.getParent().resolve("i2cscripts");
         readFromXML();
     }
@@ -71,7 +75,7 @@ public class I2CWorker implements Commandable {
      * @param address    The address the device had
      * @return The created device
      */
-    public Optional<ExtI2CDevice> addDevice(String id, String script, String label, int controller, int address) {
+    public Optional<ExtI2CDevice> addDevice(String id, String script, int controller, int address) {
 
         if( address==-1) {
             Logger.warn(id+" -> Invalid address given");
@@ -88,7 +92,7 @@ public class I2CWorker implements Commandable {
             return Optional.empty();
         }
         try{
-            devices.put(id, new ExtI2CDevice(id,controller, address, script, label));
+            devices.put(id, new ExtI2CDevice(id,controller, address, script));
             return Optional.of(devices.get(id));
         }catch( RuntimeIOException e){
             Logger.error("Probing the new device failed: "+address);
@@ -106,7 +110,7 @@ public class I2CWorker implements Commandable {
         join.add("\r\n-Stored scripts-");
         String last="";
 
-        for( var entry : commands.entrySet() ){
+        for( var entry : opSets.entrySet() ){
             String[] split = entry.getKey().split(":");
             var cmd = entry.getValue();
             if( !last.equalsIgnoreCase(split[0])){
@@ -115,9 +119,7 @@ public class I2CWorker implements Commandable {
                 join.add(TelnetCodes.TEXT_GREEN+split[0]+TelnetCodes.TEXT_DEFAULT);
                 last = split[0];
             }
-            join.add("\t"+split[1]+" -> "+cmd.getInfo()+" ("+cmd.bits+"bits)");
-            if( full)
-                join.add(cmd.toString("\t   "));
+            join.add(cmd.getOpsInfo("\t   ",full));
         }
         return join.toString();
     }
@@ -154,8 +156,7 @@ public class I2CWorker implements Commandable {
      * consists of devices with their commands.
      */
     private void readFromXML() {
-
-       /* var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
+        var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
         if( i2cOpt.isPresent() ){
             Logger.info("Found settings for a I2C bus");
             devices.values().forEach(I2CDevice::close);
@@ -171,11 +172,10 @@ public class I2CWorker implements Commandable {
 
                     String id = XMLtools.getStringAttribute( device, "id", "").toLowerCase();
                     String script = XMLtools.getStringAttribute( device, "script", "").toLowerCase();
-                    String label = XMLtools.getStringAttribute( device, "label", "void").toLowerCase();
                     
                     int address = Tools.parseInt( XMLtools.getStringAttribute( device , "address", "0x00" ),16);
 
-                    if( addDevice( id, script, label, bus, address ).isPresent() ){
+                    if( addDevice( id, script, bus, address ).isPresent() ){
                         Logger.info("Adding "+id+"("+address+") to the device list of controller "+bus);
                     }else{
                         Logger.error("Tried to add "+id+" to the i2c device list, but probe failed");
@@ -185,7 +185,7 @@ public class I2CWorker implements Commandable {
         }else{
             Logger.info("No settings found for I2C, no use reading the commandsets.");
             return;
-        }        */
+        }
         reloadSets();
     }
 
@@ -199,7 +199,7 @@ public class I2CWorker implements Commandable {
         }
         Logger.info("Reading I2C scripts from: "+scriptsPath);
 
-        commands.clear();
+        opSets.clear();
         for( Path p : xmls ){
             var dig = XMLdigger.goIn(p,"commandset");
             if( dig.isInvalid() ){
@@ -208,233 +208,10 @@ public class I2CWorker implements Commandable {
             var script = dig.attr("script","");
             var defOut = dig.attr("output","dec");
             dig.digOut("command").forEach( c -> { // dig out can invalidate, but it's last use anyway
-                I2CCommand cmd = new I2CCommand();
-
-                String cmdID = c.attr( "id", "");
-                cmd.setOutType( c.attr( "output",defOut) );
-                cmd.setInfo( c.attr( "info", "") );
-                cmd.setReadBits( c.attr( "bits", 8) );
-                cmd.setMsbFirst( c.attr( "msbfirst",true) );
-
-                c.peekOut("*").forEach( step -> {
-                    if( step.getTagName().equalsIgnoreCase("repeat")){
-                        cmd.addRepeat( NumberUtils.toInt(step.getAttribute("cnt")));
-                        for(Element sub : XMLtools.getChildElements(step))
-                            cmd.addStep(sub);
-                        cmd.addReturn();
-                    }else{
-                        cmd.addStep(step);
-                    }
-                });
-                commands.put( script+":"+cmdID,cmd);
+                opSets.put( script+":"+c.attr("id",""),new I2COpSet(c,rtvals,dQueue));
             });
         }
-        if( !commands.isEmpty() && executor==null ) // Only need the executor if there are actually commands
-            executor = Executors.newSingleThreadExecutor();
         return "All files ("+xmls.size()+") read ok.";
-    }
-    /* ***************************************************************************************************** */
-    /* ***************************************************************************************************** */
-    /**
-     * Converts an array of bytes to a list of ints according to the bits. Note that bytes aren't split in their nibbles
-     *   fe. 10bits means take the first two bytes and shift right, then take the next two
-     * @param bytes The array with the bytes to convert
-     * @param bits The amount of bits the int should use
-     * @param msbFirst If the msb byte comes first
-     * @param signed If the resulting int is signed
-     * @return The resulting ints
-     */
-    public static List<Integer> convertBytesToInt(byte[] bytes, int bits, boolean msbFirst, boolean signed){
-     
-        int[] intResults = new int[bytes.length];
-        ArrayList<Integer> ints = new ArrayList<>();
-
-        for( int a=0;a<bytes.length;a++){
-            intResults[a]=bytes[a]<0?bytes[a]+256:bytes[a];
-        }
-        int temp;
-        switch (bits) {
-            case 8 -> { // Direct byte -> unsigned int conversion
-                for (int a : intResults) {
-                    ints.add(signed ? MathUtils.toSigned8bit(a) : a);
-                }
-            }
-            //TODO Shift in the other direction and LSB/MSB first
-            case 10 -> { // take the full first byte and only the 2 MSB of the second
-                for (int a = 0; a < bytes.length; a += 2) {
-                    temp = intResults[a] * 4 + intResults[a + 1] / 64;
-                    ints.add(signed ? MathUtils.toSigned12bit(temp) : temp);
-                }
-            }
-            //TODO Shift in the other direction and LSB/MSB first
-            case 12 -> { // take the full first byte and only the MSB nibble of the second
-                for (int a = 0; a < bytes.length; a += 2) {
-                    temp = intResults[a] * 16 + intResults[a + 1] / 16;
-                    ints.add(signed ? MathUtils.toSigned12bit(temp) : temp);
-                }
-            }
-            case 16 -> { // Concatenate two bytes
-                for (int a = 0; a < bytes.length; a += 2) {
-                    if (msbFirst) {
-                        temp = intResults[a] * 256 + intResults[a + 1];
-                    } else {
-                        temp = intResults[a] + intResults[a + 1] * 256;
-                    }
-                    ints.add(signed ? MathUtils.toSigned16bit(temp) : temp);
-                }
-            }
-            //TODO Shift in the other direction?
-            case 20 -> { // Concatenate two bytes and take the msb nibble of the third
-                for (int a = 0; a < bytes.length; a += 3) {
-                    if (msbFirst) {
-                        temp = (intResults[a] * 256 + intResults[a + 1]) * 16 + intResults[a + 2] / 16;
-                    } else {
-                        temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 16 + intResults[a] / 16;
-                    }
-                    ints.add(signed ? MathUtils.toSigned20bit(temp) : temp);
-                }
-            }
-            case 24 -> { // Concatenate three bytes
-                for (int a = 0; a < bytes.length; a += 3) {
-                    if (msbFirst) {
-                        temp = (intResults[a] * 256 + intResults[a + 1]) * 256 + intResults[a + 2];
-                    } else {
-                        temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 256 + intResults[a];
-                    }
-                    ints.add(signed ? MathUtils.toSigned24bit(temp) : temp);
-                }
-            }
-            default -> Logger.error("Tried to use an undefined amount of bits " + bits);
-        }
-        return ints;
-    }
-    /**
-     * Executes the given commandset
-     * @param device The device to which to send the command
-     * @param com The command to send
-     * @return The bytes received as reply to the command
-     */
-    private synchronized List<Double> doCommand(ExtI2CDevice device, I2CCommand com, byte[] args  ) throws RuntimeIOException{
-
-        var result = new ArrayList<Double>();
-        device.probeIt();
-        device.updateTimestamp();
-        int repeat = 0;
-
-        if( com != null ){
-                var coms = com.getAll();
-                for( int a=0;a<coms.size();a++){ // Run te steps, one by one (in order)
-                    var cmd = coms.get(a);
-                    byte[] toWrite = cmd.write;
-
-                    switch (cmd.type) { // Type of subcommand
-                        case READ -> {
-                            byte[] b;
-                            try {
-                                int rd = cmd.readCount;
-                                if (rd < 1) {
-                                    rd *= -1; // index is stored as a negative number
-                                    if (rd < result.size()) {
-                                        rd = result.get(rd).intValue();
-                                    } else {
-                                        Logger.warn("Used invalid index of " + rd + " because result size " + result.size());
-                                        break;
-                                    }
-                                }
-                                while (rd > 0) {
-                                    if (toWrite.length == 1) {
-                                        // after writing the first byte, read readCount bytes and put in readBuffer
-                                        b = new byte[Math.min(rd, 32)];
-                                        device.readI2CBlockData(toWrite[0], b);
-                                    } else {
-                                        if (toWrite.length != 0)
-                                            device.writeBytes(toWrite); // write all the bytes in the array
-                                        b = device.readBytes(Math.min(rd, 32));
-                                    }
-                                    if (debug) {
-                                        Logger.info("Read: " + Tools.fromBytesToHexString(b));
-                                    }
-                                    rd -= b.length;
-                                    convertBytesToInt(b, cmd.bits, cmd.isMsbFirst(), cmd.isSigned()).forEach(
-                                            x -> result.add(Tools.roundDouble((double) x, 0)));
-                                }
-                            } catch (RuntimeIOException e) {
-                                Logger.error("Error trying to read from " + device.getAddr() + ": " + e.getMessage());
-                                continue;
-                            }
-                        }
-                        case WRITE -> {
-                            if( cmd.args == null ) {
-                                device.writeBytes(toWrite);
-                            }else{
-                                if( !cmd.updateArgs(args) )
-                                    Logger.error( " -> Failed to update the write according to given args");
-                            }
-                        }
-                        case ALTER_OR -> { // Read the register, alter it and write it again
-                            device.writeBytes(toWrite[0]);
-                            toWrite[1] |= device.readByte();
-                            device.writeBytes(toWrite);
-                        }
-                        case ALTER_AND -> {
-                            device.writeByte(toWrite[0]);
-                            toWrite[1] &= device.readByte();
-                            device.writeBytes(toWrite);
-                        }
-                        case ALTER_NOT -> {
-                            device.writeByte(toWrite[0]);
-                            toWrite[1] = device.readByte();
-                            toWrite[1] ^= 0xFF;
-                            device.writeBytes(toWrite);
-                        }
-                        case ALTER_XOR -> {
-                            device.writeByte(toWrite[0]);
-                            toWrite[1] ^= device.readByte();
-                            device.writeBytes(toWrite);
-                        }
-                        case WAIT -> {
-                            try {
-                                TimeUnit.MILLISECONDS.sleep(cmd.readCount);
-                            } catch (InterruptedException e) {
-                                Logger.error(e);
-                            }
-                        }
-                        case WAIT_ACK -> { // Wait for an ack to be received up to x attempts
-                            boolean ok = false;
-                            double tries;
-                            int max = Tools.toUnsigned(toWrite[0]);
-                            Logger.info("Max attempts for ACK: " + max);
-                            for (tries = 1; tries < max && !ok; tries += 1)
-                                ok = device.probe(I2CDevice.ProbeMode.AUTO);
-                            if (ok) {
-                                Logger.info("Wait ack ok after " + tries + " attempts of " + max);
-                                result.add(tries);
-                            } else {
-                                result.add(0.0);
-                                Logger.info("Wait ack failed after " + tries + " attempts of " + max);
-                                return result;
-                            }
-                        }
-                        case MATH -> result.set(cmd.index, cmd.fab.solveFor(result.toArray(new Double[0])));
-                        case DISCARD -> {
-                            while (result.size() > cmd.readCount) {
-                                result.remove(cmd.readCount);
-                            }
-                        }
-                        case REPEAT -> repeat = cmd.readCount;
-                        case RETURN -> {
-                            if (repeat > 0) {
-                                a = cmd.readCount;
-                                repeat--;
-                            }
-                        }
-                        default -> Logger.error("Somehow managed to use an none existing type: " + cmd.type);
-                    }
-                }
-            if( result.size() != com.getTotalIntReturn())
-                Logger.error("Didn't read the expected amount of bytes: "+result.size()+" instead of "+com.getTotalIntReturn());
-        }
-        return result;
     }
     /* ***************************************************************************************************** */
     /**
@@ -512,7 +289,7 @@ public class I2CWorker implements Commandable {
             case "debug" -> {
                 if (cmds.length == 2) {
                     if (setDebug(cmds[1].equalsIgnoreCase("on")))
-                        return "Debug" + cmds[1];
+                        return "Debug " + cmds[1];
                     return "! Failed to set debug, maybe no i2cworker yet?";
                 } else {
                     return "Incorrect number of variables: i2c:debug,on/off";
@@ -544,7 +321,7 @@ public class I2CWorker implements Commandable {
                         Logger.error(e);
                     }
                 }
-                var opt = addDevice(cmds[1], cmds[4], "void", NumberUtils.toInt(cmds[2]), Tools.parseInt(cmds[3], -1));
+                var opt = addDevice(cmds[1], cmds[4], NumberUtils.toInt(cmds[2]), Tools.parseInt(cmds[3], -1));
                 if (opt.isEmpty())
                     return "Probing " + cmds[3] + " on bus " + cmds[2] + " failed";
                 opt.ifPresent(d -> d.storeInXml(XMLfab.withRoot(settingsPath, "dcafs", "settings").digRoot("i2c")));
@@ -581,7 +358,7 @@ public class I2CWorker implements Commandable {
                         }
                     }
                     if (!oks.isEmpty()) {
-                        return "Request for i2c:" + cmds[0] + " accepted for " + oks;
+                        return "Request for i2c:" + cmds[0] + " accepted from " + wr.id();
                     } else {
                         Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());
                         return "! No such subcommand in "+cmd+": "+args;
@@ -613,19 +390,23 @@ public class I2CWorker implements Commandable {
      * @return Result
      */
     private String addWork(String id, String command) {
+        if( devices.isEmpty())
+            return "! No devices present yet.";
+
         ExtI2CDevice device = devices.get(id.toLowerCase());
         if (device == null) {
             Logger.error("Invalid job received, unknown device '" + id + "'");
             return "! Invalid job received, unknown device '" + id + "'";
         }
-        if (!commands.containsKey(device.getScript()+":"+command)) {
+        if (!opSets.containsKey(device.getScript()+":"+command)) {
             Logger.error("Invalid command received '" + device.getScript()+":"+command + "'.");
             return "! Invalid command received '" + device.getScript()+":"+command + "'.";
         }
-        executor.submit(()->doWork(device,command));
+        eventloop.submit(()->doWork(device,command));
         return "ok";
     }
     public void doWork(ExtI2CDevice device, String cmdID) {
+
         byte[] args = new byte[0];
         // Strip the arguments from the cmdID
         if( cmdID.contains(",")){
@@ -639,43 +420,16 @@ public class I2CWorker implements Commandable {
         }
 
         // Execute the command
-        I2CCommand com = commands.get(device.getScript()+":"+cmdID);
-        List<Double> altRes;
+        var ops = opSets.get(device.getScript()+":"+cmdID);
         try {
-            altRes = doCommand(device, com, args);
+            Logger.debug("Probing device...");
+            device.probeIt(); // First check if the device is actually there?
+            device.updateTimestamp(); // Update last used timestamp
+
+            ops.startOp(device,eventloop);
             device.updateTimestamp();
         }catch( RuntimeIOException e ){
             Logger.error("Failed to run command for "+device.getAddr()+":"+e.getMessage());
-            return;
         }
-        // Do something with the result...
-        StringJoiner output = new StringJoiner(";",device.getID()+";"+cmdID+";","");
-        switch (com.getOutType()) {
-            case DEC -> altRes.forEach(x -> {
-                if (x.toString().endsWith(".0")) {
-                    output.add(Integer.toString(x.intValue()));
-                } else {
-                    output.add(x.toString());
-                }
-            });
-            case HEX -> altRes.forEach(x -> {
-                String val = Integer.toHexString(x.intValue()).toUpperCase();
-                output.add("0x" + (val.length() == 1 ? "0" : "") + val);
-            });
-            case BIN -> altRes.forEach(x -> output.add("0b" + Integer.toBinaryString(x.intValue())));
-            case CHAR -> {
-                var line = new StringJoiner("");
-                altRes.forEach(x -> line.add(String.valueOf((char) x.intValue())));
-                output.add(line.toString());
-            }
-        }
-        try {
-            device.getTargets().forEach(wr -> wr.writeLine(output.toString()));
-            device.getTargets().removeIf(wr -> !wr.isConnectionValid());
-        }catch(Exception e){
-            Logger.error(e);
-        }
-
-        Logger.tag("RAW").warn( device.getID() + "\t" + output );
     }
 }

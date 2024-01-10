@@ -20,7 +20,6 @@ import java.util.concurrent.TimeUnit;
 public class ExtI2CDevice extends I2CDevice {
 
 	private final String id;
-	private final String label;
 	private final String script;
 	private Instant timestamp;
 	private final ArrayList<Writable> targets = new ArrayList<>();
@@ -31,12 +30,11 @@ public class ExtI2CDevice extends I2CDevice {
 	 * @param controller The controller on which this device is connected
 	 * @param address The address of the device
 	 */
-	public ExtI2CDevice (String id,int controller, int address, String script, String label){
+	public ExtI2CDevice (String id,int controller, int address, String script){
 		super(controller,address);
 		this.id=id;
-		this.label = label;
 		this.script=script;
-		Logger.info("Connecting to controller:"+controller +" and address:"+address+" with label: "+label);
+		Logger.info("Connecting to controller:"+controller +" and address:"+address);
 	}
 	public String getID(){
 		return id;
@@ -48,19 +46,15 @@ public class ExtI2CDevice extends I2CDevice {
 	}
 	public String toString(){
 		return "@"+getController()+":0x"+String.format("%02x ", getAddress())
-				+" using script "+script
-				+(label.isEmpty()?"":" with label "+label);
+				+" using script "+script;
 	}
 	public String getStatus(String id){
 		String age = getAge()==-1?"Not used yet": TimeTools.convertPeriodtoString(getAge(), TimeUnit.SECONDS);
-		return (failedProbe?"!!":"")+"I2C ["+id+"|"+label+"] "+getAddr()+"\t"+age+" [-1]";
+		return (failedProbe?"!!":"")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
 	}
 	public String getAddr(){
 		return "0x"+String.format("%02x", getAddress())+"@"+getController();
 	}
-	public String getLabel(){
-		return label;
-	}	
 	public String getScript(){
 		return script;
 	}

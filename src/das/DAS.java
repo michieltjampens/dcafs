@@ -381,7 +381,7 @@ public class DAS implements Commandable{
             return;
         }
         Logger.info("Adding I2CWorker.");
-        i2cWorker = new I2CWorker(settingsPath);
+        i2cWorker = new I2CWorker(settingsPath,nettyGroup,rtvals,dQueue);
         addCommandable(i2cWorker,"i2c","i_c");
         addCommandable(i2cWorker,"stop");
     }
