@@ -7,7 +7,6 @@ import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.util.ArrayList;
@@ -18,15 +17,14 @@ import java.util.concurrent.TimeUnit;
 
 public class I2COpSet {
     public enum OUTPUT_TYPE{DEC,HEX,BIN,CHAR}
-    ArrayList<Integer> received = new ArrayList<>();
-    ArrayList<I2COp> ops = new ArrayList<>();
-    MathForward math;
-    int index=0;
-    ScheduledFuture<?> future;
+    private final ArrayList<Integer> received = new ArrayList<>(); // Data received through i2c read ops
+    private final ArrayList<Object> ops = new ArrayList<>(); // Collection of ops, maths and stores
+    private int index=0;                // Next op that will be executed
+    private ScheduledFuture<?> future;  // Future about the next op
     private String id="";           // The id of this set of operations
     private String info="";         // Info about what this group is supposed to do
+    private OUTPUT_TYPE outType = OUTPUT_TYPE.DEC;
 
-    OUTPUT_TYPE outType = OUTPUT_TYPE.DEC;
     public I2COpSet(XMLdigger dig, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
         readFromXml(dig,rtvals,dQueue);
     }
@@ -45,7 +43,12 @@ public class I2COpSet {
 
         long nextDelay=0;
         for( var dig : digger.digOut("*")){
-            var fab = XMLfab.alterDigger(dig).get();
+            var fabOpt = XMLfab.alterDigger(dig);
+            if( fabOpt.isEmpty()) {
+                Logger.error(id+" -> Failed to converter digger to fab");
+                continue;
+            }
+            var fab = fabOpt.get();
             if( nextDelay!=0){
                 fab.attr("delay",nextDelay+"ms");
                 nextDelay=0;
@@ -57,19 +60,20 @@ public class I2COpSet {
                 case "read" -> ops.add( new I2CRead(altDig, bits));
                 case "write" -> ops.add( new I2CWrite(altDig));
                 case "alter"-> ops.add( new I2CAlter(altDig));
-                case "math" -> altDig.current().ifPresent( x -> math = new MathForward(x,dQueue,rtvals));
+                case "math" -> altDig.current().ifPresent( x -> ops.add(new MathForward(x,dQueue,rtvals)));
                 case "store" -> {
-                    var store = new ValStore(id);
-                    store.reload(altDig.currentTrusted(),rtvals);
-                    if( math != null ) {
-                        math.setStore(store);
+                    var store = new ValStore(id, altDig.currentTrusted(),rtvals);
+                    if( ops.get(ops.size()-1) instanceof MathForward mf ) {
+                        mf.setStore(store);
                         var ids = store.dbIds().split(",");
                         for( var dbid : ids ){
-                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(math));
+                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(mf));
                         }
+                    }else{ // Not added to a math
+                        ops.add( store );
                     }
                 }
-                case "wait" -> nextDelay = dig.value(0);
+                case "wait" -> nextDelay = dig.value(0); // The next op needs to be delayed
             }
         }
     }
@@ -77,7 +81,7 @@ public class I2COpSet {
         return id+" -> "+info;
     }
     public void startOp(ExtI2CDevice device, EventLoopGroup scheduler){
-        Logger.info("Starting "+id+" on "+device.getID());
+        Logger.info(id+" -> Starting on "+device.getID());
         index=0;
         received.clear();
         if( future != null)
@@ -85,21 +89,31 @@ public class I2COpSet {
         runOp(device,scheduler);
     }
     private void runOp(ExtI2CDevice device, EventLoopGroup scheduler ){
-
-        received.addAll( ops.get(index).doOperation(device) );
-        index++;    // Increment to go to the next op
-        if( index < ops.size()) {
-            long delay = Math.max(ops.get(index).getDelay(),1);
-            Logger.debug("Scheduling next op in "+delay+"ms");
-            future = scheduler.schedule(() -> runOp(device, scheduler), delay, TimeUnit.MILLISECONDS);
-        }else{ // Meaning last operation was done
-            if( math!=null) {
-                var res = math.addData(received);
-                forwardDoubleResult(device,res);
-            }else{
-                forwardIntegerResult(device);
+        long delay = 0;
+        var lastOp = index+1 == ops.size();
+        if( ops.get(index) instanceof I2COp op){
+            received.addAll(op.doOperation(device));
+            delay = op.getDelay();
+        }else if( ops.get(index) instanceof MathForward mf){
+            var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
+            if( lastOp ) { // Meaning that was last operation
+                forwardDoubleResult(device, res);
+                return;
+            }else{ // Not the last operation, replace the int arraylist with the calculated doubles
+                received.clear();
+                res.forEach( x -> received.add(x.intValue())); // Refill with altered values
             }
-            received.clear();
+        }else if( ops.get(index) instanceof ValStore st){
+            st.apply(received);
+        }
+
+        if( !lastOp) {
+            index++;    // Increment to go to the next op
+            delay = Math.max(delay,1);
+            Logger.debug(id+" -> Scheduling next op in "+delay+"ms");
+            future = scheduler.schedule(() -> runOp(device, scheduler), delay, TimeUnit.MILLISECONDS);
+        }else{
+            forwardIntegerResult(device);
         }
     }
     private void forwardDoubleResult(ExtI2CDevice device, ArrayList<Double> altRes){
@@ -124,13 +138,7 @@ public class I2COpSet {
                 output.add(line.toString());
             }
         }
-        try {
-            device.getTargets().forEach(wr -> wr.writeLine(output.toString()));
-            device.getTargets().removeIf(wr -> !wr.isConnectionValid());
-        }catch(Exception e){
-            Logger.error(e);
-        }
-        Logger.tag("RAW").warn( device.getID() + "\t" + output );
+        forwardData(device,output.toString());
     }
     private void forwardIntegerResult(ExtI2CDevice device){
         StringJoiner output = new StringJoiner(";",device.getID()+";"+id+";","");
@@ -145,9 +153,13 @@ public class I2COpSet {
                 output.add(line.toString());
             }
         }
+        forwardData(device,output.toString());
+    }
+    private void forwardData( ExtI2CDevice device, String output){
+        received.clear(); // Forwarding means the command was finished, so clear the last results
         try {
-            device.getTargets().forEach(wr -> wr.writeLine(output.toString()));
-            device.getTargets().removeIf(wr -> !wr.isConnectionValid());
+            device.getTargets().forEach(wr -> wr.writeLine(output));
+            device.getTargets().removeIf(wr -> !wr.isConnectionValid()); // Remove unresponsive targets
         }catch(Exception e){
             Logger.error(e);
         }
@@ -160,10 +172,10 @@ public class I2COpSet {
         StringJoiner join = new StringJoiner("\r\n");
         join.add(getInfo());
         ops.forEach( op -> join.add(prefix+op.toString()));
-        if( math !=null) {
+        /*if( math !=null) {
             join.add(prefix+"Math ops");
             join.add( prefix+math.getRules().replace("\r\n","\r\n"+prefix));
-        }
+        }*/
         return join.toString();
     }
 }
