@@ -26,6 +26,10 @@ public class ValStore {
     public ValStore(String id){
         this.id=id;
     }
+    public ValStore(String id, Element ele, RealtimeValues rtvals){
+        this.id=id;
+        reload(ele,rtvals);
+    }
     public void delimiter( String del ){
         this.delimiter=del;
     }
@@ -242,43 +246,6 @@ public class ValStore {
     public void addAbstractVal( AbstractVal val){
         rtvals.add(val);
     }
-    public void setAbstractVal( int index, AbstractVal val ){
-        if( val==null)
-            return;
-        if( index > rtvals.size()) {
-            Logger.warn("Tried to set a val index "+index+" but rtvals to small -> "+val.id());
-            return;
-        }
-        rtvals.set(index,val);
-    }
-    public String getValueAt(int index ){
-        if( index > rtvals.size() || rtvals.get(index)==null)
-            return "";
-        return rtvals.get(index).stringValue();
-    }
-    public boolean isEmptyAt(int index ){
-        if( rtvals.size()<=index)
-            return true;
-        return rtvals.get(index)==null;
-    }
-    public Integer getIntValueAt(int index ){
-        if( index > rtvals.size() || rtvals.get(index)==null)
-            return null;
-        var v = rtvals.get(index);
-        if( v instanceof IntegerVal ){
-            return ((IntegerVal) v).intValue();
-        }
-        return null;
-    }
-    public Double getRealValueAt(int index ){
-        if( index > rtvals.size() || rtvals.get(index)==null)
-            return null;
-        var v = rtvals.get(index);
-        if( v instanceof RealVal){
-            return ((RealVal) v).value();
-        }
-        return null;
-    }
     private void mapFlag( boolean state){
         map=state;
     }
@@ -328,6 +295,32 @@ public class ValStore {
         // Now try the calvals?
         doCalVals();
         return dbOk;
+    }
+    public boolean apply(ArrayList<Integer> vals){
+        if( map ){
+            Logger.error(id+"(store) -> Map not supported in apply with integer array");
+            return false;
+        }else {
+            if (vals.size() < rtvals.size()) {
+                Logger.warn(id + "(store) -> Can't apply store, not enough data in the line received.");
+                return false;
+            }
+            for (int a = 0; a < rtvals.size(); a++) {
+                if (rtvals.get(a) != null ) {
+                    if( rtvals.get(a) instanceof IntegerVal iv ){
+                        iv.value(vals.get(a));
+                    }else if( rtvals.get(a) instanceof RealVal rv ){
+                        rv.value(vals.get(a));
+                    }else{
+                        Logger.error(id+" (store) -> Tried to apply an integer to a flag or text");
+                        return false;
+                    }
+                }
+            }
+        }
+        // Now try the calvals?
+        doCalVals();
+        return true;
     }
     public void doCalVals(){
         for( int op=0;op<calOps.size();op++ ){
