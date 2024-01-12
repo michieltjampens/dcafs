@@ -199,7 +199,11 @@ public class I2CWorker implements Commandable {
         }
         Logger.info("Reading I2C scripts from: "+scriptsPath);
 
-        opSets.clear();
+        if( !opSets.isEmpty() ){ // Meaning it's a reload
+            opSets.values().forEach( set -> set.removeRtvals(rtvals)); // Remove all the related rtvals
+            opSets.clear();
+        }
+
         for( Path p : xmls ){
             var dig = XMLdigger.goIn(p,"commandset");
             if( dig.isInvalid() ){

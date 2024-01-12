@@ -90,7 +90,8 @@ public class I2COpSet {
     }
     private void runOp(ExtI2CDevice device, EventLoopGroup scheduler ){
         long delay = 0;
-        var lastOp = index+1 == ops.size();
+        var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
+
         if( ops.get(index) instanceof I2COp op){
             received.addAll(op.doOperation(device));
             delay = op.getDelay();
@@ -109,7 +110,7 @@ public class I2COpSet {
 
         if( !lastOp) {
             index++;    // Increment to go to the next op
-            delay = Math.max(delay,1);
+            delay = Math.max(delay,1);  // delay needs to be at least 1ms
             Logger.debug(id+" -> Scheduling next op in "+delay+"ms");
             future = scheduler.schedule(() -> runOp(device, scheduler), delay, TimeUnit.MILLISECONDS);
         }else{
@@ -156,7 +157,6 @@ public class I2COpSet {
         forwardData(device,output.toString());
     }
     private void forwardData( ExtI2CDevice device, String output){
-        received.clear(); // Forwarding means the command was finished, so clear the last results
         try {
             device.getTargets().forEach(wr -> wr.writeLine(output));
             device.getTargets().removeIf(wr -> !wr.isConnectionValid()); // Remove unresponsive targets
@@ -177,5 +177,14 @@ public class I2COpSet {
             join.add( prefix+math.getRules().replace("\r\n","\r\n"+prefix));
         }*/
         return join.toString();
+    }
+    public void removeRtvals( RealtimeValues rtvals){
+        for( var op : ops ){
+            if( op instanceof MathForward mf ){
+                mf.getStore().ifPresent( store -> store.removeRealtimeValues(rtvals));
+            }else if( op instanceof ValStore store ){
+                store.removeRealtimeValues(rtvals);
+            }
+        }
     }
 }
