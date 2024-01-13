@@ -8,7 +8,6 @@ import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.math.BigDecimal;
@@ -64,17 +63,18 @@ public class RealVal extends AbstractVal implements NumericVal{
      */
     public static Optional<RealVal> build(Element rtval, String group){
         var dig = XMLdigger.goIn(rtval);
-        String name = dig.attr("name","");
-        name = dig.attr("id",name);
-        group = dig.attr("group",group);
+        String name = dig.attr("name",""); // The name is in the attribute name
+        name = dig.attr("id",name);             // or the attribute id
 
-        if( name.isEmpty() && dig.peekOut("*").isEmpty() )
+        if( name.isEmpty() && dig.peekOut("*").isEmpty() ) // or not an attribute, but the value/content
             name = dig.value("");
 
-        if( name.isEmpty()){
+        if( name.isEmpty()){ // If neither of the three options, this failed
             Logger.error("Tried to create a RealVal without id/name, group "+group);
             return Optional.empty();
         }
+        group = dig.attr("group",group); // group in the attribute or the global one
+
         return Optional.of(RealVal.newVal(group,name).alter(rtval));
     }
 

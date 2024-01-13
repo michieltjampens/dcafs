@@ -278,7 +278,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 * Standard way of writing ascii data to a channel, with or without requesting a certain reply
 	 * @param id The id of the stream to write to
 	 * @param txt The ascii data to transmit
-	 * @param reply The expected reply to the transmit
+	 * @param reply The expected reply to transmit
 	 * @return The string that was written or an empty string if failed
 	 */
 	public String writeToStream(String id, String txt, String reply) {
