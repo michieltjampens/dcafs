@@ -120,16 +120,25 @@ math operation to the argument first.
 ```
 - Filter often has to send to multiple writables, so now uses concurrency to speed things up a bit. Which means that if
 the path contains multiple
+- Math can now use temp variable storage using t, these values are also made available to the store following the math.
+Can refer to them with by adding the t index to the highest possible i index.
+```xml
+<math>
+  <op>t0=i0+5</op>
+  <op>t0=t0*2+{r:t_test}</op>
+  <op>i0=t0+3</op>
+</math>
+```
 
 ### Store
 
 It's now possible to add math operations with values that are in the store.
 ````xml
-<store>
-      <real group="o1" i="1" unit="V">voltage</real>
-      <real group="o1" i="2" unit="mA">current</real>
+<store group="o1">
+      <real i="1" unit="V">voltage</real>
+      <real i="2" unit="mA">current</real>
      <!-- calculate the product of the voltage and current to get the power in watt -->
-      <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
+      <real o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
 </store>
 ````
 ### TaskManager
