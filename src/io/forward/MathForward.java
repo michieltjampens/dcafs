@@ -35,6 +35,7 @@ public class MathForward extends AbstractForward {
     public enum OP_TYPE{COMPLEX, SCALE, LN, SALINITY, SVC,TRUEWINDSPEED,TRUEWINDDIR,UTM,GDC}
     private ArrayList<NumericVal> referencedNums = new ArrayList<>();
     private int highestI=-1;
+    private ArrayList<BigDecimal> temps = new ArrayList<>();
 
     public MathForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         super(id,source,dQueue,rtvals);
@@ -92,23 +93,28 @@ public class MathForward extends AbstractForward {
         ops.clear();
         String content = dig.value("");
 
-        if( content != null && dig.peekOut("*").isEmpty() ){ // Has content but no child elements
-            if( findReferences(content) ){
+        // Check if it Has content but no child elements, so a single op
+        if( content != null && dig.peekOut("*").isEmpty() ){
+            if( findReferences(content) ){ // Figure out the used references to vals and determine highest used index/i
                 var op = addStdOperation(
                         content,
                         dig.attr("scale",-1),
                         dig.attr("cmd","")
                 );
-                if(op.isEmpty()){
+                if(op.isEmpty()){ // If no op could be parsed from the expression
                     parsedOk=false;
-                    Logger.error("No valid operation found in: "+content);
+                    Logger.error(id+"(mf) -> No valid operation found in: "+content);
                     return false;
+                }else{ // Processing ok, can stop here
+                    return true;
                 }
-            }else {
-                parsedOk=false;
-                return false;
             }
+            // Failed to find or parse references to real/int/flagvals
+            Logger.error(id +"(mf) -> Failed to process references in "+content);
+            parsedOk=false;
+            return false;
         }
+
         // Check for other subnodes besides 'op' those will be considered def's to reference in the op
         dig.peekOut("*")
                 .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
@@ -121,13 +127,15 @@ public class MathForward extends AbstractForward {
                             }
                         });
 
-        boolean oldValid=valid;
+        boolean oldValid=valid; // Store the current state of valid
+        // First go through all the ops and to find all references to real/int/flag and determine highest i(ndex) used
         for( var ops : dig.peekOut("op") ){
             if( !findReferences(ops.getTextContent())) {
-                parsedOk=false;
+                parsedOk=false; //Parsing failed, so set the flag and return
                 return false;
             }
         }
+        // Go through the op's again to actually process the expression
         dig.digOut("op").forEach( ops -> {
             try {
                 var type= fromStringToOPTYPE(ops.attr( "type", "complex"));
@@ -175,7 +183,7 @@ public class MathForward extends AbstractForward {
             showError("Need at least "+(highestI+1)+" items after splitting: "+data+ ", got "+split.length+" (bad:"+badDataCount+")");
             return true; // Stop processing
         }
-        // Convert the split data to bigdecimals
+        // Convert the split data to bigdecimals and add references and temps
         BigDecimal[] bds = makeBDArray(split);
 
         // First do a global check, if none of the items is a number, no use to keep trying
@@ -332,7 +340,8 @@ public class MathForward extends AbstractForward {
             Logger.tag("RAW").info( id() + "\t" + Arrays.toString(bds));
 
         ArrayList<Double> results = new ArrayList<>();
-        for (BigDecimal bd : bds) results.add(bd.doubleValue());
+        for (BigDecimal bd : bds)
+            results.add(bd.doubleValue());
 
         if( store!=null) {
             for( int a=0;a<store.size();a++){
@@ -360,7 +369,7 @@ public class MathForward extends AbstractForward {
                                .replace(" ",""); //remove spaces
 
         if( !expression.contains("=") ) {// If this doesn't contain a '=' it's no good
-            if(expression.matches("i[0-9]{1,3}")){
+            if(expression.matches("i[0-9]{1,3}")){ // unless the expression is a reference?
                 var op = new Operation( expression, NumberUtils.toInt(expression.substring(1),-1));
                 op.setCmd(cmd);
                 op.setScale(scale);
@@ -368,27 +377,35 @@ public class MathForward extends AbstractForward {
                 addOp(op);
                 return Optional.of(op);
             }else {
+                Logger.error(id+ "(mf) -> Not a valid expression: "+expression);
                 return Optional.empty();
             }
         }
         String exp = expression;
-        var split = expression.split("[+-/*^]?=");
+        var split = expression.split("[+-/*^]?="); // split into result and operation (i0 = i1+2 -> [i0][i1+2]
 
+        // The expression might be a simple i0 *= 2, so replace such with i0=i0*2 because of the way it's processed
+        // A way to know this is the case, is that normally the summed length of the split items is one lower than
+        // the length of the original expression (because the = ), if not that means an operand was in front of '='
         if( split[0].length()+split[1].length()+1 != exp.length()){ // Support += -= *= and /= fe. i0+=1
             String[] spl = exp.split("="); //[0]:i0+ [1]:1
             split[1]=spl[0]+split[1]; // split[1]=i0+1
         }
 
-        var ii = split[0].split(",");
-        int index = Tools.parseInt(ii[0].substring(1),-1); // Check if it's in the first or only position
-        if( index == -1 && ii.length==2){ // if not and there's a second one
-            index = Tools.parseInt(ii[1].substring(1),-1); //check if it's in the second one
-        }else if(ii.length==2){
-            expression=expression.replace(split[0],ii[1]+","+ii[0]); //swap the {d to front
+        var dest = split[0].split(",");  // It's allowed that the result is written to more than one destination
+        int index = Tools.parseInt(dest[0].substring(1),-1); // Check if it's in the first or only position
+        if( index == -1 && dest.length==2){ // if not and there's a second one
+            index = Tools.parseInt(dest[1].substring(1),-1); //check if it's in the second one
+        }else if(dest.length==2){
+            expression=expression.replace(split[0],dest[1]+","+dest[0]); //swap the {d to front
         }
-
-        if( (ii[0].toLowerCase().startsWith("{d")||ii[0].toLowerCase().startsWith("{r"))&&ii.length==1) {
-            if( split[1].matches("i[0-9]{1,3}")){
+        // Fix index if targeting a temp?
+        if( dest[0].startsWith("t")){
+            index += highestI+1;
+        }
+        // Check if the destination is a realval or integerval and not an i
+        if( (dest[0].toLowerCase().startsWith("{d") || dest[0].toLowerCase().startsWith("{r")) && dest.length==1) {
+            if( split[1].matches("i[0-9]{1,3}")){ // the expression is only reference to an i
                 var op = new Operation( expression, NumberUtils.toInt(split[1].substring(1),-1));
                 op.setCmd(cmd);
                 op.setScale(scale);
@@ -407,16 +424,17 @@ public class MathForward extends AbstractForward {
             Logger.warn(id + " -> Bad/No index given in "+expression);
         }
 
-        Operation op;
-
         for( var entry : defines.entrySet() ){ // Check for the defaults and replace
             exp = exp.replace(entry.getKey(),entry.getValue());
         }
 
-        exp = replaceReferences(exp);
+        exp = replaceTemps(exp); // replace the tx's with ix's
+        exp = replaceReferences(exp); // Replace the earlier found references with i's
+
         if( exp.isEmpty() )
             return Optional.empty();
 
+        Operation op;
         if( NumberUtils.isCreatable(exp.replace(",","."))) {
             op = new Operation( expression, exp.replace(",","."),index);
         }else{
@@ -427,10 +445,10 @@ public class MathForward extends AbstractForward {
                 return Optional.empty(); // If not, return empty
             }
         }
-        ops.add(op);
-
         op.setScale(scale);
         op.setCmd(cmd);
+
+        ops.add(op);
 
         rulesString.add(new String[]{"complex", String.valueOf(index),expression});
         return Optional.ofNullable(ops.get(ops.size()-1)); // return the one that was added last
@@ -447,7 +465,9 @@ public class MathForward extends AbstractForward {
         }
         highestI = Math.max(highestI,NumberUtils.toInt(index,-1));
 
-        exp=replaceReferences(exp);
+        exp=replaceTemps(exp); // replace the tx's with ix's
+        exp=replaceReferences(exp); // replacec real/int/flag vals with i's
+
         if( exp.isEmpty() )
             return;
 
@@ -508,12 +528,12 @@ public class MathForward extends AbstractForward {
     private boolean addOp( Operation op ){
         if( op == null ) {
             valid = false;
-            Logger.error(id+"(mf) Tried to add a null operation, mathforward is invalid");
+            Logger.error(id+"(mf) -> Tried to add a null operation, MathFormward is invalid");
             return false;
         }
         if( op.isValid()){
             valid=false;
-            Logger.error(id+"(mf) -> Tried to add an invalid op, mathformward is invalid");
+            Logger.error(id+"(mf) -> Tried to add an invalid op, MathFormward is invalid");
         }
         ops.add(op);
         return true;
@@ -534,7 +554,7 @@ public class MathForward extends AbstractForward {
             case "utm": return OP_TYPE.UTM;
             case "gdc": return OP_TYPE.GDC;
             default:
-                Logger.error(id+"(mf) Invalid op type given, using default complex");
+                Logger.error(id+"(mf) -> Invalid op type given, using default complex");
             case "complex": return OP_TYPE.COMPLEX;
         }
     }
@@ -602,11 +622,15 @@ public class MathForward extends AbstractForward {
      */
     private BigDecimal[] makeBDArray( String[] data ){
 
-        if( referencedNums!=null && !referencedNums.isEmpty()){
-            var refBds = new BigDecimal[referencedNums.size()];
+        if( (referencedNums!=null && !referencedNums.isEmpty()) || !temps.isEmpty() ){
+            var refBds = new BigDecimal[referencedNums.size()+temps.size()];
 
+            // First add the temps so they can be requested easier by the store
+            for (int a = 0; a < temps.size();a++ ){
+                refBds[a]=temps.get(a);
+            }
             for (int a = 0; a < referencedNums.size();a++ ){
-                refBds[a]=referencedNums.get(a).toBigDecimal();
+                refBds[a+temps.size()]=referencedNums.get(a).toBigDecimal();
             }
             return ArrayUtils.addAll(MathUtils.toBigDecimals(data,highestI==-1?0:highestI),refBds);
         }else{
@@ -624,10 +648,11 @@ public class MathForward extends AbstractForward {
      */
     private boolean findReferences(String exp){
 
-        // Find all the double/flag pairs
+        // Find all the double/int/flag pairs
         var pairs = Tools.parseKeyValue(exp,true);
         if( referencedNums==null)
             referencedNums = new ArrayList<>();
+
         for( var p : pairs ) {
             if (p.length == 2 || p.length == 1) {
                 int nums=referencedNums.size(); // Store current size to later check if it increased
@@ -639,7 +664,7 @@ public class MathForward extends AbstractForward {
                 if( rtvals.hasFlag(find))
                     rtvals.getFlagVal(p[p.length-1]).ifPresent(referencedNums::add);
 
-                if( referencedNums.size()==nums) // No increase ,so not found
+                if( referencedNums.size()==nums) // No increase, so not found
                     Logger.error(id+ "(mf) -> Couldn't find val with id "+find);
             }else{
                 Logger.error(id+" (mf)-> Pair containing odd amount of elements: "+String.join(":",p));
@@ -688,7 +713,7 @@ public class MathForward extends AbstractForward {
                         var repl = "{"+p[0]+"}";
                         if( p.length==2)
                             repl = "{"+p[0]+":"+p[1]+"}";
-                        exp = exp.replace(repl, "i" + (highestI + pos + 1));
+                        exp = exp.replace(repl, "i" + (highestI + pos + temps.size() + 1));
                         ok = true;
                         break;
                     }
@@ -701,6 +726,23 @@ public class MathForward extends AbstractForward {
                 Logger.error(id+" (mf)-> Pair containing to many elements: "+String.join(":",p));
                 return "";
             }
+        }
+        return exp;
+    }
+    private String replaceTemps( String exp ){
+        int index = highestI+1;
+        var ts = Pattern.compile("t[0-9]{1,2}")
+                .matcher(exp)
+                .results()
+                .map(MatchResult::group)
+                .sorted()
+                .toArray(String[]::new);
+        for( var t : ts ){
+            int nr = Integer.parseInt(t.substring(1));
+            if( nr >= temps.size() )
+                temps.add(BigDecimal.ZERO);
+            exp = exp.replace(t,"i"+index);
+            index++;
         }
         return exp;
     }
@@ -789,7 +831,7 @@ public class MathForward extends AbstractForward {
             }
             return this;
         }
-        public BigDecimal solve( BigDecimal[] data){
+        public BigDecimal solve( BigDecimal[] data ){
             BigDecimal bd;
             boolean changeIndex=true;
             if( op != null ) {
@@ -834,7 +876,7 @@ public class MathForward extends AbstractForward {
                 return null;
             }
 
-            if( scale != -1)
+            if( scale != -1) // If scaling is requested
                 bd=bd.setScale(scale,RoundingMode.HALF_UP);
 
             if( index>= 0 && index < data.length && changeIndex )
