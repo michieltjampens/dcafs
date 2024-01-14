@@ -115,7 +115,9 @@ public abstract class AbstractForward implements Writable {
     public ArrayList<Writable> getTargets(){
         return targets;
     }
-
+    public void invalidate(){
+        valid=false;
+    }
     public String toString(){
 
         StringJoiner join = new StringJoiner("\r\n" );
@@ -266,4 +268,5 @@ public abstract class AbstractForward implements Writable {
     public Writable getWritable(){
         return this;
     }
+
 }

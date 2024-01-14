@@ -79,6 +79,7 @@ public class PathForward {
 
         if( stepsForward!=null && !stepsForward.isEmpty()) {// If this is a reload, reset the steps
             dQueue.add(Datagram.system("nothing").writable(stepsForward.get(0))); // stop asking for data
+            stepsForward.forEach( AbstractForward::invalidate ); // Make sure these get removed as targets
             lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
         }
