@@ -25,6 +25,7 @@
 /todo/
 /paths/
 /i2cscripts/
+/tmscripts/
 #IntelliJ
 .idea/
 
