@@ -212,9 +212,12 @@ public class I2CWorker implements Commandable {
             }
             var script = dig.attr("script","");
             var defOut = dig.attr("output","dec");
-            dig.digOut("command").forEach( c -> { // dig out can invalidate, but it's last use anyway
-                opSets.put( script+":"+c.attr("id",""),new I2COpSet(c,rtvals,dQueue));
-            });
+            for( var c : dig.digOut("command")){
+                var set = new I2COpSet(c,rtvals,dQueue);
+                if( set.isInvalid())
+                    return "! Failed to process "+script+", check logs.";
+                opSets.put( script+":"+c.attr("id",""),set);
+            }
         }
         return "All files ("+xmls.size()+") read ok.";
     }
