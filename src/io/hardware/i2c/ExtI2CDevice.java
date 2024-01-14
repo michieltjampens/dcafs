@@ -24,6 +24,7 @@ public class ExtI2CDevice extends I2CDevice {
 	private Instant timestamp;
 	private final ArrayList<Writable> targets = new ArrayList<>();
 	private boolean failedProbe=false;
+	private boolean debug=false;
 	/**
 	 * Extension of the @see I2CDevice class that adds the command functionality
 	 * 
@@ -58,7 +59,12 @@ public class ExtI2CDevice extends I2CDevice {
 	public String getScript(){
 		return script;
 	}
-
+	public void setDebug( boolean state){
+		debug=state;
+	}
+	public boolean isDebug(){
+		return debug;
+	}
 	/**
 	 * Add a @Writable to which data received from this device is send
 	 * @param wr Where the data will be send to

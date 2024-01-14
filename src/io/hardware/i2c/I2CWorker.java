@@ -53,6 +53,7 @@ public class I2CWorker implements Commandable {
      */
     public boolean setDebug( boolean debug ){
         this.debug=debug;
+        devices.values().forEach( device -> device.setDebug(debug));
         return debug;
     }
 

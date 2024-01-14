@@ -1,6 +1,5 @@
 package io.hardware.i2c;
 
-import com.diozero.api.I2CDevice;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -66,9 +65,14 @@ public class I2CWrite implements I2COp{
         return true;
     }
     @Override
-    public ArrayList<Integer> doOperation(I2CDevice device) {
-        Logger.debug("Writing bytes...");
-        device.writeBytes(towrite);
+    public ArrayList<Integer> doOperation(ExtI2CDevice device) {
+        if( device.isDebug())
+            Logger.info(device.getID()+"(i2c) -> Writing "+Tools.fromBytesToHexString(towrite));
+        try{
+            device.writeBytes(towrite);
+        }catch( RuntimeException e){
+            Logger.error(device.getID()+"(i2c) -> Failed to write");
+        }
         return new ArrayList<>();
     }
 

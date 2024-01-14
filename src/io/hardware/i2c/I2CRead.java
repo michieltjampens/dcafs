@@ -72,7 +72,7 @@ public class I2CRead implements I2COp{
         delay=millis;
     }
     @Override
-    public ArrayList<Integer> doOperation(I2CDevice device) {
+    public ArrayList<Integer> doOperation(ExtI2CDevice device) {
 
         if( !valid ) {
             Logger.error("Read not valid, aborting");
@@ -81,7 +81,8 @@ public class I2CRead implements I2COp{
         Logger.debug("Reading block...");
         byte[] rec = new byte[recBytes];
         device.readI2CBlockData(reg, rec);
-        Logger.debug("Read: "+Tools.fromBytesToHexString(rec));
+        if( device.isDebug())
+            Logger.info(device.getID()+"(i2c) -> Read: "+Tools.fromBytesToHexString(rec));
         if( bitsets!=null ){
             return convertNibblesToInt(rec,bitsets,msbFirst);
         }
@@ -94,7 +95,7 @@ public class I2CRead implements I2COp{
      * @param bits The amount of bits the int should use
      * @param msbFirst If the msb byte comes first
      * @param signed If the resulting int is signed
-     * @return The resulting ints
+     * @return The resulting integers
      */
     public static ArrayList<Integer> convertBytesToInt(byte[] bytes, int bits, boolean msbFirst, boolean signed){
 
