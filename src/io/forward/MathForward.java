@@ -43,11 +43,11 @@ public class MathForward extends AbstractForward {
     }
     public MathForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         super(dQueue,rtvals);
-        valid = readFromXML(ele);
+        readOk = readFromXML(ele);
     }
     public MathForward( Element ele, RealtimeValues rtvals ){
         super(null,rtvals);
-        valid = readFromXML(ele);
+        readOk = readFromXML(ele);
     }
     @Override
     public String getRules(){
@@ -130,6 +130,24 @@ public class MathForward extends AbstractForward {
         boolean oldValid=valid; // Store the current state of valid
         // First go through all the ops and to find all references to real/int/flag and determine highest i(ndex) used
         for( var ops : dig.peekOut("op") ){
+            // Find all the temps, and prep space for them
+            var ts = Pattern.compile("t[0-9]{1,2}")
+                    .matcher(ops.getTextContent())
+                    .results()
+                    .map(MatchResult::group)
+                    .distinct()
+                    .toArray(String[]::new);
+            for( var t : ts) {
+                try {
+                    int pos = Integer.parseInt(t.substring(1));
+                    while( pos >= temps.size())
+                        temps.add(BigDecimal.ZERO);
+                    Logger.info("Temps is now "+temps.size()+" after proc "+ops.getTextContent());
+                }catch(NumberFormatException e){
+                    Logger.error(id+"(mf) -> Bad temp number: "+t);
+                }
+            }
+            // Find all the references
             if( !findReferences(ops.getTextContent())) {
                 parsedOk=false; //Parsing failed, so set the flag and return
                 return false;
@@ -160,6 +178,7 @@ public class MathForward extends AbstractForward {
         });
         if( !oldValid && valid )// If math specific things made it valid
             sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+        referencedNums.trimToSize(); // Won't be changed after this, so trime excess space
         return true;
     }
     /**
@@ -184,16 +203,18 @@ public class MathForward extends AbstractForward {
             return true; // Stop processing
         }
         // Convert the split data to bigdecimals and add references and temps
-        BigDecimal[] bds = makeBDArray(split);
+        BigDecimal[] bds = buildBDArray(split);
+        if( bds.length != split.length+referencedNums.size()+temps.size())
+            Logger.error(id+"(mf) -> Build dataset size doesn't meet expected size. Size:"+bds.length);
 
         // First do a global check, if none of the items is a number, no use to keep trying
-        if( bds == null ){
+        if( bds.length==0 ){
             showError("No valid numbers in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
             return true;
         }
         // We know that the 'highest needed index' needs to actually be a number
         if( bds[highestI]==null){
-            showError(" (mf)-> No valid highest I value in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
+            showError("No valid highest I value in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
             return true;
         }
 
@@ -203,7 +224,7 @@ public class MathForward extends AbstractForward {
             var res = op.solve(bds);
             if (res == null) {
                 cnt++;
-                showError(cnt==1,"(mf) -> Failed to process " + data + " for "+op.ori);
+                showError(cnt==1,"Failed to process " + data + " for "+op.ori);
             }
         }
         if( cnt > 0 ) {
@@ -303,20 +324,26 @@ public class MathForward extends AbstractForward {
             return new ArrayList<>();
         }
 
-        // Convert the split data to bigdecimals
+        // Convert the split data to bigdecimals and add references and temps
         BigDecimal[] bds = new BigDecimal[numbers.size()];
         try {
             for( int a=0;a<numbers.size();a++)
                 bds[a]= BigDecimal.valueOf(numbers.get(a));
+            bds = ArrayUtils.addAll(bds,buildRefBdArray());
         }catch(Exception e){
-            Logger.error(e);
+            Logger.error(id+"(mf) -> "+e.getMessage());
             return new ArrayList<>();
         }
-
+        StringJoiner join = new StringJoiner("\t");
+        Arrays.stream(bds).forEach( x-> join.add(x.toPlainString()));
+        Logger.info("BDS: "+join);
         // After doing all possible initial test, do the math
         int cnt=0;
         for( var op : ops ){
             var res = op.solve(bds);
+            var j = new StringJoiner("\t");
+            Arrays.stream(bds).forEach( x-> j.add(x.toPlainString()));
+            Logger.info("BDS: "+j);
             if (res == null) {
                 cnt++;
                 showError(cnt==1,"(mf) -> Failed to process " + numbers + " for "+op.ori);
@@ -431,9 +458,10 @@ public class MathForward extends AbstractForward {
         exp = replaceTemps(exp); // replace the tx's with ix's
         exp = replaceReferences(exp); // Replace the earlier found references with i's
 
-        if( exp.isEmpty() )
+        if( exp.isEmpty() ) {
+            Logger.error(id+" (mf)-> Expression is empty after replacing refs?");
             return Optional.empty();
-
+        }
         Operation op;
         if( NumberUtils.isCreatable(exp.replace(",","."))) {
             op = new Operation( expression, exp.replace(",","."),index);
@@ -442,6 +470,7 @@ public class MathForward extends AbstractForward {
             if( fab.isValid() ) { // If the formula could be parsed
                 op = new Operation(expression, fab, index); // create an operation
             }else{
+                Logger.error(id+" (mf)-> Failed to build mathfab");
                 return Optional.empty(); // If not, return empty
             }
         }
@@ -568,7 +597,7 @@ public class MathForward extends AbstractForward {
 
         String[] split = data.split(delimiter);
 
-        BigDecimal[] bds = makeBDArray(split);
+        BigDecimal[] bds = buildBDArray(split);
 
         ops.forEach( op -> op.solve(bds) );
 
@@ -620,22 +649,24 @@ public class MathForward extends AbstractForward {
      * @param data The data received, to be split
      * @return The created array
      */
-    private BigDecimal[] makeBDArray( String[] data ){
-
+    private BigDecimal[] buildBDArray(String[] data ){
         if( (referencedNums!=null && !referencedNums.isEmpty()) || !temps.isEmpty() ){
-            var refBds = new BigDecimal[referencedNums.size()+temps.size()];
-
-            // First add the temps so they can be requested easier by the store
-            for (int a = 0; a < temps.size();a++ ){
-                refBds[a]=temps.get(a);
-            }
-            for (int a = 0; a < referencedNums.size();a++ ){
-                refBds[a+temps.size()]=referencedNums.get(a).toBigDecimal();
-            }
-            return ArrayUtils.addAll(MathUtils.toBigDecimals(data,highestI==-1?0:highestI),refBds);
+            return ArrayUtils.addAll(MathUtils.toBigDecimals(data,highestI==-1?0:highestI), buildRefBdArray());
         }else{
             return MathUtils.toBigDecimals(data,highestI==-1?0:highestI); // Split the data and convert to big decimals
         }
+    }
+    private BigDecimal[] buildRefBdArray(){
+        var refBds = new BigDecimal[referencedNums.size()+temps.size()];
+
+        // First add the temps so they can be requested easier by the store
+        for (int a = 0; a < temps.size();a++ ){
+            refBds[a]=temps.get(a);
+        }
+        for (int a = 0; a < referencedNums.size();a++ ){
+            refBds[a+temps.size()]=referencedNums.get(a).toBigDecimal();
+        }
+        return refBds;
     }
     /**
      * Check the expression for references to:
@@ -652,28 +683,31 @@ public class MathForward extends AbstractForward {
         var pairs = Tools.parseKeyValue(exp,true);
         if( referencedNums==null)
             referencedNums = new ArrayList<>();
+        int originalSize = referencedNums.size();
 
         for( var p : pairs ) {
             if (p.length == 2 || p.length == 1) {
-                int nums=referencedNums.size(); // Store current size to later check if it increased
-                var find = p[p.length-1];
-                if( rtvals.hasReal(find))
-                    rtvals.getRealVal(p[p.length-1]).ifPresent(referencedNums::add);
-                if( rtvals.hasInteger(find))
-                    rtvals.getIntegerVal(p[p.length-1]).ifPresent(referencedNums::add);
-                if( rtvals.hasFlag(find))
-                    rtvals.getFlagVal(p[p.length-1]).ifPresent(referencedNums::add);
-
-                if( referencedNums.size()==nums) // No increase, so not found
-                    Logger.error(id+ "(mf) -> Couldn't find val with id "+find);
+                int nums = referencedNums.size(); // Store current size to later check if it increased
+                var find = p[p.length - 1];
+                if (referencedNums.stream().noneMatch(val -> val.id().equalsIgnoreCase(find))){
+                    if (rtvals.hasReal(find))
+                        rtvals.getRealVal(p[p.length - 1]).ifPresent(referencedNums::add);
+                    if (rtvals.hasInteger(find))
+                        rtvals.getIntegerVal(p[p.length - 1]).ifPresent(referencedNums::add);
+                    if (rtvals.hasFlag(find))
+                        rtvals.getFlagVal(p[p.length - 1]).ifPresent(referencedNums::add);
+                    if( referencedNums.size()==nums) // No increase, so not found
+                        Logger.error(id+ "(mf) -> Couldn't find val with id "+find);
+                }
             }else{
                 Logger.error(id+" (mf)-> Pair containing odd amount of elements: "+String.join(":",p));
             }
         }
-
-        if(referencedNums!=null)
-            referencedNums.trimToSize();
-
+        if( originalSize==referencedNums.size()){
+            Logger.info(id+"(mf) -> No vals found in "+exp);
+        }else{
+            Logger.info(id + "(mf) -> Added " + (referencedNums.size()-originalSize) + " references to vals from "+exp);
+        }
         // Find the highest used 'i' index
         var is = Pattern.compile("i[0-9]{1,2}")
                 .matcher(exp)
@@ -682,9 +716,10 @@ public class MathForward extends AbstractForward {
                 .sorted()
                 .toArray(String[]::new);
         if( is.length==0 ) {
-            Logger.warn(id+" (mf)->No i's found in "+exp);
+            Logger.warn(id+"(mf)->No i's found in "+exp);
         }else{
             highestI = Math.max(highestI,Integer.parseInt(is[is.length-1].substring(1)));
+            Logger.info(id+"(mf) -> Highest I needed is "+highestI);
         }
         return true;
     }
@@ -713,7 +748,9 @@ public class MathForward extends AbstractForward {
                         var repl = "{"+p[0]+"}";
                         if( p.length==2)
                             repl = "{"+p[0]+":"+p[1]+"}";
-                        exp = exp.replace(repl, "i" + (highestI + pos + temps.size() + 1));
+                        var i = "i" + (highestI + pos + temps.size() + 1);
+                        exp = exp.replace(repl, i);
+                        Logger.info(id+"(mf) -> Replacing "+repl+" with "+i);
                         ok = true;
                         break;
                     }
@@ -735,14 +772,14 @@ public class MathForward extends AbstractForward {
                 .matcher(exp)
                 .results()
                 .map(MatchResult::group)
-                .sorted()
                 .toArray(String[]::new);
         for( var t : ts ){
-            int nr = Integer.parseInt(t.substring(1));
-            if( nr >= temps.size() )
-                temps.add(BigDecimal.ZERO);
-            exp = exp.replace(t,"i"+index);
-            index++;
+            int in = Integer.parseInt(t.substring(1));
+            try {
+                exp = exp.replace(t, "i" + (index + in));
+            }catch (NumberFormatException e){
+                Logger.error(e);
+            }
         }
         return exp;
     }
@@ -754,7 +791,6 @@ public class MathForward extends AbstractForward {
     public class Operation {
         Function<BigDecimal[],BigDecimal> op=null; // for the scale type
         MathFab fab=null;    // for the complex type
-
         int index;           // index for the result
         int scale=-1;
         String ori;          // The expression before it was decoded mainly for listing purposes
@@ -878,7 +914,7 @@ public class MathForward extends AbstractForward {
 
             if( scale != -1) // If scaling is requested
                 bd=bd.setScale(scale,RoundingMode.HALF_UP);
-
+            Logger.info("Writing "+bd.toPlainString()+" to index "+index);
             if( index>= 0 && index < data.length && changeIndex )
                 data[index]=bd;
 
