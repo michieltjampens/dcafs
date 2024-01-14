@@ -24,9 +24,12 @@ public class I2COpSet {
     private String id="";           // The id of this set of operations
     private String info="";         // Info about what this group is supposed to do
     private OUTPUT_TYPE outType = OUTPUT_TYPE.DEC;
-
+    boolean valid = true;
     public I2COpSet(XMLdigger dig, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
         readFromXml(dig,rtvals,dQueue);
+    }
+    public boolean isInvalid(){
+        return !valid;
     }
     public void readFromXml(XMLdigger digger, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
 
@@ -66,7 +69,15 @@ public class I2COpSet {
                 case "read" -> ops.add( new I2CRead(altDig, bits));
                 case "write" -> ops.add( new I2CWrite(altDig));
                 case "alter"-> ops.add( new I2CAlter(altDig));
-                case "math" -> altDig.current().ifPresent( x -> ops.add(new MathForward(x,dQueue,rtvals)));
+                case "math" -> altDig.current().ifPresent( x -> {
+                    var mf = new MathForward(x,dQueue,rtvals);
+                    if( mf.isReadOk() ) {
+                        ops.add(mf);
+                    }else{
+                        Logger.info(id+"(i2cop) -> Failed to read math node");
+                        valid=false;
+                    }
+                });
                 case "store" -> {
                     var store = new ValStore(id, altDig.currentTrusted(),rtvals);
                     if( ops.get(ops.size()-1) instanceof MathForward mf ) {
@@ -81,6 +92,8 @@ public class I2COpSet {
                 }
                 case "wait" -> nextDelay = dig.value(0); // The next op needs to be delayed
             }
+            if( !valid ) // If something went wrong stop processing
+                break;
         }
     }
     public String getInfo(){
