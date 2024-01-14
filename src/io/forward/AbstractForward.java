@@ -56,6 +56,9 @@ public abstract class AbstractForward implements Writable {
     public void setDebug( boolean debug ){
         this.debug=debug;
     }
+    public boolean isReadOk(){
+        return readOk&&parsedOk;
+    }
     /**
      * Add a source of data for this forward, it can be any command
      * @param source The command that provides the data fe. raw:... calc:... etc

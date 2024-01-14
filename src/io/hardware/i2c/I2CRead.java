@@ -1,6 +1,5 @@
 package io.hardware.i2c;
 
-import com.diozero.api.I2CDevice;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.math.MathUtils;
@@ -10,11 +9,10 @@ import util.xml.XMLdigger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
 
 public class I2CRead implements I2COp{
-    int bits = 8;
+    int bits;
     int reg=-1;
     int recBytes=0;
     int[] bitsets=null;

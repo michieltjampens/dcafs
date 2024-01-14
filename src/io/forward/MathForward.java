@@ -334,17 +334,11 @@ public class MathForward extends AbstractForward {
             Logger.error(id+"(mf) -> "+e.getMessage());
             return new ArrayList<>();
         }
-        StringJoiner join = new StringJoiner("\t");
-        Arrays.stream(bds).forEach( x-> join.add(x.toPlainString()));
-        Logger.info("BDS: "+join);
+
         // After doing all possible initial test, do the math
         int cnt=0;
         for( var op : ops ){
-            var res = op.solve(bds);
-            var j = new StringJoiner("\t");
-            Arrays.stream(bds).forEach( x-> j.add(x.toPlainString()));
-            Logger.info("BDS: "+j);
-            if (res == null) {
+            if (op.solve(bds) == null) {
                 cnt++;
                 showError(cnt==1,"(mf) -> Failed to process " + numbers + " for "+op.ori);
             }
@@ -704,9 +698,7 @@ public class MathForward extends AbstractForward {
             }
         }
         if( originalSize==referencedNums.size()){
-            Logger.info(id+"(mf) -> No vals found in "+exp);
-        }else{
-            Logger.info(id + "(mf) -> Added " + (referencedNums.size()-originalSize) + " references to vals from "+exp);
+            Logger.debug(id+"(mf) -> No vals found in "+exp);
         }
         // Find the highest used 'i' index
         var is = Pattern.compile("i[0-9]{1,2}")
@@ -715,11 +707,9 @@ public class MathForward extends AbstractForward {
                 .map(MatchResult::group)
                 .sorted()
                 .toArray(String[]::new);
-        if( is.length==0 ) {
-            Logger.warn(id+"(mf)->No i's found in "+exp);
-        }else{
+        if( is.length!=0 ) {
             highestI = Math.max(highestI,Integer.parseInt(is[is.length-1].substring(1)));
-            Logger.info(id+"(mf) -> Highest I needed is "+highestI);
+            Logger.debug(id+"(mf) -> Highest I needed is "+highestI);
         }
         return true;
     }
@@ -750,7 +740,7 @@ public class MathForward extends AbstractForward {
                             repl = "{"+p[0]+":"+p[1]+"}";
                         var i = "i" + (highestI + pos + temps.size() + 1);
                         exp = exp.replace(repl, i);
-                        Logger.info(id+"(mf) -> Replacing "+repl+" with "+i);
+                        Logger.debug(id+"(mf) -> Replacing "+repl+" with "+i);
                         ok = true;
                         break;
                     }
@@ -914,7 +904,7 @@ public class MathForward extends AbstractForward {
 
             if( scale != -1) // If scaling is requested
                 bd=bd.setScale(scale,RoundingMode.HALF_UP);
-            Logger.info("Writing "+bd.toPlainString()+" to index "+index);
+
             if( index>= 0 && index < data.length && changeIndex )
                 data[index]=bd;
 
@@ -923,6 +913,8 @@ public class MathForward extends AbstractForward {
             }else if( !cmd.isEmpty()){
                 dQueue.add(Datagram.system(cmd.replace("$", bd.toString())));
             }
+            if(debug)
+                Logger.info("Result of op: "+bd.toPlainString());
             return bd;
         }
     }
