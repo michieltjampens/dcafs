@@ -32,6 +32,9 @@ public class I2COpSet {
 
         id = digger.attr("id","");
         info = digger.attr("info","");  // Info abo
+        var msb = digger.attr("msbfirst",true);
+
+
         // Default amount of bits to combine
         int bits = digger.attr("bits", 8);
         outType = switch( digger.attr("radix","dec").toLowerCase()){
@@ -52,6 +55,9 @@ public class I2COpSet {
             if( nextDelay!=0){
                 fab.attr("delay",nextDelay+"ms");
                 nextDelay=0;
+            }
+            if( !fab.getCurrentElement().hasAttribute("msbfirst")) {
+                fab.attr("msbfirst", String.valueOf(msb));
             }
             fab.attr("id",id);
             var altDig = XMLdigger.goIn(fab.getCurrentElement());
