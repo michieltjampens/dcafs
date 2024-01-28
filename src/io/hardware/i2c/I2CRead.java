@@ -43,7 +43,10 @@ public class I2CRead implements I2COp{
         delay = TimeTools.parsePeriodStringToMillis(digger.attr("delay","0s"));
 
         if( digger.hasAttr("return") ){
-            recBytes = digger.attr("return",0);
+            var ret = digger.attr("return",0);
+            recBytes = (ret * bits)/8;
+            if( bits%8!=0)
+                recBytes++;
         }else if( digger.hasAttr("bitsplit")){
             var bs = digger.attr("bitsplit","").split(",");
             bitsets = Arrays.stream(bs).mapToInt(Integer::parseInt).toArray();

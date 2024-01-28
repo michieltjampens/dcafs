@@ -36,42 +36,42 @@
 	</command>
 	<!-- Read voltage -->
 	<command id="src1" info="Read the src of the first output" bits="10"> 		
-		<read reg="0xD8" return="2"/> 
+		<read reg="0xD8" return="1"/>
 		<math>i0=i0*31.25</math>		
 	</command> 
 	<command id="src2" info="Read the src of the first output" bits="10"> 		
-		<read reg="0xDA" return="2"/> 
+		<read reg="0xDA" return="1"/>
 		<math>i0=i0*31.25</math>
 	</command> 
 	<command id="srcs" info="Read the src of both outputs" bits="10"> 		
-		<read reg="0xD8" return="2"/> 
-		<read reg="0xDA" return="2"/>
+		<read reg="0xD8" return="1"/>
+		<read reg="0xDA" return="1"/>
 		<math>i0=i0*31.25</math>		
 		<math>i1=i1*31.25</math>
 	</command> 
 	<!-- Read current -->
 	<command id="sense1" info="Read the sense of the first output" bits="10"> 		
-		<read reg="0E0" return="2"/> 
+		<read reg="0E0" return="1"/>
 		<math>i0=i0*2.5</math> <!-- 0.025Ohm resistor -> 2A = 50mV => 1µV = 0.04mA => 62.5*0.04 = 2.5 -->
 	</command> 
 	<command id="sense2" info="Read the sense of the first output" bits="10"> 		
-		<read reg="0xE2" return="2"/>
+		<read reg="0xE2" return="1"/>
 		<math>i0=i0*62.5</math>		
 	</command> 
 	<command id="senses" info="Read the sense of the both outputs" bits="10"> 		
-		<read reg="0xE0" return="2"/> 
-		<read reg="0xE2" return="2"/> 
+		<read reg="0xE0" return="1"/>
+		<read reg="0xE2" return="1"/>
 		<math>i0=i0*2.5</math>		
 		<math>i1=i1*2.5</math>
 	</command> 
 	<command id="ads" info="Read the src,sense of both outputs" bits="10"> 		
-		<read reg="0xD8" return="2"/> 
+		<read reg="0xD8" return="1"/>
 		<math>i0=i0*0.03125</math>
-		<read reg="0xE0" return="2"/> 
+		<read reg="0xE0" return="1"/>
 		<math>i1=i1*2.5</math>
-		<read reg="0xDA" return="2"/>	
+		<read reg="0xDA" return="1"/>
 		<math>i2=i2*0.03125</math>
-		<read reg="0xE2" return="2"/> 		
+		<read reg="0xE2" return="1"/>
 		<math>i3=i3*2.5</math>
 	</command>
 	<command id="status" info="Read the status of the both outputs" bits="8"> 		

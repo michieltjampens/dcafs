@@ -2,15 +2,15 @@
 
 	<!-- Read all the data/cal registers from the device -->
 	<command id="read_hum" info="Read the humidity registers." bits="16">
-		<read reg="0xFD" return="2"/>
+		<read reg="0xFD" return="1"/>
 	</command>
 	<command id="read_temp" info="Read the temperature registers." bits="24">
-		<read reg="0xFA" return="3"/>
+		<read reg="0xFA" return="1"/>
 	</command>
-	<command id="calc_temp" info="Read the temperature registers." bits="24">
-		<read reg="0xFA" return="3"/>
-		<read reg="0x88" return="2"/> <!-- T1: unsigned 16bit -->
-		<read reg="0x88" signed="true" return="4"/> <!-- T2 to T3: signed 16bit -->
+	<command id="calc_temp" info="Read the temperature registers." bits="16">
+		<read reg="0xFA" bits="24" return="1"/>
+		<read reg="0x88" return="1"/> <!-- T1: unsigned 16bit -->
+		<read reg="0x88" signed="true" return="2"/> <!-- T2 to T3: signed 16bit -->
 		
 	<!--
 		double var1 = (adc/16384 - comp[0]/1024) * comp[1];
@@ -33,7 +33,7 @@
 				
 	</command>
 	<command id="read_press" info="Read the pressure registers." bits="24">
-		<read reg="0xF7" return="3"/>
+		<read reg="0xF7" return="1"/>
 	</command>
 	<command id="read_status" info="Read the status registers." bits="8">
 		<read reg="0xF3" return="1"/>
@@ -45,21 +45,21 @@
 	<command id="read_coeff" info="Read the calibration values from the ic" bits="16">
 		<!-- Temperature -->
 		<!-- 48750; -3992 ; 12800 -->
-		<read reg="0x88" return="2"/> <!-- T1: unsigned 16bit -->
-		<read reg="0x8A" signed="true" return="4"/> <!-- T2 to T3: signed 16bit -->
+		<read reg="0x88" return="1"/> <!-- T1: unsigned 16bit -->
+		<read reg="0x8A" signed="true" return="2"/> <!-- T2 to T3: signed 16bit -->
 		
 		<!-- Pressure -->
 		<!-- 16785 ; 32982 ; 53259 ; 56609 ; 51455 ; 63999 ; 44070 ; 2776 ; 48400 -->
-		<read reg="0x8E" signed="true" return="2"/> <!-- P1: signed 16bit-->
-		<read reg="0x90" signed="false" return="16"/> <!-- P2 to P9: unsigned 16bit -->
+		<read reg="0x8E" signed="true" return="1"/> <!-- P1: signed 16bit-->
+		<read reg="0x90" signed="false" return="8"/> <!-- P2 to P9: unsigned 16bit -->
 		
 		<!-- Humidity -->
 		<!-- 75 ; -30463 ; 0 ; 242 ; 688 -->
 		<read reg="0xA1" bits="8"  signed="false" return="1"/> <!-- H1: unsigned 8bit -->
-		<read reg="0xE1" bits="16" signed="true"  return="2"/> <!-- H2: signed 16bit  -->
+		<read reg="0xE1" bits="16" signed="true"  return="1"/> <!-- H2: signed 16bit  -->
 		<read reg="0xE3" bits="8"  signed="false" return="1"/> <!-- H3: unsigned 8bit -->
-		<read reg="0xE4" bits="12" signed="true"  return="2"/> <!-- H4: signed 12bit  -->
-		<read reg="0xE5" bits="12" signed="true"  return="2"/> <!-- H5: humidity signed short, WRONG SHIFT-->		
+		<read reg="0xE4" bits="12" signed="true"  return="1"/> <!-- H4: signed 12bit  -->
+		<read reg="0xE5" bits="12" signed="true"  return="1"/> <!-- H5: humidity signed short, WRONG SHIFT-->
 	</command>
 	
 	<!-- Mode changes -->
