@@ -67,11 +67,11 @@ public class I2CWrite implements I2COp{
     @Override
     public ArrayList<Integer> doOperation(ExtI2CDevice device) {
         if( device.isDebug())
-            Logger.info(device.getID()+"(i2c) -> Writing "+Tools.fromBytesToHexString(towrite));
+            Logger.info(device.id()+"(i2c) -> Writing "+Tools.fromBytesToHexString(towrite));
         try{
             device.writeBytes(towrite);
         }catch( RuntimeException e){
-            Logger.error(device.getID()+"(i2c) -> Failed to write");
+            Logger.error(device.id()+"(i2c) -> Failed to write");
         }
         return new ArrayList<>();
     }

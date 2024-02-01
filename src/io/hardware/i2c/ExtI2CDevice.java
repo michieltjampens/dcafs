@@ -38,6 +38,7 @@ public class ExtI2CDevice extends I2CDevice {
 		Logger.info("Connecting to controller:"+controller +" and address:"+address);
 	}
 	public String getID(){
+	public String id(){
 		return id;
 	}
 	public void probeIt() throws RuntimeIOException{

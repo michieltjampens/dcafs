@@ -1,6 +1,5 @@
 package io.hardware.i2c;
 
-import com.diozero.api.I2CDevice;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
@@ -52,7 +51,7 @@ public class I2CAlter implements I2COp{
         device.writeByte(reg);
         var rec = device.readByte();
         if( device.isDebug() )
-            Logger.info(device.getID() +"(i2c) -> Read 0x"+Integer.toHexString(rec));
+            Logger.info(device.id() +"(i2c) -> Read 0x"+Integer.toHexString(rec));
         switch(operand){
             case OR -> rec |= alter;
             case AND -> rec &= alter;
