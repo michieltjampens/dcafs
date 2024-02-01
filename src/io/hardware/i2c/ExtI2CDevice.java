@@ -3,15 +3,16 @@ package io.hardware.i2c;
 import com.diozero.api.I2CDevice;
 import com.diozero.api.RuntimeIOException;
 import io.Writable;
+import io.netty.channel.EventLoopGroup;
+import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
+import util.data.RealtimeValues;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,6 +26,7 @@ public class ExtI2CDevice extends I2CDevice {
 	private final ArrayList<Writable> targets = new ArrayList<>();
 	private boolean failedProbe=false;
 	private boolean debug=false;
+	private HashMap<String,I2COpSet> ops = new HashMap<>();
 	/**
 	 * Extension of the @see I2CDevice class that adds the command functionality
 	 * 
@@ -110,5 +112,41 @@ public class ExtI2CDevice extends I2CDevice {
 				.selectOrAddChildAsParent("device","id",id)
 				.attr("address","0x"+String.format("%02x", getAddress()))
 				.attr("script",script).build();
+	}
+	public String getOpsInfo( boolean full){
+		String last="";
+		StringJoiner join = new StringJoiner("\r\n");
+		for( var entry : ops.entrySet() ){
+			String[] split = entry.getKey().split(":");
+			var cmd = entry.getValue();
+			if( !last.equalsIgnoreCase(split[0])){
+				if( !last.isEmpty())
+					join.add("");
+				join.add(TelnetCodes.TEXT_GREEN+split[0]+TelnetCodes.TEXT_DEFAULT);
+				last = split[0];
+			}
+			join.add(cmd.getOpsInfo("\t   ",full));
+		}
+		return join.toString();
+	}
+	public boolean hasOp( String id ){
+		return ops.containsKey(id);
+	}
+	public boolean startOp( String id, EventLoopGroup scheduler ){
+		var op = ops.get(id);
+		if( op == null ) {
+			Logger.error(id+" (i2c) -> Tried to run '"+id+"' but no such op.");
+			return false;
+		}
+		try {
+			Logger.debug("Probing device...");
+			probeIt(); // First check if the device is actually there?
+			op.startOp(this,scheduler);
+			updateTimestamp(); // Update last used timestamp, because we had comms
+		}catch( RuntimeIOException e ){
+			Logger.error(id+" (i2c) -> Failed to run command for "+getAddr()+":"+e.getMessage());
+			return false;
+		}
+		return true;
 	}
 }
