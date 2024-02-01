@@ -23,14 +23,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
-import java.util.stream.Stream;
 
 public class I2CWorker implements Commandable {
     private final HashMap<String, ExtI2CDevice> devices = new HashMap<>();
-    private final LinkedHashMap<String, I2COpSet> opSets = new LinkedHashMap<>();
-
     private boolean debug = false;
-
     private final Path scriptsPath; // Path to the scripts
     private final Path settingsPath; // Path to the settingsfile
     private final EventLoopGroup eventloop; // Executor to run the commands
@@ -45,26 +41,78 @@ public class I2CWorker implements Commandable {
         scriptsPath = settings.getParent().resolve("i2cscripts");
         readFromXML();
     }
-
+    /* ************************* READ XML SETTINGS *******************************************/
     /**
-     * Enable or disable extra debug info
-     * @param debug True to enable
-     * @return The new debug state
+     * Reads the settings for the worker from the given xml file, this mainly
+     * consists of devices with their commands.
      */
-    public boolean setDebug( boolean debug ){
-        this.debug=debug;
-        devices.values().forEach( device -> device.setDebug(debug));
-        return debug;
+    private void readFromXML() {
+        var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
+        if( i2cOpt.isPresent() ){
+            Logger.info("Found settings for a I2C bus");
+            devices.values().forEach(I2CDevice::close);
+            devices.clear();
+            for( Element i2c_bus : XMLtools.getChildElements( i2cOpt.get(), "bus") ){
+                int bus = XMLtools.getIntAttribute(i2c_bus, "controller", -1);
+                Logger.info("Reading devices on the I2C bus of controller "+bus);
+                if( bus ==-1 ){
+                    Logger.error("Invalid controller number given.");
+                    continue;
+                }
+                for( Element device : XMLtools.getChildElements( i2c_bus, "device")){
+
+                    String id = XMLtools.getStringAttribute( device, "id", "").toLowerCase();
+                    String script = XMLtools.getStringAttribute( device, "script", "").toLowerCase();
+
+                    int address = Tools.parseInt( XMLtools.getStringAttribute( device , "address", "0x00" ),16);
+                    var devopt = addDevice( id, script, bus, address );
+                    if( devopt.isPresent() ){
+                        // Load the op set
+                        loadSet( devopt.get() );
+                        Logger.info("Adding "+id+"("+address+") to the device list of controller "+bus);
+                    }else{
+                        Logger.error("Tried to add "+id+" to the i2c device list, but probe failed");
+                    }
+                }
+            }
+        }
     }
+    private boolean loadSet( ExtI2CDevice device ){
+        var script = device.getScript();
+        var xml = scriptsPath.resolve(script+".xml");
 
-    /**
-     * Get info on  the current status of the attached devices
-     * @param eol The eol to use
-     * @return The concatenated status's
-     */
-    public String getStatus(String eol){
-        StringJoiner join = new StringJoiner(eol);
-        devices.forEach( (key,val) -> join.add( val.getStatus(key)));
+        if( Files.notExists(xml)){
+            Logger.error(device.id()+" (i2c) -> Couldn't find script at "+xml);
+            return false;
+        }
+        var dig = XMLdigger.goIn(xml,"i2cscript");
+        if( dig.isInvalid() ){
+            Logger.error(device.id()+" (i2c) -> Syntax error in "+xml);
+            return false;
+        }
+        device.clearOpSets(rtvals);
+
+        var defOut = dig.attr("output","");
+        for( var c : dig.digOut("command")){
+            var set = new I2COpSet(c,rtvals,dQueue,device.id());
+            set.setOutputType(defOut);
+            if( set.isInvalid()) {
+                Logger.error(device.id() + " (i2c) -> Failed to process " + script + "->" + set.id() + ", check logs.");
+                return false;
+            }
+            device.addOpSet(set);
+        }
+        return true;
+    }
+    private String reloadSets(){
+        StringJoiner join = new StringJoiner("\r\n");
+        for( var device : devices.values() ){
+            if( !loadSet(device) ){
+                join.add("! Failed to reload set of "+device.id());
+            }else{
+                join.add("Reloaded set of "+device.id());
+            }
+        }
         return join.toString();
     }
     /* ***************************************************************************************************** */
@@ -102,26 +150,11 @@ public class I2CWorker implements Commandable {
     }
     /**
      * Get a readable list of all the registered devices
-     * @param full Add the complete listing of the commands and not just id/info
      * @return Comma separated list of registered devices
      */
-    public String getDeviceList(boolean full) {
+    public String getDeviceList() {
         StringJoiner join = new StringJoiner("\r\n");
         devices.forEach((key, device) -> join.add(key+" -> "+device.toString()));
-        join.add("\r\n-Stored scripts-");
-        String last="";
-
-        for( var entry : opSets.entrySet() ){
-            String[] split = entry.getKey().split(":");
-            var cmd = entry.getValue();
-            if( !last.equalsIgnoreCase(split[0])){
-                if( !last.isEmpty())
-                    join.add("");
-                join.add(TelnetCodes.TEXT_GREEN+split[0]+TelnetCodes.TEXT_DEFAULT);
-                last = split[0];
-            }
-            join.add(cmd.getOpsInfo("\t   ",full));
-        }
         return join.toString();
     }
     public int getDeviceCount(){
@@ -151,77 +184,28 @@ public class I2CWorker implements Commandable {
         devices.forEach( (id,device) -> join.add( id+" -> "+device.getWritableIDs()));
         return join.toString();
     }
-    /* ************************* READ XML SETTINGS *******************************************/
-    /**
-     * Reads the settings for the worker from the given xml file, this mainly
-     * consists of devices with their commands.
-     */
-    private void readFromXML() {
-        var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
-        if( i2cOpt.isPresent() ){
-            Logger.info("Found settings for a I2C bus");
-            devices.values().forEach(I2CDevice::close);
-            devices.clear();
-            for( Element i2c_bus : XMLtools.getChildElements( i2cOpt.get(), "bus") ){
-                int bus = XMLtools.getIntAttribute(i2c_bus, "controller", -1);
-                Logger.info("Reading devices on the I2C bus of controller "+bus);
-                if( bus ==-1 ){
-                    Logger.error("Invalid controller number given.");
-                    continue;
-                }
-                for( Element device : XMLtools.getChildElements( i2c_bus, "device")){
-
-                    String id = XMLtools.getStringAttribute( device, "id", "").toLowerCase();
-                    String script = XMLtools.getStringAttribute( device, "script", "").toLowerCase();
-                    
-                    int address = Tools.parseInt( XMLtools.getStringAttribute( device , "address", "0x00" ),16);
-
-                    if( addDevice( id, script, bus, address ).isPresent() ){
-                        Logger.info("Adding "+id+"("+address+") to the device list of controller "+bus);
-                    }else{
-                        Logger.error("Tried to add "+id+" to the i2c device list, but probe failed");
-                    }
-                }           
-            }
-        }else{
-            Logger.info("No settings found for I2C, no use reading the commandsets.");
-            return;
-        }
-        reloadSets();
-    }
-
-    private String reloadSets( ){
-        List<Path> xmls;
-        try (Stream<Path> files = Files.list(scriptsPath)){
-            xmls = files.filter(p -> p.toString().endsWith(".xml")).toList();
-        }catch (IOException e) {            
-            Logger.error("Something went wrong trying to read the commandset files");
-            return "Failed to read files in i2cscripts folder";
-        }
-        Logger.info("Reading I2C scripts from: "+scriptsPath);
-
-        if( !opSets.isEmpty() ){ // Meaning it's a reload
-            opSets.values().forEach( set -> set.removeRtvals(rtvals)); // Remove all the related rtvals
-            opSets.clear();
-        }
-
-        for( Path p : xmls ){
-            var dig = XMLdigger.goIn(p,"commandset");
-            if( dig.isInvalid() ){
-                return "Syntax error in "+p.getFileName().toString();
-            }
-            var script = dig.attr("script","");
-            var defOut = dig.attr("output","dec");
-            for( var c : dig.digOut("command")){
-                var set = new I2COpSet(c,rtvals,dQueue);
-                if( set.isInvalid())
-                    return "! Failed to process "+script+", check logs.";
-                opSets.put( script+":"+c.attr("id",""),set);
-            }
-        }
-        return "All files ("+xmls.size()+") read ok.";
-    }
     /* ***************************************************************************************************** */
+    /**
+     * Enable or disable extra debug info
+     * @param debug True to enable
+     * @return The new debug state
+     */
+    public boolean setDebug( boolean debug ){
+        this.debug=debug;
+        devices.values().forEach( device -> device.setDebug(debug));
+        return debug;
+    }
+
+    /**
+     * Get info on  the current status of the attached devices
+     * @param eol The eol to use
+     * @return The concatenated status's
+     */
+    public String getStatus(String eol){
+        StringJoiner join = new StringJoiner(eol);
+        devices.forEach( (key,val) -> join.add( val.getStatus(key)));
+        return join.toString();
+    }
     /**
      * Search the bus of the specified controller for responsive devices
      * 
@@ -275,18 +259,18 @@ public class I2CWorker implements Commandable {
                         .add(gr + "  i2c:detect,bus" + reg + " -> Detect the devices connected on the given bus")
                         .add(gr + "  i2c:adddevice,id,bus,address,script" + reg + " -> Add a device on bus at hex address that uses script")
                         .add(gr + "  i2c:addblank,scriptname" + reg + " -> Adds a blank i2c script to the default folder")
-                        .add(gr + "  i2c:reload" + reg + " -> Reload the commandset file(s)")
+                        .add(gr + "  i2c:reload" + reg + " -> Reload the i2cscript file(s)")
                         .add("").add(cyan + " Get info" + reg)
-                        .add(gr + "  i2c:list" + reg + " -> List all registered devices with commandsets")
+                        .add(gr + "  i2c:list" + reg + " -> List all registered devices with i2cscript")
                         .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
                         .add("").add(cyan + " Other" + reg)
                         .add(gr + "  i2c:debug,on/off" + reg + " -> Enable or disable extra debug feedback in logs")
-                        .add(gr + "  i2c:device,commandset" + reg + " -> Use the given command on the device")
+                        .add(gr + "  i2c:device,i2cscript" + reg + " -> Use the given command on the device")
                         .add(gr + "  i2c:id" + reg + " -> Request the data received from the given id (can be regex)");
                 return join.toString();
             }
             case "list" -> {
-                return getDeviceList(true);
+                return getDeviceList();
             }
             case "reload" -> {
                 return reloadSets();
@@ -313,7 +297,7 @@ public class I2CWorker implements Commandable {
                         Logger.error(e);
                     }
                 }
-                XMLfab.withRoot(scriptsPath.resolve(cmds[1] + ".xml"), "commandset").attr("script", cmds[1])
+                XMLfab.withRoot(scriptsPath.resolve(cmds[1] + ".xml"), "i2cscript").attr("id", cmds[1])
                         .addParentToRoot("command", "An empty command to start with")
                         .attr("id", "cmdname").attr("info", "what this does")
                         .build();
@@ -337,7 +321,7 @@ public class I2CWorker implements Commandable {
                 // Check if the script already exists, if not build it
                 var p = scriptsPath.resolve(cmds[4] + (cmds[4].endsWith(".xml")?"":".xml"));
                 if (!Files.exists(p)) {
-                    XMLfab.withRoot(p, "commandset").attr("script", cmds[4])
+                    XMLfab.withRoot(p, "i2cscript").attr("id", cmds[4])
                             .addParentToRoot("command", "An empty command to start with")
                             .attr("id", "cmdname").attr("info", "what this does")
                             .build();
@@ -406,7 +390,8 @@ public class I2CWorker implements Commandable {
             Logger.error("Invalid job received, unknown device '" + id + "'");
             return "! Invalid job received, unknown device '" + id + "'";
         }
-        if (!opSets.containsKey(device.getScript()+":"+command)) {
+
+        if (!device.hasOp(command.split(",")[0])) {
             Logger.error("Invalid command received '" + device.getScript()+":"+command + "'.");
             return "! Invalid command received '" + device.getScript()+":"+command + "'.";
         }
@@ -426,18 +411,7 @@ public class I2CWorker implements Commandable {
             }
             cmdID=cmdID.substring(0,cmdID.indexOf(","));
         }
-
         // Execute the command
-        var ops = opSets.get(device.getScript()+":"+cmdID);
-        try {
-            Logger.debug("Probing device...");
-            device.probeIt(); // First check if the device is actually there?
-            device.updateTimestamp(); // Update last used timestamp
-
-            ops.startOp(device,eventloop);
-            device.updateTimestamp();
-        }catch( RuntimeIOException e ){
-            Logger.error("Failed to run command for "+device.getAddr()+":"+e.getMessage());
-        }
+        device.startOp(cmdID,eventloop);
     }
 }

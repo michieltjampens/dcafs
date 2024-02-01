@@ -37,7 +37,14 @@ public class ExtI2CDevice extends I2CDevice {
 		this.script=script;
 		Logger.info("Connecting to controller:"+controller +" and address:"+address);
 	}
-	public String getID(){
+	public void addOpSet( I2COpSet opset ){
+		ops.put(opset.id(),opset);
+	}
+	public void clearOpSets(RealtimeValues rtvals ){
+		// Make sure the rtvals are also removed from the central repo
+		ops.values().forEach( set -> set.removeRtvals(rtvals));
+		ops.clear();
+	}
 	public String id(){
 		return id;
 	}

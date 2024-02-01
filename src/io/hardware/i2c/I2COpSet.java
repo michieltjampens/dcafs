@@ -16,36 +16,30 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class I2COpSet {
-    public enum OUTPUT_TYPE{DEC,HEX,BIN,CHAR}
+    public enum OUTPUT_TYPE{DEC,HEX,BIN,CHAR,NONE}
     private final ArrayList<Integer> received = new ArrayList<>(); // Data received through i2c read ops
     private final ArrayList<Object> ops = new ArrayList<>(); // Collection of ops, maths and stores
     private int index=0;                // Next op that will be executed
     private ScheduledFuture<?> future;  // Future about the next op
     private String id="";           // The id of this set of operations
     private String info="";         // Info about what this group is supposed to do
-    private OUTPUT_TYPE outType = OUTPUT_TYPE.DEC;
+    private OUTPUT_TYPE outType = OUTPUT_TYPE.NONE;
     boolean valid = true;
-    public I2COpSet(XMLdigger dig, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
-        readFromXml(dig,rtvals,dQueue);
+    public I2COpSet(XMLdigger dig, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, String deviceId){
+        readFromXml(dig,rtvals,dQueue,deviceId);
     }
     public boolean isInvalid(){
         return !valid;
     }
-    public void readFromXml(XMLdigger digger, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
+    public void readFromXml(XMLdigger digger, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, String deviceId){
 
         id = digger.attr("id","");
         info = digger.attr("info","");  // Info abo
         var msb = digger.attr("msbfirst",true);
 
-
         // Default amount of bits to combine
         int bits = digger.attr("bits", 8);
-        outType = switch( digger.attr("radix","dec").toLowerCase()){
-            case "hex" -> OUTPUT_TYPE.HEX;
-            case "bin" -> OUTPUT_TYPE.BIN;
-            case "char" -> OUTPUT_TYPE.CHAR;
-            default -> OUTPUT_TYPE.DEC;
-        };
+        setOutputType( digger.attr("output","") );
 
         long nextDelay=0;
         for( var dig : digger.digOut("*")){
@@ -63,6 +57,14 @@ public class I2COpSet {
                 fab.attr("msbfirst", String.valueOf(msb));
             }
             fab.attr("id",id);
+
+            // The group attribute used for store might contain $id that needs to be replaced with the device id
+            if( dig.hasAttr("group") ){
+                var group = dig.attr("group","");
+                if( group.startsWith("$") && group.endsWith("id")){
+                    fab.attr(group,deviceId);
+                }
+            }
             var altDig = XMLdigger.goIn(fab.getCurrentElement());
 
             switch( dig.tagName("")){
@@ -96,17 +98,42 @@ public class I2COpSet {
                 break;
         }
     }
+    public String id(){
+        return id;
+    }
+    public void setOutputType( String radix ){
+        if( radix.isEmpty()||outType!=OUTPUT_TYPE.NONE) // don't overwrite
+            return;
+        outType = switch( radix.toLowerCase()){
+            case "hex" -> OUTPUT_TYPE.HEX;
+            case "bin" -> OUTPUT_TYPE.BIN;
+            case "char" -> OUTPUT_TYPE.CHAR;
+            default -> OUTPUT_TYPE.DEC;
+        };
+    }
     public String getInfo(){
         return id+" -> "+info;
     }
+
+    /**
+     * Start this opset on the given device
+     * @param device The device to run it on
+     * @param scheduler The scheduler to use for the threads
+     */
     public void startOp(ExtI2CDevice device, EventLoopGroup scheduler){
-        Logger.info(id+" -> Starting on "+device.getID());
+        Logger.info(id+" -> Starting on "+device.id());
         index=0;
         received.clear();
         if( future != null)
             future.cancel(true);
         runOp(device,scheduler);
     }
+
+    /**
+     * Execute the next step in the opset
+     * @param device The device to run the set on
+     * @param scheduler The scheduler to get a thread from to use it
+     */
     private void runOp(ExtI2CDevice device, EventLoopGroup scheduler ){
         long delay = 0;
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
@@ -136,11 +163,17 @@ public class I2COpSet {
             forwardIntegerResult(device);
         }
     }
+
+    /**
+     * Take the results of an opset and parse the doubles to the chosen output type
+     * @param device The device the results came from
+     * @param altRes The result of the opset
+     */
     private void forwardDoubleResult(ExtI2CDevice device, ArrayList<Double> altRes){
 
-        StringJoiner output = new StringJoiner(";",device.getID()+";"+id+";","");
+        StringJoiner output = new StringJoiner(";",device.id()+";"+id+";","");
         switch (outType) {
-            case DEC -> altRes.forEach(x -> {
+            case DEC,NONE -> altRes.forEach(x -> {
                 if (x.toString().endsWith(".0")) {
                     output.add( String.valueOf(x.intValue()) );
                 } else {
@@ -160,10 +193,14 @@ public class I2COpSet {
         }
         forwardData(device,output.toString());
     }
+    /**
+     * Take the integer results of an opset and parse it to the chosen output type
+     * @param device The device the results came from
+     */
     private void forwardIntegerResult(ExtI2CDevice device){
-        StringJoiner output = new StringJoiner(";",device.getID()+";"+id+";","");
+        StringJoiner output = new StringJoiner(";",device.id()+";"+id+";","");
         switch (outType) {
-            case DEC -> received.stream().map(String::valueOf).forEach(output::add);
+            case DEC,NONE -> received.stream().map(String::valueOf).forEach(output::add);
             case HEX -> received.stream().map( i->Integer.toHexString(i).toUpperCase())
                             .forEach( val -> output.add("0x" + (val.length() == 1 ? "0" : "") + val) );
             case BIN -> received.forEach(x -> output.add("0b" + Integer.toBinaryString(x)));
@@ -175,6 +212,12 @@ public class I2COpSet {
         }
         forwardData(device,output.toString());
     }
+
+    /**
+     * Actually forward the result to the registered targets
+     * @param device The device that was used
+     * @param output The formatted output
+     */
     private void forwardData( ExtI2CDevice device, String output){
         try {
             device.getTargets().forEach(wr -> wr.writeLine(output));
@@ -182,7 +225,7 @@ public class I2COpSet {
         }catch(Exception e){
             Logger.error(e);
         }
-        Logger.tag("RAW").warn( device.getID() + "\t" + output );
+        Logger.tag("RAW").warn( device.id() + "\t" + output );
     }
     public String getOpsInfo(String prefix,boolean full){
         if( !full )
