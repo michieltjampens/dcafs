@@ -18,10 +18,17 @@ now give an error if this or regular parsing fails.
 ### I2C
 - Rewrite in progress, mainly to make the code easier to understand and adapt. All the basics work.
   - Read/Write/alter registers, delay before executing read.
+- Now ops are stored inside the device instead of globally, so each device has their own set.
+Doesn't make a difference if only one device was using the script. But now multiple can use the same
+script but with custom store's.
 - Now allow for read data to be split according to bit list, fe. 8,20,20,8 means read 7 bytes and split those according 
 to that sequence.
 - Removed use of label 
 - Can now use math and store node inside the scripts, for now the store must be after a math
+**Breaking changes**
+- The return attribute in the read node, now is based on the set amount of bits. So return now refers to the amount of
+  times that bits is returned.... So if bits is 16 and you read one of that, return used to be two and now it's one.
+- The main node is renamed from commandset to i2cscript and script attribute to id.
 
 ### Admin cmds
 - Added a cmd that uses phytool to power down or up a phy, could be used to save power.
@@ -96,6 +103,7 @@ math operation to the argument first.
 		<write reg="0xD4">0x13</write>
 	</command> 
 ```
+
 ### Path
 - Rewrote the code that reads paths from xml
 - Fixed, type nmea was ignored because it was expecting a value.
