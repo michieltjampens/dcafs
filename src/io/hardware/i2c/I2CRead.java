@@ -185,7 +185,7 @@ public class I2CRead implements I2COp{
         return ints;
     }
     public String toString(  ){
-        String info = delay==0?"":"Wait for "+TimeTools.convertPeriodtoString(delay, TimeUnit.MILLISECONDS)+" then, ";
-        return info+"Read "+(recBytes==1?"a single byte":recBytes+" bytes")+" from reg 0x"+Integer.toHexString(reg);
+        String info = delay==0?"":"Wait for "+TimeTools.convertPeriodtoString(delay, TimeUnit.MILLISECONDS)+". ";
+        return info+"Read "+(recBytes==1?"a single byte":recBytes+" bytes")+" starting at reg 0x"+(reg<16?"0":"")+Integer.toHexString(reg);
     }
 }

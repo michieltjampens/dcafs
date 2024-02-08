@@ -127,24 +127,24 @@ public class I2CWorker implements Commandable {
     public Optional<ExtI2CDevice> addDevice(String id, String script, int controller, int address) {
 
         if( address==-1) {
-            Logger.warn(id+" -> Invalid address given");
+            Logger.warn(id+"(i2c) -> Invalid address given");
             return Optional.empty();
         }
 
         try (I2CDevice device = new I2CDevice(controller, address)) {
             if (!device.probe( I2CDevice.ProbeMode.AUTO )) {
-                Logger.error("Probing the new device failed: "+address);
+                Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
                 return Optional.empty();
             }
         } catch ( RuntimeIOException e ){
-            Logger.error("Probing the new device failed: "+address);
+            Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
             return Optional.empty();
         }
         try{
             devices.put(id, new ExtI2CDevice(id,controller, address, script));
             return Optional.of(devices.get(id));
         }catch( RuntimeIOException e){
-            Logger.error("Probing the new device failed: "+address);
+            Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
             return Optional.empty();
         }
     }
@@ -257,15 +257,17 @@ public class I2CWorker implements Commandable {
                 StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
                 join.add(cyan + "Create/load devices/scripts" + reg)
                         .add(gr + "  i2c:detect,bus" + reg + " -> Detect the devices connected on the given bus")
-                        .add(gr + "  i2c:adddevice,id,bus,address,script" + reg + " -> Add a device on bus at hex address that uses script")
-                        .add(gr + "  i2c:addblank,scriptname" + reg + " -> Adds a blank i2c script to the default folder")
-                        .add(gr + "  i2c:reload" + reg + " -> Reload the i2cscript file(s)")
+                        .add(gr + "  i2c:adddevice,id,bus,address,scriptid" + reg + " -> Add a device on bus at hex address that uses script")
+                        .add(gr + "  i2c:addblank,scriptid" + reg + " -> Adds a blank i2c script to the default folder")
+                        .add(gr + "  i2c:reload" + reg + " -> Reload the i2cscripts")
+                        .add( cyan+"Alter scripts"+reg)
+                        .add(gr + " i2c:scriptid,addset,id,info,bits")
                         .add("").add(cyan + " Get info" + reg)
                         .add(gr + "  i2c:list" + reg + " -> List all registered devices with i2cscript")
                         .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
                         .add("").add(cyan + " Other" + reg)
                         .add(gr + "  i2c:debug,on/off" + reg + " -> Enable or disable extra debug feedback in logs")
-                        .add(gr + "  i2c:device,i2cscript" + reg + " -> Use the given command on the device")
+                        .add(gr + "  i2c:device,setid" + reg + " -> Use the given command on the device")
                         .add(gr + "  i2c:id" + reg + " -> Request the data received from the given id (can be regex)");
                 return join.toString();
             }
@@ -284,12 +286,12 @@ public class I2CWorker implements Commandable {
                         return "Debug " + cmds[1];
                     return "! Failed to set debug, maybe no i2cworker yet?";
                 } else {
-                    return "Incorrect number of variables: i2c:debug,on/off";
+                    return "! Incorrect number of variables: i2c:debug,on/off";
                 }
             }
             case "addblank" -> {
                 if (cmds.length != 2)
-                    return "! Incorrect number of arguments: i2c:addblank,scriptname";
+                    return "! Incorrect number of arguments: i2c:addblank,scriptid";
                 if (!Files.isDirectory(scriptsPath)) {
                     try {
                         Files.createDirectories(scriptsPath);
@@ -298,14 +300,14 @@ public class I2CWorker implements Commandable {
                     }
                 }
                 XMLfab.withRoot(scriptsPath.resolve(cmds[1] + ".xml"), "i2cscript").attr("id", cmds[1])
-                        .addParentToRoot("command", "An empty command to start with")
-                        .attr("id", "cmdname").attr("info", "what this does")
+                        .addParentToRoot("opset", "An empty operation set to start with")
+                        .attr("id", "setid").attr("info", "what this does").attr("bits","8")
                         .build();
                 return "Blank added";
             }
             case "adddevice" -> {
                 if (cmds.length != 5)
-                    return "! Incorrect number of arguments: i2c:adddevice,id,bus,hexaddress,script";
+                    return "! Incorrect number of arguments: i2c:adddevice,id,bus,hexaddress,scriptid";
                 if (!Files.isDirectory(scriptsPath)) {
                     try {
                         Files.createDirectories(scriptsPath);
@@ -315,21 +317,22 @@ public class I2CWorker implements Commandable {
                 }
                 var opt = addDevice(cmds[1], cmds[4], NumberUtils.toInt(cmds[2]), Tools.parseInt(cmds[3], -1));
                 if (opt.isEmpty())
-                    return "Probing " + cmds[3] + " on bus " + cmds[2] + " failed";
+                    return "! Probing " + cmds[3] + " on bus " + cmds[2] + " failed";
                 opt.ifPresent(d -> d.storeInXml(XMLfab.withRoot(settingsPath, "dcafs", "settings").digRoot("i2c")));
 
                 // Check if the script already exists, if not build it
                 var p = scriptsPath.resolve(cmds[4] + (cmds[4].endsWith(".xml")?"":".xml"));
                 if (!Files.exists(p)) {
                     XMLfab.withRoot(p, "i2cscript").attr("id", cmds[4])
-                            .addParentToRoot("command", "An empty command to start with")
-                            .attr("id", "cmdname").attr("info", "what this does")
+                            .addParentToRoot("opset", "An empty operation set to start with")
+                            .attr("id", "setid").attr("info", "what this does")
+                            .attr("bits","8")
                             .build();
                     readFromXML();
                     return "Device added, created blank script at " + p;
-                } else {
-                    return "Device added, using existing script";
                 }
+                return "Device added, using existing script";
+
             }
             case "detect" -> {
                 if (cmds.length == 2) {
@@ -339,7 +342,7 @@ public class I2CWorker implements Commandable {
                 }
             }
             default -> {
-                if (cmds.length == 1) {
+                if (cmds.length == 1) { // single arguments points to a data request
                     StringBuilder oks = new StringBuilder();
                     for (var dev : devices.entrySet()) {
                         if (dev.getKey().matches(cmds[0])) {
@@ -349,25 +352,18 @@ public class I2CWorker implements Commandable {
                             oks.append(dev.getKey());
                         }
                     }
-                    if (!oks.isEmpty()) {
-                        return "Request for i2c:" + cmds[0] + " accepted from " + wr.id();
-                    } else {
-                        Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());
-                        return "! No such subcommand in "+cmd+": "+args;
-                    }
-                }
-                if (wr != null && wr.id().equalsIgnoreCase("telnet")) {
-                    if (cmds[0].isEmpty()) {
-                        removeWritable(wr);
-                    } else {
-                        addTarget(cmds[0], wr);
-                    }
-                }
-                var arg = cmds[1];
-                if( cmds.length>2) // if there are args added to the cmd
-                    arg = args.substring(args.indexOf(","));
+                    if (!oks.isEmpty())
+                        return "Request for i2c:" + cmds[0] + " accepted from " + oks;
 
-                return addWork(cmds[0], arg);
+                    Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());
+                    return "! No such subcommand in "+cmd+": "+args;
+                }
+                var dev = devices.get(cmds[0]);
+                if( dev == null)
+                    return "! No such device id: "+cmds[0];
+                if( cmds[1].equalsIgnoreCase("?"))
+                    return dev.getOpsInfo(true);
+                return addWork(cmds[0], cmds.length>2?cmds[1].substring(args.indexOf(",")):cmds[1]);
             }
         }
     }

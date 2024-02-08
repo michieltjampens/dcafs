@@ -45,7 +45,7 @@ public class I2COpSet {
         for( var dig : digger.digOut("*")){
             var fabOpt = XMLfab.alterDigger(dig);
             if( fabOpt.isEmpty()) {
-                Logger.error(id+" -> Failed to converter digger to fab");
+                Logger.error(id+"(i2c) -> Failed to convert digger to fab");
                 continue;
             }
             var fab = fabOpt.get();
@@ -62,8 +62,10 @@ public class I2COpSet {
             if( dig.hasAttr("group") ){
                 var group = dig.attr("group","");
                 if( group.startsWith("$") && group.endsWith("id")){
-                    fab.attr(group,deviceId);
+                    fab.attr("group",deviceId);
                 }
+            }else{
+                fab.attr("group",deviceId);
             }
             var altDig = XMLdigger.goIn(fab.getCurrentElement());
 
@@ -82,14 +84,18 @@ public class I2COpSet {
                 });
                 case "store" -> {
                     var store = new ValStore(id, altDig.currentTrusted(),rtvals);
-                    if( ops.get(ops.size()-1) instanceof MathForward mf ) {
-                        mf.setStore(store);
-                        var ids = store.dbIds().split(",");
-                        for( var dbid : ids ){
-                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(mf));
+                    if( store.isInvalid()){
+                        valid=false;
+                    }else {
+                        if (ops.get(ops.size() - 1) instanceof MathForward mf) {
+                            mf.setStore(store);
+                            var ids = store.dbIds().split(",");
+                            for (var dbid : ids) {
+                                dQueue.add(Datagram.system("dbm:" + dbid + ",tableinsert," + store.dbTable()).payload(mf));
+                            }
+                        } else { // Not added to a math
+                            ops.add(store);
                         }
-                    }else{ // Not added to a math
-                        ops.add( store );
                     }
                 }
                 case "wait" -> nextDelay = dig.value(0); // The next op needs to be delayed
@@ -139,9 +145,11 @@ public class I2COpSet {
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
 
         if( ops.get(index) instanceof I2COp op){
+            Logger.info(id+"(i2c) ->  Executing op: "+op);
             received.addAll(op.doOperation(device));
             delay = op.getDelay();
         }else if( ops.get(index) instanceof MathForward mf){
+            Logger.info(id+"(i2c) ->  Executing mf:"+mf.id());
             var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
             if( lastOp ) { // Meaning that was last operation
                 forwardDoubleResult(device, res);

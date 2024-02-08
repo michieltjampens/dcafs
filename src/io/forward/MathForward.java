@@ -142,7 +142,6 @@ public class MathForward extends AbstractForward {
                     int pos = Integer.parseInt(t.substring(1));
                     while( pos >= temps.size())
                         temps.add(BigDecimal.ZERO);
-                    Logger.info("Temps is now "+temps.size()+" after proc "+ops.getTextContent());
                 }catch(NumberFormatException e){
                     Logger.error(id+"(mf) -> Bad temp number: "+t);
                 }
@@ -204,6 +203,9 @@ public class MathForward extends AbstractForward {
         }
         // Convert the split data to bigdecimals and add references and temps
         BigDecimal[] bds = buildBDArray(split);
+        if( bds==null){
+            return true;
+        }
         if( bds.length != split.length+referencedNums.size()+temps.size())
             Logger.error(id+"(mf) -> Build dataset size doesn't meet expected size. Size:"+bds.length);
 
@@ -329,7 +331,12 @@ public class MathForward extends AbstractForward {
         try {
             for( int a=0;a<numbers.size();a++)
                 bds[a]= BigDecimal.valueOf(numbers.get(a));
-            bds = ArrayUtils.addAll(bds,buildRefBdArray());
+            var refOpt = buildRefBdArray();
+            if( refOpt.isEmpty()) {
+                Logger.error(id + "(mf) -> Failed to build ref bds");
+                return new ArrayList<>();
+            }
+            bds = ArrayUtils.addAll(bds,refOpt.get());
         }catch(Exception e){
             Logger.error(id+"(mf) -> "+e.getMessage());
             return new ArrayList<>();
@@ -465,6 +472,8 @@ public class MathForward extends AbstractForward {
                 op = new Operation(expression, fab, index); // create an operation
             }else{
                 Logger.error(id+" (mf)-> Failed to build mathfab");
+                parsedOk=false;
+                readOk=false;
                 return Optional.empty(); // If not, return empty
             }
         }
@@ -645,12 +654,15 @@ public class MathForward extends AbstractForward {
      */
     private BigDecimal[] buildBDArray(String[] data ){
         if( (referencedNums!=null && !referencedNums.isEmpty()) || !temps.isEmpty() ){
-            return ArrayUtils.addAll(MathUtils.toBigDecimals(data,highestI==-1?0:highestI), buildRefBdArray());
+            var ref = buildRefBdArray();
+            if( ref.isPresent())
+                return ArrayUtils.addAll(MathUtils.toBigDecimals(data,highestI==-1?0:highestI), ref.get());
+            return null;
         }else{
             return MathUtils.toBigDecimals(data,highestI==-1?0:highestI); // Split the data and convert to big decimals
         }
     }
-    private BigDecimal[] buildRefBdArray(){
+    private Optional<BigDecimal[]> buildRefBdArray(){
         var refBds = new BigDecimal[referencedNums.size()+temps.size()];
 
         // First add the temps so they can be requested easier by the store
@@ -659,8 +671,12 @@ public class MathForward extends AbstractForward {
         }
         for (int a = 0; a < referencedNums.size();a++ ){
             refBds[a+temps.size()]=referencedNums.get(a).toBigDecimal();
+            if( refBds[a+temps.size()]==null ){
+                Logger.error(id+"(mf) -> Failed to convert "+referencedNums.get(a).id()+" to BigDecimal");
+                return Optional.empty();
+            }
         }
-        return refBds;
+        return Optional.of(refBds);
     }
     /**
      * Check the expression for references to:

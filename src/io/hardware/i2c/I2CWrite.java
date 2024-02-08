@@ -71,7 +71,7 @@ public class I2CWrite implements I2COp{
         try{
             device.writeBytes(towrite);
         }catch( RuntimeException e){
-            Logger.error(device.id()+"(i2c) -> Failed to write");
+            Logger.error(device.id()+"(i2c) -> Failed to write "+Tools.fromBytesToHexString(towrite)+" -> "+e.getMessage());
         }
         return new ArrayList<>();
     }
