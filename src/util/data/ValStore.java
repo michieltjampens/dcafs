@@ -21,7 +21,7 @@ public class ValStore {
     private boolean map=false;
     private final HashMap<String,AbstractVal> valMap = new HashMap<>();
     private boolean idleReset=false;
-
+    private boolean valid=true;
     private String lastKey=""; // Last key trigger db store
     public ValStore(String id){
         this.id=id;
@@ -160,6 +160,7 @@ public class ValStore {
                     if(grid.isEmpty())
                         grid=groupID;
                     Logger.error("No valid index given for "+grid+"_"+val.getTextContent());
+                    valid=false;
                     return false;
                 }
                 final int pos=i; // need a final to use in lambda's
@@ -186,6 +187,9 @@ public class ValStore {
         if( rtv!=null)
             shareRealtimeValues(rtv);
         return true;
+    }
+    public boolean isInvalid(){
+        return !valid;
     }
     public void shareRealtimeValues(RealtimeValues rtv){
         for( int index=0;index<rtvals.size();index++){
