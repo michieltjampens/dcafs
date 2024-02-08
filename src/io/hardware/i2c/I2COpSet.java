@@ -153,6 +153,7 @@ public class I2COpSet {
             var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
             if( lastOp ) { // Meaning that was last operation
                 forwardDoubleResult(device, res);
+                device.doNext(scheduler);
                 return;
             }else{ // Not the last operation, replace the int arraylist with the calculated doubles
                 received.clear();
@@ -169,6 +170,7 @@ public class I2COpSet {
             future = scheduler.schedule(() -> runOp(device, scheduler), delay, TimeUnit.MILLISECONDS);
         }else{
             forwardIntegerResult(device);
+            device.doNext(scheduler);
         }
     }
 

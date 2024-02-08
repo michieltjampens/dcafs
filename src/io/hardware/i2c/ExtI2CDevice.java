@@ -26,18 +26,24 @@ public class ExtI2CDevice extends I2CDevice {
 	private final ArrayList<Writable> targets = new ArrayList<>();
 	private boolean failedProbe=false;
 	private boolean debug=false;
-	private HashMap<String,I2COpSet> ops = new HashMap<>();
+	private final HashMap<String,I2COpSet> ops = new HashMap<>();
+	private boolean busy=false;
+	private final ArrayList<String> queue = new ArrayList<>();
+	private I2COpFinished worker;
 	/**
 	 * Extension of the @see I2CDevice class that adds the command functionality
 	 * 
-	 * @param controller The controller on which this device is connected
+	 * @param bus The controller on which this device is connected
 	 * @param address The address of the device
 	 */
-	public ExtI2CDevice (String id,int controller, int address, String script){
-		super(controller,address);
+	public ExtI2CDevice (String id,int bus, int address, String script){
+		super(bus,address);
 		this.id=id;
 		this.script=script;
-		Logger.info("Connecting to controller:"+controller +" and address:"+address);
+		Logger.info("Connecting to controller:"+bus +" and address:"+address);
+	}
+	public void setI2COpFinished( I2COpFinished worker){
+		this.worker=worker;
 	}
 	public void addOpSet( I2COpSet opset ){
 		ops.put(opset.id(),opset);
@@ -132,11 +138,31 @@ public class ExtI2CDevice extends I2CDevice {
 	public boolean hasOp( String id ){
 		return ops.containsKey(id);
 	}
-	public boolean startOp( String id, EventLoopGroup scheduler ){
+	public void doNext( EventLoopGroup scheduler){
+		if( queue.isEmpty() ) {
+			busy = false;
+			worker.deviceDone();
+			return;
+		}
+		startOp(queue.remove(0),scheduler);
+	}
+	public void doOp( String id, EventLoopGroup scheduler ){
+		if( busy ){
+			Logger.info("Device already busy, adding to queue: "+id);
+			queue.add(id);
+			return;
+		}
+		startOp(id,scheduler);
+	}
+	public void queueOp( String id){
+		queue.add(id);
+	}
+	private void startOp(String id, EventLoopGroup scheduler ){
+
 		var op = ops.get(id);
 		if( op == null ) {
 			Logger.error(id+" (i2c) -> Tried to run '"+id+"' but no such op.");
-			return false;
+			return;
 		}
 		try {
 			Logger.debug("Probing device...");
@@ -145,8 +171,13 @@ public class ExtI2CDevice extends I2CDevice {
 			updateTimestamp(); // Update last used timestamp, because we had comms
 		}catch( RuntimeIOException e ){
 			Logger.error(id+" (i2c) -> Failed to run command for "+getAddr()+":"+e.getMessage());
-			return false;
 		}
-		return true;
+	}
+
+    public int getBusNr() {
+		return this.getController();
+    }
+	public boolean isBusy(){
+		return busy;
 	}
 }

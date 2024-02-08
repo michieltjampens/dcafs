@@ -23,15 +23,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
-public class I2CWorker implements Commandable {
+public class I2CWorker implements Commandable,I2COpFinished {
     private final HashMap<String, ExtI2CDevice> devices = new HashMap<>();
-    private boolean debug = false;
     private final Path scriptsPath; // Path to the scripts
     private final Path settingsPath; // Path to the settingsfile
     private final EventLoopGroup eventloop; // Executor to run the commands
     private final RealtimeValues rtvals;
     private final BlockingQueue<Datagram> dQueue;
+    private final ArrayList<ExtI2CDevice> workQueue = new ArrayList<>();
+    private boolean busy = false;
 
     public I2CWorker(Path settings, EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
         this.settingsPath=settings;
@@ -141,7 +143,9 @@ public class I2CWorker implements Commandable {
             return Optional.empty();
         }
         try{
-            devices.put(id, new ExtI2CDevice(id,controller, address, script));
+            var device = new ExtI2CDevice(id,controller, address, script);
+            device.setI2COpFinished(this);
+            devices.put(id, device);
             return Optional.of(devices.get(id));
         }catch( RuntimeIOException e){
             Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
@@ -191,7 +195,6 @@ public class I2CWorker implements Commandable {
      * @return The new debug state
      */
     public boolean setDebug( boolean debug ){
-        this.debug=debug;
         devices.values().forEach( device -> device.setDebug(debug));
         return debug;
     }
@@ -229,12 +232,12 @@ public class I2CWorker implements Commandable {
 				} catch( DeviceAlreadyOpenedException e){
 				    b.add(or+"Used"+ye+" - 0x"+String.format("%02x ", device_address)+"(in use by dcafs)");
                 } catch( RuntimeIOException e ){
-                    return "No such bus "+controller;
+                    return "! No such bus "+controller;
                 }
 			}
 		}
 		String result = b.toString();
-		return result.isBlank()?"No devices found.\r\n":result;
+		return result.isBlank()?"! No devices found.\r\n":result;
 	}
     /* ******************************* C O M M A N D A B L E ******************************************************** */
     @Override
@@ -258,10 +261,8 @@ public class I2CWorker implements Commandable {
                 join.add(cyan + "Create/load devices/scripts" + reg)
                         .add(gr + "  i2c:detect,bus" + reg + " -> Detect the devices connected on the given bus")
                         .add(gr + "  i2c:adddevice,id,bus,address,scriptid" + reg + " -> Add a device on bus at hex address that uses script")
-                        .add(gr + "  i2c:addblank,scriptid" + reg + " -> Adds a blank i2c script to the default folder")
+                        .add(gr + "  i2c:addscript,scriptid" + reg + " -> Adds a blank i2c script to the default folder")
                         .add(gr + "  i2c:reload" + reg + " -> Reload the i2cscripts")
-                        .add( cyan+"Alter scripts"+reg)
-                        .add(gr + " i2c:scriptid,addset,id,info,bits")
                         .add("").add(cyan + " Get info" + reg)
                         .add(gr + "  i2c:list" + reg + " -> List all registered devices with i2cscript")
                         .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
@@ -289,9 +290,9 @@ public class I2CWorker implements Commandable {
                     return "! Incorrect number of variables: i2c:debug,on/off";
                 }
             }
-            case "addblank" -> {
+            case "addscript" -> {
                 if (cmds.length != 2)
-                    return "! Incorrect number of arguments: i2c:addblank,scriptid";
+                    return "! Incorrect number of arguments: i2c:addscript,scriptid";
                 if (!Files.isDirectory(scriptsPath)) {
                     try {
                         Files.createDirectories(scriptsPath);
@@ -299,11 +300,13 @@ public class I2CWorker implements Commandable {
                         Logger.error(e);
                     }
                 }
+                if( Files.exists(scriptsPath.resolve(cmds[1] + ".xml")))
+                    return "! Already a script with that name, try again?";
                 XMLfab.withRoot(scriptsPath.resolve(cmds[1] + ".xml"), "i2cscript").attr("id", cmds[1])
                         .addParentToRoot("opset", "An empty operation set to start with")
                         .attr("id", "setid").attr("info", "what this does").attr("bits","8")
                         .build();
-                return "Blank added";
+                return "Script added";
             }
             case "adddevice" -> {
                 if (cmds.length != 5)
@@ -373,11 +376,11 @@ public class I2CWorker implements Commandable {
     /**
      * Add work to the worker
      *
-     * @param id  The device that needs to execute a command
-     * @param command The command the device needs to execute
+     * @param id  The device that needs to execute a opset
+     * @param opset The opset the device needs to execute
      * @return Result
      */
-    private String addWork(String id, String command) {
+    private String addWork(String id, String opset) {
         if( devices.isEmpty())
             return "! No devices present yet.";
 
@@ -387,14 +390,21 @@ public class I2CWorker implements Commandable {
             return "! Invalid job received, unknown device '" + id + "'";
         }
 
-        if (!device.hasOp(command.split(",")[0])) {
-            Logger.error("Invalid command received '" + device.getScript()+":"+command + "'.");
-            return "! Invalid command received '" + device.getScript()+":"+command + "'.";
+        if (!device.hasOp(opset.split(",")[0])) {
+            Logger.error("Invalid opset received '" + device.getScript()+":"+opset + "'.");
+            return "! Invalid opset received '" + device.getScript()+":"+opset + "'.";
         }
-        eventloop.submit(()->doWork(device,command));
+        if( busy && !device.isBusy()){ // A bus is busy and it's not this device, queue the work
+            device.queueOp(opset);
+            if( !workQueue.contains(device))
+                workQueue.add(device);
+        }else {
+            // If this device is busy the device will queue the opset
+            eventloop.submit(() -> doWork(device, opset));
+        }
         return "ok";
     }
-    public void doWork(ExtI2CDevice device, String cmdID) {
+    private void doWork(ExtI2CDevice device, String cmdID) {
 
         byte[] args = new byte[0];
         // Strip the arguments from the cmdID
@@ -408,6 +418,16 @@ public class I2CWorker implements Commandable {
             cmdID=cmdID.substring(0,cmdID.indexOf(","));
         }
         // Execute the command
-        device.startOp(cmdID,eventloop);
+        device.doOp(cmdID,eventloop);
+    }
+
+    @Override
+    public void deviceDone() {
+        if( workQueue.isEmpty() ) {
+            busy = false;
+        }else{
+            var device = workQueue.remove(0);
+            device.doNext(eventloop);
+        }
     }
 }
