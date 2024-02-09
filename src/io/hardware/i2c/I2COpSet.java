@@ -145,11 +145,11 @@ public class I2COpSet {
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
 
         if( ops.get(index) instanceof I2COp op){
-            Logger.info(id+"(i2c) ->  Executing op: "+op);
+            Logger.debug(id+"(i2c) ->  Executing op: "+op);
             received.addAll(op.doOperation(device));
             delay = op.getDelay();
         }else if( ops.get(index) instanceof MathForward mf){
-            Logger.info(id+"(i2c) ->  Executing mf:"+mf.id());
+            Logger.debug(id+"(i2c) ->  Executing mf:"+mf.id());
             var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
             if( lastOp ) { // Meaning that was last operation
                 forwardDoubleResult(device, res);

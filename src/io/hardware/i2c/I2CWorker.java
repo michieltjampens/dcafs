@@ -107,15 +107,20 @@ public class I2CWorker implements Commandable,I2COpFinished {
         return true;
     }
     private String reloadSets(){
-        StringJoiner join = new StringJoiner("\r\n");
-        for( var device : devices.values() ){
-            if( !loadSet(device) ){
-                join.add("! Failed to reload set of "+device.id());
-            }else{
-                join.add("Reloaded set of "+device.id());
+        if( devices.isEmpty()) {
+            readFromXML();
+            return "No devices yet, reloading everything.";
+        }else {
+            StringJoiner join = new StringJoiner("\r\n");
+            for (var device : devices.values()) {
+                if (!loadSet(device)) {
+                    join.add("! Failed to reload set of " + device.id());
+                } else {
+                    join.add("Reloaded set of " + device.id());
+                }
             }
+            return join.toString();
         }
-        return join.toString();
     }
     /* ***************************************************************************************************** */
     /**
@@ -135,17 +140,18 @@ public class I2CWorker implements Commandable,I2COpFinished {
 
         try (I2CDevice device = new I2CDevice(controller, address)) {
             if (!device.probe( I2CDevice.ProbeMode.AUTO )) {
-                Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
-                return Optional.empty();
+                Logger.warn(id+"(i2c) -> Probing the new device at "+address+" failed.");
+                //return Optional.empty();
             }
         } catch ( RuntimeIOException e ){
-            Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
-            return Optional.empty();
+            Logger.warn(id+"(i2c) -> Probing the new device at "+address+" failed.");
+            //return Optional.empty();
         }
         try{
             var device = new ExtI2CDevice(id,controller, address, script);
             device.setI2COpFinished(this);
             devices.put(id, device);
+            Logger.info("(i2c) -> Added "+id);
             return Optional.of(devices.get(id));
         }catch( RuntimeIOException e){
             Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
@@ -157,7 +163,10 @@ public class I2CWorker implements Commandable,I2COpFinished {
      * @return Comma separated list of registered devices
      */
     public String getDeviceList() {
+        if( devices.isEmpty())
+            return "! No devices yet.";
         StringJoiner join = new StringJoiner("\r\n");
+        Logger.info("i2c list size:"+devices.size());
         devices.forEach((key, device) -> join.add(key+" -> "+device.toString()));
         return join.toString();
     }
@@ -425,7 +434,9 @@ public class I2CWorker implements Commandable,I2COpFinished {
     public void deviceDone() {
         if( workQueue.isEmpty() ) {
             busy = false;
+            Logger.info("Device done.");
         }else{
+            Logger.info("Device done, doing next");
             var device = workQueue.remove(0);
             device.doNext(eventloop);
         }

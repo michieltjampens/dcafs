@@ -24,7 +24,6 @@ public class ExtI2CDevice extends I2CDevice {
 	private final String script;
 	private Instant timestamp;
 	private final ArrayList<Writable> targets = new ArrayList<>();
-	private boolean failedProbe=false;
 	private boolean debug=false;
 	private final HashMap<String,I2COpSet> ops = new HashMap<>();
 	private boolean busy=false;
@@ -56,18 +55,25 @@ public class ExtI2CDevice extends I2CDevice {
 	public String id(){
 		return id;
 	}
-	public void probeIt() throws RuntimeIOException{
-		failedProbe = !this.probe();
-		if( failedProbe )
-			throw new RuntimeIOException( "Probe failed for "+getAddr() );
+	public boolean probeIt(){
+		try {
+			if (!this.probe()){
+				Logger.warn("(i2c) -> Probe failed for "+id);
+				return false;
+			}
+		}catch(RuntimeIOException e ){
+			Logger.warn("(i2c) -> Probe failed for "+id+" -> "+e.getMessage());
+			return false;
+		}
+		return true;
 	}
 	public String toString(){
-		return "@"+getController()+":0x"+String.format("%02x ", getAddress())
-				+" using script "+script;
+		return "@"+getController()+":0x"+String.format("%02x", getAddress())
+				+" using script "+script+ (probeIt()?" [OK]":"[NOK]");
 	}
 	public String getStatus(String id){
 		String age = getAge()==-1?"Not used yet": TimeTools.convertPeriodtoString(getAge(), TimeUnit.SECONDS);
-		return (failedProbe?"!!":"")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
+		return (probeIt()?"":"!!")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
 	}
 	public String getAddr(){
 		return "0x"+String.format("%02x", getAddress())+"@"+getController();
@@ -142,41 +148,46 @@ public class ExtI2CDevice extends I2CDevice {
 		if( queue.isEmpty() ) {
 			busy = false;
 			worker.deviceDone();
+			if( debug )
+				Logger.info(id()+"(i2c) -> Finished queue");
 			return;
 		}
+		Logger.info(id()+"(i2c) -> Starting next in queue");
 		startOp(queue.remove(0),scheduler);
 	}
-	public void doOp( String id, EventLoopGroup scheduler ){
-		if( busy ){
-			Logger.info("Device already busy, adding to queue: "+id);
-			queue.add(id);
+	public void doOp( String setId, EventLoopGroup scheduler ){
+		if( debug )
+			Logger.info(id()+"(i2c) Trying to do "+setId);
+		if( !ops.containsKey(setId) ) {
+			Logger.error(id()+" (i2c) -> Tried to add '"+setId+"' but no such op.");
 			return;
 		}
-		startOp(id,scheduler);
+		if( busy ){
+			if( debug )
+				Logger.info(id()+"(i2c) -> Device already busy, adding "+setId+" to queue.");
+			queue.add(setId);
+			return;
+		}
+		if( debug )
+			Logger.info(id()+"(i2c) -> Not busy, starting "+setId);
+		busy=true;
+		startOp(setId,scheduler);
 	}
-	public void queueOp( String id){
-		queue.add(id);
+	public void queueOp( String setId ){
+		if( !ops.containsKey(setId) ) {
+			Logger.error(id()+" (i2c) -> Tried to queue '"+setId+"' but no such op.");
+			return;
+		}
+		queue.add(setId);
 	}
 	private void startOp(String id, EventLoopGroup scheduler ){
 
-		var op = ops.get(id);
-		if( op == null ) {
-			Logger.error(id+" (i2c) -> Tried to run '"+id+"' but no such op.");
+		if( !probeIt() )  // First check if the device is still there?
 			return;
-		}
-		try {
-			Logger.debug("Probing device...");
-			probeIt(); // First check if the device is actually there?
-			op.startOp(this,scheduler);
-			updateTimestamp(); // Update last used timestamp, because we had comms
-		}catch( RuntimeIOException e ){
-			Logger.error(id+" (i2c) -> Failed to run command for "+getAddr()+":"+e.getMessage());
-		}
-	}
 
-    public int getBusNr() {
-		return this.getController();
-    }
+		ops.get(id).startOp(this,scheduler);
+		updateTimestamp(); // Update last used timestamp, because we had comms
+	}
 	public boolean isBusy(){
 		return busy;
 	}
