@@ -15,6 +15,11 @@ Note: Version numbering: x.y.z
 now give an error if this or regular parsing fails.
 - Rewrote I2C code
 
+### Dependencies
+- Netty 4.1.101 -> 4.1.106
+- jSerialCom 2.10.3 -> 2.10.4
+- commons-lang3 3.12.0 -> 3.14.0
+- 
 ### I2C
 - Rewrite in progress, mainly to make the code easier to understand and adapt. All the basics work.
   - Read/Write/alter registers, delay before executing read.
@@ -23,8 +28,8 @@ Doesn't make a difference if only one device was using the script. But now multi
 script but with custom store's.
 - Now allow for read data to be split according to bit list, fe. 8,20,20,8 means read 7 bytes and split those according 
 to that sequence.
-- Removed use of label 
-- Can now use math and store node inside the scripts, for now the store must be after a math
+- Removed use of label.
+- Can now use math and store node inside the scripts.
 **Breaking changes**
 - The return attribute in the read node, now is based on the set amount of bits. So return now refers to the amount of
   times that bits is returned.... So if bits is 16 and you read one of that, return used to be two and now it's one.
