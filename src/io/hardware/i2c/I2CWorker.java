@@ -269,7 +269,8 @@ public class I2CWorker implements Commandable,I2COpFinished {
                 StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
                 join.add(cyan + "Create/load devices/scripts" + reg)
                         .add(gr + "  i2c:detect,bus" + reg + " -> Detect the devices connected on the given bus")
-                        .add(gr + "  i2c:adddevice,id,bus,address,scriptid" + reg + " -> Add a device on bus at hex address that uses script")
+                        .add(gr + "  i2c:adddevice,id,bus,address,scriptid" + reg + " -> Add a device on bus at hex address that uses script,"
+                                +" create new script if it doesn't exist yet")
                         .add(gr + "  i2c:addscript,scriptid" + reg + " -> Adds a blank i2c script to the default folder")
                         .add(gr + "  i2c:reload" + reg + " -> Reload the i2cscripts")
                         .add("").add(cyan + " Get info" + reg)
