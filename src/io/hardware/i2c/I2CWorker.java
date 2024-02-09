@@ -29,7 +29,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
     private final HashMap<String, ExtI2CDevice> devices = new HashMap<>();
     private final Path scriptsPath; // Path to the scripts
     private final Path settingsPath; // Path to the settingsfile
-    private final EventLoopGroup eventloop; // Executor to run the commands
+    private final EventLoopGroup eventloop; // Executor to run the opsets
     private final RealtimeValues rtvals;
     private final BlockingQueue<Datagram> dQueue;
     private final ArrayList<ExtI2CDevice> workQueue = new ArrayList<>();
@@ -46,7 +46,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
     /* ************************* READ XML SETTINGS *******************************************/
     /**
      * Reads the settings for the worker from the given xml file, this mainly
-     * consists of devices with their commands.
+     * consists of devices with their opsets.
      */
     private void readFromXML() {
         var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
@@ -95,7 +95,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
         device.clearOpSets(rtvals);
 
         var defOut = dig.attr("output","");
-        for( var c : dig.digOut("command")){
+        for( var c : dig.digOut("i2cop")){
             var set = new I2COpSet(c,rtvals,dQueue,device.id());
             set.setOutputType(defOut);
             if( set.isInvalid()) {
@@ -277,7 +277,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                         .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
                         .add("").add(cyan + " Other" + reg)
                         .add(gr + "  i2c:debug,on/off" + reg + " -> Enable or disable extra debug feedback in logs")
-                        .add(gr + "  i2c:device,setid" + reg + " -> Use the given command on the device")
+                        .add(gr + "  i2c:device,setid" + reg + " -> Use the given opset on the device")
                         .add(gr + "  i2c:id" + reg + " -> Request the data received from the given id (can be regex)");
                 return join.toString();
             }
@@ -413,21 +413,21 @@ public class I2CWorker implements Commandable,I2COpFinished {
         }
         return "ok";
     }
-    private void doWork(ExtI2CDevice device, String cmdID) {
+    private void doWork(ExtI2CDevice device, String opsetId) {
 
         byte[] args = new byte[0];
-        // Strip the arguments from the cmdID
-        if( cmdID.contains(",")){
-            var arg = cmdID.substring(cmdID.indexOf(",")+1);
-            if( cmdID.contains(",0x")) {
+        // Strip the arguments from the opsetId
+        if( opsetId.contains(",")){
+            var arg = opsetId.substring(opsetId.indexOf(",")+1);
+            if( opsetId.contains(",0x")) {
                 args = Tools.fromBaseToBytes(16, arg.split(","));
             }else{
                 args = Tools.fromDecStringToBytes(arg);
             }
-            cmdID=cmdID.substring(0,cmdID.indexOf(","));
+            opsetId=opsetId.substring(0,opsetId.indexOf(","));
         }
-        // Execute the command
-        device.doOp(cmdID,eventloop);
+        // Execute the opset
+        device.doOp(opsetId,eventloop);
     }
 
     @Override

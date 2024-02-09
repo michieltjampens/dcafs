@@ -152,7 +152,8 @@ public class ExtI2CDevice extends I2CDevice {
 				Logger.info(id()+"(i2c) -> Finished queue");
 			return;
 		}
-		Logger.info(id()+"(i2c) -> Starting next in queue");
+		if( debug )
+			Logger.info(id()+"(i2c) -> Starting next in queue");
 		startOp(queue.remove(0),scheduler);
 	}
 	public void doOp( String setId, EventLoopGroup scheduler ){

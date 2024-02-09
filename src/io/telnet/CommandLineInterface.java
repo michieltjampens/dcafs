@@ -181,7 +181,6 @@ public class CommandLineInterface {
         if (cmdHistoryIndex == cmdHistory.size() ) // Shouldn't go out of bounds
             cmdHistoryIndex = cmdHistory.size() - 1;
 
-        Logger.info("Sending "+ cmdHistoryIndex+ " -> "+cmdHistory.get(cmdHistoryIndex));
         writeString("\r>" + cmdHistory.get(cmdHistoryIndex));//Move cursor and send history
         writeString(TelnetCodes.CLEAR_LINE_END); // clear the rest of the line
         buffer.clear(); // reset the reader and writer index

@@ -127,7 +127,7 @@ public class I2COpSet {
      * @param scheduler The scheduler to use for the threads
      */
     public void startOp(ExtI2CDevice device, EventLoopGroup scheduler){
-        Logger.info(id+" -> Starting on "+device.id());
+        Logger.debug(id+" -> Starting on "+device.id());
         index=0;
         received.clear();
         if( future != null)
