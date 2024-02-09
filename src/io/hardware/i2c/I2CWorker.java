@@ -312,7 +312,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                 if( Files.exists(scriptsPath.resolve(cmds[1] + ".xml")))
                     return "! Already a script with that name, try again?";
                 XMLfab.withRoot(scriptsPath.resolve(cmds[1] + ".xml"), "i2cscript").attr("id", cmds[1])
-                        .addParentToRoot("opset", "An empty operation set to start with")
+                        .addParentToRoot("i2cop", "An empty operation set to start with")
                         .attr("id", "setid").attr("info", "what this does").attr("bits","8")
                         .build();
                 return "Script added";
@@ -336,7 +336,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                 var p = scriptsPath.resolve(cmds[4] + (cmds[4].endsWith(".xml")?"":".xml"));
                 if (!Files.exists(p)) {
                     XMLfab.withRoot(p, "i2cscript").attr("id", cmds[4])
-                            .addParentToRoot("opset", "An empty operation set to start with")
+                            .addParentToRoot("i2cop", "An empty operation set to start with")
                             .attr("id", "setid").attr("info", "what this does")
                             .attr("bits","8")
                             .build();
