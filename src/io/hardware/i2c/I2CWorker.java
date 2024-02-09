@@ -403,11 +403,12 @@ public class I2CWorker implements Commandable,I2COpFinished {
             Logger.error("Invalid opset received '" + device.getScript()+":"+opset + "'.");
             return "! Invalid opset received '" + device.getScript()+":"+opset + "'.";
         }
-        if( busy && !device.isBusy()){ // A bus is busy and it's not this device, queue the work
+        if( busy && !device.isBusy()){ // Bus is busy and it's not this device, queue the work
             device.queueOp(opset);
             if( !workQueue.contains(device))
                 workQueue.add(device);
         }else {
+            busy=true;
             // If this device is busy the device will queue the opset
             eventloop.submit(() -> doWork(device, opset));
         }
