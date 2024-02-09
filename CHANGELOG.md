@@ -9,7 +9,7 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.8.0
+## 2.8.0 (09/02/2024)
 - Fixed, Matrix out of bounds when sending something without room url etc.
 - IntVal, now accepts real for parsing if 'allowreal' attribute is set to true. Will round according to math rules. Will
 now give an error if this or regular parsing fails.
@@ -34,9 +34,11 @@ to that sequence.
 - The return attribute in the read node, now is based on the set amount of bits. So return now refers to the amount of
   times that bits is returned.... So if bits is 16 and you read one of that, return used to be two and now it's one.
 - The main node is renamed from commandset to i2cscript and script attribute to id.
+- The subnodes are changed to 'i2cop' from 'command' because command is already in use for other things
 
 ### Admin cmds
-- Added a cmd that uses phytool to power down or up a phy, could be used to save power.
+- Added a cmd that uses phytool to power down or up a phy, could be used to save power. 
+User must install the tool first.
 
 ### Vals
 - Added 'Dynamic Units' so it's possible to alter the unit depending on the amount.
