@@ -120,8 +120,8 @@ public class TaskManagerPool implements Commandable {
         StringJoiner response = new StringJoiner(nl);
         String[] cmds = args.split(",");
 
-        if( tasklists.isEmpty() && !cmds[0].equalsIgnoreCase("addblank") && !cmds[0].equalsIgnoreCase("add") && !cmds[0].equalsIgnoreCase("load"))
-            return "! No TaskManagers active, only tm:addblank,id/tm:add,id and tm:load,id available.";
+        if( tasklists.isEmpty() && !cmds[0].equalsIgnoreCase("addnew") && !cmds[0].equalsIgnoreCase("add") && !cmds[0].equalsIgnoreCase("load"))
+            return "! No TaskManagers active, only tm:add,id and tm:load,id available.";
 
         TaskManager tl;
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
