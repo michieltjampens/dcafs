@@ -27,7 +27,7 @@ public abstract class AbstractVal {
     protected BlockingQueue<Datagram> dQueue;
 
     /* Requests */
-    protected ArrayList<Writable> targets;
+    protected ArrayList<Writable> targets = new ArrayList<>();
 
     enum TRIGGERTYPE {ALWAYS,CHANGED,STDEV,COMP}
     /* ************************************* Options ******************************************************** */
