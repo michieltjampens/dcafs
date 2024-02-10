@@ -145,7 +145,7 @@ Some basic information about xml to start:
         * This is not mandatory, just makes it a bit shorter
 * A node can have attributes, the telnet node has port and title as attributes
 
-Everything in a stream node of the `settings.xml` file (except the ID) can be altered while running and will be applied
+Everything in a stream node of the `settings.xml` file (except the ID) can be altered while running and can be applied
 without restart. To reload a stream after changing something in the `streams` node use `ss:id,reload` or in our case `ss:dice,reload`.  
 Or all at once with `ss:reload`.
 >**Note:** To connect to other data sources (like serial or modbus), the command `ss:?` shows a list of options.
@@ -204,6 +204,7 @@ Now defining the store:
     * The default delimiter is ',', so if that was the case setting it can be skipped
 * Next up is adding an integer `store:streamid,addint,id<,index>`
     * which we'll call 'rolled' and it's at index 1 so this becomes `addint,rolled,1` or `addi,rolled,1`
+    * There's no command to create an empty store, dcafs just makes one on the first 'add' cmd
 
 Now that the store is defined, use `!!` to remove the prefix.
 
@@ -241,13 +242,13 @@ Or if not so certain on the name `rtvals:name,rol*` or actually using regex `rtv
 There are two ways to alter raw data before it's written to memory (rtvals). The main one is 'paths', which will be
 explained later. But store itself also has a couple -limited- options.
 
-As mentioned earlier, store takes care of parsing the string data to the relevant rtval. But this parsing can be changed.
+As mentioned earlier, it takes care of parsing the string data to the relevant rtval. But this parsing can be changed.
 The options are:
 - real/int -> apply an operation to the value before storing it
 - text -> replace one value with another
 - flag -> use other values for true/false (instead of the default like 1,yes,true,high for true)
 
-Altering the store to increase the roll with 5: (for now, there's no command to do this)
+Altering the store to increase the roll with 5 (for now, there's no command to do this).
 ```xml
 <store delimiter=":">
       <int i="1" name="rolled" unit=""> <!-- because the content will contain the op, the name becomes an attribute -->
@@ -257,8 +258,10 @@ Altering the store to increase the roll with 5: (for now, there's no command to 
       </int> 
 </store>
 ```
-This can be applied with the cmd `ss:dice,reloadstore`.
-Or if the roll was stored as a text instead. The node below replaces some bad rolls with better ones
+This can be applied with the cmd `ss:dice,reloadstore`. (check the result with `int:dice_rolled`)
+Or if the roll was stored as a text instead. The node below replaces some bad rolls with better ones.  
+To test the example below, copy it and paste it over the current one in the settings file, save the file and 
+use `ss:dice,reloadstore` to apply it.
 ```xml
 <store delimiter=":">
       <text i="1" name="rolled" unit=""> 
@@ -272,6 +275,7 @@ Or if the roll was stored as a text instead. The node below replaces some bad ro
       </text> 
 </store>
 ```
+Note that the type was altered to text, so to see the results `text:dice_rolled`.
 Or if you just want to keep track of a bad or good roll (apply with `ss:dice,reloadstore`).
 ```xml
 <store delimiter=":">
@@ -281,6 +285,7 @@ Or if you just want to keep track of a bad or good roll (apply with `ss:dice,rel
       </flag> 
 </store>
 ```
+Note that the type was altered to flag, so to see the results `flag:dice_rolled`.
 
 ### 5. Store the last value in a database
 
@@ -298,9 +303,9 @@ And indeed in the settings.xml the following section has been added (comments he
     <databases>
       <sqlite id="rolls" path="db\rolls.sqlite"> <!-- This will be an absolute path instead -->       
         <flush batchsize="30" age="30s"/>
-        <idleclose>-1</idleclose> <!-- Do note that this means the file remains locked till dcafs closes -->
         <!-- batchsize means, store x queries before flushing to db -->
         <!-- age means, if the oldest query is older than this, flush to db -->
+        <idleclose>-1</idleclose> <!-- Do note that this means the file remains locked till dcafs closes -->
         <!-- idleclose means, if the connection hasn't been used for x period (eg. 10m), close it or never if -1 -->
       </sqlite>
     </databases>
@@ -368,14 +373,9 @@ The result:
         <int id="rolled" index="1" unit=""/>
     </store>
     <!-- db can contain multiple id's separated with "," but the table structure must match between databases.
-               As such, it's easy to have a sqlite database as backup for a server without any additional code -->
+         As such, it's easy to have a sqlite database as backup for a server without any additional code 
+      -->
 ```
-
-Not sure if this is going to explain it or make it harder to understand.  
-The db attribute doesn't mean that the store is the one writing to the database.  
-If you check `dbm:?`, under the title 'Working with tables' there's `dbm:dbid,store,tableid`.  
-So what the store does is execute that cmd with the data from the attribute. In other words, there isn't
-any link between the store and the table(s) (on a source code level).
 
 To check if something is actually happening, check `st` again, you'll see that it's no longer 0/30 (NC) and the
 sqlite is slowly getting bigger. If not, check the logs.
@@ -409,12 +409,16 @@ Save the file and then do the `dbm:rolls,reload` command again to apply it. Then
 
 **What the store uses**
 
-By default the store determines the group to which the rtvals belong. But if the store itself doesn't define a store, the 
-id of the stream is used. Below is how the store is actually read by dcafs
+By default, the store determines the group to which the rtvals belong. But if the store itself doesn't define a store, the 
+id of the stream is used. Below is how the store is actually read by dcafs:
 ```xml
-<store delimiter=":" group="dice"> <!-- group with the id of the stream is used -->
-    <int index="1" unit="" >rolled</int> <!-- instead of index, short i is also valid --> 
-</store>
+<stream id="dice" type="tcp">
+  <eol>crlf</eol>
+  <address>localhost:4000</address>
+  <store delimiter=":" group="dice"> <!-- group with the id of the stream is used -->
+      <int index="1" unit="" >rolled</int> <!-- instead of index, short i is also valid --> 
+  </store>
+</stream>
 ```
 There's a general rule that if a node (here 'int') expects a certain attribute that is defined by the parent node (here 'store') but
 not in the node itself, it will use the value of the parent node.
@@ -446,17 +450,17 @@ So as an example a monthly rollover: `dbm:rolls,addrollover,5,min,_HHmm`.
 Other options for unit are: hour, day, month, year.
 To apply it: `dbm:rolls,reload` 
 ```xml
-    <databases>
-      <sqlite id="rolls" path="db\rolls.sqlite"> 
-        <rollover count="5" unit="minutes">_HHmm</rollover>
-        <flush age="30s" batchsize="30"/>
-        <idleclose>-1</idleclose>
-        <table name="dice">
-          <utcnow>timestmap</utcnow> 
-          <int>rolled</int>  
-        </table>
-      </sqlite>
-    </databases>
+<databases>
+  <sqlite id="rolls" path="db\rolls.sqlite"> 
+    <rollover count="5" unit="minutes">_HHmm</rollover>
+    <flush age="30s" batchsize="30"/>
+    <idleclose>-1</idleclose>
+    <table name="dice">
+      <utcnow>timestmap</utcnow> 
+      <int>rolled</int>  
+    </table>
+  </sqlite>
+</databases>
 ```
 Suppose this is active at 10:12:15, the filename will be rolls_1012.sqlite.
 Dcafs will make the next filename be a 'cleaner' division, so it will be named rolls_1015.sqlite and so on. 
@@ -554,7 +558,7 @@ The result is an extra node added:
   </paths>
 ```
 For now the path is empty, but 'steps' will be added (as childnodes in the xml).
-These are the 'steps' the data takes while being travelling along the path.
+These are the 'steps' the data takes while travelling along the path.
 
 A path doesn't need a delimiter, but the steps might. That's why a default delimiter can be set
 that will be used by a step (if none is specified by the step).
@@ -583,12 +587,12 @@ Below is what was added to the settings.xml.
 ```
 To write this to the database, a store node needs to be added. Because it's inside a path, the cmds are different.  
 All the cmds start with `pf:pathid,store,`, using !! again `pf:dice,store,!!`
-* Because a store takes group from the parent id (dice), this doesn't need to be set
+* Because a store takes group from the parent id (dice), this doesn't need to be set.
 * To add an int to a store: `addint,name<,index>`, so `addint,rolled,1`.
-    * If a store is the last step in the path, the int will be added to that store
+    * If a store is the last step in the path, the int will be added to that store.
     * If no store is at the end, a new one will be created for it.
-* Then finally, to set the db reference, `db,rolls:dice`
-* Next `!!`, to go back to normal entry
+* Then finally, to set the db reference, `db,rolls:dice`.
+* Next `!!`, to go back to normal entry.
 
 ```xml
 <store db="rolls:dice">
@@ -598,10 +602,10 @@ All the cmds start with `pf:pathid,store,`, using !! again `pf:dice,store,!!`
 Now when you check the rtvals or the database, results below 10 shouldn't appear anymore. But in the database, it might
 be obvious that there are gaps... this could be fixed but that's for another section.
 
-> Note: For now, a message much comply with all filters. The only exception to that rule is startswith, you can add multiple
+> Note: For now, a message must comply with all filters. The only exception to that rule is startswith, you can add multiple
 > of those in a single filter, they will be or'd instead.
 
-This is a really short intro into FilterForward, check the dedicated markdown page for more.
+This is a really short intro into FilterForward, check the dedicated guide for more.
 
 ### 2. Math
 
@@ -715,7 +719,6 @@ Based on that the cmd becomes: `pf:dice,adde,resplit,:|append|i0:1i1`
     </editor>
 </path>
 ```
-
 Check the result with `path:dice`.
 
 ### 4. Multiple filters in a single path
@@ -736,9 +739,11 @@ So far we made a path for each filter, but it's actually the same when combining
     </store>
 </path>
 ```
-But because this might be confusing, in v2.6.1 the 'if' was added. Using that node, see below for this alternative. 
+But because this might be confusing, the 'if' was added. Using that node, see below for this alternative. 
 Which might not make much sense in this case (because if max length isn't 5 than minlength is 6), but it's just an example.  
-And if/else doesn't exist -yet-.
+An if can be added with `pf:pathid,addif,type,value`, so `pf:dice,addif,minlength,6` etc.
+And if/else doesn't exist -yet-, nor do cmds to fill it.
+
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <if minlength="6">
@@ -755,24 +760,6 @@ And if/else doesn't exist -yet-.
     </if>
 </path>
 ```
-
-Note that the output of `path:dice` will be the result of the second filter because that's what reaches the end of
-the path.  
-If this is unwanted behaviour, it's possible to override it.
-```xml
-<paths>
-    <path delimiter=":" id="dice" src="raw:dice">
-        <filter id="f1" type="minlength">6</filter> <!--  the filter was given an id -->
-        <store db="rolls:dice">
-            <int i="1" unit="">rolled</int>
-        </store>
-        <!-- because the previous step was a 'store', dcafs assumes you're done with the filtered data -->
-        <!-- So the next step will get the discarded data -->
-        <math src="filter:f1">i1=i1+5</math> <!-- refer to filter with id f1 as the source -->
-    </path>
-</paths>
-```
-
 ### 5. Summary
 
 #### Repeating the glossary
