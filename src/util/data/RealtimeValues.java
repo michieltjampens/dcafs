@@ -342,31 +342,17 @@ public class RealtimeValues implements Commandable {
 		return Optional.empty();
 	}
 	public int addRequest(Writable writable, String type, String req) {
-		switch (type) {
-			case "double", "real" -> {
-				var rv = realVals.get(req);
-				if (rv == null)
-					return 0;
-				rv.addTarget(writable);
-				return 1;
-			}
-			case "int", "integer" -> {
-				var iv = integerVals.get(req);
-				if (iv == null)
-					return 0;
-				iv.addTarget(writable);
-				return 1;
-			}
-			case "text" -> {
-				var tv = textVals.get(req);
-				if (tv == null)
-					return 0;
-				tv.addTarget(writable);
-				return 1;
-			}
-			default -> Logger.warn("Requested unknown type: " + type);
-		}
-		return 0;
+		var av = switch (type) {
+			case "double", "real" -> realVals.get(req);
+			case "int", "integer" -> integerVals.get(req);
+			case "text" -> textVals.get(req);
+			case "flag" -> flagVals.get(req);
+			default -> {Logger.warn("rtvals -> Requested unknown type: " + type); yield null;}
+		};
+		if( av == null)
+			return 0;
+		av.addTarget(writable);
+		return 1;
 	}
 	public boolean addRequest(Writable writable, String rtval) {
 		var rv = realVals.get(rtval);
@@ -391,10 +377,11 @@ public class RealtimeValues implements Commandable {
 		}
 		return false;
 	}
-	public boolean removeWritable(Writable writable ) {
+	public boolean removeWritable( Writable writable ) {
 		realVals.values().forEach(rv -> rv.removeTarget(writable));
 		integerVals.values().forEach( iv -> iv.removeTarget(writable));
 		textVals.forEach( (key, list) -> list.removeTarget(writable));
+		flagVals.forEach( (key, list) -> list.removeTarget(writable));
 		return false;
 	}
 	/* ************************** C O M M A N D A B L E ***************************************** */
@@ -427,9 +414,9 @@ public class RealtimeValues implements Commandable {
 			case "rtvals", "rvs" -> {
 				result = replyToRtvalsCmd(args, html);
 			}
-			case "rtval", "real", "int", "integer","text" -> {
+			case "rtval", "real", "int", "integer","text","flag" -> {
 				int s = addRequest(wr, cmd, args);
-				result = s != 0 ? "Request added to " + s : "Request failed";
+				result = s != 0 ? "Request added to " + args : "Request failed";
 			}
 			case "" -> {
 				removeWritable(wr);
