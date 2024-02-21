@@ -639,13 +639,13 @@ So now if we use `int:dice_rolled` we'll see rolled as it's updated. Add `raw:di
 used.
 ```
 d20:16
-dice_rolled:16
+16
 d20:1
-dice_rolled:6
+6
 d20:11
-dice_rolled:11
+11
 d20:7
-dice_rolled:12
+12
 ```
 As a (last) reminder, press enter to stop the data from appearing.
 
@@ -661,7 +661,7 @@ There's no function (yet) for logical operations in MathForward nor FilterForwar
 It still might be obvious that 1 to 5 never appear but there's little that can be done about that (for now), besides
 its random, so we might just be lucky.
 
-This was a really short intro into MathForward, check the dedicated markdown page for more.
+This was a really short intro into MathForward, check the dedicated guide for more.
 
 ### 3. Editor
 

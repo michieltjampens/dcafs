@@ -219,7 +219,8 @@ Some examples:
 
 ## Dynamic Units
 
-To make the `rtvals` return a bit cleaner, dynamic units were introduced.  
+To make the `rtvals` return a bit cleaner, dynamic units were introduced. These can be used for int/real.  
+
 To use this:
 - Add a unit node to the global rtvals node.
 - Fill it with steps/levels

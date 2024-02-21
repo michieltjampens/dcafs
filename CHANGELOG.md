@@ -5,9 +5,23 @@ Note: Version numbering: x.y.z
   -> z goes up for minor additions and bugfixes
 
 ### To do/fix
-- back up path for sqlite db etc?
+- back up path for sqlite db etc? for when sd is missing/full...
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
+
+## 2.8.1 (wip)
+
+- Can now request realtime updates of flags with `flag:id`.
+- The !! function of the telnet interface now works additive. So if a prefix was active, it can be appended to. 
+```
+>dbm:rolls,!!
+
+Prefix changed to 'dbm:rolls,'
+dbm:rolls,>addcal,dice,!!
+
+Prefix changed to 'dbm:rolls,addcal,dice,'
+dbm:rolls,addcal,dice,>
+```
 
 ## 2.8.0 (09/02/2024)
 - Fixed, Matrix out of bounds when sending something without room url etc.
@@ -23,6 +37,7 @@ now give an error if this or regular parsing fails.
 ### I2C
 - Rewrite in progress, mainly to make the code easier to understand and adapt. All the basics work.
   - Read/Write/alter registers, delay before executing read.
+  - Still need to do the 2.7.0 introduced args
 - Now ops are stored inside the device instead of globally, so each device has their own set.
 Doesn't make a difference if only one device was using the script. But now multiple can use the same
 script but with custom store's.
@@ -59,7 +74,7 @@ There are two options, either 'step' for integers or 'level' for real
 <!--
 So an input of 3962s will result in 1h6m2s shown instead.
 Or an input of 1400Hz will result in 1400Hz 
-    but 1840mA will become 1.840kHz
+    but 1840Hz will become 1.840kHz
     and 1245358Hz will become 1.245MHz, scale is taken from the realval 
 -->
 ```
@@ -80,7 +95,6 @@ Or an input of 1400Hz will result in 1400Hz
   <task output="stream:powmon" interval="10m">ac1</task>
 </tasklist>
 ```
-
 
 ## 2.7.0 (03/12/23)
 
@@ -118,7 +132,7 @@ math operation to the argument first.
 - Added a new tag 'if', this is actually a filter but one that allows nesting, this should make it a bit more intuitive... right?
   - The only node that expects other forwards to be inside it. In other words, it allows nesting.
   - Given how to code works, it should be possible to add multiple levels...
-  - A If doesn't pass data on to a next step, instead the step after the if, get the same data as the if
+  - An If doesn't pass data on to a next step, instead the step after the if, get the same data as the if
 ```xml
 <if start="$GPVTG">
   <store>
@@ -613,7 +627,7 @@ more if something went wrong
   - If used in combination with the telnet prefix, that prefix will get trailing spaces to match length of longest one.
   - The source for the path will also be requested
 
-## 1.2.1 (work in progress)
+## 1.2.1 (forgot to add)
 
 ### Fixes
 - FileCollector: trying to create an existing directory structure throws an exception that 
@@ -623,9 +637,7 @@ this as it's supposed to
 - XMLfab alterchild used orElse with optional that didn't work as expected (was used if the op
 optional wasn't empty). This affects pretty much all Vals writing to xml
 - XMLdigger: The isInvalid check was copy paste of isValid, without being inverted...
-
-## 1.2.0 ( 23/02/2023 )
-- 
+ 
 ## 1.2.0 ( 23/02/2023 )
 Main addition is probably that you now get feedback on loading of taskmanager scripts. 
 Either when logging into telnet (issues during startup) or after reloading (as response to the command.
