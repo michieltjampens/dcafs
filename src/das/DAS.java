@@ -136,7 +136,7 @@ public class DAS implements Commandable{
         /* RealtimeValues */
         rtvals = new RealtimeValues( settingsPath, dQueue );
         addCommandable(rtvals.getIssuePool(),"issue","issues");
-        addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text");
+        addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text;flag");
         addCommandable(rtvals,"rtval","rtvals");
         addCommandable(rtvals,"stop");
 
