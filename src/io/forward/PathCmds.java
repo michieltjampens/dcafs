@@ -15,7 +15,7 @@ import java.util.StringJoiner;
 
 public class PathCmds {
 
-    private static String[] FILTERS = {"start","nostart","end","items","contain","c_start","c_end","minlength","maxlength","nmea","regex","math"};
+    private static final String[] FILTERS = {"start","nostart","end","items","contain","c_start","c_end","minlength","maxlength","nmea","regex","math"};
     public static String replyToCommand(String request, boolean html, Path settingsPath ){
 
         var cmds= request.split(",");
@@ -24,7 +24,6 @@ public class PathCmds {
         if( id.equalsIgnoreCase("?")){
             String cyan = html?"": TelnetCodes.TEXT_CYAN;
             String green=html?"":TelnetCodes.TEXT_GREEN;
-            String ora = html?"":TelnetCodes.TEXT_ORANGE;
             String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
             StringJoiner join = new StringJoiner("\r\n");
@@ -151,6 +150,22 @@ public class PathCmds {
                 return "Set the src to '" + cmds[2] + "'";
             }
             /* Commands to add a simple step at the end */
+            case "addif" -> {
+                if (cmds.length < 3)
+                    return "! Not enough arguments: pf:id,addif,check,value";
+
+                if (cmds[2].split(",").length != 2)
+                    return "! Need a type and a rule separated with : (pf:id,addif,check,value)";
+                var type = cmds[2].substring(0,cmds[2].indexOf(","));
+                var value = cmds[2].substring(cmds[2].indexOf(",")+1);
+
+                if (!List.of(FILTERS).contains(type))
+                    return "! No such if check, valid: " + String.join(",", FILTERS);
+
+                fab.addChild("if").attr( type, value);
+                fab.build();
+                return "If added";
+            }
             case "addfilter", "addf" -> {
                 if (cmds.length < 3)
                     return "! Not enough arguments: pf:id,addfilter,type:rule";

@@ -475,7 +475,6 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 };
             }else{
                 switch (cmds[1]) {
-
                     case "tablexml" -> {
                         // Select the correct server node
                         var fab = XMLfab.withRoot(settingsPath, "dcafs", "databases");

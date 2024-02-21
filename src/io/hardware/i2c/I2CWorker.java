@@ -278,7 +278,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                         .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
                         .add("").add(cyan + " Other" + reg)
                         .add(gr + "  i2c:debug,on/off" + reg + " -> Enable or disable extra debug feedback in logs")
-                        .add(gr + "  i2c:device,setid" + reg + " -> Use the given opset on the device")
+                        .add(gr + "  i2c:device,setid" + reg + " -> Use the given i2cop on the device")
                         .add(gr + "  i2c:id" + reg + " -> Request the data received from the given id (can be regex)");
                 return join.toString();
             }
