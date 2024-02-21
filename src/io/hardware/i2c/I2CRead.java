@@ -73,7 +73,7 @@ public class I2CRead implements I2COp{
         delay=millis;
     }
     @Override
-    public ArrayList<Integer> doOperation(ExtI2CDevice device) {
+    public ArrayList<Double> doOperation(ExtI2CDevice device) {
 
         if( !valid ) {
             Logger.error("Read not valid, aborting");
@@ -85,9 +85,9 @@ public class I2CRead implements I2COp{
         if( device.isDebug())
             Logger.info(device.id()+"(i2c) -> Read: "+Tools.fromBytesToHexString(rec));
         if( bitsets!=null ){
-            return convertNibblesToInt(rec,bitsets,msbFirst);
+            return convertNibblesToDouble(rec,bitsets,msbFirst);
         }
-        return convertBytesToInt(rec,bits,msbFirst,signed);
+        return convertBytesToDouble(rec,bits,msbFirst,signed);
     }
     /**
      * Converts an array of bytes to a list of ints according to the bits. Note that bytes aren't split in their nibbles
@@ -98,43 +98,56 @@ public class I2CRead implements I2COp{
      * @param signed If the resulting int is signed
      * @return The resulting integers
      */
-    public static ArrayList<Integer> convertBytesToInt(byte[] bytes, int bits, boolean msbFirst, boolean signed){
+    public static ArrayList<Double> convertBytesToDouble(byte[] bytes, int bits, boolean msbFirst, boolean signed){
 
         int[] intResults = new int[bytes.length];
-        ArrayList<Integer> ints = new ArrayList<>();
+        ArrayList<Double> dbs = new ArrayList<>();
 
         for( int a=0;a<bytes.length;a++){
             intResults[a]=bytes[a]<0?bytes[a]+256:bytes[a];
         }
+
+        int match = bytes.length%(bits/8);
+        if( match !=0 )
+            System.out.println("Mismatch between bytes received and bits aggregated, bytes mismatch: "+match);
+
+        if( bits%8 == 0){ // works up to 32bit
+            int msbmod = msbFirst?1:-1;
+            int first = msbFirst?0:bits/8-1;
+            for (int a = first; a < bytes.length; a += bits / 8) {
+                double total = 0;
+                for (int b = 0; b < bits / 8 && (a + b) < intResults.length && (a + b) > -1; b++) {
+                    total += intResults[a + msbmod*b];
+                    if (b != bits / 8 - 1)
+                        total *= 256;
+                }
+                if( signed ) {
+                    total = switch (bits) {
+                        case 8 -> MathUtils.toSigned8bit((int)total);
+                        case 16 -> MathUtils.toSigned16bit((int)total);
+                        case 24 -> MathUtils.toSigned24bit((int)total);
+                        case 32 -> MathUtils.toSigned32bit((int)total);
+                        default -> total;
+                    };
+                }
+                dbs.add(total);
+            }
+            return dbs;
+        }
         int temp;
         switch (bits) {
-            case 8 -> { // Direct byte -> unsigned int conversion
-                for (int a : intResults) {
-                    ints.add(signed ? MathUtils.toSigned8bit(a) : a);
-                }
-            }
             //TODO Shift in the other direction and LSB/MSB first
             case 10 -> { // take the full first byte and only the 2 MSB of the second
                 for (int a = 0; a < bytes.length; a += 2) {
                     temp = intResults[a] * 4 + intResults[a + 1] / 64;
-                    ints.add(signed ? MathUtils.toSigned12bit(temp) : temp);
+                    dbs.add( (double) (signed ? MathUtils.toSigned12bit(temp) : temp));
                 }
             }
             //TODO Shift in the other direction and LSB/MSB first
             case 12 -> { // take the full first byte and only the MSB nibble of the second
                 for (int a = 0; a < bytes.length; a += 2) {
                     temp = intResults[a] * 16 + intResults[a + 1] / 16;
-                    ints.add(signed ? MathUtils.toSigned12bit(temp) : temp);
-                }
-            }
-            case 16 -> { // Concatenate two bytes
-                for (int a = 0; a < bytes.length; a += 2) {
-                    if (msbFirst) {
-                        temp = intResults[a] * 256 + intResults[a + 1];
-                    } else {
-                        temp = intResults[a] + intResults[a + 1] * 256;
-                    }
-                    ints.add(signed ? MathUtils.toSigned16bit(temp) : temp);
+                    dbs.add( (double) (signed ? MathUtils.toSigned12bit(temp) : temp));
                 }
             }
             //TODO Shift in the other direction?
@@ -145,26 +158,16 @@ public class I2CRead implements I2COp{
                     } else {
                         temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 16 + intResults[a] / 16;
                     }
-                    ints.add(signed ? MathUtils.toSigned20bit(temp) : temp);
-                }
-            }
-            case 24 -> { // Concatenate three bytes
-                for (int a = 0; a < bytes.length; a += 3) {
-                    if (msbFirst) {
-                        temp = (intResults[a] * 256 + intResults[a + 1]) * 256 + intResults[a + 2];
-                    } else {
-                        temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 256 + intResults[a];
-                    }
-                    ints.add(signed ? MathUtils.toSigned24bit(temp) : temp);
+                    dbs.add( (double) (signed ? MathUtils.toSigned20bit(temp) : temp));
                 }
             }
             default -> Logger.error("Tried to use an undefined amount of bits " + bits);
         }
-        return ints;
+        return dbs;
     }
-    public static ArrayList<Integer> convertNibblesToInt(byte[] bytes, int[] bits, boolean msbFirst){
+    public static ArrayList<Double> convertNibblesToDouble(byte[] bytes, int[] bits, boolean msbFirst){
 
-        ArrayList<Integer> ints = new ArrayList<>();
+        ArrayList<Double> dbs = new ArrayList<>();
 
         // Convert the bytes to a hex string to easily work with nibbles
         String nibs = Tools.fromBytesToHexString(bytes);
@@ -173,16 +176,16 @@ public class I2CRead implements I2COp{
         int n = Arrays.stream(bits).sum()/4;
         if( n > nibs.length() ) {
             Logger.error("Not enough nibbles to convert, needed "+n+" ori: "+nibs);
-            return ints;
+            return dbs;
         }
         int pos=0;
         for( int nibbles : bits ){
             nibbles /=4; // Single character
             var hex = "0x"+ nibs.substring(pos,pos+nibbles);
-            ints.add( NumberUtils.createInteger(hex));
+            dbs.add( (double) NumberUtils.createLong(hex) );
             pos+=nibbles;
         }
-        return ints;
+        return dbs;
     }
     public String toString(  ){
         String info = delay==0?"":"Wait for "+TimeTools.convertPeriodtoString(delay, TimeUnit.MILLISECONDS)+". ";

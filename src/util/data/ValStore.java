@@ -300,7 +300,7 @@ public class ValStore {
         doCalVals();
         return dbOk;
     }
-    public boolean apply(ArrayList<Integer> vals){
+    public boolean apply(ArrayList<Double> vals){
         if( map ){
             Logger.error(id+"(store) -> Map not supported in apply with integer array");
             return false;
@@ -312,7 +312,7 @@ public class ValStore {
             for (int a = 0; a < rtvals.size(); a++) {
                 if (rtvals.get(a) != null ) {
                     if( rtvals.get(a) instanceof IntegerVal iv ){
-                        iv.value(vals.get(a));
+                        iv.value(vals.get(a).intValue());
                     }else if( rtvals.get(a) instanceof RealVal rv ){
                         rv.value(vals.get(a));
                     }else{

@@ -313,7 +313,7 @@ public class MathForward extends AbstractForward {
      * @param numbers The number to apply the ops to
      * @return An optional Double array with the results
      */
-    public ArrayList<Double> addData( ArrayList<Integer> numbers ){
+    public ArrayList<Double> addData( ArrayList<Double> numbers ){
         // First check if the operations are actually valid
         if( !valid ){
             showError("Not processing data because the operations aren't valid");

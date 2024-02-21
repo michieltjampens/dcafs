@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 public class I2COpSet {
     public enum OUTPUT_TYPE{DEC,HEX,BIN,CHAR,NONE}
-    private final ArrayList<Integer> received = new ArrayList<>(); // Data received through i2c read ops
+    private final ArrayList<Double> received = new ArrayList<>(); // Data received through i2c read ops
     private final ArrayList<Object> ops = new ArrayList<>(); // Collection of ops, maths and stores
     private int index=0;                // Next op that will be executed
     private ScheduledFuture<?> future;  // Future about the next op
@@ -157,7 +157,7 @@ public class I2COpSet {
                 return;
             }else{ // Not the last operation, replace the int arraylist with the calculated doubles
                 received.clear();
-                res.forEach( x -> received.add(x.intValue())); // Refill with altered values
+                received.addAll(res); // Refill with altered values
             }
         }else if( ops.get(index) instanceof ValStore st){
             st.apply(received);
@@ -169,7 +169,7 @@ public class I2COpSet {
             Logger.debug(id+" -> Scheduling next op in "+delay+"ms");
             future = scheduler.schedule(() -> runOp(device, scheduler), delay, TimeUnit.MILLISECONDS);
         }else{
-            forwardIntegerResult(device);
+            forwardDoubleResult(device,received);
             device.doNext(scheduler);
         }
     }
@@ -203,26 +203,6 @@ public class I2COpSet {
         }
         forwardData(device,output.toString());
     }
-    /**
-     * Take the integer results of an opset and parse it to the chosen output type
-     * @param device The device the results came from
-     */
-    private void forwardIntegerResult(ExtI2CDevice device){
-        StringJoiner output = new StringJoiner(";",device.id()+";"+id+";","");
-        switch (outType) {
-            case DEC,NONE -> received.stream().map(String::valueOf).forEach(output::add);
-            case HEX -> received.stream().map( i->Integer.toHexString(i).toUpperCase())
-                            .forEach( val -> output.add("0x" + (val.length() == 1 ? "0" : "") + val) );
-            case BIN -> received.forEach(x -> output.add("0b" + Integer.toBinaryString(x)));
-            case CHAR -> {
-                var line = new StringJoiner("");
-                received.forEach(x -> line.add(String.valueOf((char) x.intValue())));
-                output.add(line.toString());
-            }
-        }
-        forwardData(device,output.toString());
-    }
-
     /**
      * Actually forward the result to the registered targets
      * @param device The device that was used

@@ -6,7 +6,7 @@ import java.util.ArrayList;
 
 public interface I2COp {
 
-    ArrayList<Integer> doOperation(ExtI2CDevice device);
+    ArrayList<Double> doOperation(ExtI2CDevice device);
     void setDelay( long millis);
     long getDelay();
     String toString();

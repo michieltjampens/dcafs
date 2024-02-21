@@ -47,7 +47,7 @@ public class I2CAlter implements I2COp{
         return delay;
     }
     @Override
-    public ArrayList<Integer> doOperation(ExtI2CDevice device) {
+    public ArrayList<Double> doOperation(ExtI2CDevice device) {
         device.writeByte(reg);
         var rec = device.readByte();
         if( device.isDebug() )
