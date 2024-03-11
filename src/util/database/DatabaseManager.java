@@ -57,7 +57,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * @return The database added
      */
     public SQLiteDB addSQLiteDB(String id, SQLiteDB db) {
-        if (lites.size() == 0 && sqls.size() == 0)
+        if (lites.isEmpty() && sqls.isEmpty())
             scheduler.scheduleAtFixedRate(new CheckQueryAge(), 2L*CHECK_INTERVAL, CHECK_INTERVAL, TimeUnit.SECONDS);
 
         SQLiteDB old = lites.get(id);
@@ -75,7 +75,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * @return The added database
      */
     public SQLDB addSQLDB(String id, SQLDB db) {
-        if (lites.size() == 0 && sqls.size() == 0)
+        if (lites.isEmpty() && sqls.isEmpty())
             scheduler.scheduleAtFixedRate(new CheckQueryAge(), 2L*CHECK_INTERVAL, CHECK_INTERVAL, TimeUnit.SECONDS);
         sqls.put(id, db);
         return db;
@@ -150,11 +150,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
     public Optional<Database> reloadDatabase( String id ){
         var dig = XMLdigger.goIn(settingsPath,"dcafs","databases");
         if( dig.hasPeek("sqlite","id",id)){
-            var d = dig.usePeek().current();
-            return SQLiteDB.readFromXML( d.get(),workPath).map(sqLiteDB -> addSQLiteDB(id, sqLiteDB));
+            var d = dig.usePeek().currentTrusted();
+            return SQLiteDB.readFromXML( d,workPath).map(sqLiteDB -> addSQLiteDB(id, sqLiteDB));
         }else if( dig.hasPeek("server","id",id)){
-            var d = dig.usePeek().current();
-            return Optional.ofNullable(addSQLDB(id, SQLDB.readFromXML(d.get())));
+            var d = dig.usePeek().currentTrusted();
+            return Optional.ofNullable(addSQLDB(id, SQLDB.readFromXML(d) ));
         }
         return Optional.empty();
     }
