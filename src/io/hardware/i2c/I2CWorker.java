@@ -23,7 +23,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 public class I2CWorker implements Commandable,I2COpFinished {
     private final HashMap<String, ExtI2CDevice> devices = new HashMap<>();
@@ -48,7 +47,9 @@ public class I2CWorker implements Commandable,I2COpFinished {
      * Reads the settings for the worker from the given xml file, this mainly
      * consists of devices with their opsets.
      */
-    private void readFromXML() {
+    private String readFromXML() {
+        devices.clear();
+        int cnt=0;
         var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
         if( i2cOpt.isPresent() ){
             Logger.info("Found settings for a I2C bus");
@@ -62,7 +63,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                     continue;
                 }
                 for( Element device : XMLtools.getChildElements( i2c_bus, "device")){
-
+                    cnt++;
                     String id = XMLtools.getStringAttribute( device, "id", "").toLowerCase();
                     String script = XMLtools.getStringAttribute( device, "script", "").toLowerCase();
 
@@ -78,19 +79,22 @@ public class I2CWorker implements Commandable,I2COpFinished {
                 }
             }
         }
+        if( devices.size()==cnt)
+            return "Found all devices";
+        return "Found "+devices+" on checked busses, while looking for "+cnt+" devices";
     }
-    private boolean loadSet( ExtI2CDevice device ){
+    private void loadSet(ExtI2CDevice device ){
         var script = device.getScript();
         var xml = scriptsPath.resolve(script+".xml");
 
         if( Files.notExists(xml)){
             Logger.error(device.id()+" (i2c) -> Couldn't find script at "+xml);
-            return false;
+            return;
         }
         var dig = XMLdigger.goIn(xml,"i2cscript");
         if( dig.isInvalid() ){
             Logger.error(device.id()+" (i2c) -> Syntax error in "+xml);
-            return false;
+            return;
         }
         device.clearOpSets(rtvals);
 
@@ -100,26 +104,9 @@ public class I2CWorker implements Commandable,I2COpFinished {
             set.setOutputType(defOut);
             if( set.isInvalid()) {
                 Logger.error(device.id() + " (i2c) -> Failed to process " + script + "->" + set.id() + ", check logs.");
-                return false;
+                return;
             }
             device.addOpSet(set);
-        }
-        return true;
-    }
-    private String reloadSets(){
-        if( devices.isEmpty()) {
-            readFromXML();
-            return "No devices yet, reloading everything.";
-        }else {
-            StringJoiner join = new StringJoiner("\r\n");
-            for (var device : devices.values()) {
-                if (!loadSet(device)) {
-                    join.add("! Failed to reload set of " + device.id());
-                } else {
-                    join.add("Reloaded set of " + device.id());
-                }
-            }
-            return join.toString();
         }
     }
     /* ***************************************************************************************************** */
@@ -272,7 +259,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                         .add(gr + "  i2c:adddevice,id,bus,address,scriptid" + reg + " -> Add a device on bus at hex address that uses script,"
                                 +" create new script if it doesn't exist yet")
                         .add(gr + "  i2c:addscript,scriptid" + reg + " -> Adds a blank i2c script to the default folder")
-                        .add(gr + "  i2c:reload" + reg + " -> Reload the i2cscripts")
+                        .add(gr + "  i2c:reload" + reg + " -> Check for devices and reload the scripts")
                         .add("").add(cyan + " Get info" + reg)
                         .add(gr + "  i2c:list" + reg + " -> List all registered devices with i2cscript")
                         .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
@@ -286,7 +273,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                 return getDeviceList();
             }
             case "reload" -> {
-                return reloadSets();
+                return readFromXML();
             }
             case "listeners" -> {
                 return getListeners();
