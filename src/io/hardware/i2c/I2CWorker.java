@@ -341,6 +341,9 @@ public class I2CWorker implements Commandable,I2COpFinished {
                     return "! Incorrect number of arguments: i2c:detect,bus";
                 }
             }
+            case "" -> {
+                return removeWritable(wr)?"ok":"failed";
+            }
             default -> {
                 if (cmds.length == 1) { // single arguments points to a data request
                     StringBuilder oks = new StringBuilder();
