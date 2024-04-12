@@ -837,27 +837,32 @@ This also means that the evidence of the earlier cheating is present in the log 
 So far we were only on the receiving end from a stream, no talking back yet.  
 Sending data isn't anything special and certainly not 'kicking it up a notch', but the bit afterwards will be...
 
-Send `streams` (or `ss`) to get a list of available streams, this will return a list with currently only **S1:dice**  
-* `S1:important` to send important to the dice stream  
+There are three ways to send something to a stream:
+* Use `dice:some text` to send 'some text' to the dice stream
+  * This also means that you can't have a taskmanager with that id! 
+* Send `streams` (or `ss`) to get a list of available streams, this will return a list with currently only **S1:dice**  
+  * Use `S1:important` to send important to the dice stream
+  * Might be easier if the id's are long
 * `ss:send,dice,unimportant` to send unimportant to the dice stream
 
 As always, this has a couple of extras...
-* by default, the earlier defined eol is appended (so the first command actually sends important\r\n)
-* hexadecimal escape characters are allowed, so `S1:hello?` and `S1:hello\x3F` send the same thing
-    * alternatively, `S1:\h(0x68,0x65,0x6c,0x6c,0x6f,0x3f,0xd,0xa)` would do the same thing, note that the eol sequence needs to be added manually
-* ending with \0 will signal to dcafs to omit the eol sequence so `S1:hello?\0` won't get crlf appended.
+* By default, the earlier defined eol is appended (so the first command actually sends important\r\n). But eol can be 
+omitted by using CTRL+s instead of enter.
+* Hexadecimal escape characters are allowed, so `dice:hello?` and `dice:hello\x3F` send the same thing
+    * alternatively, `dice:\h(0x68,0x65,0x6c,0x6c,0x6f,0x3f,0xd,0xa)` would do the same thing, note that the eol sequence needs to be added manually
+* ending with \0 will signal to dcafs to omit the eol sequence so `dice:hello?\0` won't get crlf appended.
     * Using CTRL+s instead of enter will do the same
-* If you plan on transmitting multiple lines, you should start with `S1:!!` from then on, everything send via that
-  telnet session will have S1: prepended and thus be transmitted to dice. Sending `!!` ends this.   
+* If you plan on transmitting multiple lines, you should start with `dice:!!` from then on, everything send via that
+  telnet session will have dice: prepended and thus be transmitted to dice. Sending `!!` ends this.   
 
 So now you know pretty much everything there is to know about manually sending data.
 
 Let's put it to some use.  
 Have two telnet sessions open:
 * `raw:dice` running in one to see the rolls come in
-* send `S1:dicer:stopd20s` in the other one, this should stop the d20 rolls to arrive in the first one
+* send `dice:dicer:stopd20s` in the other one, this should stop the d20 rolls to arrive in the first one
 
-The dicer accepts more commands, to test them out start with `S1:dicer:!!`
+The dicer accepts more commands, to test them out start with `dice:dicer:!!`
 * `rolld6` rolls a single 6 sided die
 * `rolld20` rolls a single 20 sided die
 * `rolld100` rolls a 100 sided die
@@ -906,7 +911,7 @@ These can be added with the command `ss:id,addcmd,when,data`
 
 So the main difference is that hello and wakeup send data to somewhere, while open,idle and close are local commands.
 
-For the next example, we'll shut down both instances. Shutting down the dummy can be done by sending `S1:sd` to it.  
+For the next example, we'll shut down both instances. Shutting down the dummy can be done by sending `dice:sd` to it.  
 Then use `sd` to close the regular one.
 > Note: The full command is sd:reason, this allows the user to give a reason for the shutdown that will be logged.
 
