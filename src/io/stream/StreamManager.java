@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Stream;
 
 /**
  * The class holds all the information required about a datasource to acquire
@@ -170,7 +171,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		return join.toString();
 	}
-
+	public Stream<String> getStreamIDs(){
+		return streams.keySet().stream();
+	}
 	/**
 	 * Retrieve the contents of the confirm/reply buffer from the various streams
 	 * @return Contents of the confirm/reply buffer from the various streams
@@ -639,7 +642,16 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 			case "s_","h_" -> doSorH( cmd,args );
 			case "","stop" -> removeWritable(wr)?"Ok.":"";
-			default -> "Unknown Command";
+			default -> {
+				int a=1;
+				for( String id:streams.keySet() ){
+					if( id.equalsIgnoreCase(find)){
+						yield doSorH("S"+a,args);
+					}
+					a++;
+				}
+				yield "Unknown Command";
+			}
 		};
 	}
 	public String payloadCommand( String cmd, String args, Object payload){

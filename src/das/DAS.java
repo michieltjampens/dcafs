@@ -306,13 +306,14 @@ public class DAS implements Commandable{
      */
     private void addStreamManager() {
 
-        streamManager = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
-        addCommandable(streamManager,"ss","streams"); // general commands
-        addCommandable(streamManager,"s_","h_");      // sending data to a stream
-        addCommandable(streamManager,"raw","stream"); // getting data from a stream
-        addCommandable(streamManager,""); // stop sending data
+       streamManager = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
+       addCommandable(streamManager,"ss","streams"); // general commands
+       addCommandable(streamManager,"s_","h_");      // sending data to a stream
+       addCommandable(streamManager,"raw","stream"); // getting data from a stream
+       addCommandable(streamManager,""); // stop sending data
 
        streamManager.readSettingsFromXML(settingsPath);
+       streamManager.getStreamIDs().forEach( id -> addCommandable(streamManager,id) );
     }
     /* *************************************  L A B E L W O R K E R **********************************************/
     /**
