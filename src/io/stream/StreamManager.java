@@ -325,6 +325,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 					}
 					if( !written )
 						Logger.error("writeString/writeLine failed to "+id+" for "+txt);
+					if( txt.getBytes()[0]==27)
+						txt="ESC";
 					return written?txt:"";
 				}
 			}

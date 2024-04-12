@@ -8,7 +8,10 @@ Note: Version numbering: x.y.z
 - back up path for sqlite db etc? for when sd is missing/full...
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
+
 ## 2.8.2 (wip)
+- Can now send data to a stream using the id instead of Sx. 
+- Can now send ESC to a stream using the esc key (eol won't be appended)
 
 ## 2.8.1 (15/03/2024)
 - Updated netty,activation and json dependency
