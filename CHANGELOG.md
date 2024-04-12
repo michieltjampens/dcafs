@@ -8,8 +8,9 @@ Note: Version numbering: x.y.z
 - back up path for sqlite db etc? for when sd is missing/full...
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
+## 2.8.2 (wip)
 
-## 2.8.1 (wip)
+## 2.8.1 (15/03/2024)
 - Updated netty,activation and json dependency
 - Can now request realtime updates of flags with `flag:id`.
 - The !! function of the telnet interface now works additive. So if a prefix was active, it can be appended to. 
@@ -26,6 +27,7 @@ dbm:rolls,addcal,dice,>
 ### I2C
 - Changed i2c code to using doubles to actually work with numbers of 32bits till 63bit.
 - Changed i2c:reload to do a full reload including looking for devices on the bus
+- Fixed, requesting data in telnet couldn't be stopped
 
 ## 2.8.0 (09/02/2024)
 - Fixed, Matrix out of bounds when sending something without room url etc.
