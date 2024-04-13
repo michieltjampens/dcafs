@@ -580,6 +580,7 @@ public class EditorForward extends AbstractForward{
                 .add("    fe. <edit type='charsplit'>1,4,7 </edit>  --> 1,6:2,5:1,2")
                 .add(gr+"redate"+re+" -> Get the value at index according to delimiter, then go 'from' one date(time) format to the format in the value given")
                 .add("    fe. <edit type='redate' from='yy:dd:MM' >dd_MMMM_yy</edit>  --> 25_december_16")
+                .add("    Note: to go from epoch millis use 'epochmillis' as inputformat")
                 .add(gr+"retime"+re+" -> Same as redate but for only time")
                 .add("    fe. <edit type='retime' from='HH:mm:ss' >HH-mm</edit>  --> 16-25")
                 .add(gr+"replace"+re+" -> Replace 'find' with the replacement (NOTE: 'replacement' can't be a whitespace character)")
