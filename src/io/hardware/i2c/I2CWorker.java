@@ -48,7 +48,9 @@ public class I2CWorker implements Commandable,I2COpFinished {
      * consists of devices with their opsets.
      */
     private String readFromXML() {
-        devices.clear();
+        devices.values().forEach(I2CDevice::close); // First close them before removing
+        devices.clear(); // Remove any existing ones
+
         int cnt=0;
         var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
         if( i2cOpt.isPresent() ){
