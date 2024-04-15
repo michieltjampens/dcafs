@@ -567,7 +567,8 @@ public class PathForward {
 
                                 buffer.addAll(FileTools.readLines(files.get(0), lineCount, maxBufferSize));
                                 lineCount += buffer.size();
-
+                                if( lineCount/1000==0)
+                                    Logger.info("Read "+lineCount+" lines");
                                 if (buffer.size() < maxBufferSize) { // Buffer wasn't full, so file read till end
                                     dQueue.add(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)+" at "+ Instant.now()));
                                     Logger.info("Finished processing " + files.get(0));
