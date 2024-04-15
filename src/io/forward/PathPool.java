@@ -8,7 +8,6 @@ import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.ValStore;
 import util.database.QueryWriting;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -181,7 +180,7 @@ public class PathPool implements Commandable {
                 join.setEmptyValue("No paths yet");
                 paths.forEach((key, value) -> {
                     String src = key + " src: " + value.src();
-                    join.add(green+ "Path: " + src + reg).add(value.toString()).add("");
+                    join.add(green+ "Path: " + src + reg);//.add(value.toString()).add("");
                 });
                 return join.toString();
             }
@@ -212,6 +211,11 @@ public class PathPool implements Commandable {
                         var result = paths.get(cmds[1]).readFromXML(ele.get(), settingsPath.getParent());
                         return result.isEmpty() ? "Path reloaded" : result;
                     }
+                    case "list" -> {
+                        if (pp == null)
+                            return or+"! No such path: " + cmds[1]+reg;
+                        return green+ "Path: " + pp.id() + (html ? "<br>" : "\r\n") + pp;
+                    }
                     default -> {
                         var res = PathCmds.replyToCommand(cmd, html, settingsPath);
                         if( res.startsWith("Table added with ")){
@@ -219,7 +223,7 @@ public class PathPool implements Commandable {
                             dQueue.add( Datagram.system(reloadCmd));
                         }
                         // Reload the path
-                        var pEle = XMLfab.withRoot(settingsPath, "dcafs", "paths")
+                       /* var pEle = XMLfab.withRoot(settingsPath, "dcafs", "paths")
                                 .getChild("path", "id", cmds[0]);
                         if (!res.startsWith("!")) { // If cmd worked
                             if (pEle.isPresent()) { // If an existing path was altered
@@ -237,7 +241,7 @@ public class PathPool implements Commandable {
                             } else if (cmds[1].equalsIgnoreCase("delete")) { // meaning the path was removed from xml, remove it from paths
                                 removePath(cmds[0]);
                             }
-                        }
+                        }*/
                         // Add some color based on good or bad result
                         if (res.startsWith("!") || res.startsWith("unknown"))
                             return or + res + reg;
@@ -247,21 +251,8 @@ public class PathPool implements Commandable {
             }
         }
     }
-    private void removePath(String id){
-        var p = paths.get(id);
-        if( p!=null){
-            p.clearStores(); // reset the used stores
-            paths.remove(id);
-        }
-    }
     private void clearStores(){
         paths.values().forEach(PathForward::clearStores);
     }
-    public ArrayList<ValStore> getStores(){
-        ArrayList<ValStore> stores = new ArrayList<>();
-        for( PathForward pf : paths.values()){
-            stores.addAll(pf.getStores());
-        }
-        return stores;
-    }
+
 }

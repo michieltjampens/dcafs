@@ -57,6 +57,8 @@ public class MathFab {
      * @return This object or null if failed
      */
     private MathFab build(String formula ){
+        if(debug)
+            Logger.info("Mathfab building for "+formula);
         steps.clear(); // reset the steps
         ori=formula;
 
@@ -64,7 +66,7 @@ public class MathFab {
         int opens = StringUtils.countMatches(formula,"(");
         int closes = StringUtils.countMatches(formula,")");
         if( opens != closes ){
-            Logger.error("Brackets count doesn't match, (="+opens+" and )="+closes);
+            Logger.error("Brackets count doesn't match, (="+opens+" and )="+closes+ " in "+formula);
             return null;
         }
 
@@ -108,7 +110,6 @@ public class MathFab {
             }
             dot = cleanup.indexOf("°(");
         }
-
 
         var is = Pattern.compile("[i][0-9]{1,2}")// Extract all the references
                 .matcher(formula)
@@ -209,7 +210,7 @@ public class MathFab {
             return Optional.empty();
         }
         if( requiredInputs > data.length ){
-            throw new ArrayIndexOutOfBoundsException("Not enough elements given, need at least "+requiredInputs+" but got "+data.length);
+            throw new ArrayIndexOutOfBoundsException("MathFab -> Not enough elements given, need at least "+requiredInputs+" but got "+data.length);
         }
 
         BigDecimal[] total = ArrayUtils.addAll(new BigDecimal[offset],data);

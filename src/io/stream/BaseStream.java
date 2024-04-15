@@ -7,7 +7,6 @@ import org.w3c.dom.Element;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.util.ArrayList;
@@ -95,15 +94,18 @@ public abstract class BaseStream {
         }
         // cmds
         triggeredActions.clear();
-        for( Element cmd : XMLtools.getChildElements(stream, "cmd") ){
-            String c = cmd.getTextContent();
-            String when = XMLtools.getStringAttribute(cmd,"when","open");
-            triggeredActions.add(new TriggerAction(when, c));
+        if( dig.hasPeek("cmd") ) {
+            for (var cmd : dig.digOut("cmd")) {
+                var c = cmd.value("");
+                if (!c.isEmpty())
+                    triggeredActions.add(new TriggerAction(dig.attr("when", "open"), c));
+            }
+            dig.goUp();
         }
-        for( Element cmd : XMLtools.getChildElements(stream, "write") ){
-            String c = cmd.getTextContent();
-            String when = XMLtools.getStringAttribute(cmd,"when","hello");
-            triggeredActions.add(new TriggerAction(when, c));
+        for( var write : dig.digOut("write") ){
+            String c = write.value("");
+            if( !c.isEmpty())
+                triggeredActions.add(new TriggerAction( write.attr("when","hello"), c));
         }
         return readExtraFromXML(stream);
     }

@@ -67,7 +67,7 @@ public class XMLdigger {
     }
 
     /**
-     * Try to follow successive child elements in the xml. If successfull, the digger wil be at the last element.
+     * Try to follow successive child elements in the xml. If successfully, the digger wil be at the last element.
      * If not, it will have invalidated the digger.
      * @param tags The successive tags to follow
      * @return This - now possibly invalid - digger
@@ -216,7 +216,7 @@ public class XMLdigger {
      * @return This object
      */
     public XMLdigger usePeek(){
-        last=peek;
+        stepDown(peek);
         valid = last!=null;
         return this;
     }
@@ -234,6 +234,30 @@ public class XMLdigger {
         }
     }
 
+    /**
+     * First make the digger valid again and then try to go to the parent element with the given tag
+     *
+     * @param tag The tag to look for
+     */
+    public void goUp(String tag ){
+        peeked=false;
+        if( root==null)
+            return;
+        valid=true;
+        last = root;
+        while( !last.getTagName().equalsIgnoreCase(tag)) {
+            var parent = (Element) root.getParentNode();
+            if (validated(parent != null)) {
+                root = parent;
+                last=root;
+            }else{
+                valid=false;
+            }
+        }
+        var parent = (Element) root.getParentNode();
+        if( parent!=null)
+            root=parent;
+    }
     /**
      * Force this digger to be invalid
      */
@@ -320,9 +344,9 @@ public class XMLdigger {
     }
 
     /**
-     * Get a list of all elements that result from digging to the tag
+     * Get a list of all elements that result from digging to the tag, this might invalidate the digger.
      * @param tag The tag to dig for
-     * @return The elements found or an empty list if none or invalid digger
+     * @return The elements found or an empty list if none.
      */
     public ArrayList<XMLdigger> digOut( String tag ){
         var temp = new ArrayList<XMLdigger>();
@@ -334,7 +358,7 @@ public class XMLdigger {
     }
     /**
      * Get a list of all elements that result from peeking to the tag.
-     * Difference with digOut is that this doesn't invalidate the peek on failure
+     * Like all peek actions, this doesn't invalidate the digger
      * @param tag The tag to peek at
      * @return The elements found or an empty list if none or invalid peek
      */
@@ -356,9 +380,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return peek==null?def:peek.getTextContent();
-
+        if( peeked ) {
+            peeked=false;
+            return peek == null ? def : peek.getTextContent();
+        }
         var c = last.getTextContent();
         return c.isEmpty()?def:c;
 
@@ -372,8 +397,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return NumberUtils.toInt( peek!=null?peek.getTextContent():"",def );
+        if( peeked ) {
+            peeked=false;
+            return NumberUtils.toInt(peek != null ? peek.getTextContent() : "", def);
+        }
         return NumberUtils.toInt(last.getTextContent(),def);
     }
     /**
@@ -385,9 +412,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return NumberUtils.toDouble( peek!=null?peek.getTextContent():"",def );
-
+        if( peeked ) {
+            peeked=false;
+            return NumberUtils.toDouble(peek != null ? peek.getTextContent() : "", def);
+        }
         return NumberUtils.toDouble(last.getTextContent(),def);
     }
     /**
@@ -399,8 +427,10 @@ public class XMLdigger {
         if( !valid )
             return def;
 
-        if( peeked )
-            return Tools.parseBool( peek!=null?peek.getTextContent():"",def );
+        if( peeked ) {
+            peeked=false;
+            return Tools.parseBool(peek != null ? peek.getTextContent() : "", def);
+        }
         return Tools.parseBool(last.getTextContent(),def);
     }
     /**
@@ -414,6 +444,7 @@ public class XMLdigger {
 
         String at = "";
         if( peeked ) {
+            peeked=false;
             at = peek == null ? "" : peek.getTextContent();
         }else{
             at = last.getTextContent();
@@ -446,6 +477,17 @@ public class XMLdigger {
         }
         return def;
     }
+    public boolean hasTagName(String tag){
+        if( !valid )
+            return false;
+        if( peeked ){
+            if( peek!=null)
+                return peek.getTagName().equals(tag);
+        }else{
+            return last.getTagName().equals(tag);
+        }
+        return false;
+    }
     /*  ************ Getting attributes ************************************* */
     /**
      * Read the value of the given tag, return the def string if not found
@@ -476,6 +518,30 @@ public class XMLdigger {
         if( peeked )
             return peek!=null && peek.hasAttribute(tag);
         return  last.hasAttribute(tag);
+    }
+
+    /**
+     * Look for the first match of the list of attributes
+     * @param attr One or more attributes to look for
+     * @return The matching attribute of an empty string if none found
+     */
+    public String matchAttr( String... attr ){
+        if( !valid )
+            return "";
+        if( peeked ){
+            if( peek ==null)
+                return "";
+            for( var at :attr ){
+                if(peek.hasAttribute(at))
+                    return at;
+            }
+            return "";
+        }
+        for( var at :attr ){
+            if(last.hasAttribute(at))
+                return at;
+        }
+        return "";
     }
     public String allAttr(){
         if( !valid )

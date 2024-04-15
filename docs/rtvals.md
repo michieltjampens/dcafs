@@ -16,14 +16,16 @@ Because these two have significant overlap, this is combined.
 ### Basics attributes
 The most basic node, this is the absolute minimum required:
 ````xml
+<rtvals>
 <real>name</real>
-<int>name</int>
-<!-- or -->
-<real name="name">
-    <!-- add subnodes -->
-</real>
-<int name="name">
-</int>
+  <int>name</int>
+  <!-- or -->
+  <real name="name">
+  <!-- add subnodes -->
+  </real>
+  <int name="name">
+  </int>
+</rtvals>
 ````
 For the following examples an outdoor temperature reading will be used.  
 Adding to this, the most often used:
@@ -214,3 +216,32 @@ Some examples:
     <false regex="\d"/>   <!-- Single digit -->
 </flag>
 ````
+
+## Dynamic Units
+
+To make the `rtvals` return a bit cleaner, dynamic units were introduced. These can be used for int/real.  
+
+To use this:
+- Add a unit node to the global rtvals node.
+- Fill it with steps/levels
+- Now when a val has the base unit, the dynamic unit will be applied.
+```xml
+ <!-- For example the unit is a time period in seconds -->
+  <rtvals>
+    <unit base="s"> <!-- the unit used  -->
+      <step cnt="60">m</step> <!-- the next step up 60s  to 1m -->
+      <step cnt="60">h</step> <!-- the next step up 60m to 1h -->
+    </unit>
+    <unit base="Hz">
+      <level div="1000" from="1500">kHz</level> <!-- Use A if the value is higher than 1500 and use 1000 as divider -->
+      <level div="1000">MHz</level> <!-- No 'from' so same as div, so kHz -->
+      <level div="1000">GHz</level>
+    </unit>
+</rtvals>
+<!--
+So an input of 3962s will result in 1h6m2s shown instead.
+Or an input of 1400Hz will result in 1400Hz 
+    but 1840Hz will become 1.840kHz
+    and 1245358Hz will become 1.245MHz, scale is taken from the realval 
+-->
+```

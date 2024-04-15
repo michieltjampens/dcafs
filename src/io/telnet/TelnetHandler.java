@@ -175,11 +175,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	public void distributeMessage( Datagram d ){
 		d.label( LABEL+":"+repeat );
 
-		d.setData(d.getData().stripLeading()); // Remove leading empty spaces if any
+		d.setData(d.getData().stripLeading().replace("\0","")); // Remove leading empty spaces if any
 
 		if( d.getData().endsWith("!!") ) {
 			if( d.getData().length()>2) {
-				repeat = d.getData().replace("!!", "");
+				repeat += d.getData().replace("!!", "");
 				writeString("Prefix changed to '"+repeat+"'\r\n"+TelnetCodes.TEXT_YELLOW+repeat+">"+default_text_color);
 			}else {
 				d.label(LABEL);

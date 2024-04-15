@@ -2,14 +2,12 @@ package das;
 
 import io.Writable;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.data.NumericVal;
 import util.data.RealtimeValues;
 import util.task.RtvalCheck;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.math.BigDecimal;
@@ -364,23 +362,21 @@ public class IssuePool implements Commandable{
             }
             return true;
         }
-        public Issue atStart( String cmd){
+        public void atStart(String cmd){
             if( cmd==null)
-                return this;
+                return;
             if( startCmds==null)
                 startCmds = new ArrayList<>();
             if( !startCmds.contains(cmd))
                 startCmds.add(cmd);
-            return this;
         }
-        public Issue atStop( String cmd){
+        public void atStop(String cmd){
             if( cmd==null)
-                return this;
+                return;
             if( stopCmds==null)
                 stopCmds = new ArrayList<>();
             if( !stopCmds.contains(cmd))
                 stopCmds.add(cmd);
-            return this;
         }
 
         /* Usage */

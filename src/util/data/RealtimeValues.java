@@ -8,6 +8,7 @@ import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -27,7 +28,7 @@ public class RealtimeValues implements Commandable {
 	private final ConcurrentHashMap<String, IntegerVal> integerVals = new ConcurrentHashMap<>(); // integers
 	private final ConcurrentHashMap<String, TextVal> textVals = new ConcurrentHashMap<>(); 		 // strings
 	private final ConcurrentHashMap<String, FlagVal> flagVals = new ConcurrentHashMap<>(); 		 // booleans
-
+	private final HashMap<String,DynamicUnit> units = new HashMap<>();
 	private final IssuePool issuePool;
 
 	/* General settings */
@@ -63,7 +64,12 @@ public class RealtimeValues implements Commandable {
 
 		while ( dig.iterate() ) { // If any found, iterate through vals
 			var groupName = dig.attr("id", ""); // get the node id
-			dig.currentSubs().forEach( rtval -> processRtvalElement(rtval,groupName));
+			// Dig down into the group node
+			if( dig.hasTagName("group")) {
+				dig.currentSubs().forEach(rtval -> processRtvalElement(rtval, groupName));
+			}else if( dig.hasTagName("unit")){
+				processUnitElement(dig.currentTrusted());
+			}
 		}
 	}
 	public void readFromXML( XMLfab fab ){
@@ -118,6 +124,27 @@ public class RealtimeValues implements Commandable {
 			}
 			default -> false;
 		};
+	}
+	private void processUnitElement(Element unit ){
+		var dig = XMLdigger.goIn(unit);
+		var base = dig.attr("base",""); // Starting point
+		units.put(base, new DynamicUnit(base));
+		if( dig.hasPeek("level")){
+			for( var lvl : dig.digOut("level")){ // Go through the levels
+				var val = lvl.value(""); // the unit
+				var div = lvl.attr("div",1); // the multiplier to go to next step
+				var from = lvl.attr("from",div); // From which value the nex unit should be used
+				units.get(base).addLevel(val,div,from);
+			}
+		}else if(dig.hasPeek("step")){
+			for( var step : dig.digOut("step")){ // Go through the steps
+				var val = step.value(""); // the unit
+				var cnt = step.attr("cnt",1); // the multiplier to go to next step
+				units.get(base).addStep(val,cnt);
+			}
+		}else{
+			Logger.error("No valid subnodes in the unit node for "+base);
+		}
 	}
 	public void removeVal( AbstractVal val ){
 		if( val == null)
@@ -315,31 +342,17 @@ public class RealtimeValues implements Commandable {
 		return Optional.empty();
 	}
 	public int addRequest(Writable writable, String type, String req) {
-		switch (type) {
-			case "double", "real" -> {
-				var rv = realVals.get(req);
-				if (rv == null)
-					return 0;
-				rv.addTarget(writable);
-				return 1;
-			}
-			case "int", "integer" -> {
-				var iv = integerVals.get(req);
-				if (iv == null)
-					return 0;
-				iv.addTarget(writable);
-				return 1;
-			}
-			case "text" -> {
-				var tv = textVals.get(req);
-				if (tv == null)
-					return 0;
-				tv.addTarget(writable);
-				return 1;
-			}
-			default -> Logger.warn("Requested unknown type: " + type);
-		}
-		return 0;
+		var av = switch (type) {
+			case "double", "real" -> realVals.get(req);
+			case "int", "integer" -> integerVals.get(req);
+			case "text" -> textVals.get(req);
+			case "flag" -> flagVals.get(req);
+			default -> {Logger.warn("rtvals -> Requested unknown type: " + type); yield null;}
+		};
+		if( av == null)
+			return 0;
+		av.addTarget(writable);
+		return 1;
 	}
 	public boolean addRequest(Writable writable, String rtval) {
 		var rv = realVals.get(rtval);
@@ -364,10 +377,11 @@ public class RealtimeValues implements Commandable {
 		}
 		return false;
 	}
-	public boolean removeWritable(Writable writable ) {
+	public boolean removeWritable( Writable writable ) {
 		realVals.values().forEach(rv -> rv.removeTarget(writable));
 		integerVals.values().forEach( iv -> iv.removeTarget(writable));
 		textVals.forEach( (key, list) -> list.removeTarget(writable));
+		flagVals.forEach( (key, list) -> list.removeTarget(writable));
 		return false;
 	}
 	/* ************************** C O M M A N D A B L E ***************************************** */
@@ -400,9 +414,9 @@ public class RealtimeValues implements Commandable {
 			case "rtvals", "rvs" -> {
 				result = replyToRtvalsCmd(args, html);
 			}
-			case "rtval", "real", "int", "integer","text" -> {
+			case "rtval", "real", "int", "integer","text","flag" -> {
 				int s = addRequest(wr, cmd, args);
-				result = s != 0 ? "Request added to " + s : "Request failed";
+				result = s != 0 ? "Request added to " + args : "Request failed";
 			}
 			case "" -> {
 				removeWritable(wr);
@@ -671,9 +685,9 @@ public class RealtimeValues implements Commandable {
 						}
 					})
 					.map(nv -> {
-						if( nv instanceof RealVal)
-							return "  " + nv.name() + " : "+ nv.asValueString();
-						return "  " + nv.name() + " : "+ nv.asValueString();
+					//	if( nv instanceof RealVal)
+					//		return "  " + nv.name() + " : "+ nv.asValueString();
+						return "  "+ nv.name() + " : "+applyUnit(nv);
 					} ) // change it to strings
 					.forEach(join::add);
 		}
@@ -688,6 +702,18 @@ public class RealtimeValues implements Commandable {
 					.sorted().forEach(join::add); // Then add the sorted the strings
 		}
 		return join.toString();
+	}
+	public String applyUnit( NumericVal nv ){
+		if( units.isEmpty())
+			return nv.asValueString();
+		var unit = units.get(nv.unit());
+		if( unit==null)
+			return nv.asValueString();
+		if( nv.getClass() == RealVal.class) {
+			var rv = (RealVal)nv;
+			return unit.apply(rv.raw(), rv.scale() );
+		}
+		return unit.apply(nv.value(), 0);
 	}
 	/**
 	 * Get the full listing of all reals,flags and text, so both grouped and ungrouped
@@ -746,7 +772,7 @@ public class RealtimeValues implements Commandable {
 				.filter(group -> !group.isEmpty() )
 				.distinct()
 				.forEach(groups::add);
-
+		groups.remove("dcafs"); // This group contains system variables, don't show it.
 		return groups.stream().distinct().sorted().toList();
 	}
 	/* ******************************** I S S U E P O O L ********************************************************** */
@@ -764,5 +790,68 @@ public class RealtimeValues implements Commandable {
 	 */
 	public IssuePool getIssuePool(){
 		return issuePool;
+	}
+	public static class DynamicUnit{
+		String base;
+		TYPE type = TYPE.STEP;
+		ArrayList<SubUnit> subs = new ArrayList<>();
+		enum TYPE {STEP,LEVEL};
+		public DynamicUnit( String base ){
+			this.base=base;
+		}
+		public void addStep( String unit, int cnt ){
+			type=TYPE.STEP;
+			subs.add( new SubUnit(unit,cnt,0));
+		}
+		public void addLevel( String unit, int mul, int from ){
+			type=TYPE.LEVEL;
+			subs.add( new SubUnit(unit,mul,from));
+		}
+		public String apply( double total,int scale ){
+			StringBuilder result= new StringBuilder();
+			if( type==TYPE.STEP ){
+				var amount = (int)Math.rint(total);
+				String unit = base;
+				for( int a=0;a<subs.size();a++ ){
+					var sub = subs.get(a);
+					if( amount > sub.div){ // So first sub applies...
+						result.insert(0, (amount % sub.div) + unit); // Add the first part
+						amount = amount/sub.div; // Change to next unit
+					}else{ // Sub doesn't apply
+						result.insert(0, amount + unit); // Add it
+						return result.toString(); // Finished
+					}
+					unit = sub.unit;
+					if( a==subs.size()-1){ // If this is the last step
+						result.insert(0, amount + unit); // Add it
+						return result.toString(); // Finished
+					}
+				}
+			}else if( type==TYPE.LEVEL ){
+				String unit = base;
+                for (SubUnit sub : subs) {
+                    if (total > sub.from) { // If the amount is higher than the limit
+                        total = total / sub.div; // apply the division
+						unit = sub.unit; // Alter the unit
+                    }else{
+						break;
+					}
+                }
+				if( scale>0) // Apply scaling if any
+					total = Tools.roundDouble(total,scale);
+				return total + unit;
+			}
+			return total+base;
+		}
+		public static class SubUnit{
+			String unit;
+			int div;
+			int from;
+			public SubUnit( String unit, int mul, int from ){
+				this.unit=unit;
+				this.div =mul;
+				this.from=from;
+			}
+		}
 	}
 }

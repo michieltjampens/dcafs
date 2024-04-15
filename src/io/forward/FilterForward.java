@@ -10,7 +10,6 @@ import util.math.MathUtils;
 import util.taskblocks.CheckBlock;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.util.ArrayList;
@@ -25,10 +24,7 @@ public class FilterForward extends AbstractForward {
 
     protected ArrayList<Predicate<String>> rules = new ArrayList<>();// Rules that define the filters
     private final ArrayList<Writable> reversed = new ArrayList<>();
-    private String delimiter = ",";
-    private int ignoreFalse =0;
-    private int freePasses=0;
-    private boolean negate=false;
+    private boolean negate=false; // If the filter is negated or not
 
     public FilterForward(String id, String source, BlockingQueue<Datagram> dQueue ){
         super(id,source,dQueue,null);
@@ -117,36 +113,32 @@ public class FilterForward extends AbstractForward {
      */
     public boolean readFromXML( Element filter ){
         parsedOk=true;
-
-        if( !readBasicsFromXml(filter) )
+        var dig = XMLdigger.goIn(filter);
+        if( !readBasicsFromXml(dig) )
             return false;
 
-        var dig = XMLdigger.goIn(filter);
-
-        delimiter = dig.attr("delimiter",delimiter,true); // Allow for global delimiter
-        ignoreFalse = dig.attr("ignores",0);
         negate = dig.attr("negate",false);
-
 
         rules.clear();
         // For a filter with multiple rules
         if( dig.hasPeek("rule")){ // if rules are defined as nodes
             // Process all the types except 'start'
-            dig.peekOut("rule")
-                    .stream()
-                    .filter( rule -> !rule.getAttribute("type").equalsIgnoreCase("start"))
+            var ruleDigs = dig.digOut("rule");
+            dig.goUp(); // Go back up after down to rule
+
+            ruleDigs.stream()
+                    .filter( rule -> !rule.attr("type","").equalsIgnoreCase("start"))
                     .forEach( rule -> {
-                        String delimiter = XMLtools.getEscapedStringAttribute(rule,"delimiter",this.delimiter);
-                        addRule( rule.getAttribute("type"), rule.getTextContent(),delimiter);
+                        String delimiter = rule.attr("delimiter",this.delimiter);
+                        addRule( rule.attr("type",""), rule.value(""),delimiter);
                     } );
 
             ArrayList<String> starts = new ArrayList<>();
 
             // Process all the 'start' filters
-            dig.peekOut("rule")
-                    .stream()
-                    .filter( rule -> rule.getAttribute("type").equalsIgnoreCase("start"))
-                    .forEach( rule -> starts.add( rule.getTextContent() ) );
+            ruleDigs.stream()
+                    .filter( rule -> rule.attr("type","").equalsIgnoreCase("start"))
+                    .forEach( rule -> starts.add( rule.value("") ) );
 
             if( starts.size()==1){
                 addRule( "start", starts.get(0));
@@ -220,8 +212,8 @@ public class FilterForward extends AbstractForward {
         }
         return 1;
     }
-    public int addRule( String type, String value){
-        return addRule(type,value,"");
+    public void addRule(String type, String value){
+        addRule(type, value, "");
     }
 
     /* Filters */
@@ -309,21 +301,13 @@ public class FilterForward extends AbstractForward {
         for( Predicate<String> check : rules ){
             boolean result = check.test(data);
             if( !result || negate ){
-                if( freePasses==0 ) {
-                    if( debug )
-                        Logger.info(id+" -> "+data + " -> Failed");
-                    return false;
-                }else{
-                    freePasses--;
-                    if( debug )
-                        Logger.info(id+" -> "+data + " -> Free Pass");
-                    return true;
-                }
+                if( debug )
+                    Logger.info(id+" -> "+data + " -> Failed");
+                return false;
             }
         }
         if( debug )
             Logger.info(id+" -> "+data + " -> Ok");
-        freePasses = ignoreFalse;
         return true;
     }
     public static String getHelp(String eol){
@@ -339,7 +323,7 @@ public class FilterForward extends AbstractForward {
                 .add("    fe. <filter type='nostart'>$</filter> --> The data can't start with $");
         join.add(gr+"end"+re+" -> Which text the data should end with")
                 .add("    fe. <filter type='end'>!?</filter> --> The data must end with !?");
-        join.add(gr+"contain"+re+""+re+" -> Which text the data should contain")
+        join.add(gr+"contain"+re+" -> Which text the data should contain")
                 .add("    fe. <filter type='contain'>zda</filter> --> The data must contain zda somewhere");
         join.add(gr+"c_start"+re+" -> Which character should be found on position c from the start (1=first)")
                 .add("    fe. <filter type='c_start'>1,+</filter> --> The first character must be a +");
@@ -355,6 +339,8 @@ public class FilterForward extends AbstractForward {
                 .add("    fe. <filter type='regex'>\\s[a,A]</filter> --> The data must contain an empty character followed by a in any case");
         join.add(gr+"math"+re+" -> Checks a mathematical comparison")
                 .add("    fe. <filter type='math' delimiter=','>i1 below 2500 and i1 above 10</filter>" );
+        join.add(gr+"match"+re+" -> Compare to the item at index x")
+                .add("    fe. <filter at1='test'> ");
         return join.toString();
     }
 }

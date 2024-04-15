@@ -5,20 +5,125 @@ Note: Version numbering: x.y.z
   -> z goes up for minor additions and bugfixes
 
 ### To do/fix
-- back up path for sqlite db etc?
-- pf:reload doesn't seem to reload the db tag of a store?
+- back up path for sqlite db etc? for when sd is missing/full...
+- pf:reload doesn't seem to reload the db tag of a store? 
+- pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.7.0 (wip)
+## 2.9.0 (wip)
+- Can now send data to a stream using the id instead of Sx. 
+- Can now send ESC to a stream using the esc key (eol won't be appended)
+- Editor redate now supports epochmillis. Use 'epochmillis' as inputformat.
+
+## 2.8.1 (15/03/2024)
+- Updated netty,activation and json dependency
+- Can now request realtime updates of flags with `flag:id`.
+- The !! function of the telnet interface now works additive. So if a prefix was active, it can be appended to. 
+```
+>dbm:rolls,!!
+
+Prefix changed to 'dbm:rolls,'
+dbm:rolls,>addcal,dice,!!
+
+Prefix changed to 'dbm:rolls,addcal,dice,'
+dbm:rolls,addcal,dice,>
+```
+
+### I2C
+- Changed i2c code to using doubles to actually work with numbers of 32bits till 63bit.
+- Changed i2c:reload to do a full reload including looking for devices on the bus
+- Fixed, requesting data in telnet couldn't be stopped
+
+## 2.8.0 (09/02/2024)
+- Fixed, Matrix out of bounds when sending something without room url etc.
+- IntVal, now accepts real for parsing if 'allowreal' attribute is set to true. Will round according to math rules. Will
+now give an error if this or regular parsing fails.
+- Rewrote I2C code
+
+### Dependencies
+- Netty 4.1.101 -> 4.1.106
+- jSerialCom 2.10.3 -> 2.10.4
+- commons-lang3 3.12.0 -> 3.14.0
+- 
+### I2C
+- Rewrite in progress, mainly to make the code easier to understand and adapt. All the basics work.
+  - Read/Write/alter registers, delay before executing read.
+  - Still need to do the 2.7.0 introduced args
+- Now ops are stored inside the device instead of globally, so each device has their own set.
+Doesn't make a difference if only one device was using the script. But now multiple can use the same
+script but with custom store's.
+- Now allow for read data to be split according to bit list, fe. 8,20,20,8 means read 7 bytes and split those according 
+to that sequence.
+- Removed use of label.
+- Can now use math and store node inside the scripts.
+**Breaking changes**
+- The return attribute in the read node, now is based on the set amount of bits. So return now refers to the amount of
+  times that bits is returned.... So if bits is 16 and you read one of that, return used to be two and now it's one.
+- The main node is renamed from commandset to i2cscript and script attribute to id.
+- The subnodes are changed to 'i2cop' from 'command' because command is already in use for other things
+
+### Admin cmds
+- Added a cmd that uses phytool to power down or up a phy, could be used to save power. 
+User must install the tool first.
+
+### Vals
+- Added 'Dynamic Units' so it's possible to alter the unit depending on the amount.
+There are two options, either 'step' for integers or 'level' for real
+```xml
+ <!-- For example the unit is a time period in seconds -->
+  <rtvals>
+    <unit base="s"> <!-- the unit used  -->
+      <step cnt="60">m</step> <!-- the next step up 60s  to 1m -->
+      <step cnt="60">h</step> <!-- the next step up 60m to 1h -->
+    </unit>
+    <unit base="Hz">
+      <level div="1000" from="1500">kHz</level> <!-- Use A if the value is higher than 1500 and use 1000 as divider -->
+      <level div="1000">MHz</level> <!-- No 'from' so same as div, so kHz -->
+      <level div="1000">GHz</level>
+    </unit>
+</rtvals>
+<!--
+So an input of 3962s will result in 1h6m2s shown instead.
+Or an input of 1400Hz will result in 1400Hz 
+    but 1840Hz will become 1.840kHz
+    and 1245358Hz will become 1.245MHz, scale is taken from the realval 
+-->
+```
+
+### Paths
+- Changed `pf:list` so it actually gives a list of active paths instead of also listing steps in it
+- Added `pf:id,list` to give all the steps in the path with the provided id
+
+### TaskManager
+- Reordered parameters in some commands, so it's id first if it's interacting with that id, so `tm:id,cmd`.
+- Interval without an initial delay is now actually without a delay... (was 10% of interval)
+- Made it possible to refer to a trigger with an attribute of the type instead of the trigger attr. Should
+  be a bit more intuitive.
+```xml
+<tasklist>
+  <!-- Both tasks do the same -->
+  <task output="stream:powmon" trigger="interval:10m">ac1</task>
+  <task output="stream:powmon" interval="10m">ac1</task>
+</tasklist>
+```
+
+## 2.7.0 (03/12/23)
 
 Biggest change is a rewrite of the code that reads the path xml. This now can have 'if' structures (but no 'else' yet).
 
-- When cmds are issued from non-telnet, the telnet escape codes are removed. Adding -r at the end has the same result.
 - Fixed, TCP streams no longer had the label applied.
 - Fixed, the reply to a cmd in telnet wrote on the same line as the given cmd
 - Fixed, serialport buffers seem to be filled even if nothing is listening, all that data gets dumped on connection. So
 flush the buffers on opening the port.
 - Added `ss:id,port,newport` to change the port of the stream
-- Added option to prefix received data lines with the id of their origin.
+- Added option to prefix received data lines with the id of their origin. Activated by adding the <prefixorigin> node in 
+the stream with true as content. Can be handy if you get data from different src's at the same time.
+- Telnet, Command history (up to 20) in telnet is now saved in ram on ip basis, can be cleared by sending >>clearhistory or >>clrh
+- Telnet, When cmds are issued from non-telnet, the telnet escape codes are removed. Adding -r at the end has the same result.
+
+### Matrix
+- Room text updates can now be requested with the 'matrix:roomid' cmd.
+- Changed cmd matrix:say,roomid,message to matrix:roomid,say,message.
+- Allow for cmds to be executed on joining a room with `<cmd></cmd` node inside room node.
 
 ### I2C
 - It's now possible to add extra arguments to a i2c cmd to set data send. Next step applying a
@@ -29,6 +134,7 @@ math operation to the argument first.
 		<write reg="0xD4">0x13</write>
 	</command> 
 ```
+
 ### Path
 - Rewrote the code that reads paths from xml
 - Fixed, type nmea was ignored because it was expecting a value.
@@ -36,7 +142,7 @@ math operation to the argument first.
 - Added a new tag 'if', this is actually a filter but one that allows nesting, this should make it a bit more intuitive... right?
   - The only node that expects other forwards to be inside it. In other words, it allows nesting.
   - Given how to code works, it should be possible to add multiple levels...
-  - A If doesn't pass data on to a next step, instead the step after the if, get the same data as the if
+  - An If doesn't pass data on to a next step, instead the step after the if, get the same data as the if
 ```xml
 <if start="$GPVTG">
   <store>
@@ -53,18 +159,40 @@ math operation to the argument first.
 ```
 - Filter often has to send to multiple writables, so now uses concurrency to speed things up a bit. Which means that if
 the path contains multiple
+- Math can now use temp variable storage using t, these values are also made available to the store following the math.
+Can refer to them with by adding the t index to the highest possible i index.
+```xml
+<math>
+  <op>t0=i0+5</op>
+  <op>t0=t0*2+{r:t_test}</op>
+  <op>i0=t0+3</op>
+</math>
+```
 
 ### Store
 
 It's now possible to add math operations with values that are in the store.
 ````xml
-<store>
-      <real group="o1" i="1" unit="V">voltage</real>
-      <real group="o1" i="2" unit="mA">current</real>
+<store group="o1">
+      <real i="1" unit="V">voltage</real>
+      <real i="2" unit="mA">current</real>
      <!-- calculate the product of the voltage and current to get the power in watt -->
-      <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
+      <real o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
 </store>
 ````
+### TaskManager
+- Allow for tasks started from cmd to include arguments to replace i0, i1 etc. This includes the 
+functionality to do math operations.
+For example:
+```xml
+<!-- Part of the taskmanager 'io' -->
+<!--
+{mint:formula} -> calculate the formula and return an integer 
+{math:formula} -> calculate the formula and return a real
+-->
+<task id="go" output="stream:test" >ovli0:{mint:i1*(65535/32)}</task>
+```
+When using the cmd `io:go,1,3.3` this will result in `ovl1:6758` being written to test. 
 
 
 ## 2.6.0 (29/10/2023)
@@ -509,7 +637,7 @@ more if something went wrong
   - If used in combination with the telnet prefix, that prefix will get trailing spaces to match length of longest one.
   - The source for the path will also be requested
 
-## 1.2.1 (work in progress)
+## 1.2.1 (forgot to add)
 
 ### Fixes
 - FileCollector: trying to create an existing directory structure throws an exception that 
@@ -519,9 +647,7 @@ this as it's supposed to
 - XMLfab alterchild used orElse with optional that didn't work as expected (was used if the op
 optional wasn't empty). This affects pretty much all Vals writing to xml
 - XMLdigger: The isInvalid check was copy paste of isValid, without being inverted...
-
-## 1.2.0 ( 23/02/2023 )
-- 
+ 
 ## 1.2.0 ( 23/02/2023 )
 Main addition is probably that you now get feedback on loading of taskmanager scripts. 
 Either when logging into telnet (issues during startup) or after reloading (as response to the command.

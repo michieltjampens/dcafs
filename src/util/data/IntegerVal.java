@@ -37,6 +37,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     /* Triggering */
     private ArrayList<TriggeredCmd> triggered;
     private MathFab parseOp;
+    private boolean roundDoubles=false;
     /**
      * Constructs a new RealVal with the given group and name
      *
@@ -77,13 +78,15 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      */
     public IntegerVal alter( Element rtval ){
         reset();
-        unit(XMLtools.getStringAttribute(rtval, "unit", ""));
-        defValue( XMLtools.getIntAttribute(rtval, "def", defVal) );
-        defValue( XMLtools.getIntAttribute(rtval, "default", defVal) );
+        var dig = XMLdigger.goIn(rtval);
+        unit( dig.attr("unit","") );
+        defValue( dig.attr( "def", defVal) );
+        defValue( dig.attr( "default", defVal) );
+        roundDoubles = dig.attr("allowreal",false);
 
         value=defVal; // Set the current value to the default
 
-        String options = XMLtools.getStringAttribute(rtval, "options", "");
+        String options = dig.attr( "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
             switch (arg[0]) {
@@ -213,6 +216,16 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             value(res);
             return true;
         }catch( NumberFormatException e ){
+            try {
+                if (val.contains(".") && roundDoubles) {
+                    value = (int) Math.rint(NumberUtils.createDouble(val));
+                    return true;
+                }
+            }catch(NumberFormatException ed){
+                Logger.error(id() + " -> Failed to parse to int/double: "+val);
+                return false;
+            }
+            Logger.error(id()+" -> Failed to parse "+val+" to integer.");
             if( defVal != Integer.MAX_VALUE ) {
                 rawValue=defVal;
                 value(defVal);

@@ -11,11 +11,13 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.ValTools;
+import util.math.MathUtils;
 import util.task.Task.*;
 import util.taskblocks.CheckBlock;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -93,13 +95,13 @@ public class TaskManager implements CollectorFuture {
 	}
 
 	/**
-	 * Add the Streampool to the TaskManager if it needs to interact with
+	 * Add the StreamManager to the TaskManager if it needs to interact with
 	 * streams/channels
 	 * 
-	 * @param streampool The streampool to set
+	 * @param streammanager The streammanager to set
 	 */
-	public void setStreamPool(StreamManager streampool) {
-		this.streams = streampool;
+	public void setStreamPool(StreamManager streammanager) {
+		this.streams = streammanager;
 	}
 
 	public void setCommandReq(CommandPool commandPool) {
@@ -230,10 +232,11 @@ public class TaskManager implements CollectorFuture {
 	 * @param id The id of the task to start
 	 * @return True if the task was found and started
 	 */
-	public boolean startTask(String id) {
+	public boolean startTask(String id, String[] args) {
 		for (Task task : this.tasks) {
 			if (task.getID().equals(id)) {
 				Logger.tag(TINY_TAG).info("[" + this.id + "] Task with id " + id + " started.");
+				task.setArgs(args);
 				return startTask(task);
 			}
 		}
@@ -377,7 +380,6 @@ public class TaskManager implements CollectorFuture {
 			startTask(task);
 		}
 	}
-
 	/**
 	 * Try to start a single task.
 	 * 
@@ -599,7 +601,7 @@ public class TaskManager implements CollectorFuture {
 				try {
 					if (hasTaskset(setid)) {
 						Logger.tag(TINY_TAG).info("[" + this.id + "] " + startTaskset(setid));
-					} else if (!this.startTask(setid)) {
+					} else if (!startTask(setid,null)) {
 						Logger.tag(TINY_TAG).info("[" + this.id + "] No such task or taskset");
 					}
 				}catch( NullPointerException e){
@@ -607,9 +609,12 @@ public class TaskManager implements CollectorFuture {
 					return FAILREASON.ERROR;
 				}
 			} else { // If not a supposed to run a taskset, check if any of the text needs to be
-						// replaced
-				if (task.value.contains("{")) { // Meaning there's an { somewhere
-					fill = fillIn(task.value, task.value);
+				var value = task.getValue();
+				// replaced
+				if (task.getValue().contains("{")) { // Meaning there's an { somewhere
+					fill = fillIn(value, value);
+				}else{
+					fill=value;
 				}
 				String[] splits = fill.split(";");
 
@@ -620,7 +625,7 @@ public class TaskManager implements CollectorFuture {
 						splits[0] += ";";
 					}
 				}
-				if (task.value.startsWith("cmd") || ( task.out != OUTPUT.MQTT && task.out != OUTPUT.STREAM && task.out != OUTPUT.MANAGER && task.out != OUTPUT.TELNET && task.out != OUTPUT.MATRIX)) {
+				if (value.startsWith("cmd") || ( task.out != OUTPUT.MQTT && task.out != OUTPUT.STREAM && task.out != OUTPUT.MANAGER && task.out != OUTPUT.TELNET && task.out != OUTPUT.MATRIX)) {
 					// This is not supposed to be used when the output is a channel or no reqdata defined
 
 					if (commandPool == null) {
@@ -631,7 +636,7 @@ public class TaskManager implements CollectorFuture {
 						var d = Datagram.build(fill.replace("cmd:", "").replace("\r\n", ""));
 						response = commandPool.executeCommand( d, true);
 					} else if( task.out == OUTPUT.I2C ){
-						response = commandPool.executeCommand( Datagram.build("i2c:"+task.value), true);
+						response = commandPool.executeCommand( Datagram.build("i2c:"+value), true);
 					}else if( task.out == OUTPUT.EMAIL ){
 						if( splits.length==2){
 							String it = splits[1]+(splits[1].contains(":")?"":"html");
@@ -889,20 +894,24 @@ public class TaskManager implements CollectorFuture {
 
 		StringJoiner runn = new StringJoiner(eol,pre+"Runnable Tasks"+pos+eol,eol+eol);
 		StringJoiner intr = new StringJoiner(eol,pre+"Interval Tasks"+pos+eol,eol+eol);
-		StringJoiner clk = new StringJoiner(eol,pre+"Clock Tasks-"+pos+eol,eol+eol);
+		StringJoiner clk = new StringJoiner(eol,pre+"Clock Tasks"+pos+eol,eol+eol);
 		StringJoiner other = new StringJoiner(eol,pre+"Other Tasks"+pos+eol,eol+eol);
 		boolean runnOk=false,clkOk=false,otherOk=false,intrOk=false;
 
 		Collections.sort(tasks);
+		int clkCnt=0,otherCnt=0,intrCnt=0;
 		for( Task task : tasks){
 			if(NumberUtils.isParsable(task.id) ){//Meaning the id is a randomly given number
 				if( task.triggerType==TRIGGERTYPE.CLOCK ) {
 					clk.add( task.toString() );
+					clkCnt++;
 					clkOk=true;
 				}else if( task.triggerType==TRIGGERTYPE.INTERVAL ) {
 					intr.add( task.toString() );
+					intrCnt++;
 					intrOk=true;
 				}else{
+					otherCnt++;
 					other.add(task.toString());
 					otherOk=true;
 				}
@@ -911,9 +920,9 @@ public class TaskManager implements CollectorFuture {
 				runn.add(task.id + " -> " + task);
 			}
 		}
-		Logger.info("clk;"+clk.length());
-		Logger.info("other;"+other.length());
-		Logger.info("intr;"+intr.length());
+		Logger.info("clk;"+clkCnt);
+		Logger.info("other;"+otherCnt);
+		Logger.info("intr;"+intrCnt);
 
 		return (runnOk?runn.toString():"") + (clkOk?clk.toString():"") + (intrOk?intr.toString():"") + (otherOk?other.toString():"");
 	}
@@ -1009,6 +1018,21 @@ public class TaskManager implements CollectorFuture {
 			line = line.replace(line.substring(i,i+end+1),to);
 		}
 		line = ValTools.parseRTline(line,"",rtvals);
+		i = line.indexOf("{mint:");
+		if( i !=-1 ){
+			int end = line.substring(i).indexOf("}");
+			var cal = line.substring(i+6,i+end);
+			var res = MathUtils.simpleCalculation(cal,0,false);
+			to = String.valueOf((int)Math.rint(res));
+			line = line.replace(line.substring(i,i+end+1),to);
+		}
+		i = line.indexOf("{math:");
+		if( i !=-1 ){
+			int end = line.substring(i).indexOf("}");
+			var cal = line.substring(i+6,i+end);
+			to = String.valueOf(MathUtils.simpleCalculation(cal,0,false));
+			line = line.replace(line.substring(i,i+end+1),to);
+		}
     	line = line.replace("[EOL]", "\r\n");
     	return line;
     }
@@ -1091,7 +1115,7 @@ public class TaskManager implements CollectorFuture {
 		if( !force ){
 			for( TaskSet set : tasksets.values() ){
 				if( set.isActive() && !set.isInterruptable() ){
-					Logger.tag("TASKS").info("Tried to reload sets while an interruptable was active. Reload denied.");
+					Logger.tag("TASKS").info("Tried to reload tasksetCount while an interruptable was active. Reload denied.");
 					lastError="Interruptable active, reload denied";
 					return false;
 				}
@@ -1100,38 +1124,35 @@ public class TaskManager implements CollectorFuture {
 		if( clear )
 			shutdownAndClearAll();
 
-		int sets=0;
-		int ts=0;
+		int tasksetCount=0;
+		int taskCount=0;
     	if( Files.exists(path) ) {
     		xmlPath = path;
-			var docOpt = XMLtools.readXML( path );
-			
+			var dig = XMLdigger.goIn(path,"dcafs");
+
 			String ref = path.getFileName().toString().replace(".xml", "");
 			
-			if( docOpt.isEmpty() ) {
+			if( dig.isInvalid() ) {
 				lastError = XMLtools.checkXML( path );
 				return false;
 			}else{
 				Logger.tag(TINY_TAG).info("["+ id +"] Tasks File ["+ref+"] found!");
 			}
-			var doc = docOpt.get();
-			rtvals.readFromXML(XMLfab.withRoot(path,"tasklist","rtvals"));
-
-			var ssOpt = XMLtools.getFirstElementByTag( doc, "tasklist" );
-			if(ssOpt.isEmpty()) {
-				lastError ="No valid taskmanager script, need the node tasklist";
+			dig.digDown("tasklist");
+			if( dig.isInvalid()) {
+				lastError ="No valid taskmanager script, no tasklist node";
 				Logger.error(lastError);
 				return false;
 			}
-			var tsOpt =  XMLtools.getFirstChildByTag( ssOpt.get(),"tasksets" );
-			if( tsOpt.isPresent()) {
-				for (Element el : XMLtools.getChildElements(tsOpt.get(), "taskset")) {
-					var description = XMLtools.getStringAttribute(el, "name", "");
+			if( dig.hasPeek("tasksets") ){
+				dig.usePeek();
+				for (var setDig : dig.digOut("taskset")) {
+					var description = setDig.attr("name", "");
 					if (description.isEmpty())
-						description = XMLtools.getStringAttribute(el, "info", "");
+						description = setDig.attr( "info", "");
 
-					String tasksetID = el.getAttribute("id");
-					String req = XMLtools.getStringAttribute(el, "req", "");
+					String tasksetID = setDig.attr("id","");
+					String req = setDig.attr("req", "");
 					int reqIndex = -1;
 					if (!req.isEmpty()) {
 						for (int a = 0; a < sharedChecks.size(); a++) {
@@ -1154,11 +1175,11 @@ public class TaskManager implements CollectorFuture {
 							}
 						}
 					}
-					String failure = el.getAttribute("failure");
-					int repeats = XMLtools.getIntAttribute(el, "repeat", 0);
+					String failure = setDig.attr("failure","");
+					int repeats = setDig.attr( "repeat", 0);
 
 					RUNTYPE run;
-					switch (el.getAttribute("run")) {
+					switch (setDig.attr("run","")) {
 						case "step" -> run = RUNTYPE.STEP;
 						case "no", "not" -> {
 							run = RUNTYPE.NOT;
@@ -1169,32 +1190,32 @@ public class TaskManager implements CollectorFuture {
 							repeats = 0;
 						}
 					}
-					TaskSet set = addTaskSet(tasksetID, description, run, repeats, failure);
-					set.setReqIndex(reqIndex);
-					set.interruptable = XMLtools.getBooleanAttribute(el, "interruptable", true);
+					TaskSet taskset = addTaskSet(tasksetID, description, run, repeats, failure);
+					taskset.setReqIndex(reqIndex);
+					taskset.interruptable = setDig.attr( "interruptable", true);
 
-					sets++;
-					for (Element ll : XMLtools.getChildElements(el)) {
-						addTaskToSet(tasksetID, new Task(ll, rtvals, sharedChecks));
+					tasksetCount++;
+					for (Element ll : setDig.peekOut("task")) {
+						addTaskToSet( tasksetID, new Task(ll, rtvals, sharedChecks) );
 					}
 				}
+				dig.goUp("tasklist"); // Go back up to tasklist?
 			}
-			for( Element tasksEntry : XMLtools.getChildElements( ssOpt.get(), "tasks" )){ //Can be multiple collections of tasks.
-				for( Element ll : XMLtools.getChildElements( tasksEntry, "task" )){
-					var error = addTask(ll);
-					if( !error.isEmpty()){
-						lastError=error;
-						return false;
-					}
-				 	ts++;
+			dig.digDown("tasks");
+			for( var taskEle : dig.peekOut("task")){
+				var error = addTask(taskEle);
+				if( !error.isEmpty()){
+					lastError=error;
+					return false;
 				}
+				taskCount++;
 			}
-			Logger.tag(TINY_TAG).info("["+ id +"] Loaded "+sets+ " tasksets and "+ts +" individual tasks.");
+			Logger.tag(TINY_TAG).info("["+ id +"] Loaded "+tasksetCount+ " tasksets and "+taskCount +" individual tasks.");
 			return true;
-    	}else {
-				Logger.tag(TINY_TAG).error("["+ id +"] File ["+ path +"] not found.");
-    		return false;
-    	}
+    	}else{
+			Logger.error("["+ id +"] File ["+ path +"] not found.");
+			return false;
+		}
 	}
 
 	/**
@@ -1203,68 +1224,10 @@ public class TaskManager implements CollectorFuture {
 	 * @return True if successful
 	 */
 	public boolean addBlankTaskset( String id ){
-		var fab = XMLfab.withRoot(xmlPath,"tasklist","tasksets");
+		var fab = XMLfab.withRoot(xmlPath,"dcafs","tasklist","tasksets");
 		fab.addParentToRoot("taskset").attr("id",id).attr("run","oneshot").attr("name","More descriptive info");
 		fab.addChild("task","Hello").attr("output","log:info").attr("trigger","delay:0s");
 		return fab.build();
-	}
-	/* *********************************  C O M M A N D A B L E ***************************************************** */
-
-	/**
-	 * Reply to a question asked
-	 * 
-	 * @param request The question asked
-	 * @param html Determines if EOL should be br or crlf
-	 * @return The reply or unknown command if wrong question
-	 */
-	public String replyToCommand(String request, boolean html ){
-		String[] parts = request.split(",");
-
-		String green=(html?"":TelnetCodes.TEXT_GREEN)+"tm:";
-		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-
-		switch (parts[0]) {
-			case "?" -> {
-				StringJoiner join = new StringJoiner("\r\n");
-				join.add(green + "reload" + reg + " -> Reloads this TaskManager");
-				join.add(green + "forcereload " + reg + "-> Reloads this TaskManager while ignoring interruptable");
-				join.add(green + "listtasks/tasks " + reg + "-> Returns a listing of all the loaded tasks");
-				join.add(green + "listsets/sets " + reg + "-> Returns a listing of all the loaded sets");
-				join.add(green + "stop " + reg + "-> Stop all running task(set)s");
-				join.add(green + "run,x " + reg + "-> Run taskset with the id x");
-				return join.toString();
-			}
-			case "reload" -> {
-				return reloadTasks() ? "Reloaded tasks..." : "Reload Failed";
-			}
-			case "forcereload" -> {
-				return forceReloadTasks() ? "Reloaded tasks" : "Reload failed";
-			}
-			case "listtasks", "tasks" -> {
-				return getTaskListing(html ? "<br>" : "\r\n");
-			}
-			case "listsets", "sets" -> {
-				return getTaskSetListing(html ? "<br>" : "\r\n");
-			}
-			case "stop" -> {
-				return "Cancelled " + stopAll("doTaskManager") + " futures.";
-			}
-			case "run" -> {
-				if (parts.length == 2) {
-					if (parts[1].startsWith("task:")) {
-						return startTask(parts[1].substring(5)) ? "Task started" : "Failed to start task";
-					} else {
-						return startTaskset(parts[1]);
-					}
-
-				} else {
-					return "not enough parameters";
-				}
-			}
-			default -> {
-				return "unknown command: " + request;
-			}
-		}
 	}
 	/* ******************************************************************************************************* */
 	public String getLastError(){

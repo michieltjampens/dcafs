@@ -86,6 +86,25 @@ public class AdminCmds {
                 System.gc();
                 return "Tried to execute GC";
             }
+            case "phypower" -> {
+                if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
+                    return "! Only Linux supported for now.";
+                }
+                if( cmds.length<3)
+                    return "! Not enough arguments: admin:phypower,interface,on/off";
+                boolean power = Tools.parseBool(cmds[2],false);
+                try {
+                    String regVal = power?"0x3100":"0x3900";
+                    ProcessBuilder pb = new ProcessBuilder("bash", "-c", "phytool write "+cmds[1]+"/1/0 "+regVal);
+                    pb.inheritIO();
+
+                    Logger.error("Toggled Eth at " + TimeTools.formatLongUTCNow());
+                    pb.start();
+                } catch (IOException e) {
+                    Logger.error(e);
+                }
+                return power?"Enabled phy":"Powered down phy";
+            }
             case "reboot" -> {
                 if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
                     return "! Only Linux supported for now.";

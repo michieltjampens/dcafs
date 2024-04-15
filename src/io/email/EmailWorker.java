@@ -237,13 +237,13 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	/**
 	 * This creates the bare settings in the xml
 	 * 
-	 * @param fab An XMLfab to build upon
+	 * @param settingsPath Path to the settings.xml
 	 * @param sendEmails Whether to include sending emails
 	 * @param receiveEmails Whether to include checking for emails
 	 * @return True if changes were written to the xml
 	 */
-	public static boolean addBlankEmailToXML( XMLfab fab, boolean sendEmails, boolean receiveEmails ){
-		
+	public static boolean addBlankElement(Path settingsPath, boolean sendEmails, boolean receiveEmails ){
+		var fab = XMLfab.withRoot(settingsPath, "dcafs","settings");
 		if( fab.getChild("email").isPresent() ) // Don't overwrite if already exists?
 			return false;
 
@@ -268,41 +268,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		fab.build();
 		return true;
 	}
-	/**
-	 * Alter the settings.xml based on the current settings
-	 *
-	 * @return True if no errors occurred
-	 */
-	public boolean writeToXML( ){
 
-		XMLfab fab = XMLfab.withRoot(settingsPath,"dcafs","settings");
-		fab.digRoot("email");
-		if( outbox != null ) {
-			fab.selectOrAddChildAsParent("outbox")
-					.alterChild("server", outbox.server)
-						.attr("user",outbox.user)
-						.attr("pass",outbox.pass)
-						.attr("ssl", outbox.hasSSL?"yes":"no")
-						.attr("port", outbox.port)
-					.alterChild("from",outbox.from )
-					.alterChild("zip_from_size_mb", String.valueOf(doZipFromSizeMB))
-					.alterChild("delete_rec_zip", deleteReceivedZip?"yes":"no")
-					.alterChild("max_size_mb", String.valueOf(maxSizeMB));
-		}
-		if( inbox != null ){
-			fab.selectOrAddChildAsParent("inbox")
-					.alterChild("server", inbox.server)
-						.attr("user",inbox.user)
-						.attr("pass",inbox.pass)
-						.attr("ssl",inbox.hasSSL?"yes":"no")
-						.attr("port",inbox.port)
-					.alterChild("checkinterval",TimeTools.convertPeriodtoString(checkIntervalSeconds,TimeUnit.SECONDS));
-		}
-		if ( fab.build() ){
-			return writePermits();
-		}
-		return false;
-	}
 	private boolean writePermits(){
 		if( settingsPath != null ){
 			var fab = XMLfab.withRoot(settingsPath,"dcafs","settings","email");
@@ -386,7 +352,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	 * Set the properties for sending emails
 	 */
 	private void setOutboxProps(){
-		if( !outbox.server.equals("")){
+		if(!outbox.server.isEmpty()){
 			props.setProperty("mail.host", outbox.server);
 			props.setProperty("mail.transport.protocol", "smtp");
 
@@ -422,7 +388,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
 
 		if( args.equalsIgnoreCase("addblank") ){
-			if( EmailWorker.addBlankEmailToXML(  XMLfab.withRoot(settingsPath, "settings"), true,true) )
+			if( EmailWorker.addBlankElement(  settingsPath, true,true) )
 				return "Adding default email settings";
 			return "! Failed to add default email settings";
 		}

@@ -104,7 +104,7 @@ public class BlockPool {
         // Read and process the state attribute
         var state = XMLtools.getStringAttribute(t,"state","");
         state=state.replace("always",""); // remove the old default
-        if( !state.isEmpty() && state.contains(":")){
+        if(state.contains(":")){
             var stat = state.split(":");
             tree.branchOut( CheckBlock.prepBlock(rtvals, "{t:"+stat[0]+"} equals "+stat[1]));
         }

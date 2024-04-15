@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<i2cscript id="pac1954">
+	<i2cop id="readctrl" output="hex" info="Read the content of the control register">
+		<read reg="0x01" bits="16" return="1"/>
+	</i2cop>
+	<i2cop id="readvc" info="Read voltage and current of all four channels">
+		<write>0x1F</write>
+		<read delay="10ms" reg="0x07" bits="16" return="8"/>
+		<math>
+			<!-- Voltage FSR is 32V -->
+			<op scale="2">i0=i0*(32/65535)</op>
+			<op scale="2">i1=i1*(32/65535)</op>
+			<op scale="2">i2=i2*(32/65535)</op>
+			<op scale="2">i3=i3*(32/65535)</op>
+		</math>
+		<store group="pac">
+			<real i="0" name="vbus1" unit="V"/>
+			<real i="1" name="vbus2" unit="V"/>
+			<real i="2" name="vbus3" unit="V"/>
+			<real i="3" name="vbus4" unit="V"/>
+			<int i="4" name="vsense1" unit="V"/>
+			<int i="5" name="vsense2" unit="V"/>
+			<int i="6" name="vsense3" unit="V"/>
+			<int i="7" name="vsense4" unit="V"/>
+		</store>
+	</i2cop>
+	<i2cop id="readavgvc" info="Read average voltage and current of all four channels">
+		<write>0x1F</write>
+		<read delay="10ms" reg="0x0F" bits="16" return="8"/>
+		<math>
+			<!-- Voltage FSR is 32V -->
+			<op scale="2">i0=i0*(32/65535)</op>
+			<op scale="2">i1=i1*(32/65535)</op>
+			<op scale="2">i2=i2*(32/65535)</op>
+			<op scale="2">i3=i3*(32/65535)</op>
+		</math>
+		<store group="pac">
+			<real i="0" name="vbus1_avg" unit="V"/>
+			<real i="1" name="vbus2_avg" unit="V"/>
+			<real i="2" name="vbus3_avg" unit="V"/>
+			<real i="3" name="vbus4_avg" unit="V"/>
+			<int i="4" name="vsense1_avg" unit="V"/>
+			<int i="5" name="vsense2_avg" unit="V"/>
+			<int i="6" name="vsense3_avg" unit="V"/>
+			<int i="7" name="vsense4_avg" unit="V"/>
+		</store>
+	</i2cop>
+	<i2cop id="readac" info="Read accumulator of all four channels">
+		<write>0x1F</write>
+		<read delay="10ms" reg="0x03" bitsplit="56,56,56,56"/>
+		<store group="pac">
+			<real i="0" name="vacc1" unit="Wh"/>
+			<real i="1" name="vacc2" unit="Wh"/>
+			<real i="2" name="vacc3" unit="Wh"/>
+			<real i="3" name="vacc4" unit="Wh"/>
+		</store>
+	</i2cop>
+</i2cscript>

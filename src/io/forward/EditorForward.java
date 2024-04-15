@@ -24,8 +24,7 @@ import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
 public class EditorForward extends AbstractForward{
-    ArrayList<Function<String,String>> edits = new ArrayList<>(); // for the scale type
-    String delimiter = ",";
+    private final ArrayList<Function<String,String>> edits = new ArrayList<>(); // Map of all the edits being done
 
     public EditorForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         super(id,source,dQueue,rtvals);
@@ -34,15 +33,6 @@ public class EditorForward extends AbstractForward{
         super(dQueue,rtvals);
         readOk = readFromXML(ele);
     }
-    /**
-     * Read an editor from an element in the xml
-     * @param ele The element containing the editor info
-     * @return The EditorForward created based on the xml element
-     */
-    public static EditorForward readXML(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
-        return new EditorForward( ele,dQueue, rtvals );
-    }
-
 
     @Override
     protected boolean addData(String data) {
@@ -77,7 +67,7 @@ public class EditorForward extends AbstractForward{
             store.apply(data);
             tableInserters.forEach(ti -> ti.insertStore(store.dbTable()));
         }
-        // If there are no target, no label, this no longer needs to be a target
+        // If there are no targets, no label, this no longer needs to be a target
         if( targets.isEmpty() && !log && store==null){
             valid=false;
             return false;
@@ -88,9 +78,10 @@ public class EditorForward extends AbstractForward{
     @Override
     public boolean readFromXML(Element editor) {
         parsedOk=true;
-        if( !readBasicsFromXml(editor))
-            return false;
         var dig = XMLdigger.goIn(editor);
+        if( !readBasicsFromXml(dig))
+            return false;
+
         delimiter = dig.attr("delimiter",delimiter,true);
         edits.clear();
         if( dig.hasPeek("*")){
@@ -101,7 +92,7 @@ public class EditorForward extends AbstractForward{
         return true;
     }
 
-    private boolean processNode( XMLdigger dig ){
+    private void processNode(XMLdigger dig ){
         String deli = dig.attr("delimiter",delimiter);
         String content = dig.value("");
         String from = dig.attr("from",",");
@@ -118,7 +109,7 @@ public class EditorForward extends AbstractForward{
         if( content == null ){
             Logger.error(id+" -> Missing content in an edit.");
             parsedOk=false;
-            return false;
+            return;
         }
         if( index == -1 ){
             index=0;
@@ -228,12 +219,10 @@ public class EditorForward extends AbstractForward{
             default -> {
                 Logger.error(id + " -> Unknown type used : '" + type + "'");
                 parsedOk = false;
-                return false;
             }
         }
-        return true;
     }
-    public void addListReplace( String content, String deli, int index, int first){
+    private void addListReplace( String content, String deli, int index, int first){
         rulesString.add( new String[]{"","listreplace","At "+index+" convert to "+content} );
         String[] opts = content.split(",");
         Function<String,String> edit = input ->
@@ -258,7 +247,7 @@ public class EditorForward extends AbstractForward{
         };
         edits.add(edit);
     }
-    public void addCharSplit( String deli, String positions){
+    private void addCharSplit( String deli, String positions){
         rulesString.add( new String[]{"","charsplit","At "+positions+" to "+deli} );
         String[] pos = Tools.splitList(positions);
         var indexes = new ArrayList<Integer>();
@@ -295,7 +284,7 @@ public class EditorForward extends AbstractForward{
         };
         edits.add(edit);
     }
-    public void addMillisToDate( String to, int index, String delimiter ){
+    private void addMillisToDate( String to, int index, String delimiter ){
         rulesString.add( new String[]{"","millisdate","millis -> "+to} );
         Function<String,String> edit = input ->
         {
@@ -335,7 +324,7 @@ public class EditorForward extends AbstractForward{
      * @param index On which position of the split data
      * @param delimiter The delimiter to split the data
      */
-    public void addRedate( String from, String to, int index, String delimiter ){
+    private void addRedate( String from, String to, int index, String delimiter ){
         rulesString.add( new String[]{"","redate",from+" -> "+to} );
         String deli;
         if( delimiter.equalsIgnoreCase("*")){
@@ -366,7 +355,7 @@ public class EditorForward extends AbstractForward{
      * @param index On which position of the split data
      * @param delimiter The delimiter to split the data
      */
-    public void addRetime( String from, String to, int index, String delimiter ){
+    private void addRetime( String from, String to, int index, String delimiter ){
         rulesString.add( new String[]{"","retime",from+" -> "+to} );
         String deli;
         if( delimiter.equalsIgnoreCase("*")){
@@ -388,7 +377,7 @@ public class EditorForward extends AbstractForward{
         };
         edits.add(edit);
     }
-    public void addRexsplit( String delimiter, String regex){
+    private void addRexsplit( String delimiter, String regex){
         rulesString.add( new String[]{"","rexsplit","deli:"+delimiter+" ->"+regex} );
 
         var results = Pattern.compile(regex);
@@ -408,7 +397,7 @@ public class EditorForward extends AbstractForward{
      * @param delimiter The string to split the data with
      * @param resplit The format of the new string, using i0 etc to get original values
      */
-    public void addResplit( String delimiter, String resplit, String error, boolean append){
+    private void addResplit( String delimiter, String resplit, String error, boolean append){
 
         rulesString.add( new String[]{"","resplit","deli:"+delimiter+" ->"+resplit} );
 
@@ -466,7 +455,7 @@ public class EditorForward extends AbstractForward{
         };
         edits.add(edit);
     }
-    public void addIndexReplace( int index, String delimiter, String value ){
+    private void addIndexReplace( int index, String delimiter, String value ){
         if( index==-1) {
             Logger.error("Invalid index given for indexreplace/removeindex");
             return;
@@ -506,7 +495,7 @@ public class EditorForward extends AbstractForward{
      * Add a string to the start of the data
      * @param addition The string to add at the start
      */
-    public void addPrepend( String addition ){
+    private void addPrepend( String addition ){
         rulesString.add( new String[]{"","prepend","add:"+addition} );
         edits.add( input -> addition+input );
     }
@@ -514,40 +503,40 @@ public class EditorForward extends AbstractForward{
      * Add a string to the end of the data
      * @param addition The string to add at the end
      */
-    public void addAppend( String addition ){
+    private void addAppend( String addition ){
         rulesString.add( new String[]{"","append","add:"+addition} );
         edits.add(  input -> input+addition );
     }
-    public void addInsert( int position, String addition ){
+    private void addInsert( int position, String addition ){
         rulesString.add( new String[]{"","insert","add:"+addition+" at "+position} );
         edits.add( input -> input.substring(0,position)+addition+input.substring(position) );
     }
-    public void addReplacement( String find, String replace){
+    private void addReplacement( String find, String replace){
         edits.add( input -> input.replace(Tools.fromEscapedStringToBytes(find),Tools.fromEscapedStringToBytes(replace)) );
         rulesString.add( new String[]{"","replace","from "+find+" -> "+replace} );
     }
-    public void addTrim( ){
+    private void addTrim( ){
         rulesString.add( new String[]{"","Trim","Trim spaces "} );
         edits.add(String::trim);
     }
-    public void addRexRemove( String find ){
+    private void addRexRemove( String find ){
         rulesString.add( new String[]{"","regexremove","Remove "+find} );
         edits.add( input -> input.replaceAll(find,"" ) );
     }
-    public void addRegexReplacement( String find, String replace){
+    private void addRegexReplacement( String find, String replace){
         String r = replace.isEmpty()?" ":replace;
         rulesString.add( new String[]{"","regexreplace","from "+find+" -> '"+r+"'"} );
         edits.add( input -> input.replaceAll(find,r ) );
     }
-    public void addCutStart(int characters ){
+    private void addCutStart(int characters ){
         rulesString.add( new String[]{"","cropstart","remove "+characters+" chars from start of data"} );
         edits.add( input -> input.length()>characters?input.substring(characters):"" );
     }
-    public void addCutEnd( int characters ){
+    private void addCutEnd( int characters ){
         rulesString.add( new String[]{"","cutend","remove "+characters+" chars from end of data"} );
         edits.add( input -> input.length()>characters?input.substring(0,input.length()-characters):"" );
     }
-    public void converToAscii(String delimiter){
+    private void converToAscii(String delimiter){
         rulesString.add( new String[]{"","tochar","convert delimited data to char's"} );
         edits.add( input -> {
             var join = new StringJoiner("");
@@ -591,6 +580,7 @@ public class EditorForward extends AbstractForward{
                 .add("    fe. <edit type='charsplit'>1,4,7 </edit>  --> 1,6:2,5:1,2")
                 .add(gr+"redate"+re+" -> Get the value at index according to delimiter, then go 'from' one date(time) format to the format in the value given")
                 .add("    fe. <edit type='redate' from='yy:dd:MM' >dd_MMMM_yy</edit>  --> 25_december_16")
+                .add("    Note: to go from epoch millis use 'epochmillis' as inputformat")
                 .add(gr+"retime"+re+" -> Same as redate but for only time")
                 .add("    fe. <edit type='retime' from='HH:mm:ss' >HH-mm</edit>  --> 16-25")
                 .add(gr+"replace"+re+" -> Replace 'find' with the replacement (NOTE: 'replacement' can't be a whitespace character)")

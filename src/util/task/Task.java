@@ -8,6 +8,7 @@ import util.data.RealtimeValues;
 import util.taskblocks.CheckBlock;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 
 import java.nio.file.Path;
@@ -62,7 +63,7 @@ public class Task implements Comparable<Task>{
 	/* trigger:Clock */
 	LocalTime time;				// The time at which the task is supposed to be executed
 	ArrayList<DayOfWeek> taskDays;   // On which days the task is to be executed
-
+	String[] args;
 	boolean utc = false;											// If the time is in UTC or not
 
 	/* Output */
@@ -95,7 +96,9 @@ public class Task implements Comparable<Task>{
 	 */
 	public Task(Element tsk, RealtimeValues rtvals, ArrayList<CheckBlock> sharedChecks){
 		buildError=new StringJoiner("\r\n");
-		when  = XMLtools.getStringAttribute( tsk, "state", "always"); //The state that determines if it's done or not
+		var dig = XMLdigger.goIn(tsk);
+
+		when  = dig.attr("state","always"); //The state that determines if it's done or not
 
 		if( tsk.getTagName().equalsIgnoreCase("while")||tsk.getTagName().equalsIgnoreCase("waitfor")){
 			Pair<Long,TimeUnit> period = TimeTools.parsePeriodString(XMLtools.getStringAttribute(tsk,"interval",""));
@@ -134,20 +137,20 @@ public class Task implements Comparable<Task>{
 				}
 			}
 		}else{
-			id = XMLtools.getStringAttribute( tsk, "id", String.valueOf(new Random().nextLong())).toLowerCase();
+			id = dig.attr("id", String.valueOf(new Random().nextLong())).toLowerCase();
 
-			reply = XMLtools.getStringAttribute( tsk, "reply", "");
-			var wind = XMLtools.getStringAttribute( tsk, "replywindow", "");
+			reply = dig.attr( "reply", "");
+			var wind = dig.attr("replywindow", "");
 			if( !wind.isEmpty()){
 				replyInterval=TimeTools.parsePeriodStringToSeconds(wind);
 				replyRetries=1;
 			}
 
-			link = XMLtools.getStringAttribute( tsk, "link", "");
-			stopOnFail = XMLtools.getBooleanAttribute(tsk,"stoponfail",true);
-			enableOnStart = XMLtools.getBooleanAttribute(tsk,"atstartup",true);
+			link = dig.attr("link", "");
+			stopOnFail = dig.attr("stoponfail",true);
+			enableOnStart = dig.attr("atstartup",true);
 
-			String req = XMLtools.getStringAttribute( tsk, "req", "");
+			String req = dig.attr( "req", "");
 			if( !req.isEmpty() ){
 				for( int a=0;a<sharedChecks.size();a++ ){
 					if( sharedChecks.get(a).matchesOri(req)){
@@ -174,7 +177,7 @@ public class Task implements Comparable<Task>{
 					}
 				}
 			}
-			String check = XMLtools.getStringAttribute( tsk, "check", "");
+			String check = dig.attr("check", "");
 			if( !check.isEmpty() ){
 				for( int a=0;a<sharedChecks.size();a++ ){
 					if( sharedChecks.get(a).matchesOri(check)){
@@ -198,8 +201,9 @@ public class Task implements Comparable<Task>{
 				}
 			}
 
-			convertOUT( XMLtools.getStringAttribute( tsk, "output", "system") );
-			convertTrigger( XMLtools.getStringAttribute( tsk, "trigger", "") );
+			convertOUT( dig.attr("output", "system") );
+			convertTrigger( dig );
+
 
 			if( tsk.getFirstChild() != null ){
 				value = tsk.getFirstChild().getTextContent(); // The control command to execute
@@ -229,6 +233,17 @@ public class Task implements Comparable<Task>{
 				link = linking[1];
 			}
 		}
+	}
+	public void setArgs( String[] args) {
+		this.args=args;
+	}
+	public String getValue(){
+		if( args==null)
+			return value;
+		var val = value;
+		for( int a=0;a<args.length;a++)
+			val = val.replace("i"+a,args[a]);
+		return val;
 	}
 	public String getBuildError(){
 		return buildError.toString();
@@ -282,64 +297,67 @@ public class Task implements Comparable<Task>{
 	public LocalTime getTime(){
 		return time;
 	}
-
-	private void convertTrigger( String trigger ){
-		if( !trigger.isBlank()){
-
-			this.startDelay = 0;
-
+	private void convertTrigger( XMLdigger dig ){
+		var cmd = dig.matchAttr("interval","delay","time", "utctime", "localtime","retry", "while", "waitfor","trigger");
+		var trigger = dig.attr(cmd,"");
+		String[] items;
+		if( cmd.equals("trigger")){
 			trigger = trigger.replace(";", ",").toLowerCase();
 			trigger = trigger.replace("=",":");
-			String cmd = trigger.substring(0, trigger.indexOf(":"));
-			String[] items = trigger.substring(trigger.indexOf(":")+1).split(",");
-			switch (cmd) {  /* time:07:15 or time:07:15,thursday */
-				case "time", "utctime", "localtime" -> {
-					if (!cmd.startsWith("local"))
-						utc = true;
-					time = LocalTime.parse(items[0], DateTimeFormatter.ISO_LOCAL_TIME);
-					taskDays = TimeTools.convertDAY(items.length == 2 ? items[1] : "");
-					triggerType = TRIGGERTYPE.CLOCK;
-				}    /* retry:10s,-1 */
-				/* while:10s,2 */
-				case "retry", "while", "waitfor" -> { /* waitfor:10s,1 */
-					Pair<Long, TimeUnit> period = TimeTools.parsePeriodString(items[0]);
-					interval = period.getKey();
-					unit = period.getValue();
-					if (items.length > 1) {
-						runs = Tools.parseInt(items[1], -1);
-					}
-					switch (cmd) {
-						case "retry" -> triggerType = TRIGGERTYPE.RETRY;
-						case "while" -> triggerType = TRIGGERTYPE.WHILE;
-						case "waitfor" -> triggerType = TRIGGERTYPE.WAITFOR;
-					}
+			cmd = trigger.substring(0, trigger.indexOf(":"));
+			items = trigger.substring(trigger.indexOf(":")+1).split(",");
+		}else if(cmd.isEmpty() ){
+			triggerType = TRIGGERTYPE.EXECUTE;
+			return;
+		}else{// Any of other keywords
+			items = trigger.split(",");
+		}
+
+		switch (cmd) {  /* time:07:15 or time:07:15,thursday */
+			case "time", "utctime", "localtime" -> {
+				if (!cmd.startsWith("local"))
+					utc = true;
+				time = LocalTime.parse(items[0], DateTimeFormatter.ISO_LOCAL_TIME);
+				taskDays = TimeTools.convertDAY(items.length == 2 ? items[1] : "");
+				triggerType = TRIGGERTYPE.CLOCK;
+			}    /* retry:10s,-1 */
+			/* while:10s,2 */
+			case "retry", "while", "waitfor" -> { /* waitfor:10s,1 */
+				Pair<Long, TimeUnit> period = TimeTools.parsePeriodString(items[0]);
+				interval = period.getKey();
+				unit = period.getValue();
+				if (items.length > 1) {
+					runs = Tools.parseInt(items[1], -1);
 				}
-				case "delay" -> {    /* delay:5m3s */
-					startDelay = TimeTools.parsePeriodStringToMillis(items[0]);
-					unit = TimeUnit.MILLISECONDS;
-					triggerType = TRIGGERTYPE.DELAY;
-				}
-				case "interval" -> { /* interval:5m3s or interval:10s,5m3s*/
-					retries = 5;
-					runs = 5;
-					if (items.length == 1) {//Just interval
-						interval = TimeTools.parsePeriodStringToMillis(items[0]);
-						unit = TimeUnit.MILLISECONDS;
-						startDelay = -1;    // So first occurrence is not at 0!
-					} else {//Delay and interval
-						startDelay = TimeTools.parsePeriodStringToMillis(items[0]);
-						interval = TimeTools.parsePeriodStringToMillis(items[1]);
-						unit = TimeUnit.MILLISECONDS;
-					}
-					triggerType = TRIGGERTYPE.INTERVAL;
-				}
-				default -> {
-					this.keyword = trigger;
-					triggerType = TRIGGERTYPE.KEYWORD;
+				switch (cmd) {
+					case "retry" -> triggerType = TRIGGERTYPE.RETRY;
+					case "while" -> triggerType = TRIGGERTYPE.WHILE;
+					case "waitfor" -> triggerType = TRIGGERTYPE.WAITFOR;
 				}
 			}
-    	}else{
-			triggerType = TRIGGERTYPE.EXECUTE;
+			case "delay" -> {    /* delay:5m3s */
+				startDelay = TimeTools.parsePeriodStringToMillis(items[0])+50;
+				unit = TimeUnit.MILLISECONDS;
+				triggerType = TRIGGERTYPE.DELAY;
+			}
+			case "interval" -> { /* interval:5m3s or interval:10s,5m3s*/
+				retries = 5;
+				runs = 5;
+				if (items.length == 1) {//Just interval
+					interval = TimeTools.parsePeriodStringToMillis(items[0]);
+					unit = TimeUnit.MILLISECONDS;
+					startDelay = 50;   // First occurrence is directly
+				} else {//Delay and interval
+					startDelay = TimeTools.parsePeriodStringToMillis(items[0])+50;
+					interval = TimeTools.parsePeriodStringToMillis(items[1]);
+					unit = TimeUnit.MILLISECONDS;
+				}
+				triggerType = TRIGGERTYPE.INTERVAL;
+			}
+			default -> {
+				this.keyword = trigger;
+				triggerType = TRIGGERTYPE.KEYWORD;
+			}
 		}
 	}
 	/* ***************************************************************************************************/

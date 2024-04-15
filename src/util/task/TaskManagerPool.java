@@ -8,15 +8,14 @@ import das.Commandable;
 import io.telnet.TelnetCodes;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -121,46 +120,39 @@ public class TaskManagerPool implements Commandable {
         StringJoiner response = new StringJoiner(nl);
         String[] cmds = args.split(",");
 
-        if( tasklists.isEmpty() && !cmds[0].equalsIgnoreCase("addblank") && !cmds[0].equalsIgnoreCase("add") && !cmds[0].equalsIgnoreCase("load"))
-            return "! No TaskManagers active, only tm:addblank,id/tm:add,id and tm:load,id available.";
+        if( tasklists.isEmpty() && !cmds[0].equalsIgnoreCase("addnew") && !cmds[0].equalsIgnoreCase("add") && !cmds[0].equalsIgnoreCase("load"))
+            return "! No TaskManagers active, only tm:add,id and tm:load,id available.";
 
         TaskManager tl;
         String cyan = html?"":TelnetCodes.TEXT_CYAN;
         String green=html?"":TelnetCodes.TEXT_GREEN;
         String reg=html?"":TelnetCodes.TEXT_DEFAULT;
+        var join = new StringJoiner(nl);
 
+        Path settingsPath = Path.of(workPath, "settings.xml");
         switch( cmds[0] ) {
             case "?":
                 response.add(cyan + "Addition" + reg)
-                        .add(green + "tm:addblank,id " + reg + "-> Add a new taskmanager, creates a file etc")
-                        .add(green + "tm:addtaskset,id,tasksetid " + reg + "-> Adds an empty taskset to the given taskmanager")
+                        .add(green + "tm:add,id " + reg + "-> Add a new taskmanager, creates a file etc")
                         .add(green + "tm:load,id " + reg + "-> Load an existing taskmanager from the default folder")
-                        .add(cyan + "Interact" + reg)
+                        .add(cyan + "Global" + reg)
                         .add(green + "tm:reloadall " + reg + "-> Reload all the taskmanagers")
-                        .add(green + "tm:reload,id " + reg + "-> Reload the specific taskmanager")
                         .add(green + "tm:stopall " + reg + "-> Stop all the taskmanagers")
-                        .add(green + "tm:remove,x " + reg + "-> Remove the manager with id x")
-                        .add(green + "tm:run,id:task(set) " + reg + "-> Run the given task(set) from taskmanager id, taskset has priority if both exist")
-                        .add(green + "tm:x,y " + reg + "-> Send command y to manager x")
-                        .add(green + "Other")
                         .add(green + "tm:list " + reg + "-> Get a list of currently active TaskManagers")
-                        .add(green + "tm:getpath,id" + reg + " -> Get the path to the given taskmanager");
+                        .add(cyan + "Interact with a certain taskmanager" + reg)
+                        .add(green + "tm:id,addtaskset,tasksetid " + reg + "-> Adds an empty taskset to the given taskmanager")
+                        .add(green + "tm:id,reload " + reg + "-> Reload the specific taskmanager")
+                        .add(green + "tm:id,forcereload " + reg + "-> Reload the specific taskmanager even if it's running uninterruptable tasks")
+                        .add(green + "tm:id,remove " + reg + "-> Remove the manager with the given id")
+                        .add(green + "tm:id,x " + reg + "-> Send command x to taskmanager with given id")
+                        .add(green + "tm:id,getpath" + reg + " -> Get the path to the given taskmanager")
+                        .add(green + "tm:id,tasks " + reg + "-> Get a list of all tasks in the taskmanager")
+                        .add(green + "tm:id,sets " + reg + "-> Get a list of all tasksets in the taskmanager")
+                        .add(green + "tm:id,stop " + reg + "-> Cancel all scheduled actions of this taskmanager");
                 return response.toString();
-            case "addtaskset":
-                if (cmds.length != 3)
-                    return "! Not enough parameters, need tm:addtaskset,id,tasksetid";
-                tl = tasklists.get(cmds[1]);
-                if (tl != null) {
-                    if (tl.addBlankTaskset(cmds[2])) {
-                        return "Taskset added";
-                    }
-                    return "! Failed to add taskset";
-                }
-                return "! No such TaskManager " + cmds[1];
-            case "addblank":
             case "add":
                 if (cmds.length != 2)
-                    return "! Not enough parameters, need tm:addblank,id";
+                    return "! Not enough parameters, need tm:add,id";
 
                 // Add to the settings xml
                 try {
@@ -171,12 +163,12 @@ public class TaskManagerPool implements Commandable {
 
                 var p = Path.of(workPath, "tmscripts", cmds[1] + ".xml");
                 if (Files.notExists(p)) {
-                    XMLfab tmFab = XMLfab.withRoot(Path.of(workPath, "settings.xml"), "dcafs", "settings");
+                    XMLfab tmFab = XMLfab.withRoot(settingsPath, "dcafs", "settings");
                     tmFab.addChild("taskmanager", "tmscripts" + File.separator + cmds[1] + ".xml").attr("id", cmds[1]).build();
                     tmFab.build();
 
                     // Create an empty file
-                    XMLfab.withRoot(p, "tasklist")
+                    XMLfab.withRoot(p, "dcafs","tasklist")
                             .comment("Any id is case insensitive")
                             .comment("Reload the script using tm:reload," + cmds[1])
                             .comment("If something is considered default, it can be omitted")
@@ -214,23 +206,12 @@ public class TaskManagerPool implements Commandable {
                 if (Files.notExists(Path.of(workPath, "tmscripts", cmds[1] + ".xml")))
                     return "! No such script in the default location";
                 if (addTaskList(cmds[1], Path.of(workPath, "tmscripts", cmds[1] + ".xml")).reloadTasks()) {
-                    XMLfab.withRoot(Path.of(workPath, "settings.xml"), "dcafs", "settings")
+                    XMLfab.withRoot(settingsPath, "dcafs", "settings")
                             .addChild("taskmanager", "tmscripts" + File.separator + cmds[1] + ".xml").attr("id", cmds[1]).build();
                     return "Loaded " + cmds[1];
                 }
                 return "! Failed to load tasks from " + cmds[1];
-            case "reload":
-                if (cmds.length == 2) {
-                    var tm = tasklists.get(cmds[1]);
-                    if (tm == null)
-                        return "! No such TaskManager: " + cmds[1];
-                    var res = tm.reloadTasks();
-                    if( !res )
-                        return "!! -> "+tm.getLastError();
-                    return "\r\nTasks reloaded";
-                }
-            case "reloadall":
-                StringJoiner join = new StringJoiner("\r\n");
+            case "reloadall": case "reload":
                 for(TaskManager tam : tasklists.values() ) {
                     var res = tam.reloadTasks();
                     if( !res ){
@@ -244,61 +225,17 @@ public class TaskManagerPool implements Commandable {
                 for(TaskManager tam : tasklists.values() )
                     tam.stopAll("baseReqManager");
                 return "Stopped all TaskManagers.";
-            case "managers": case "list":
+            case "list":
                 response.add("Currently active TaskManagers:");
                 tasklists.keySet().forEach(response::add);
                 return response.toString();
-            case "run":
-                if( cmds.length != 2)
-                    return "! Not enough parameters, missing manager:taskset";
-                String[] task = cmds[1].split(":");
 
-                if( task[0].equalsIgnoreCase("*")){
-                    int a=0;
-                    for( var t : tasklists.values()){
-                        if( t.hasTaskset(task[1])) {
-                            a+=t.startTaskset(task[1]).isEmpty()?0:1;
-                        }else{
-                            a+=t.startTask(task[1])?1:0;
-                        }
-                    }
-                    if(a==0)
-                        return "! Nothing started";
-                    return "Started "+a+" task(set)s";
-                }else{
-                    tl = tasklists.get(task[0]);
-                    if( tl == null)
-                        return "! No such taskmanager: "+task[0];
-                    if( tl.hasTaskset(task[1])){
-                        return tl.startTaskset(task[1]);
-                    }else{
-                        return tl.startTask(task[1])?"Task ok":"! Failed/invalid "+task[1];
-                    }
-                }
-
-            case "remove":
-                if( tasklists.remove(cmds[1]) == null )
-                    return "! Failed to remove the TaskManager, unknown key";
-                return "Removed the TaskManager";
-            case "startkeyword":
-                if( cmds.length != 2)
-                    return "! Not enough arguments tm:startkeyword,keyword";
-                startKeywordTask(cmds[1]);
-                return "Tried starting the keyword stuff";
-            case "getpath":
-                if( cmds.length != 2)
-                    return "! Not enough arguments, tm:getpath,id";
-                tl = tasklists.get(cmds[1]);
-                if( tl != null){
-                    return tl.getXMLPath().toString();
-                }
-                return "! No such TaskManager: "+cmds[0];
             case "restored":
                 if( tasklists.isEmpty())
-                    return "No taskmanagers active";
+                    return "No TaskManagers active";
                 if( cmds.length != 2)
                     return "Missing id";
-                 join = new StringJoiner(nl);
+
                  tasklists.values().forEach( tm -> join.add(tm.notifyRestored(cmds[1])));
                  return join.toString();
             default:
@@ -306,8 +243,62 @@ public class TaskManagerPool implements Commandable {
                     return "! No such subcommand in tm: "+cmds[0];
 
                 tl = tasklists.get(cmds[0]);
-                if( tl != null ){
-                    return tl.replyToCommand( args.substring(args.indexOf(",")+1), html);
+                if( tl != null || (cmds[0].equals("*")&&cmds[1].equals("run"))){
+
+                    return switch (cmds[1]) {
+                        case "remove" -> {
+                            if (tasklists.remove(cmds[0]) == null)
+                                yield "! Failed to remove the TaskManager, unknown key";
+                            yield "Removed the TaskManager";
+                        }
+                        case "reload" -> {
+                                if( !tl.reloadTasks() )
+                                    yield "! "+tl.getLastError();
+                                yield "\r\nTasks reloaded";
+                        }
+                        case "forcereload" -> "Forced a reload of "+tl.forceReloadTasks();
+                        case "getpath" -> tl.getXMLPath().toString();
+                        case "addtaskset" -> {
+                            if (cmds.length != 3)
+                                yield "! Not enough parameters, need tm:id,addtaskset,tasksetid";
+                            tl = tasklists.get(cmds[1]);
+
+                            if (tl.addBlankTaskset(cmds[2])) {
+                                yield "Taskset added";
+                            }
+                            yield "! Failed to add taskset";
+                        }
+                        case "tasks" -> tl.getTaskListing(nl);
+                        case "sets" -> tl.getTaskSetListing(nl);
+                        case "stop" -> "Cancelled "+tl.stopAll("cmd req")+" futures.";
+                        case "run" -> {
+                            if (cmds.length < 3)
+                                yield "! Not enough parameters, need tm:id,run,task(set)id";
+
+                            if (cmds[0].equals("*")) {
+                                int a = 0;
+                                for (var t : tasklists.values()) {
+                                    if (t.hasTaskset(cmds[2])) {
+                                        a += t.startTaskset(cmds[2]).isEmpty() ? 0 : 1;
+                                    } else {
+                                        a += t.startTask(cmds[2], null) ? 1 : 0;
+                                    }
+                                }
+                                if (a == 0)
+                                    yield "! Nothing started";
+                                yield "Started " + a + " task(set)s";
+                            } else {
+                                if (tl.hasTaskset(cmds[2])) {
+                                    yield tl.startTaskset(cmds[2]);
+                                } else {
+                                    String[] arg = null;
+                                    arg = Arrays.copyOfRange(cmds, 2, cmds.length);
+                                    yield tl.startTask(cmds[2], arg) ? "Task ok" : "! Failed/invalid " + cmds[2];
+                                }
+                            }
+                        }
+                        default -> "! No such subcommand";
+                    };
                 }
                 return "! No such TaskManager: "+cmds[0];
         }

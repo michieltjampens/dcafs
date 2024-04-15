@@ -1,16 +1,17 @@
-<commandset script="bme280">
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<i2cscript id="bme280">
 
 	<!-- Read all the data/cal registers from the device -->
-	<command id="read_hum" info="Read the humidity registers." bits="16">
-		<read reg="0xFD" return="2"/>
-	</command>
-	<command id="read_temp" info="Read the temperature registers." bits="24">
-		<read reg="0xFA" return="3"/>
-	</command>
-	<command id="calc_temp" info="Read the temperature registers." bits="24">
-		<read reg="0xFA" return="3"/>
-		<read reg="0x88" return="2"/> <!-- T1: unsigned 16bit -->
-		<read reg="0x88" signed="true" return="4"/> <!-- T2 to T3: signed 16bit -->
+	<i2cop id="read_hum" info="Read the humidity registers." bits="16">
+		<read reg="0xFD" return="1"/>
+	</i2cop>
+	<i2cop id="read_temp" info="Read the temperature registers." bits="24">
+		<read reg="0xFA" return="1"/>
+	</i2cop>
+	<i2cop id="calc_temp" info="Read the temperature registers." bits="16">
+		<read reg="0xFA" bits="24" return="1"/>
+		<read reg="0x88" return="1"/> <!-- T1: unsigned 16bit -->
+		<read reg="0x88" signed="true" return="2"/> <!-- T2 to T3: signed 16bit -->
 		
 	<!--
 		double var1 = (adc/16384 - comp[0]/1024) * comp[1];
@@ -31,70 +32,70 @@
 		x7 = x6/5120
 	-->
 				
-	</command>
-	<command id="read_press" info="Read the pressure registers." bits="24">
-		<read reg="0xF7" return="3"/>
-	</command>
-	<command id="read_status" info="Read the status registers." bits="8">
+	</i2cop>
+	<i2cop id="read_press" info="Read the pressure registers." bits="24">
+		<read reg="0xF7" return="1"/>
+	</i2cop>
+	<i2cop id="read_status" info="Read the status registers." bits="8">
 		<read reg="0xF3" return="1"/>
-	</command>
-	<command id="read_ctrl" info="Read the ctrl registers." bits="8">
+	</i2cop>
+	<i2cop id="read_ctrl" info="Read the ctrl registers." bits="8">
 		<read reg="0xF2" return="1"/>
 		<read reg="0xF4" return="1"/>
-	</command>	
-	<command id="read_coeff" info="Read the calibration values from the ic" bits="16">
+	</i2cop>	
+	<i2cop id="read_coeff" info="Read the calibration values from the ic" bits="16">
 		<!-- Temperature -->
 		<!-- 48750; -3992 ; 12800 -->
-		<read reg="0x88" return="2"/> <!-- T1: unsigned 16bit -->
-		<read reg="0x8A" signed="true" return="4"/> <!-- T2 to T3: signed 16bit -->
+		<read reg="0x88" return="1"/> <!-- T1: unsigned 16bit -->
+		<read reg="0x8A" signed="true" return="2"/> <!-- T2 to T3: signed 16bit -->
 		
 		<!-- Pressure -->
 		<!-- 16785 ; 32982 ; 53259 ; 56609 ; 51455 ; 63999 ; 44070 ; 2776 ; 48400 -->
-		<read reg="0x8E" signed="true" return="2"/> <!-- P1: signed 16bit-->
-		<read reg="0x90" signed="false" return="16"/> <!-- P2 to P9: unsigned 16bit -->
+		<read reg="0x8E" signed="true" return="1"/> <!-- P1: signed 16bit-->
+		<read reg="0x90" signed="false" return="8"/> <!-- P2 to P9: unsigned 16bit -->
 		
 		<!-- Humidity -->
 		<!-- 75 ; -30463 ; 0 ; 242 ; 688 -->
 		<read reg="0xA1" bits="8"  signed="false" return="1"/> <!-- H1: unsigned 8bit -->
-		<read reg="0xE1" bits="16" signed="true"  return="2"/> <!-- H2: signed 16bit  -->
+		<read reg="0xE1" bits="16" signed="true"  return="1"/> <!-- H2: signed 16bit  -->
 		<read reg="0xE3" bits="8"  signed="false" return="1"/> <!-- H3: unsigned 8bit -->
-		<read reg="0xE4" bits="12" signed="true"  return="2"/> <!-- H4: signed 12bit  -->
-		<read reg="0xE5" bits="12" signed="true"  return="2"/> <!-- H5: humidity signed short, WRONG SHIFT-->		
-	</command>
+		<read reg="0xE4" bits="12" signed="true"  return="1"/> <!-- H4: signed 12bit  -->
+		<read reg="0xE5" bits="12" signed="true"  return="1"/> <!-- H5: humidity signed short, WRONG SHIFT-->
+	</i2cop>
 	
 	<!-- Mode changes -->
 	<!-- Recommended settings for specific situations -->
-	<command id="weather" info="Set weather recommends (1 sample/min, no filter, no oversampling)">
+	<i2cop id="weather" info="Set weather recommends (1 sample/min, no filter, no oversampling)">
 		<write reg="0xF5" >0x00</write> <!-- standby dont care (forced mode), filter off, no spi 3w -->
 		<write reg="0xF2" >0x01</write> <!-- Humidity oversampling -->
 		<write reg="0xF4" >0x26</write> <!-- 001 001 10 -->
-	</command>
-	<command id="humidity" info="Set humidity recommends (1 sample/sec, no filter, no oversampling, no pressure)">
+	</i2cop>
+	<i2cop id="humidity" info="Set humidity recommends (1 sample/sec, no filter, no oversampling, no pressure)">
 		<write reg="0xF5" >0x00</write> <!-- standby dont care (forced mode), filter off, no spi 3w -->
 		<write reg="0xF2" >0x01</write> <!-- Humidity oversampling x1 -->
 		<write reg="0xF4" >0x22</write> <!-- temp x1, press x1, forced -->
-	</command>
-	<command id="indoornav" info="Set indoor nav recommends (normal mode, tstandby=0.5ms,pressure x16,temp x2, hum x1, filter 16)">
+	</i2cop>
+	<i2cop id="indoornav" info="Set indoor nav recommends (normal mode, tstandby=0.5ms,pressure x16,temp x2, hum x1, filter 16)">
 		<write reg="0xF5" >0x10</write> <!-- standby 0.5ms, filter 16, no spi 3w -->
 		<write reg="0xF2" >0x01</write> <!-- Humidity oversampling x1 -->
 		<write reg="0xF4" >0x57</write> <!-- temp x2=010, press x16=101, normal = 11 -->
-	</command>
+	</i2cop>
 	
 	<!-- General mode setting -->
-	<command id="readmode" info="Read mode register">
+	<i2cop id="readmode" info="Read mode register">
 		<read reg="0xF4" return="1"/>
-	</command>	
-	<command id="start" info="Start the sensors acc. at x1 oversampling" >
+	</i2cop>	
+	<i2cop id="start" info="Start the sensors acc. at x1 oversampling" >
 		<write reg="0xF2" >0x01</write> <!-- -->
 		<write reg="0xF4" >0x27</write> <!-- oversampling x1 and active -> 0010 0111 -> 0x27 -->
-	</command>	
-	<command id="sleepmode" info="Go to sleep mode">
+	</i2cop>	
+	<i2cop id="sleepmode" info="Go to sleep mode">
 		<alter reg="0xF4" operand="and">0xFC</alter> <!-- Default:0x00 xxxx xxxx AND 0xFD = xxxx xx 00 -->
-	</command>
-	<command id="reset" info="Reset the ic" >
-		<write reg="0xE0" >0xB6</write> <!-- -->		
-	</command>	
-</commandset>
+	</i2cop>
+	<i2cop id="reset" info="Reset the ic" >
+		<write reg="0xE0" >0xB6</write> <!-- -->
+	</i2cop>
+</i2cscript>
 <!--
 0xF2 - ctrl hum
 							humidity oversampling

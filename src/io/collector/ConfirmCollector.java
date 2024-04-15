@@ -11,7 +11,6 @@ import java.util.concurrent.ScheduledExecutorService;
  * The purpose of this class is to handle sending data to a stream and wait for a specific
  * response from it. Retries will be made and a good/bad result is reported to the registered
  * WritableFutures.
- *
  * It's considered a collector because data arriving at it doesn't go any further.
  */
 public class ConfirmCollector extends AbstractCollector {

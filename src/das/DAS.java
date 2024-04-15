@@ -41,7 +41,7 @@ import java.util.concurrent.*;
 
 public class DAS implements Commandable{
 
-    private static final String version = "2.6.1";
+    private static final String version = "2.8.2";
 
     private final Path settingsPath; // Path to the settings.xml
     private String workPath; // Path to the working dir of dcafs
@@ -84,7 +84,7 @@ public class DAS implements Commandable{
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
 
     public DAS() {
-        // Note: Don't use tinylog yet!
+        // Note: Don't use TinyLog yet!
         // Determine working dir based on the classpath
         var classPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
         classPath = classPath.replace("%20"," ");
@@ -126,7 +126,7 @@ public class DAS implements Commandable{
             addTelnetServer(); // Even if settings.xml is bad, start the telnet server anyway to inform user
             return;
         }
-        var digger = XMLdigger.goIn(settingsPath,"dcafs");
+        var digger = XMLdigger.goIn(settingsPath,"dcafs"); // Use digger to go through settings.xml
         Logger.info("Program booting");
 
         /* CommandPool */
@@ -136,7 +136,7 @@ public class DAS implements Commandable{
         /* RealtimeValues */
         rtvals = new RealtimeValues( settingsPath, dQueue );
         addCommandable(rtvals.getIssuePool(),"issue","issues");
-        addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text");
+        addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text;flag");
         addCommandable(rtvals,"rtval","rtvals");
         addCommandable(rtvals,"stop");
 
@@ -151,8 +151,8 @@ public class DAS implements Commandable{
         addStreamManager();
 
         /* TransServer */
-        if( digger.hasPeek("transserver"))
-            addTransServer(); // Check if trans is in xml and if so, set it up
+        if( digger.hasPeek("transserver")) // Check if trans is in xml
+            addTransServer(); // and if so, set it up
 
         /* I2C */
         addI2CWorker();
@@ -160,7 +160,7 @@ public class DAS implements Commandable{
         /* Forwards */
         pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
         addCommandable(pathPool,"paths","path","pf","paths");
-        addCommandable(pathPool, "");
+        addCommandable(pathPool, ""); // empty cmd is used to stop data requests
 
         /* Waypoints */
         waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
@@ -220,17 +220,32 @@ public class DAS implements Commandable{
 
         attachShutDownHook();
     }
+
+    /**
+     * Get the version number of dcafs
+     * @return The version nr in format x.y.z
+     */
     public String getVersion(){return version;}
+
+    /**
+     * Get the path to parent folder of the settings.xml
+     * @return Path of the parent folder of the settings.xml
+     */
     public Path getWorkPath(){
         return Path.of(workPath);
     }
+
+    /**
+     * Get the path of the settings.xml
+     * @return Path of the settings.xml
+     */
     public Path getSettingsPath(){
         return settingsPath;
     }
 
     /**
      * Get the period that dcafs has been active
-     * @return The active period
+     * @return The active period in a readable string
      */
     public String getUptime() {
         return TimeTools.convertPeriodtoString(Duration.between(bootupTimestamp, LocalDateTime.now()).getSeconds(),
@@ -291,13 +306,14 @@ public class DAS implements Commandable{
      */
     private void addStreamManager() {
 
-        streamManager = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
-        addCommandable(streamManager,"ss","streams"); // general commands
-        addCommandable(streamManager,"s_","h_");     // sending data to a stream
-        addCommandable(streamManager,"raw","stream"); // getting data from a stream
-        addCommandable(streamManager,""); // stop sending data
+       streamManager = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
+       addCommandable(streamManager,"ss","streams"); // general commands
+       addCommandable(streamManager,"s_","h_");      // sending data to a stream
+       addCommandable(streamManager,"raw","stream"); // getting data from a stream
+       addCommandable(streamManager,""); // stop sending data
 
        streamManager.readSettingsFromXML(settingsPath);
+       streamManager.getStreamIDs().forEach( id -> addCommandable(streamManager,id) );
     }
     public Optional<Writable> getStreamWritable( String id ){
         var opt = streamManager.getStream(id);
@@ -375,14 +391,14 @@ public class DAS implements Commandable{
             return;
         }
         Logger.info("Adding I2CWorker.");
-        i2cWorker = new I2CWorker(settingsPath);
+        i2cWorker = new I2CWorker(settingsPath,nettyGroup,rtvals,dQueue);
         addCommandable(i2cWorker,"i2c","i_c");
         addCommandable(i2cWorker,"stop");
     }
     /* ******************************** * S H U T D O W N S T U F F ***************************************** */
     /**
      * Attach a hook to the shutdown process, so we're sure that all queue's etc. get
-     * processed first
+     * processed before the program is closed.
      */
     private void attachShutDownHook() {
         Runtime.getRuntime().addShutdownHook(new Thread("shutdownHook") {
@@ -420,7 +436,7 @@ public class DAS implements Commandable{
                     Thread.currentThread().interrupt();
                 }
 
-                // disconnecting tcp ports
+                // Disconnecting tcp ports
                 if (streamManager != null)
                     streamManager.disconnectAll();
 
@@ -471,7 +487,7 @@ public class DAS implements Commandable{
 
         // TaskManager
         if (taskManagerPool != null) {
-            Logger.info( "Parsing taskmanager scripts");
+            Logger.info( "Parsing TaskManager scripts");
             String errors = taskManagerPool.reloadAll();
             if( !errors.isEmpty()){
                 telnet.addMessage("Errors during TaskManager parsing:\r\n"+errors);
@@ -612,7 +628,7 @@ public class DAS implements Commandable{
             join.add("Email backlog: " + emailWorker.getRetryQueueSize() );
         return join.toString();
     }
-
+    /*  COMMANDABLE INTERFACE */
     @Override
     public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
         if( cmd.equalsIgnoreCase("st"))
@@ -631,15 +647,15 @@ public class DAS implements Commandable{
     public boolean removeWritable(Writable wr) {
         return false;
     }
-
+    /* END OF COMMANDABLE */
     public static void main(String[] args) {
 
         DAS das = new DAS();
 
-        if( das.telnet == null ){
-            das.addTelnetServer();
+        if( das.telnet == null ){  // If no telnet server was created
+            das.addTelnetServer(); // Do it anyway
         }
-        das.startAll();
+        das.startAll(); // Run all the processes that need to happen after initialization of the components
 
         Logger.info("Dcafs "+version+" boot finished!");
     }
