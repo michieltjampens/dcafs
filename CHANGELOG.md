@@ -9,10 +9,15 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.9.0 (wip)
-- Can now send data to a stream using the id instead of Sx. 
+## 2.8.2 (wip)
+- Updated dependencies: 
+  - netty 4.1.109
+  - jserialcom 2.11.0
+  - mssql 12.6.1.jre11
+  - postgresql 42.7.3
+- Can now send data to a stream using the id instead of Sy. 
 - Can now send ESC to a stream using the esc key (eol won't be appended)
-- Editor redate now supports epochmillis. Use 'epochmillis' as inputformat.
+- Editor redate now supports epochmillis and epochseconds. Use 'epochmillis' or epochsec(onds) as inputformat.
 
 ## 2.8.1 (15/03/2024)
 - Updated netty,activation and json dependency
