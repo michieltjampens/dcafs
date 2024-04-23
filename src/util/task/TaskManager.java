@@ -1017,7 +1017,9 @@ public class TaskManager implements CollectorFuture {
 			to = Tools.getMAC( line.substring(i+5,i+end) );
 			line = line.replace(line.substring(i,i+end+1),to);
 		}
+		// Check for rtvals
 		line = ValTools.parseRTline(line,"",rtvals);
+
 		i = line.indexOf("{mint:");
 		if( i !=-1 ){
 			int end = line.substring(i).indexOf("}");

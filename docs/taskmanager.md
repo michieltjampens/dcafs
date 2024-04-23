@@ -45,7 +45,7 @@ If you check the tmscripts' folder, a file dicetm.xml should be present with the
     <!-- Below is an example taskset -->
     <taskset id="example" info="Example taskset that says hey and bye" run="oneshot">
       <task output="telnet:info">Hello World from dicetm</task>
-      <task output="telnet:error" trigger="delay:2s">Goodbye :(</task>
+      <task output="telnet:error" delay="2s">Goodbye :(</task>
     </taskset>
     <!-- run can be either oneshot (start all at once) or step (one by one), default is oneshot -->
     <!-- id is how the taskset is referenced and info is a some info on what the taskset does, this will be 
@@ -54,9 +54,9 @@ If you check the tmscripts' folder, a file dicetm.xml should be present with the
   <!-- Tasks are single commands to execute -->
   <tasks>
     <!-- Below is an example task, this will be called on startup or if the script is reloaded -->
-    <task output="system" trigger="delay:1s">taskset:example</task>
+    <task output="system" delay="1s">taskset:example</task>
     <!-- This task will wait a second and then start the example taskset -->
-    <!-- A task doesn't need an id but it's allowed to have one -->
+    <!-- A task doesn't need an id, but it's allowed to have one -->
     <!-- Possible outputs: stream:id , system (default), log:info, email:ref, manager, telnet:info/warn/error -->
     <!-- Possible triggers: delay, interval, while, ... -->
     <!-- For more extensive info and examples, check Reference Guide - Taskmanager in the manual -->

@@ -368,21 +368,6 @@ public class Task implements Comparable<Task>{
 	public void setFuture(java.util.concurrent.ScheduledFuture<?> future){
 		this.future=future;
 	}
-	/**
-	 * Verify that the current state corresponds to the needed state
-	 * @param state The current state
-	 * @return True if the states match
-	 */
-	public boolean checkState( String state ){
-		if( this.when.equalsIgnoreCase(state) || this.when.isBlank() ){
-			enabled = true;
-			return true;			
-		}else{
-			future.cancel(false);
-			enabled = false;
-			return false;
-		}
-	}
 	/* ****************************************  O U T P U T ************************************************************/
 	/**
 	 * Convert the string representation of the output to usable objects
