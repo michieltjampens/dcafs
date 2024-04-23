@@ -215,7 +215,7 @@ public class ValTools {
      * @param error Value to put if the reference isn't found
      * @return The (possibly) altered line
      */
-    public static String parseRTline( String line, String error, RealtimeValues rv ){
+    public static String parseRTline( String line, String error, RealtimeValues rtvals ){
 
         if( !line.contains("{"))
             return line;
@@ -225,22 +225,22 @@ public class ValTools {
             if(p.length==2) {
                 switch (p[0]) {
                     case "d", "r", "double", "real" -> {
-                        var d = rv.getReal(p[1], Double.NaN);
+                        var d = rtvals.getReal(p[1], Double.NaN);
                         if (!Double.isNaN(d) || !error.isEmpty())
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : String.valueOf(d));
                     }
                     case "i", "int", "integer" -> {
-                        var i = rv.getIntegerVal(p[1]).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
+                        var i = rtvals.getIntegerVal(p[1]).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
                         if (i != Integer.MAX_VALUE)
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", String.valueOf(i));
                     }
                     case "t", "text" -> {
-                        String t = rv.getTextVal(p[1]).map(TextVal::value).orElse(error);
+                        String t = rtvals.getTextVal(p[1]).map(TextVal::value).orElse(error);
                         if (!t.isEmpty())
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", t);
                     }
                     case "f", "b", "flag" -> {
-                        var d = rv.getFlagVal(p[1]);
+                        var d = rtvals.getFlagVal(p[1]);
                         var r = d.map(FlagVal::toString).orElse(error);
                         if (!r.isEmpty())
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", r);
@@ -251,7 +251,13 @@ public class ValTools {
                     case "utc" -> line.replace("{utc}", TimeTools.formatLongUTCNow());
                     case "utclong" -> line.replace("{utclong}", TimeTools.formatLongUTCNow());
                     case "utcshort"-> line.replace("{utcshort}", TimeTools.formatShortUTCNow());
-                    default ->line;
+                    default ->
+                    {
+                        var val = rtvals.getAbstractVal(p[0]);
+                        if( val.isPresent())
+                            yield line.replace( "{"+p[0]+"}",val.get().toString());
+                        yield line;
+                    }
                 };
             }
         }
