@@ -1033,6 +1033,13 @@ public class TaskManager implements CollectorFuture {
 			to = String.valueOf(MathUtils.simpleCalculation(cal,0,false));
 			line = line.replace(line.substring(i,i+end+1),to);
 		}
+		i = line.indexOf("{utc:");
+		if( i!=-1 ){
+			int end = line.substring(i).indexOf("}");
+			var format = line.substring(i+5,i+end);
+			to = TimeTools.formatUTCNow(format);
+			line = line.replace(line.substring(i,i+end+1),to);
+		}
     	line = line.replace("[EOL]", "\r\n");
     	return line;
     }
