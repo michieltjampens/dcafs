@@ -3,8 +3,6 @@ package util.tools;
 import org.apache.commons.lang3.tuple.Pair;
 import org.tinylog.Logger;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -13,7 +11,6 @@ import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 public class TimeTools {
@@ -30,14 +27,6 @@ public class TimeTools {
                                                                     .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
                                                                     .withLocale(Locale.ENGLISH);
 
-    static final DateTimeFormatter NMEA_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss.SS");
-    static final DateTimeFormatter DAY_MIN_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    static final DateTimeFormatter DAY_FORMATTER = DateTimeFormatter.ofPattern("yyMMdd");
-
-    static final String SQL_LONG_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
-	static final String NMEASHORT_STRING = "yyyy-MM-dd HHmmss";
-
-    static final TimeZone UTC = TimeZone.getTimeZone("UTC");
     public enum RolloverUnit{NONE,MINUTES,HOURS,DAYS,WEEKS,MONTHS,YEARS}
 
     private TimeTools(){
@@ -111,23 +100,8 @@ public class TimeTools {
         }
     }
     /**
-     * Takes a millis since epoch and creates a string in yyyy-MM-dd HH:mm:ss.SSS format
-     * @param timestamp The timestamp in millis
-     * @return If successful it returns the requested date, if not an empty string
-     */
-    public static synchronized String formatLongDate(long timestamp) {
-        if( timestamp <= 0)
-            return "";   
-        try{
-        	return LONGDATE_FORMATTER.format( Instant.ofEpochMilli(timestamp));
-        }catch( java.lang.ArrayIndexOutOfBoundsException e ){
-        	Logger.error("Error trying to format date.");
-        	return "";
-        }
-    }
-    /**
      * Gets the current datetime and formats it
-     * @param outputFormat The format to use eg. yy/MM/dd HH:mm
+     * @param outputFormat The format to use e.g. yy/MM/dd HH:mm
      * @return If successful it returns the requested date, if not an empty string
      */
     public static String formatNow(String outputFormat) {
@@ -163,22 +137,6 @@ public class TimeTools {
     public static String formatLongNow( ) {
         return LONGDATE_FORMATTER.withZone( ZoneId.systemDefault() ).format(Instant.now());
     }
-    /**
-     * Gets the current datetime and adds an offset in days and formats it
-     * @param outputFormat The format to use eg. yy/MM/dd HH:mm
-     * @param offset Amount of days offset (can be positive or negative)
-     * @return If successful it returns the requested date, if not an empty string
-     */
-    public static String formatNow(String outputFormat, int offset) {
-    	LocalDateTime local = LocalDateTime.now();
-        if( offset > 0){
-           local=local.plusDays(offset);
-        }else{
-            local=local.minusDays(Math.abs(offset));
-        }
-        
-        return local.format( DateTimeFormatter.ofPattern(outputFormat) );
-    }
 
     /**
      * Calculate the delay till the next occurrence of a 'clean' interval start
@@ -200,7 +158,7 @@ public class TimeTools {
                     first = first.withSecond( secs );
                 }
             }else if( sec < 3600 ) { // so below an hour
-                int mins=0;
+                int mins;
                 if( sec%60==0){ // so clean minutes
                     sec /= 60;
                     mins = (int) (((now.getMinute()/sec+1))*sec);
@@ -220,7 +178,7 @@ public class TimeTools {
                 first = first.withMinute(0).withSecond(0);
                 int h = (int) sec/3600;
                 int m = (int) sec/60;
-                int hs=0;
+                int hs;
                 if( sec % 3600 == 0 ){ // clean hours
                     hs = h*(now.getHour()/h+1);
                 }else{ // hours and min (fe 1h30m or 90m)
@@ -240,125 +198,7 @@ public class TimeTools {
         }
         return interval_millis;
     }
-    /**
-     * Takes a string datetime and converts it to a calendar object
-     * @param date The datetime in string of format 'yyyy-MM-dd HH:mm:ss.SSS'
-     * @return If successful it returns the requested date in UTC , if not -1
-     */
-    public static synchronized long parseLongToMillis(String date) {                
-        if( date.isBlank())
-        	return -1;
-    	try {    		
-            return LocalDateTime.parse( date, LONGDATE_FORMATTER ).toInstant( ZoneOffset.UTC ).toEpochMilli(); 
-        } catch (java.lang.NumberFormatException ex1) {
-        	Logger.error("Failed to parseToMillis: " + date+" with inputformat yyyy-MM-dd HH:mm:ss.SSS " +ex1);
-            return -1;
-        }
-    }
-    /**
-     * Get the current day of the week object
-     * @return Current day
-     */
-    public static DayOfWeek getCurrentWeekDay(){
-    	return LocalDateTime.now(ZoneOffset.UTC).getDayOfWeek();    
-    }
-    /**
-     * Convert the string representation of a time unit to the time unit object
-     * @param unit The string to convert
-     * @param def The time unit to return in case of failure
-     * @return The resulting time unit
-     */
-    public static TimeUnit getTimeUnit( String unit, TimeUnit def ){
-    	if( unit.isBlank())
-    		return def;
-    	return getTimeUnit(unit);
-    }
-    /**
-     * Tries to convert the string representation of a time unit to the actual time unit
-     * @param unit The string to convert
-     * @return The resulting time unit
-     */
-    public static TimeUnit getTimeUnit( String unit ){
-    	switch( unit ){
-    		case "millis":case "milli": return TimeUnit.MILLISECONDS;
-    		case "seconds": case "sec": case "s":   return TimeUnit.SECONDS;
-    		case "minutes": case "min": case "m":   return TimeUnit.MINUTES;
-    		case "hour": case "h": return TimeUnit.HOURS;
-    		default: return TimeUnit.DAYS;
-    	}
-    }
-    /**
-     * Convert a certain amount of time units to the same amount of seconds
-     * @param time The amount to convert
-     * @param unit THe time unit of which 'time' is
-     * @return The same amount of seconds
-     */
-    public static long convertPeriodtoSeconds( long time, TimeUnit unit ){
-    	switch( unit ){
-			case DAYS: return time*3600*24;
-            case HOURS: return time * 3600;
-            case MINUTES: return time*60;
-            case SECONDS: return time; 
-            case MILLISECONDS: return time/1000;
-			case MICROSECONDS: return time/1000000;			
-			default: return -1;
-    	}
-    }
-    public static long convertPeriodtoMillis( long time, TimeUnit unit ){
-        switch( unit ){
-            case DAYS: return time * 3600 * 24 * 1000;
-            case HOURS: return time * 3600 * 1000;
-            case MINUTES: return time * 60 * 1000;
-            case SECONDS: return time * 1000;
-            case MILLISECONDS: return time;
-            case MICROSECONDS: return time/1000;
-            default: return -1;
-        }
-    }
-    /**
-     * Parses a period formatted for a Task to a Duration
-     * 
-     * @param period The string to format
-     * @return The duration of the string or a zero duration if something went wrong
-     */
-    public static Duration parseTaskPeriodToDuration( String period ){
 
-        Duration duration = Duration.ofSeconds(0);
-
-        period = period.toUpperCase().replace("SEC", "S").replace("MIN", "M");
-
-        int h = period.indexOf("H");
-    	int m = period.indexOf("M");
-        int s = period.indexOf("S");
-        int ms = period.indexOf("MS");
-        
-        try {
-	    	if( h != -1 ){ 
-                duration = duration.plusHours( Integer.parseInt( period.substring(0, h) ) );	    		
-	    		h+=1;
-	    	}else{
-	    		h=0;
-	    	}
-	    	if( m !=- 1 && m != ms){
-                duration = duration.plusMinutes( Integer.parseInt(period.substring(h, m) ) );	    
-	    		m+=1;
-	    	}else{
-	    		m=h;
-	    	}
-	    	if( s!= -1 && s!=ms+1){
-                duration = duration.plusSeconds( Integer.parseInt( period.substring(m, s) ) );	    	
-            }else{
-                s=m;
-            }    
-            if( ms!= -1){               
-                duration = duration.plusMillis( Integer.parseInt( period.substring(s, ms) ) );                            
-            }
-            return duration;	
-	    }catch( java.lang.ArrayIndexOutOfBoundsException e) {
-			Logger.error("Error parsing period to seconds:"+period);
-        }
-        return Duration.ZERO;
-    }
     /**
      * Parses the given time period to the equivalent amount of TimeUnits
      * @param period The period that needs to be parsed
@@ -398,7 +238,7 @@ public class TimeTools {
 	    		total += Tools.parseInt(period.substring(h, m), 0);
 	    		m+=1;// increment the index to skip te letter
 	    	}else{
-	    		m=h; // no M found so last was h (eg. 1h10s)
+	    		m=h; // no M found so last was h (e.g. 1h10s)
 	    	}
             total *= 60L; // Go from minutes to seconds
 	    	if( s!= -1 && s!=ms+1){ // If S for second found but not as part of ms
@@ -415,7 +255,7 @@ public class TimeTools {
                     total = total*1000+millis;
                 }                              
             }else if( unit == TimeUnit.MILLISECONDS ){
-                // No ms in the string, so multiple the earlier summed seconds
+                // No ms in the string, so multiply the earlier summed seconds
                 return total*1000;
             }
 	    }catch( java.lang.ArrayIndexOutOfBoundsException e) {
@@ -425,32 +265,6 @@ public class TimeTools {
     	return total;
     }
 
-    public static Pair<Long,TimeUnit> inShortestTimeUnit( Pair<Long,TimeUnit> first, Pair<Long,TimeUnit> sec ){
-        if( first.getValue().compareTo( sec.getValue()) > 0) {
-            first = increasePeriodTimeUnit(first, sec.getValue());
-        }
-        return first;
-    }
-    public static Pair<Long,TimeUnit> increasePeriodTimeUnit( Pair<Long,TimeUnit> from, TimeUnit to){
-        return increasePeriodTimeUnit( from.getKey(), from.getValue(), to);
-    } 
-    public static Pair<Long,TimeUnit> increasePeriodTimeUnit( long value, TimeUnit from, TimeUnit to){
-        switch( from ){
-            case DAYS: value *= 24*60*60*1000; break;
-            case HOURS: value *= 60*60*1000; break;
-            case MINUTES:value *= 60*1000; break;
-            case SECONDS: value *= 1000; break;   
-            case MILLISECONDS:  value *= 1; break;
-            default:  break;      
-        }
-         switch( to ){
-            case HOURS: value /= 60*60*1000; break;
-            case MINUTES:value /= 60*1000; break;
-            case SECONDS: value /= 1000; break;  
-            default:  break;   
-         }
-         return Pair.of(value,to);
-    }
     public static Pair<Long,TimeUnit> parsePeriodString( String period ){
         
         period = period.toUpperCase();
@@ -574,11 +388,11 @@ public class TimeTools {
 		}
 		if( unit == TimeUnit.HOURS ){
             if( amount > 24*7 || amount%24==0){
-                return amount/24+" day"+(amount!=1?"s":"");
+                return amount/24+" days";
             }else if( amount > 24 ){
 				return amount/24+"d "+amount%24+"h";
 			}else if( amount > 12){
-				return amount+" hour"+(amount!=1?"s":"");
+				return amount+" hours";
 			}else{
                 return amount+" h "+min+"m";
             }
@@ -586,20 +400,6 @@ public class TimeTools {
 		return amount+"h";
     }
     /* ********************** C A L C U L A T I O N S ****************************************** */
-    /**
-     * Calculates the seconds till a certain time in UTC
-     * @param time The time in standard format
-     * @return Amount of seconds till the given time
-     */
-    public static long calcSecondsTo( String time ){
-        OffsetTime now = OffsetTime.now(ZoneOffset.UTC);
-        OffsetTime then = LocalTime.parse(time, DateTimeFormatter.ofPattern("HH:mm:ss")).atOffset(ZoneOffset.UTC);
-        if( now.isBefore(then) ){
-            return Duration.between(now,then).toSeconds();
-        }else{
-            return Duration.between(then,now).toSeconds()+86400;
-        }
-    }   
     /**
      * Calculates the seconds to midnight in UTC
      * @return Seconds till midnight in UTC
@@ -615,7 +415,7 @@ public class TimeTools {
      * @param init True only does the reset, for the initial timestamp (so the one to use now, not when to rollover)
      * @param rolloverTimestamp The timestamp to update
      * @param rollCount the amount of units to apply
-     * @param rollUnit the unit to apply (MINUTES, HOURS, DAYS, WEEKS, MONTHS, YEARS) (TimeUnit doesn't contains weeks...)
+     * @param rollUnit the unit to apply (MINUTES, HOURS, DAYS, WEEKS, MONTHS, YEARS) (TimeUnit doesn't contain weeks...)
      */
     public static LocalDateTime applyTimestampRollover(boolean init, LocalDateTime rolloverTimestamp, int rollCount, RolloverUnit rollUnit){
         Logger.debug(" -> Original date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
@@ -667,14 +467,15 @@ public class TimeTools {
     public static RolloverUnit convertToRolloverUnit( String unit ){
         RolloverUnit rollUnit=RolloverUnit.NONE;
         unit=unit.replace("s","");
-        switch(unit){
-            case "minute":case "min": rollUnit=RolloverUnit.MINUTES; break;
-            case "hour": rollUnit=RolloverUnit.HOURS; break;
-            case "day": rollUnit=RolloverUnit.DAYS; break;
-            case "week": rollUnit=RolloverUnit.WEEKS; break;
-            case "month": rollUnit=RolloverUnit.MONTHS; break;
-            case "year": rollUnit=RolloverUnit.YEARS; break;
-        }
+        rollUnit = switch (unit) {
+            case "minute", "min" -> RolloverUnit.MINUTES;
+            case "hour" -> RolloverUnit.HOURS;
+            case "day" -> RolloverUnit.DAYS;
+            case "week" -> RolloverUnit.WEEKS;
+            case "month" -> RolloverUnit.MONTHS;
+            case "year" -> RolloverUnit.YEARS;
+            default -> rollUnit;
+        };
         if( rollUnit==RolloverUnit.NONE)
             Logger.error("Invalid unit given "+unit);
         return rollUnit;
