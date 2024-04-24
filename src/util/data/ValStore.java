@@ -3,6 +3,7 @@ package util.data;
 import io.forward.AbstractForward;
 import org.tinylog.Logger;
 import util.math.MathUtils;
+import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import java.math.BigDecimal;
 import java.util.*;
@@ -92,13 +93,15 @@ public class ValStore {
         rtvals.clear();
         calVal.clear();
 
-        String groupID = XMLtools.getStringAttribute(store,"group",id);
-        delimiter( XMLtools.getStringAttribute(store,"delimiter",delimiter())); // delimiter
-        setIdleReset( XMLtools.getBooleanAttribute(store,"idlereset",false));
+        var dig = XMLdigger.goIn(store);
+
+        var groupID = dig.attr("group",id);
+        delimiter( dig.attr("delimiter",delimiter()) );
+        setIdleReset( dig.attr("idlereset",false) );
 
         // Checking for database connection
         if ( store.hasAttribute("db")) {
-            var db = store.getAttribute("db").split(":");
+            var db = dig.attr("db","").split(":");
             if( db.length==2 ) {
                 db(db[0],db[1]);
             }else{
@@ -110,11 +113,10 @@ public class ValStore {
             dbtable="";
         }
 
-        var vals = XMLtools.getChildElements(store);
-
         // Map
-        mapFlag(XMLtools.getBooleanAttribute(store,"map",false));
+        mapFlag( dig.attr("map",false) );
         if(mapped()) { // key based
+            var vals = dig.currentSubs();
             for (var val : vals) {
                 var key = XMLtools.getStringAttribute(val, "key","");
                 switch (val.getTagName()) {
@@ -134,42 +136,40 @@ public class ValStore {
             ArrayList<AbstractVal> rtvals = new ArrayList<>();
             calOps.clear();
 
-            for (var val : vals) {
-                String o = XMLtools.getStringAttribute(val, "o", "");
+            for (var val : dig.digOut("*")) {
+                String o = val.attr( "o","");
                 if( !o.isEmpty()) { // Skip o's
                     calOps.add(o);
-                    switch (val.getTagName()) {
-                        case "real" -> RealVal.build(val, groupID).ifPresent(calVal::add);
-                        case "int", "integer" -> IntegerVal.build(val, groupID).ifPresent(calVal::add);
+                    switch (val.tagName("")) {
+                        case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(calVal::add);
+                        case "int", "integer" -> IntegerVal.build(val.currentTrusted(), groupID).ifPresent(calVal::add);
                         default -> Logger.error("Can't do calculation on any other than real and int for now");
                     }
                     continue;
                 }
 
                 // Find the index wanted
-                int i = XMLtools.getIntAttribute(val, "index", -1);
+                int i = val.attr("index",-1);
                 if( i == -1 )
-                    i = XMLtools.getIntAttribute(val, "i", -1);
+                    i = val.attr("i",-1);
                 if (i != -1) {
                     while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
                         rtvals.add(null);
                 }
 
                 if( i==-1){
-                    var grid = val.getAttribute("group");
-                    if(grid.isEmpty())
-                        grid=groupID;
-                    Logger.error("No valid index given for "+grid+"_"+val.getTextContent());
+                    var grid = val.attr("group",groupID);
+                    Logger.error("No valid index given for "+grid+"_"+val.value(""));
                     valid=false;
                     return false;
                 }
                 final int pos=i; // need a final to use in lambda's
-                switch (val.getTagName()) {
-                    case "real" -> RealVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
-                    case "int","integer" -> IntegerVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
-                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
+                switch (val.tagName("")) {
+                    case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
+                    case "int","integer" -> IntegerVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
+                    case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
                     case "ignore" -> rtvals.add(null);
-                    case "text" -> TextVal.build(val, groupID).ifPresent(x->rtvals.set(pos,x));
+                    case "text" -> TextVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
                     case "macro" -> {
                         Logger.warn("Val of type macro ignored");
                         rtvals.add(null);
@@ -178,7 +178,7 @@ public class ValStore {
                     }
                 }
                 if (rtvals.get(pos)==null) {
-                    Logger.error("Failed to create an AbstractVal for " + groupID+" of type "+val.getTagName());
+                    Logger.error("Failed to create an AbstractVal for " + groupID+" of type "+val.tagName(""));
                     return false;
                 }
             }
