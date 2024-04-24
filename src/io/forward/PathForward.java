@@ -151,18 +151,21 @@ public class PathForward {
         }
         return "";
     }
+
     private boolean processIt( ArrayList<Element> steps, String delimiter, FilterForward lastff ){
         boolean reqData=false;
         boolean leftover=false;
         int prefIF=-1;
 
         for( Element step : steps ){
+            var dig = XMLdigger.goIn(step);
             if(step.getTagName().endsWith("src")){
-                readCustomSources(step);
+                maxBufferSize = dig.attr("buffer",2500);
+                customs.add( new CustomSrc(step));
                 continue;
             }
             // If this step doesn't have a delimiter, alter it
-            if( !step.hasAttribute("delimiter")&& !delimiter.isEmpty())
+            if( !step.hasAttribute("delimiter") && !delimiter.isEmpty())
                 step.setAttribute("delimiter",delimiter);
             // If this step doesn't have an id, alter it
             if( !step.hasAttribute("id"))
@@ -172,7 +175,7 @@ public class PathForward {
                 case "if" -> {
                     FilterForward ff = new FilterForward( step, dQueue);
                     applySrc(lastff,ff,leftover,prefIF);
-                    var subs = new ArrayList<>(XMLtools.getChildElements(step));
+                    var subs = new ArrayList<>(dig.currentSubs());
                     stepsForward.add(ff);
                     if( prefIF==-1)
                         prefIF=stepsForward.size()-1;
@@ -426,10 +429,7 @@ public class PathForward {
         customs.forEach(CustomSrc::stop);
         customs.clear();
     }
-    public void readCustomSources( Element csrc ){
-        maxBufferSize = XMLtools.getIntAttribute(csrc,"buffer",2500);
-        customs.add( new CustomSrc(csrc));
-    }
+
     private class CustomSrc{
         String pathOrData;
         String path;
@@ -454,12 +454,11 @@ public class PathForward {
         }
         public void readFromElement( Element sub ){
 
+            var dig = XMLdigger.goIn(sub);
             var data = sub.getTextContent();
 
-            var interval = XMLtools.getStringAttribute(sub,"interval","1s");
-            intervalMillis = TimeTools.parsePeriodStringToMillis(interval);
-            var delay = XMLtools.getStringAttribute(sub,"delay","10ms");
-            delayMillis = TimeTools.parsePeriodStringToMillis(delay);
+            intervalMillis = TimeTools.parsePeriodStringToMillis( dig.attr("interval","1s") );
+            delayMillis = TimeTools.parsePeriodStringToMillis( dig.attr("delay","10ms") );
 
             switch (sub.getTagName().replace("src","")) {
                 case "rtvals" -> {
@@ -476,7 +475,7 @@ public class PathForward {
                 }
                 case "file","files" ->  {
                     srcType = SRCTYPE.FILE;
-                    skipLines = XMLtools.getChildIntValueByTag(sub,"skip",0);
+                    skipLines = dig.attr("skip",0);
                     lineCount=skipLines+1; // We'll skip these lines
                     files = new ArrayList<>();
                     var p = Path.of(data);
@@ -495,7 +494,7 @@ public class PathForward {
                         files.add(p);
                     }
                     buffer = new ArrayList<>();
-                    multiLine = XMLtools.getIntAttribute(sub,"multiline",1);
+                    multiLine = dig.attr("multiline",1);
                 }
                 case "sqlite" -> {
                     path = data;

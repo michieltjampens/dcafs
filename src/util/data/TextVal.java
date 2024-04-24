@@ -75,13 +75,12 @@ public class TextVal extends AbstractVal{
      */
     public TextVal reload(Element rtval){
         reset();
-        name(name).group(XMLtools.getChildStringValueByTag(rtval, "group", group()));
-        defValue(XMLtools.getStringAttribute(rtval, "def", def));
-        defValue(XMLtools.getStringAttribute(rtval, "default", def));
+        var dig = XMLdigger.goIn(rtval);
+        name(name).group( dig.attr("group", group()));
+        defValue( dig.attr( "def", def) );
+        defValue( dig.attr( "default", def) );
 
-
-
-        String options = XMLtools.getStringAttribute(rtval, "options", "");
+        String options = dig.attr( "options", "");
         for (var opt : options.split(",")) {
             var arg = opt.split(":");
             switch (arg[0]) {
@@ -90,34 +89,38 @@ public class TextVal extends AbstractVal{
                 case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
             }
         }
-        for (Element trigCmd : XMLtools.getChildElements(rtval, "cmd")) {
-            String trig = trigCmd.getAttribute("when");
-            String cmd = trigCmd.getTextContent();
-            addTriggeredCmd(trig, cmd);
-        }
-        for (Element parse : XMLtools.getChildElements(rtval, "parser")) {
-            var key = parse.getAttribute("key");
-            if (key.isEmpty()) {
-                key = parse.getAttribute("regex");
-                if (key.isEmpty()) {
-                    Logger.error("Parser node without key/regex in " + id());
-                    continue;
-                } else {
-                    regex = true;
+        for (var sub : dig.digOut( "*")) {
+            switch( sub.tagName("") ){
+                case "cmd" -> {
+                    String trig = sub.attr("when","");
+                    String cmd = sub.value("");
+                    addTriggeredCmd(trig, cmd);
                 }
+                case "parser" -> {
+                    var key = sub.attr("key","");
+                    if (key.isEmpty()) {
+                        key = sub.attr("regex","");
+                        if (key.isEmpty()) {
+                            Logger.error("Parser node without key/regex in " + id());
+                            continue;
+                        } else {
+                            regex = true;
+                        }
+                    }
+                    parser.put(key, sub.value(""));
+                }
+                case "keep" -> {
+                    if( sub.hasAttr("regex")) {
+                        keepOrignal = sub.attr("regex","");
+                    }else{
+                        keepOrignal = sub.value("");
+                        if( keepOrignal.isEmpty())
+                            keepOrignal=".*";
+                    }
+                }
+                default -> Logger.error("Unrecognized node in "+id()+" xml");
             }
-            parser.put(key, parse.getTextContent());
         }
-        var keepOpt = XMLtools.getFirstChildByTag(rtval,"keep");
-        keepOpt.ifPresent( keep -> {
-            if( keep.hasAttribute("regex")) {
-                keepOrignal = keep.getAttribute("regex");
-            }else{
-                keepOrignal = keep.getTextContent();
-                if( keepOrignal.isEmpty())
-                    keepOrignal=".*";
-            }
-        });
         return this;
     }
 

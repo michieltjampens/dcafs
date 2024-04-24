@@ -52,24 +52,25 @@ public class I2CWorker implements Commandable,I2COpFinished {
         devices.clear(); // Remove any existing ones
 
         int cnt=0;
-        var i2cOpt = XMLtools.getFirstElementByTag( settingsPath, "i2c");
-        if( i2cOpt.isPresent() ){
+        var dig = XMLdigger.goIn(settingsPath,"dcafs","i2c");
+
+        if( dig.isValid() ){
             Logger.info("Found settings for a I2C bus");
             devices.values().forEach(I2CDevice::close);
             devices.clear();
-            for( Element i2c_bus : XMLtools.getChildElements( i2cOpt.get(), "bus") ){
-                int bus = XMLtools.getIntAttribute(i2c_bus, "controller", -1);
+            for( var i2c_bus : dig.digOut("bus") ){
+                int bus = i2c_bus.attr("controller", -1);
                 Logger.info("Reading devices on the I2C bus of controller "+bus);
                 if( bus ==-1 ){
                     Logger.error("Invalid controller number given.");
                     continue;
                 }
-                for( Element device : XMLtools.getChildElements( i2c_bus, "device")){
+                for( var device : i2c_bus.digOut("device")){
                     cnt++;
-                    String id = XMLtools.getStringAttribute( device, "id", "").toLowerCase();
-                    String script = XMLtools.getStringAttribute( device, "script", "").toLowerCase();
+                    String id = device.attr("id", "").toLowerCase();
+                    String script = device.attr("script", "").toLowerCase();
 
-                    int address = Tools.parseInt( XMLtools.getStringAttribute( device , "address", "0x00" ),16);
+                    int address = Tools.parseInt( device.attr( "address", "0x00" ),16);
                     var devopt = addDevice( id, script, bus, address );
                     if( devopt.isPresent() ){
                         // Load the op set
