@@ -4,8 +4,8 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 
 import java.sql.*;
 import java.time.Instant;
@@ -542,43 +542,47 @@ public class SQLDB extends Database implements TableInsert{
         if( dbe == null )
             return null;                
 
-        var dbTagOpt = XMLtools.getFirstChildByTag(dbe, "db");
-
-        if( dbTagOpt.isEmpty() )
+        var dbDig = XMLdigger.goIn(dbe);
+        if( !dbDig.hasPeek("db") || !dbDig.hasPeek("address") )
             return null;
 
-        var dbTag = dbTagOpt.get();
-        String user = XMLtools.getStringAttribute(dbTag, "user", "");           // A username with writing rights
-        String pass =  XMLtools.getStringAttribute(dbTag, "pass", "");          // The password for the earlier defined username
-        String dbname = dbTag.getTextContent();				                                // The name of the database
-        String address = XMLtools.getChildStringValueByTag( dbe, "address", "");			// Set the address of the server on which the DB runs (either hostname or IP)
+        dbDig.digDown("db");
+        var dbName = dbDig.value("");                         // The name of the database
+        String user = dbDig.attr("user", "");            // A username with writing rights
+        String pass =  dbDig.attr( "pass", "");          // The password for the earlier defined username
+        dbDig.goUp();
+
+        var address = dbDig.peekAt("address").value("");			// Set the address of the server on which the DB runs (either hostname or IP)
 
         SQLDB db;
-        String type = dbe.getAttribute("type");								    	// Set the database type:mssql,mysql or mariadb
-        switch (type.toLowerCase()) {
-            case "mssql" -> db = SQLDB.asMSSQL(address, dbname, user, pass);
-            case "mysql" -> db = SQLDB.asMYSQL(address, dbname, user, pass);
-            case "mariadb" -> db = SQLDB.asMARIADB(address, dbname, user, pass);
-            case "postgresql" -> db = SQLDB.asPOSTGRESQL(address, dbname, user, pass);
+        var type = dbDig.attr("type","").toLowerCase();
+        switch (type) { // Set the database type:mssql,mysql or mariadb
+            case "mssql" -> db = SQLDB.asMSSQL(address, dbName, user, pass);
+            case "mysql" -> db = SQLDB.asMYSQL(address, dbName, user, pass);
+            case "mariadb" -> db = SQLDB.asMARIADB(address, dbName, user, pass);
+            case "postgresql" -> db = SQLDB.asPOSTGRESQL(address, dbName, user, pass);
             default -> {
                 Logger.error("Invalid database type: " + type);
                 return null;
             }
         }
 
-        db.id = dbe.getAttribute("id");
+        db.id = dbDig.attr("id","");
 
         /* Setup */
-        XMLtools.getFirstChildByTag(dbe, "flush").ifPresent(db::readFlushSetup);
+        if( dbDig.hasPeek("flush")){
+            db.readFlushSetup( dbDig.currentTrusted() );
+        }
         // How many seconds before the connection is considered idle (and closed)
-        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds(XMLtools.getChildStringValueByTag(dbe,"idleclose","5m"));
+        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds( dbDig.peekAt("idleclose").value("5m") );
 
         /* Tables */
-        XMLtools.getChildElements(dbe,"table").forEach(x -> SqlTable.readFromXml(x).ifPresent(table ->
-        {
-            table.toggleServer();
-            db.tables.put(table.name,table);
-        }));
+        for( var table : dbDig.peekOut("table")){
+            SqlTable.readFromXml(table).ifPresent( t -> {
+                t.toggleServer();
+                db.tables.put(t.name,t);
+            });
+        }
 
         db.getCurrentTables(false);
         db.lastError = db.createContent(true);

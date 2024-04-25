@@ -5,13 +5,12 @@ import io.telnet.TelnetCodes;
 import util.data.RealVal;
 import io.Writable;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.gis.Waypoint.Travel;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;
@@ -78,7 +77,7 @@ public class Waypoints implements Commandable {
     public Collection<Waypoint> items(){
         return wps.values();
     }
-    public boolean readFromXML(RealtimeValues rtvals){
+    public boolean readFromXML( RealtimeValues rtvals ){
         return readFromXML(rtvals,true);
     }
     public boolean readFromXML( RealtimeValues rtvals, boolean clear ){
@@ -91,23 +90,16 @@ public class Waypoints implements Commandable {
             wps.clear();
         }
         // Get the waypoints node
-        var xmlOpt = XMLtools.readXML(settingsPath);
-        if( xmlOpt.isEmpty()) {
-            Logger.error( "No valid settings.xml for waypoints");
-            return false;
-        }
-        var wptsOpt = XMLtools.getFirstElementByTag( xmlOpt.get(), XML_TAG);
+        var dig = XMLdigger.goIn(settingsPath,"dcafs","waypoints");
 
-        if( wptsOpt.isEmpty() ) // If no node, quit
+        if( dig.isInvalid() ) // If no node, quit
             return false;
-
-        var wpts = wptsOpt.get();
 
         if( rtvals!=null) { // if RealtimeValues exist
             Logger.info("Looking for lat, lon, sog");
-            var latOpt = rtvals.getRealVal( XMLtools.getStringAttribute(wpts, "latval", "") );
-            var longOpt = rtvals.getRealVal( XMLtools.getStringAttribute(wpts, "lonval", "") );
-            var sogOpt = rtvals.getRealVal( XMLtools.getStringAttribute(wpts, "sogval", "") );
+            var latOpt = rtvals.getRealVal( dig.attr("latval","") );
+            var longOpt = rtvals.getRealVal( dig.attr("lonval","") );
+            var sogOpt = rtvals.getRealVal( dig.attr("sogval","") );
 
             if( latOpt.isEmpty() || longOpt.isEmpty() || sogOpt.isEmpty() ){
                 Logger.error( "No corresponding lat/lon/sog realVals found for waypoints");
@@ -123,12 +115,12 @@ public class Waypoints implements Commandable {
         }
 
         Logger.info("Reading Waypoints");
-        for( Element el : XMLtools.getChildElements(wpts, XML_CHILD_TAG)){ // Get the individual waypoints
-        	if( el != null ){ // Check if it's valid
-        		String id = XMLtools.getStringAttribute(el,"id",""); // Get the id
-        	    double lat = GisTools.convertStringToDegrees(el.getAttribute("lat")); // Get the latitude
-        		double lon = GisTools.convertStringToDegrees(el.getAttribute("lon")); // Get the longitude
-                double range = Tools.parseDouble( el.getAttribute("range"), -999); // Range that determines inside or outside
+        for( var wpDig : dig.digOut("waypoint")){ // Get the individual waypoints
+
+        		String id = wpDig.attr("id",""); // Get the id
+        	    double lat = GisTools.convertStringToDegrees(wpDig.attr("lat","")); // Get the latitude
+        		double lon = GisTools.convertStringToDegrees(wpDig.attr("lon","")); // Get the longitude
+                double range = wpDig.attr("range", -999.0); // Range that determines inside or outside
 
                 if( id.isEmpty()){
                     Logger.error("Waypoint without id not allowed, check settings.xml!");
@@ -139,25 +131,20 @@ public class Waypoints implements Commandable {
 
                 Logger.debug("Checking for travel...");
 
-                for( Element travelEle : XMLtools.getChildElements(el,XML_TRAVEL)){
-                    if( travelEle != null ){ // Only try processing if valid
-                        String idTravel = XMLtools.getStringAttribute(travelEle,"id",""); // The id of the travel
-                        String dir = XMLtools.getStringAttribute(travelEle,"dir",""); // The direction (going in, going out)
-                        String bearing = XMLtools.getStringAttribute(travelEle,"bearing","0 -> 360");// Which bearing used
+                for( var travelDig : wpDig.digOut("travel")){
+                    String idTravel = travelDig.attr("id",""); // The id of the travel
+                    String dir = travelDig.attr("dir",""); // The direction (going in, going out)
+                    String bearing = travelDig.attr("bearing","0 -> 360");// Which bearing used
 
-                        wp.addTravel(idTravel,dir,bearing).ifPresent( // meaning travel parsed fin
-                                    t -> {
-                                        for (var cmd : XMLtools.getChildElements(travelEle, "cmd")) {
-                                            t.addCmd(cmd.getTextContent());
-                                        }
-                                    }
-                                );
-                    }
+                    wp.addTravel(idTravel,dir,bearing).ifPresent( // meaning travel parsed fine
+                            t -> {
+                                for (var cmd : travelDig.digDown("cmd").currentSubs()) {
+                                    t.addCmd(cmd.getTextContent());
+                                }
+                            }
+                    );
                 }
                 addWaypoint( id, wp );// Add it
-        	}else{
-                Logger.error( "Invalid waypoint in the node");
-            }
         }
         return true;
     }
@@ -171,8 +158,7 @@ public class Waypoints implements Commandable {
             Logger.error("XML not defined yet.");
             return false;
         }
-        var fab = XMLfab.withRoot(settingsPath,"dcafs","settings");
-        fab.digRoot(XML_TAG);
+        var fab = XMLfab.withRoot(settingsPath,"dcafs","waypoints");
         fab.clearChildren();
 
         int cnt=0;

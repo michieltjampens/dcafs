@@ -9,7 +9,6 @@ import util.taskblocks.CheckBlock;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 
 import java.nio.file.Path;
 import java.time.DayOfWeek;
@@ -101,17 +100,17 @@ public class Task implements Comparable<Task>{
 		when  = dig.attr("state","always"); //The state that determines if it's done or not
 
 		if( tsk.getTagName().equalsIgnoreCase("while")||tsk.getTagName().equalsIgnoreCase("waitfor")){
-			Pair<Long,TimeUnit> period = TimeTools.parsePeriodString(XMLtools.getStringAttribute(tsk,"interval",""));
+			Pair<Long,TimeUnit> period = TimeTools.parsePeriodString(dig.attr("interval",""));
 			interval = period.getKey();
 			unit = period.getValue();
-			runs = XMLtools.getIntAttribute(tsk,"checks",1);
+			runs = dig.attr("checks",1);
 
 			switch (tsk.getTagName()) {
 				//case "retry": triggerType =TRIGGERTYPE.RETRY; break;
 				case "while" -> triggerType = TRIGGERTYPE.WHILE;
 				case "waitfor" -> triggerType = TRIGGERTYPE.WAITFOR;
 			}
-			var check = XMLtools.getStringAttribute(tsk,"check","");
+			var check = dig.attr("check","");
 			if( check.isEmpty() )
 				check = tsk.getTextContent();
 			if( !check.isEmpty() ){
@@ -219,7 +218,7 @@ public class Task implements Comparable<Task>{
 			}
 			/* Actions to take depending on the kind of output, meaning elements that are only present for certain outputs */
 			if( out == OUTPUT.EMAIL)
-				attachment = XMLtools.getStringAttribute( tsk, "attachment", "");
+				attachment = dig.attr( "attachment", "");
 
 			/* Link related items */
 			if(!link.isBlank()) { // If link is actually mentioned

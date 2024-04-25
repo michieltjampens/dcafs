@@ -8,7 +8,6 @@ import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.math.BigDecimal;
@@ -97,14 +96,16 @@ public class IntegerVal extends AbstractVal implements NumericVal{
                 case "abs" -> enableAbs();
             }
         }
-        for (Element trigCmd : XMLtools.getChildElements(rtval, "cmd")) {
+        if( dig.hasPeek("op")){
+            setParseOp( dig.peekAt("op").value("") );
+        }
+
+        for (Element trigCmd : dig.peekOut("cmd") ) {
             String trig = trigCmd.getAttribute("when");
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         }
-        String op = XMLtools.getChildStringValueByTag(rtval,"op","");
-        if( !op.isEmpty())
-            setParseOp(op);
+
         return this;
     }
     public void setParseOp( String op ){

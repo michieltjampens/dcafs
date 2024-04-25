@@ -8,7 +8,6 @@ import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.io.IOException;
@@ -106,29 +105,31 @@ public class FileCollector extends AbstractCollector{
             return fcs;
         }
         for( Element fcEle : fcEles ) {
-            String id = XMLtools.getStringAttribute(fcEle, "id", "");
+            var dig = XMLdigger.goIn(fcEle);
+            String id = dig.attr("id", "");
             if( id.isEmpty() )
                 continue;
             var fc = new FileCollector(id,dQueue);
             fc.setScheduler(scheduler);
-            fc.readFromXML(fcEle,workpath);
+            fc.readFromXML(dig,workpath);
             fcs.add(fc);
         }
         return fcs;
     }
-    public void readFromXML( Element fcEle, String workpath ){
+    public void readFromXML( XMLdigger dig, String workpath ){
 
-        var dig = XMLdigger.goIn(fcEle);
         /* Flush settings */
-        dig.peekAndUse("flush").ifPresent( flush -> {
-            setBatchsize( XMLtools.getIntAttribute(flush,"batchsize",Integer.MAX_VALUE));
+        if(  dig.hasPeek("flush") ){
+            dig.usePeek();
+            setBatchsize( dig.attr("batchsize",Integer.MAX_VALUE));
             if( scheduler != null ) {
-                String timeout = XMLtools.getStringAttribute(flush, "age", "-1");
+                String timeout = dig.attr( "age", "-1");
                 if (!timeout.equalsIgnoreCase("-1")) {
                     setTimeOut(timeout, scheduler);
                 }
             }
-        });
+            dig.goUp();
+        }
 
         /* Source and destination */
         addSource( dig.attr("src",""));
@@ -171,13 +172,15 @@ public class FileCollector extends AbstractCollector{
             if( !size.isEmpty())
                 setMaxFileSize(size.toLowerCase(),zip);
         }
-        /* Triggered */
-        dig.peekOut("cmd").forEach( cmd -> {
-            addTriggerCommand(XMLtools.getStringAttribute(cmd,"trigger","none").toLowerCase(),cmd.getTextContent());
-        });
+
 
         /* Changing defaults */
         setLineSeparator( Tools.fromEscapedStringToBytes( dig.attr("eol",System.lineSeparator())) );
+
+        /* Triggered */
+        dig.digOut("cmd").forEach( cmd -> {
+            addTriggerCommand(cmd.attr("trigger","none").toLowerCase(),cmd.value(""));
+        });
 
         /* Headers change ?*/
         if( Files.exists(getPath()) ) {

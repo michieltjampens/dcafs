@@ -3,8 +3,7 @@ package io.hardware.gpio;
 import com.diozero.api.*;
 import com.diozero.api.function.DeviceEventConsumer;
 import org.tinylog.Logger;
-import util.xml.XMLfab;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.nio.file.Path;
@@ -26,21 +25,22 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent> {
         readFromXml();
     }
     public void readFromXml(){
-        var fab = XMLfab.withRoot(settings,"dcafs","gpio");
-        fab.getChildren("interrupt").forEach( isr ->
-        {
-            String edge = XMLtools.getStringAttribute(isr,"edge","falling");
-            int pin = XMLtools.getIntAttribute(isr,"pin",-1);
-            Optional<InterruptCmd> ic = switch (edge) {
-                case "falling" -> addFalling(pin);
-                case "rising" -> addRising(pin);
-                case "both" -> addBoth(pin);
-                default -> Optional.empty();
-            };
-            ic.ifPresent(interruptCmd -> XMLtools.getChildElements(isr, "cmd").forEach(
-                    cmd -> interruptCmd.addCmd(cmd.getTextContent())
-            ));
-        });
+        var dig = XMLdigger.goIn(settings,"dcafs","gpio");
+        if( dig.isValid() ){
+            for( var isr: dig.digOut("interrupt")){
+                int pin = isr.attr("pin",-1);
+                Optional<InterruptCmd> ic = switch ( isr.attr("edge","falling") ) {
+                    case "falling" -> addFalling(pin);
+                    case "rising" -> addRising(pin);
+                    case "both" -> addBoth(pin);
+                    default -> Optional.empty();
+                };
+                if( ic.isPresent() ){
+                    for( var cmd : isr.digOut("cmd"))
+                        ic.get().addCmd(cmd.value(""));
+                }
+            }
+        }
     }
     public Optional<InterruptCmd> addFalling(int pinNr ){
         return addPin(pinNr,GpioEventTrigger.FALLING);

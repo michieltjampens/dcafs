@@ -6,7 +6,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.Tools;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -104,8 +104,11 @@ public class ExtSpiDevice extends SpiDevice{
         byte nop=Byte.MIN_VALUE;
 
         public void readCommand( Element cmd ){
-            String regS = XMLtools.getStringAttribute( cmd , "reg", "" );
-            int read = XMLtools.getIntAttribute( cmd , "return", 0 );
+            var dig = XMLdigger.goIn(cmd);
+            if( dig.isInvalid())
+                return;
+            String regS = dig.attr( "reg", "" );
+            int read = dig.attr("return", 0 );
 
             byte regB=0x00;
             byte[] regSplit;

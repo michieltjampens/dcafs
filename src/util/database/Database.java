@@ -2,10 +2,9 @@ package util.database;
 
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.RealtimeValues;
 import util.tools.TimeTools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 
 import java.util.List;
 import java.util.Optional;
@@ -66,9 +65,9 @@ public abstract class Database{
      */
     protected void readFlushSetup(Element set){
         if( set != null ){
-            String age = XMLtools.getStringAttribute( set, "age", "30s");	    // How much time before data is flushed (if not reached batch size)
-            maxAge = TimeTools.parsePeriodStringToSeconds(age);
-            maxQueries = XMLtools.getIntAttribute( set, "batchsize", 30);		// Minimum amount of queries before a flush unless checks till flush is reached
+            var dig = XMLdigger.goIn(set);
+            maxAge = TimeTools.parsePeriodStringToSeconds( dig.attr("age", "30s") ); // How much time before data is flushed (if not reached batch size)
+            maxQueries = dig.attr("batchsize", 30);		 // Minimum amount of queries before a flush unless checks till flush is reached
             Logger.debug( id+" -> Flush:"+maxAge+"s maxQ:"+maxQueries);
         }else{
             Logger.debug( id+" -> No changes requested to default flush/idle values ");
