@@ -16,6 +16,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +31,7 @@ public class SQLiteDB extends SQLDB{
     private DateTimeFormatter format = null;
     private String oriFormat="";
     private ScheduledFuture<?> rollOverFuture;
-    private TimeTools.RolloverUnit rollUnit = TimeTools.RolloverUnit.NONE;
+    private ChronoUnit rollUnit = ChronoUnit.FOREVER;
     private int rollCount = 0;
 
     private LocalDateTime rolloverTimestamp;
@@ -62,7 +63,7 @@ public class SQLiteDB extends SQLDB{
     @Override
     public String toString(){
         String status = getPath() +" -> " +getRecordsCount()+"/"+maxQueries;
-        if( rollUnit!=TimeTools.RolloverUnit.NONE){
+        if( rollUnit != ChronoUnit.FOREVER){
             if( rollOverFuture==null ){
                 status += " -> No proper rollover determined...";
             }else {
@@ -286,14 +287,13 @@ public class SQLiteDB extends SQLDB{
 
         fab.selectOrAddChildAsParent("sqlite","id", id).attr("path",dbPath.toString());
         if( hasRollOver() )
-            fab.alterChild("rollover",oriFormat).attr("count",rollCount).attr("unit",rollUnit.toString().toLowerCase());
+            fab.alterChild("rollover",oriFormat).attr("period",rollCount+" "+rollUnit.toString().toLowerCase());
         fab.alterChild("flush").attr("age",flush).attr("batchsize",maxQueries)
            .alterChild("idleclose",idle)
            .build();
     }
 
     /* **************************************************************************************************/
-
     /**
      * Set the rollover for this sqlite
      * @param dateFormat The format part of the filename
@@ -301,9 +301,9 @@ public class SQLiteDB extends SQLDB{
      * @param unit The unit for the rollover, options: MIN,HOUR,DAY,WEEK,MONTH,YEAR
      * @return This database
      */
-    public SQLiteDB setRollOver( String dateFormat, int rollCount, TimeTools.RolloverUnit unit ){
+    public SQLiteDB setRollOver( String dateFormat, int rollCount, ChronoUnit unit ){
 
-        if(  unit == TimeTools.RolloverUnit.NONE || unit == null) {
+        if( unit == null) {
             Logger.warn(id+" -> Bad rollover given");
             return null;
         }
@@ -335,9 +335,7 @@ public class SQLiteDB extends SQLDB{
         }
         return this;
     }
-    public SQLiteDB setRollOver( String dateFormat, int rollCount, String unit ){
-        return setRollOver(dateFormat,rollCount, TimeTools.convertToRolloverUnit(unit));
-    }
+
     /**
      * Cancel the next rollover events
      */
@@ -410,7 +408,7 @@ public class SQLiteDB extends SQLDB{
      * @return True if it has rollover
      */
     public boolean hasRollOver(){
-        return rollUnit != TimeTools.RolloverUnit.NONE;
+        return rollUnit != ChronoUnit.FOREVER;
     }
     /**
      * After executing any queries still in the buffer: - closes the current

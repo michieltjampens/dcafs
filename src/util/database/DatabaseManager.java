@@ -371,7 +371,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             .add(green + "  dbm:id,fetch " + reg + "-> Read the tables from the database directly, not overwriting stored ones.")
                             .add(green + "  dbm:id,store,tableid " + reg + "-> Trigger a insert for the database and table given")
                             .add("").add(cyan + "Other" + reg)
-                            .add(green + "  dbm:id,addrollover,count,unit,pattern " + reg + "-> Add rollover to a SQLite database")
+                            .add(green + "  dbm:id,addrollover,period,pattern " + reg + "-> Add rollover with the given period to a SQLite database (period should be a single unit")
                             .add(green + "  dbm:id,coltypes,table"+reg+" -> Get a list of the columntypes in the table, only used internally")
                             .add(green + "  dbm:id,reload " + reg + "-> (Re)loads the database with the given id fe. after changing the xml")
                             .add(green + "  dbm:status " + reg + "-> Show the status of all managed database connections")
@@ -488,9 +488,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
                     }
                     case "addrollover" -> {
                         if (cmds.length < 5)
-                            return "! Not enough arguments, needs to be dbm:dbid,addrollover,count,unit,pattern";
+                            return "! Not enough arguments, needs to be dbm:dbid,addrollover,period,pattern";
                         if (db instanceof SQLiteDB) {
-                            var sql =  ((SQLiteDB) db).setRollOver(cmds[4], NumberUtils.createInteger(cmds[2]), cmds[3]);
+                            var rollCount = NumberUtils.toInt(cmds[2].replaceAll("\\D",""));
+                            var unit = TimeTools.parseToChronoUnit(cmds[2].replaceAll("[^a-z]",""));
+                            var sql =  ((SQLiteDB) db).setRollOver(cmds[4],rollCount, unit);
                             if( sql==null)
                                 return "! Bad arguments given, probably format?";
                             sql.writeToXml(XMLfab.withRoot(settingsPath, "dcafs", "databases"));

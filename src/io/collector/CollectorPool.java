@@ -128,7 +128,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
                             .add(green + "   fc:reload " + reg + " -> Reload the file collectors")
                             .add(green + "   fc:id,reload " + reg + " -> Reload the given file collector");
                     join.add(cyan + "Add optional parts" + reg)
-                            .add(green + "   fc:id,addrollover,count,unit,format,zip? " + reg + " -> Add rollover (unit options:min,hour,day,week,month,year")
+                            .add(green + "   fc:id,addrollover,period,format,zip? " + reg + " -> Add rollover (period unit options:min,hour,day,week,month,year")
                             .add(green + "   fc:id,addcmd,trigger:cmd " + reg + " -> Add a triggered command, triggers: maxsize,idle,rollover")
                             .add(green + "   fc:id,addheader,headerline " + reg + " -> Adds the header to the given fc")
                             .add(green + "   fc:id,addsizelimit,size,zip? " + reg + " -> Adds a limit of the given size with optional zipping");
@@ -178,8 +178,10 @@ public class CollectorPool implements Commandable, CollectorFuture {
             switch (cmds[1]) {
                 case "addrollover" -> {
                     if (cmds.length < 6)
-                        return "! Wrong amount of arguments -> fc:id,addrollover,count,unit,format,zip?";
-                    if (fco.setRollOver(cmds[4], NumberUtils.toInt(cmds[2]), TimeTools.convertToRolloverUnit(cmds[3]), Tools.parseBool(cmds[5], false))) {
+                        return "! Wrong amount of arguments -> fc:id,addrollover,period,format,zip?";
+                    var rollCount = NumberUtils.toInt(cmds[2].replaceAll("\\D",""));
+                    var unit = TimeTools.parseToChronoUnit( cmds[2].replaceAll("[^a-z]","") );
+                    if (fco.setRollOver(cmds[4], rollCount,unit, Tools.parseBool(cmds[5], false))) {
                         XMLfab.withRoot(settingsPath, "dcafs", "collectors")
                                 .selectOrAddChildAsParent("file", "id", id)
                                 .alterChild("rollover", cmds[4]).attr("count", cmds[2]).attr("unit", cmds[3]).attr("zip", cmds[5]).build();
@@ -247,7 +249,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
                             .getChild("file", "id", cmds[1]);
                     if (opt.isPresent()) {
                         fco.flushNow();
-                        fco.readFromXML(opt.get(), workPath.toString());
+                        fco.readFromXML(XMLdigger.goIn(opt.get()), workPath.toString());
                     }
                     return "Reloaded";
                 }

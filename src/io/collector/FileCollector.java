@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -42,7 +43,7 @@ public class FileCollector extends AbstractCollector{
     /* Variables related to the rollover */
     private DateTimeFormatter format = null;
     private ScheduledFuture<?> rollOverFuture;
-    private TimeTools.RolloverUnit rollUnit = TimeTools.RolloverUnit.NONE;
+    private ChronoUnit rollUnit = ChronoUnit.FOREVER;
     private int rollCount = 0;
     private LocalDateTime rolloverTimestamp;
     private boolean zippedRoll=false;
@@ -150,12 +151,14 @@ public class FileCollector extends AbstractCollector{
 
         /* RollOver */
         if( dig.hasPeek("rollover")){
-            int rollCount = dig.attr("count", 1);
-            String unit = dig.attr("unit", "none").toLowerCase();
-            boolean zip = dig.attr("zip",false);
+            String period = dig.attr("period","").toLowerCase();
+            var rollCount = NumberUtils.toInt(period.replaceAll("\\D",""));
+            var unit = period.replaceAll("[^a-z]","");
             String format = dig.value("");
 
-            TimeTools.RolloverUnit rollUnit = TimeTools.convertToRolloverUnit( unit );
+            boolean zip = dig.attr("zip",false);
+
+            ChronoUnit rollUnit = TimeTools.parseToChronoUnit( unit );
             if( rollUnit !=null){
                 Logger.info(id+"(fc) -> Setting rollover: "+format+" "+rollCount+" "+rollUnit);
                 setRollOver(format,rollCount,rollUnit,zip);
@@ -498,9 +501,9 @@ public class FileCollector extends AbstractCollector{
         dQueue.add( Datagram.system(source).writable(this) ); // request the data
     }
     /* ***************************** RollOver stuff *************************************************************** */
-    public boolean setRollOver(String dateFormat, int rollCount, TimeTools.RolloverUnit unit, boolean zip ) {
+    public boolean setRollOver(String dateFormat, int rollCount, ChronoUnit unit, boolean zip ) {
 
-        if(  unit == TimeTools.RolloverUnit.NONE || unit == null) {
+        if(  unit == ChronoUnit.FOREVER || unit == null) {
             Logger.warn(id+"(fc) -> Bad rollover given");
             return false;
         }

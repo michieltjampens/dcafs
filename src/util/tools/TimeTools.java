@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 
 import java.util.Locale;
@@ -26,8 +27,6 @@ public class TimeTools {
     static final public DateTimeFormatter LONGDATE_FORMATTER = DateTimeFormatter
                                                                     .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
                                                                     .withLocale(Locale.ENGLISH);
-
-    public enum RolloverUnit{NONE,MINUTES,HOURS,DAYS,WEEKS,MONTHS,YEARS}
 
     private TimeTools(){
         throw new IllegalStateException("Utility class");
@@ -417,12 +416,12 @@ public class TimeTools {
      * @param rollCount the amount of units to apply
      * @param rollUnit the unit to apply (MINUTES, HOURS, DAYS, WEEKS, MONTHS, YEARS) (TimeUnit doesn't contain weeks...)
      */
-    public static LocalDateTime applyTimestampRollover(boolean init, LocalDateTime rolloverTimestamp, int rollCount, RolloverUnit rollUnit){
+    public static LocalDateTime applyTimestampRollover(boolean init, LocalDateTime rolloverTimestamp, int rollCount, ChronoUnit rollUnit){
         Logger.debug(" -> Original date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
         rolloverTimestamp = rolloverTimestamp.withSecond(0).withNano(0);
         int count = init?0:rollCount;
 
-        if(rollUnit== RolloverUnit.MINUTES){
+        if(rollUnit == ChronoUnit.MINUTES ){
             if( init ) {
                 rolloverTimestamp = rolloverTimestamp.minusMinutes( rolloverTimestamp.getMinute()%rollCount );//make sure it's not zero
             }else{
@@ -431,23 +430,23 @@ public class TimeTools {
             }
         }else{
             rolloverTimestamp = rolloverTimestamp.withMinute(0);
-            if(rollUnit== RolloverUnit.HOURS){
+            if(rollUnit== ChronoUnit.HOURS){
                 rolloverTimestamp = rolloverTimestamp.plusHours( count );
             }else{
                 rolloverTimestamp = rolloverTimestamp.withHour(0);
-                if(rollUnit== RolloverUnit.DAYS){
+                if(rollUnit== ChronoUnit.DAYS ){
                     rolloverTimestamp = rolloverTimestamp.plusDays( count );
                 }else{
-                    if(rollUnit== RolloverUnit.WEEKS){
+                    if(rollUnit== ChronoUnit.WEEKS){
                         rolloverTimestamp = rolloverTimestamp.minusDays(rolloverTimestamp.getDayOfWeek().getValue()-1);
                         rolloverTimestamp = rolloverTimestamp.plusWeeks(count);
                     }else{
                         rolloverTimestamp = rolloverTimestamp.withDayOfMonth(1);
-                        if(rollUnit== RolloverUnit.MONTHS){
+                        if(rollUnit== ChronoUnit.MONTHS){
                             rolloverTimestamp=rolloverTimestamp.plusMonths(count);
                         }else{
                             rolloverTimestamp = rolloverTimestamp.withMonth(1);
-                            if(rollUnit== RolloverUnit.YEARS){
+                            if(rollUnit== ChronoUnit.YEARS){
                                 rolloverTimestamp=rolloverTimestamp.plusMonths(count);
                             }
                         }
@@ -460,25 +459,29 @@ public class TimeTools {
     }
 
     /**
-     * Convert the string representation of a rolloverunit to the object
+     * Convert the string representation of a ChronoUnit to the object
+     * This covers a couple more cases than the valueOf method
      * @param unit The string the convert
-     * @return The resulting Rolloverunit or NONE if no valid string was given
+     * @return The resulting ChronoUnit or FOREVER if no valid string was given
      */
-    public static RolloverUnit convertToRolloverUnit( String unit ){
-        RolloverUnit rollUnit=RolloverUnit.NONE;
-        unit=unit.replace("s","");
-        rollUnit = switch (unit) {
-            case "minute", "min" -> RolloverUnit.MINUTES;
-            case "hour" -> RolloverUnit.HOURS;
-            case "day" -> RolloverUnit.DAYS;
-            case "week" -> RolloverUnit.WEEKS;
-            case "month" -> RolloverUnit.MONTHS;
-            case "year" -> RolloverUnit.YEARS;
-            default -> rollUnit;
+    public static ChronoUnit parseToChronoUnit(String unit ){
+
+        unit=unit.replace("s",""); // So both single and multiple are found
+        return switch (unit) {
+            case "sec","second" -> ChronoUnit.SECONDS;
+            case "minute", "min" -> ChronoUnit.MINUTES;
+            case "hour" -> ChronoUnit.HOURS;
+            case "day" -> ChronoUnit.DAYS;
+            case "week" -> ChronoUnit.WEEKS;
+            case "month" -> ChronoUnit.MONTHS;
+            case "year" -> ChronoUnit.YEARS;
+            case "decade" -> ChronoUnit.DECADES;
+            case "century","centurie" -> ChronoUnit.CENTURIES; // Not a type, because s has been removed earlier
+            default -> {
+                Logger.error("Invalid unit given "+unit+", defaulting to forever");
+                yield ChronoUnit.FOREVER;
+            }
         };
-        if( rollUnit==RolloverUnit.NONE)
-            Logger.error("Invalid unit given "+unit);
-        return rollUnit;
     }
     /**
      * Convert the string representation of the days for execution to objects
