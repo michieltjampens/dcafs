@@ -455,7 +455,7 @@ To apply it: `dbm:rolls,reload`
     <flush age="30s" batchsize="30"/>
     <idleclose>-1</idleclose>
     <table name="dice">
-      <utcnow>timestmap</utcnow> 
+      <utcnow>timestamp</utcnow> 
       <int>rolled</int>  
     </table>
   </sqlite>
@@ -634,7 +634,7 @@ So we managed to cheat, but it's way too easy to spot, so we'll make it bit hard
 * 
 Below is how it will look in xml.
 ```xml
-  <paths>
+<paths>
     <path delimiter=":" id="cheat2" src="raw:dice">
         <filter type="maxlength">5</filter>
         <math>i1=i1+5</math>
@@ -848,7 +848,7 @@ So far we were only on the receiving end from a stream, no talking back yet.
 Sending data isn't anything special and certainly not 'kicking it up a notch', but the bit afterwards will be...
 
 There are three ways to send something to a stream:
-* Use `dice:some text` to send 'some text' to the dice stream
+* Use `streamid:text` to send 'text' to a specific stream fe. `dice:hello world`
 * Send `streams` (or `ss`) to get a list of available streams, this will return a list with currently only **S1:dice**  
   * Use `S1:important` to send important to the dice stream
   * Might be easier if the id's are long
@@ -857,11 +857,11 @@ There are three ways to send something to a stream:
 As always, this has a couple of extras...
 * By default, the earlier defined eol is appended (so the first command actually sends important\r\n). 
   * But eol can be omitted:
-    * by using CTRL+s instead of enter.
+    * By using CTRL+s instead of enter.
     * Ending with \0, so `dice:hello?\0` won't get crlf appended.
 * Hexadecimal escape characters are allowed, so `dice:hello?` and `dice:hello\x3F` send the same thing
-    * alternatively, `dice:\h(0x68,0x65,0x6c,0x6c,0x6f,0x3f,0xd,0xa)` would do the same thing, note that the eol sequence needs to be added manually
-* Incase the device being talked to, wants to receive ESC, either use the hex options or just press ESC.
+    * Alternatively, `dice:\h(0x68,0x65,0x6c,0x6c,0x6f,0x3f,0xd,0xa)` would do the same thing, note that the eol sequence needs to be added manually
+* In case the device being talked to, wants to receive ESC, either use the hex options or just press ESC.
 * If you plan on transmitting multiple lines, you should start with `dice:!!` from then on, everything send via that
   telnet session will have dice: prepended and thus be transmitted to dice. 
 
@@ -870,7 +870,7 @@ So now you know pretty much everything there is to know about manually sending d
 Let's put it to some use.  
 Have two telnet sessions open:
 * `raw:dice` running in one to see the rolls come in
-* send `dice:dicer:stopd20s` in the other one, this should stop the d20 rolls to arrive in the first one
+* send `dice:dicer:stopd20s` in the other one, this should stop the d20 rolls to arrive in the first one (and you'll get 'Task Ok' once instead).
 
 The dicer accepts more commands, to test them out start with `dice:dicer:!!`
 * `rolld6` rolls a single 6 sided die
@@ -890,10 +890,10 @@ Next up will introduce triggered actions, which are also the final nodes for the
 A stream can have multiple of these cmd/write nodes and there are a couple 'when' options.
 * To write data:
     * `hello` to send something upon (re)connecting
-    * `wakeup` to send something when the connection is idle
+    * `wakeup` to send something when the connection becomes idle
 
 Suppose we don't actually want to receive the d20s, but want a d6 every 5 seconds...
-The command to add a 'write' is `ss:addwrite,id,when,data` so:
+The command to add a 'write' is `ss:id,addwrite,when,data` so:
 - `ss:dice,addwrite,hello,dicer:stopd20s` to send the stop
 - `ss:dice,addwrite,wakeup,dicer:rolld6` to request a d6 on idle
 - `ss:dice,ttl,5s` to trigger idle after 5s of not receiving data
@@ -906,7 +906,6 @@ The command to add a 'write' is `ss:addwrite,id,when,data` so:
         <!-- After receiving the d6 result, after  5s another ttl trigger etc... -->
     </stream>
 ```
-Then `ss:reload,dice` and d6 results should appear every 5 seconds.  
 Just to clarify, this is not the proper way to handle this situation and just serves to show the functionality.  
 This should actually be done using the TaskManager, but that's for a later section. Do note that dicer is actually
 a taskmanager running on dummy...
@@ -919,7 +918,7 @@ The cmd node has four 'when' options, but those are for issuing (local) commands
 
 These can be added with the command `ss:id,addcmd,when,data`
 
-So the main difference is that hello and wakeup send data to somewhere, while open,idle and close are local commands.
+So the main difference is that hello and wakeup send data to somewhere. While open,idle and close are local commands.
 
 For the next example, we'll shut down both instances. Shutting down the dummy can be done by sending `dice:sd` to it.  
 Then use `sd` to close the regular one.
@@ -954,9 +953,9 @@ For example,the two nodes below have exactly the same end result:
 </stream>
 ```
 Problem is that giving actual useful examples is hard because it involves components not seen yet...
-* command a taskmanager to do something on opening or closing a connection (and something is an understatement)
-* email someone on connection loss or gain
-* send data to one device if another one is idle
+* Command a taskmanager to do something on opening or closing a connection (and something is an understatement).
+* Email someone on connection loss or gain.
+* Send data to one device if another one is idle.
 * ...
 
 But, I assume that it's clear what it can be used for...?
