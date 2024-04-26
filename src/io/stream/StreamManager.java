@@ -885,7 +885,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 						fab.removeChild("ttl");
 					}
 					fab.build();
-					reloadStream(cmds[0]);
+					scheduler.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
+					//reloadStream(cmds[0]);
 					return "TTL altered";
 				}
 				case "port" -> {
