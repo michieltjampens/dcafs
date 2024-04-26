@@ -131,7 +131,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			if( stream instanceof TcpServerStream ) {
 				join.add( ((TcpServerStream)stream).getClientCount()+" client(s)").add("\r\n");
 			}else if (stream.getLastTimestamp() == -1) {
-				join.add("No data yet!").add("\r\n");
+				join.add("No data yet! ");
+				join.add(TimeTools.convertPeriodtoString(Instant.now().toEpochMilli() - stream.getOpenedStamp(), TimeUnit.MILLISECONDS)).add(" [");
+				join.add(TimeTools.convertPeriodtoString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
 			} else {
 				join.add(TimeTools.convertPeriodtoString(ttl, TimeUnit.MILLISECONDS)).add(" [");
 				join.add(TimeTools.convertPeriodtoString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
@@ -591,6 +593,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				base.disconnect();
 				if( base.connect() ){
 					base.reconnecting=false;
+					base.openedStamp = Instant.now().toEpochMilli();
 					return; //if Ok, nothing else to do?
 				}
 

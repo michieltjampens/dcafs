@@ -28,6 +28,7 @@ public abstract class BaseStream {
 
     /* Things regarding the connection*/
     protected long timestamp = System.currentTimeMillis();  // Timestamp of the last received message, init so startup doesn't show error message
+    protected long openedStamp;
     protected long passed = -1;							    // Time passed (in ms) between the last two received messages
 
     protected ArrayList<Writable> targets = new ArrayList<>();
@@ -45,7 +46,7 @@ public abstract class BaseStream {
     protected ScheduledFuture<?> reconnectFuture=null;
     protected ArrayList<TriggerAction> triggeredActions = new ArrayList<>();
 
-    protected enum TRIGGER{OPEN,IDLE,CLOSE,HELLO,WAKEUP, IDLE_END}
+    public enum TRIGGER{OPEN,IDLE,CLOSE,HELLO,WAKEUP, IDLE_END}
 
     protected EventLoopGroup eventLoopGroup;		    // Eventloop used by the netty stuff
     protected boolean readerIdle=false;
@@ -116,6 +117,9 @@ public abstract class BaseStream {
     public abstract boolean disconnect();
     public abstract boolean isConnectionValid();
     public abstract long getLastTimestamp();
+    public long getOpenedStamp(){
+        return openedStamp;
+    }
     public abstract String getInfo();
     protected abstract String getType();
 
