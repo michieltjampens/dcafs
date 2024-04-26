@@ -84,7 +84,6 @@ public class SQLiteDB extends SQLDB{
             return dbPath.toString();
 
         String path = dbPath.toString();
-        updateFileName(LocalDateTime.now(ZoneId.of("UTC")));
 
         //with rollover and on a specific position
         if( path.contains("{rollover}"))
