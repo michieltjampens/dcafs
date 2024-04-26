@@ -88,7 +88,6 @@ public class TcpStream extends BaseStream implements Writable {
                 try{
                     if( deli != null ){
                         ch.pipeline().addLast("framer",  new DelimiterBasedFrameDecoder(bufferSize,deli) );
-
                     }else{
                         Logger.error(id + " -> Deli still null, assuming fixed size...");
                         ch.pipeline().addLast("framer", new FixedLengthFrameDecoder(3) );

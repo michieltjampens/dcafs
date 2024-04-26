@@ -1,11 +1,11 @@
 package util.database;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -55,9 +55,65 @@ public class SQLiteDB extends SQLDB{
             Logger.error( getID() + " -> Issue trying to create db, path is null");
         }
     }
+
     /* ************************************************************************************************************** */
     public static SQLiteDB createDB( String id, Path db ){
         return new SQLiteDB( id, db );
+    }
+    /**
+     * Read the rollover and table settings from the given xml element
+     * @param dbe The element with the setup info
+     * @return Returns an optional sqliteDB
+     */
+    public static Optional<SQLiteDB> readFromXML( Element dbe, String workPath ){
+        if( dbe == null )
+            return Optional.empty();
+
+        var dig = XMLdigger.goIn(dbe);
+        String id = dig.attr("id","");
+        var path = dig.attr("path",null,Path.of(workPath));
+
+        if( path.isEmpty() )
+            return Optional.empty();
+
+        SQLiteDB db = SQLiteDB.createDB(id,path.get());
+
+        /* RollOver */
+        if( dig.peekAt("rollover").hasValidPeek() ){
+            String period = dig.attr("period","").toLowerCase();
+            var rollCount = NumberUtils.toInt(period.replaceAll("\\D",""));
+            var unit = period.replaceAll("[^a-z]","");
+            String format = dig.value("");
+
+            ChronoUnit rollUnit = TimeTools.parseToChronoUnit( unit );
+            if( rollUnit != ChronoUnit.FOREVER ){
+                Logger.info("Setting rollover: "+format+" "+rollCount+" "+rollUnit);
+                db.setRollOver(format,rollCount,rollUnit);
+            }else{
+                Logger.error(id+" -> Bad Rollover given" );
+                return Optional.empty();
+            }
+        }
+        /* Setup */
+        dig.peekAndUse("flush").ifPresent(db::readFlushSetup);
+
+        // How many seconds before the connection is considered idle (and closed)
+        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds(dig.attr("idleclose","5m"));
+
+        /* Views */
+        dig.peekOut("view").forEach( view -> {
+            String name = view.getAttribute("name");
+            String query = view.getTextContent();
+            db.views.add( "CREATE VIEW  IF NOT EXISTS "+name+" AS "+query);
+        });
+
+        /* Tables */
+        dig.peekOut("table").forEach( table -> SqlTable.readFromXml(table).ifPresent(t -> db.tables.put(t.name,t)));
+
+        /* Create the content */
+        db.getCurrentTables(false);
+        db.lastError=db.createContent(false);
+        return Optional.of(db);
     }
     /* ************************************************************************************************************** */
     @Override
@@ -219,61 +275,6 @@ public class SQLiteDB extends SQLDB{
         } 
         return true;  
     }
-    /**
-     * Read the rollover and table settings from the given xml element
-     * @param dbe The element with the setup info
-     * @return Returns an optional sqliteDB
-     */
-    public static Optional<SQLiteDB> readFromXML( Element dbe, String workPath ){
-        if( dbe == null )
-            return Optional.empty();
-
-        var dig = XMLdigger.goIn(dbe);
-        String id = dig.attr("id","");
-        var path = dig.attr("path",null,Path.of(workPath));
-
-        if( path.isEmpty() )
-            return Optional.empty();
-
-        SQLiteDB db = SQLiteDB.createDB(id,path.get());
-        
-        /* RollOver */
-        if( dig.peekAt("rollover").hasValidPeek() ){
-            int rollCount = dig.attr("count", 1);
-            String unit = dig.attr( "unit", "").toLowerCase();
-            String format = dig.value("");
-
-            TimeTools.RolloverUnit rollUnit = TimeTools.convertToRolloverUnit( unit );
-            if( rollUnit !=null){
-                Logger.info("Setting rollover: "+format+" "+rollCount+" "+rollUnit);
-                db.setRollOver(format,rollCount,rollUnit);
-            }else{
-                Logger.error(id+" -> Bad Rollover given" );
-                return Optional.empty();
-            }
-        }
-        /* Setup */
-        dig.peekAndUse("flush").ifPresent(db::readFlushSetup);
-
-        // How many seconds before the connection is considered idle (and closed)
-        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds(dig.attr("idleclose","5m"));
-
-        /* Views */
-        dig.peekOut("view").forEach( view -> {
-            String name = view.getAttribute("name");
-            String query = view.getTextContent();
-            db.views.add( "CREATE VIEW  IF NOT EXISTS "+name+" AS "+query);
-        });
-
-        /* Tables */
-        dig.peekOut("table").forEach( table -> SqlTable.readFromXml(table).ifPresent(t -> db.tables.put(t.name,t)));
-
-        /* Create the content */
-        db.getCurrentTables(false);
-        db.lastError=db.createContent(false);
-        return Optional.of(db);
-    }
-
     /**
      * Write the settings from the database to xml
      * @param fab A Xmlfab pointing to the databases node as root
@@ -441,6 +442,7 @@ public class SQLiteDB extends SQLDB{
                 var d = rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER);
                 rolloverTimestamp = TimeTools.applyTimestampRollover(false,rolloverTimestamp,rollCount,rollUnit);// figure out the next rollover moment
                 Logger.info(id+" -> Current " +d +" and next rollover date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
+                // Schedule the next rollover
                 long next = Duration.between(LocalDateTime.now(ZoneOffset.UTC), rolloverTimestamp).toMillis();
                 rollOverFuture = scheduler.schedule(new DoRollOver(true), next, TimeUnit.MILLISECONDS);
             }
