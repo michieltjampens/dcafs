@@ -115,7 +115,7 @@ public class ValStore {
 
         // Map
         mapFlag( dig.attr("map",false) );
-        if(mapped()) { // key based
+        if( mapped() ) { // key based
             var vals = dig.currentSubs();
             for (var val : vals) {
                 var key = XMLtools.getStringAttribute(val, "key","");

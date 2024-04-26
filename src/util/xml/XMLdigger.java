@@ -346,7 +346,7 @@ public class XMLdigger {
     /**
      * Get a list of all elements that result from digging to the tag, this might invalidate the digger.
      * @param tag The tag to dig for
-     * @return The elements found or an empty list if none.
+     * @return The elements found as XMLdigger instances or an empty list if none.
      */
     public ArrayList<XMLdigger> digOut( String tag ){
         var temp = new ArrayList<XMLdigger>();

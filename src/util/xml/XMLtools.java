@@ -168,35 +168,6 @@ public class XMLtools {
 		}
 	}
 	/* *********************************  S E A R C H I N G *******************************************************/
-	/**
-	 * Convenience method to a node based on a tag
-	 * 
-	 * @param xmlDoc The Document to check the node for
-	 * @param tag The name of the element
-	 * @return An optional containing the element if found, empty if not
-	 */
-	public static Optional<Element> getFirstElementByTag(Document xmlDoc, String tag) {
-
-		if (xmlDoc == null) {
-			Logger.error("No valid XML provided, looking for "+tag);
-			return Optional.empty();
-		}
-
-		NodeList list = xmlDoc.getElementsByTagName(tag);
-		if (list == null || list.getLength()==0 || list.item(0)==null ||list.item(0).getNodeType() != Node.ELEMENT_NODE)
-			return Optional.empty();
-
-		return Optional.of( (Element)list.item(0));
-	}
-	/**
-	 * Retrieve the first element in a xml doc based on the tag
-	 * @param xmlPath The path to the xml
-	 * @param tag The tag to log for
-	 * @return The optional element
-	 */
-	public static Optional<Element> getFirstElementByTag(Path xmlPath, String tag) {
-		return XMLtools.readXML(xmlPath).flatMap(d -> getFirstElementByTag(d, tag));
-	}
 	/* ************************************** Child ******************************************************* */
 	/**
 	 * Retrieve the first child from an element with a specific tag
@@ -288,18 +259,7 @@ public class XMLtools {
 	public static List<Element> getChildElements(Element element) {
 		return getChildElements(element,"*");
 	}
-	public static boolean hasChildNodes( Element element ){
-		NodeList list = element.getElementsByTagName("*");
 
-		for (int a = 0; a < list.getLength(); a++){
-			if (list.item(a).getNodeType() == Node.ELEMENT_NODE ) {
-				Element add = (Element)list.item(a);
-				if( add.getParentNode() == element)
-					return true;
-			}
-		}
-		return false;
-	}
 	/* ******************************  E L E M E N T   A T T R I B U T E S *********************************/
 	/**
 	 * Get the attributes of an element and cast to string, return def if failed
@@ -322,10 +282,6 @@ public class XMLtools {
 			return val;
 		return val.trim(); //trim spaces around the val
 
-	}
-	public static String getEscapedStringAttribute( Element element,String attribute, String def){
-		var line = getStringAttribute(element,attribute,def);
-		return Tools.fromEscapedStringToBytes(line);
 	}
 	/**
 	 * Get the optional path value of a node from the given element with the given name
@@ -353,38 +309,6 @@ public class XMLtools {
 			return Optional.of(path);
 		return Optional.of( workPath.resolve(path) );
 	}
-	/**
-	 * Get the attributes of an element and cast to integer, return def if failed
-	 * @param element The element that holds the attribute, cant be null
-	 * @param attribute The tag of the attribute
-	 * @param def The value to return if cast/parse fails
-	 * @return The content if ok or def if failed
-	 */
-	public static int getIntAttribute(Element element, String attribute, int def) {
-		if( element==null){
-			Logger.error("Given parent is null while looking for "+attribute);
-			return def;
-		}
-		if( element.hasAttribute(attribute))
-			return NumberUtils.toInt(element.getAttribute(attribute), def);
-		return def;
-	}
-	/**
-	 * Get the attributes of an element and convert to boolean, return def if failed
-	 * 
-	 * @param parent The element that holds the attribute
-	 * @param attribute The tag of the attribute
-	 * @param def The value to return if parse fails
-	 * @return The content if ok or def if failed
-	 */
-	public static boolean getBooleanAttribute(Element parent, String attribute, boolean def) {
-		if( parent==null){
-			Logger.error("Given parent is null while looking for "+attribute);
-			return false;
-		}
-		return Tools.parseBool(parent.getAttribute(attribute),def);
-	}
-
 	/* **************************** E L E M E N T   V A L U E S ***************************/
 	/* ********************************* W R I T I N G **************************************/
 	/**
@@ -432,7 +356,7 @@ public class XMLtools {
 	}
 
 	/**
-	 * Create an child node in the given parent with the given text content
+	 * Create a child node in the given parent with the given text content
 	 * @param xmlDoc The document which the parent belongs to
 	 * @param parent The parent node
 	 * @param node The name of the child node
@@ -449,22 +373,6 @@ public class XMLtools {
 			Element ele = xmlDoc.createElement(node);
 			ele.appendChild( xmlDoc.createTextNode(content) );
 			parent.appendChild(ele);
-			return Optional.of(ele);
-		}catch( DOMException e){
-			Logger.error(e);
-			return Optional.empty();
-		}		
-	}
-	public static Optional<Element> createTextElement( Document xmlDoc, String node, String content ){
-		
-		if( xmlDoc==null ){
-			Logger.error("Given doc is null while looking for "+node);
-			return Optional.empty();
-		}
-
-		try{
-			Element ele = xmlDoc.createElement(node);
-			ele.appendChild( xmlDoc.createTextNode(content) );			
 			return Optional.of(ele);
 		}catch( DOMException e){
 			Logger.error(e);
