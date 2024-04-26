@@ -16,7 +16,7 @@ import java.util.StringJoiner;
 public class StoreCmds {
 
     private static final ArrayList<String> VALS = new ArrayList<>(List.of("real","int","text","flag"));
-    private static final ArrayList<String> VAL_ATTR = new ArrayList<>(List.of("unit","group","options","def"));
+    private static final ArrayList<String> VAL_ATTR = new ArrayList<>(List.of("unit","group","options","def","op"));
     public static String replyToCommand(String request, boolean html, Path settingsPath ){
 
         var cmds =request.split(",");
@@ -48,7 +48,8 @@ public class StoreCmds {
                     .add(green+" store:streamid,map,true/false "+reg+"-> Alter the map attribute")
                     .add(green+" store:streamid,group,newgroup "+reg+"-> Alter the default group used");
             join.add("").add(cyan+"Alter val attributes"+reg)
-                    .add(green+" store:streamid,alterval,valname,unit,value "+reg+"-> Set the unit attribute of the given val");
+                    .add(green+" store:streamid,alterval,valname,unit,value "+reg+"-> Set the unit attribute of the given val")
+                    .add(green+" store:streamid,alterval,valname,op,value "+reg+"-> Add an op to an integer/real val.");
             join.add("").add(cyan+"Other"+reg)
                     .add(green+" store:streamid,astable,dbid "+reg+"-> Create a table in the given db according to the store (wip)");
             return join.toString();
@@ -176,39 +177,20 @@ public class StoreCmds {
                     return "! Already a real with that id, try something else?";
 
                 fab.addChild("real",cmds[2]).attr("unit");
-                if( cmds.length==4 ) {
-                    if( map ){
-                        fab.attr("key",cmds[3]);
-                    }else {
-                        if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("ix", cmds[3]);
-                        } else if (!cmds[3].isEmpty()) {
-                            fab.attr("group", cmds[3]);
-                        }
-                    }
-                }
+                addIndexOrMap( fab, dig, cmds, map );
                 fab.build();
                 return "Real added";
             }
             case "addint","addi" -> {
                 if (cmds.length < 3)
                     return "! Wrong amount of arguments -> "+prefix+"addint,name<,index/group>";
+
                 if( dig.hasPeek("int","name",cmds[2])
                         || dig.peekAtContent("int",cmds[2]) )
                     return "! Already an int with that id, try something else?";
 
                 fab.addChild("int",cmds[2]).attr("unit");
-                if( cmds.length==4 ) {
-                    if( map ){
-                        fab.attr("key",cmds[3]);
-                    }else {
-                        if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("i", cmds[3]);
-                        } else if (!cmds[3].isEmpty()) {
-                            fab.attr("group", cmds[3]);
-                        }
-                    }
-                }
+                addIndexOrMap( fab, dig, cmds, map );
                 fab.build();
                 return "Int added";
             }
@@ -220,17 +202,7 @@ public class StoreCmds {
                     return "! Already a text with that id, try something else?";
 
                 fab.addChild("text",cmds[2]);
-                if( cmds.length==4 ) {
-                    if( map ){
-                        fab.attr("key",cmds[3]);
-                    }else {
-                        if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("i", cmds[3]);
-                        } else if (!cmds[3].isEmpty()) {
-                            fab.attr("group", cmds[3]);
-                        }
-                    }
-                }
+                addIndexOrMap( fab, dig, cmds, map );
                 fab.build();
                 return "Text added";
             }
@@ -242,17 +214,7 @@ public class StoreCmds {
                     return "! Already a flag with that id, try something else?";
 
                 fab.addChild("flag",cmds[2]).attr("unit");
-                if( cmds.length==4 ) {
-                    if( map ){
-                        fab.attr("key",cmds[3]);
-                    }else {
-                        if (NumberUtils.isCreatable(cmds[3])) {
-                            fab.attr("i", cmds[3]);
-                        } else if (!cmds[3].isEmpty()) {
-                            fab.attr("group", cmds[3]);
-                        }
-                    }
-                }
+                addIndexOrMap( fab, dig, cmds, map );
                 fab.build();
                 return "Flag added";
             }
@@ -298,13 +260,27 @@ public class StoreCmds {
                 for( var valtype : VALS){
                     if( dig.hasPeek(valtype,"name",cmds[2]) ){
                         dig.digDown(valtype,"name",cmds[2]);
-                    }else if( dig.peekAtContent(valtype,cmds[2]) ){ // Found a flag
+                    }else if( dig.peekAtContent(valtype,cmds[2]) ){
                         dig.digDown(valtype,cmds[2]);
                     }else{
                         continue;
                     }
-                    XMLfab.alterDigger(dig).ifPresent( x -> x.attr(cmds[3],cmds.length==5?cmds[4]:"").build());
-                    return "Attribute altered";
+                    if( cmds[3].equals("op")){
+                        if( !dig.tagName("").equals("text")) {
+                            XMLfab.alterDigger(dig).ifPresent(x -> {
+                                x.attr("name",cmds[2])
+                                    .content("")
+                                    .removeChild("op")
+                                    .addChild("op",cmds[4])
+                                    .build();
+                            });
+                            return "Operation '"+cmds[4]+"' set to "+cmds[2];
+                        }
+                    }else {
+                        XMLfab.alterDigger(dig).ifPresent(x -> x.attr(cmds[3], cmds.length == 5 ? cmds[4] : "").build());
+                        return "Attribute altered";
+                    }
+
                 }
                 return "! No such val found: "+cmds[2];
             }
@@ -355,5 +331,30 @@ public class StoreCmds {
             }
         }
         return "! No such subcommand in "+prefix+" : "+request;
+    }
+    private static void addIndexOrMap( XMLfab fab, XMLdigger dig, String[] cmds, boolean map ){
+        if( cmds.length==4 ) {
+            if( map ){
+                fab.attr("key",cmds[3]);
+            }else {
+                if (NumberUtils.isCreatable(cmds[3])) {
+                    fab.attr("i", cmds[3]);
+                } else if (!cmds[3].isEmpty()) {
+                    fab.attr("group", cmds[3]);
+                    int a = dig.currentSubs().size();
+                    fab.attr("i", a-1); // -1 because just created one
+                }
+            }
+        }else if( !map ){
+            int a = dig.currentSubs().size();
+            if( a == 1 ) {
+                fab.attr("i", 0); // -1 because just created one
+            }else{
+                var index = dig.currentSubs().get(a-2).getAttribute("i");
+                if( index.isEmpty())
+                    index = dig.currentSubs().get(a-2).getAttribute("index");
+                fab.attr("i",NumberUtils.toByte(index)+1);
+            }
+        }
     }
 }
