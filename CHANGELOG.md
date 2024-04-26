@@ -9,15 +9,39 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.8.2 (wip)
+## 2.9.0 (wip)
 - Updated dependencies: 
   - netty 4.1.109
-  - jserialcom 2.11.0
+  - jSerialcom 2.11.0
   - mssql 12.6.1.jre11
   - postgresql 42.7.3
 - Can now send data to a stream using the id instead of Sy. 
 - Can now send ESC to a stream using the esc key (eol won't be appended)
 - Editor redate now supports epochmillis and epochseconds. Use 'epochmillis' or epochsec(onds) as inputformat.
+
+### TaskManager
+- Added {utc:format} as possible fill in value for a task value. This will get replaced with the current utc time
+according to the format (if valid).
+- Can now use {group_name} in the content of a task instead of having to specify type of val. It will just take
+a bit longer because it has to search in more collections.
+
+### Store
+- Added `store:streamid,alterval,valname,op,operation` to add ops to a val.
+- If no index is provided for the addi/addr/addf or addt, one will be generated:
+  - If it's the first node, it will be 0.
+  - If other nodes are already present, it will be the index of the last one +1.
+
+### Other
+- Replaced the use of the enum Rolloverunit with the java ChronoUnit.
+- Fixed, changing the ttl of a stream no longer reloads it, applies it instead.
+- Breaking, combined rollover attributes to make it a bit more straightforward.
+```xml
+<!-- Previous -->
+<rollover count="5" unit="minutes">_HHmm</rollover>
+<!-- Now -->
+<rollover period="5 minutes">_HHmm</rollover>
+```
+
 
 ## 2.8.1 (15/03/2024)
 - Updated netty,activation and json dependency
