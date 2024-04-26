@@ -1,6 +1,6 @@
 ## Introduction
 
->**Note: Document up to date for 2.5.0**
+>**Note: Document up to date for 2.9.0**
 
 The purpose of this (probably in the end very long) page is to slowly introduce the different components in dcafs and how to use them.
 The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
@@ -65,7 +65,7 @@ The following is the recommended workspace layout for setting up dcafs in genera
 
 The earlier workspace layout connected to dcafs. 
 
-As a first step type `help`(in either screen), which would result in the screen below:
+As a first step type `help`(in either screen).
 
 For the sake of consistency, we'll follow the 'recommend workflow' from the help.
 
@@ -86,7 +86,7 @@ of information, but the only line interesting now is:
 
 For this example, this becomes `ss:addtcp,dice,localhost:4000`.   
 You should see _Connected to dice, use `raw:dice` to see incoming data._ as the reply.
-If you try that, hit `enter` to stop it.
+If you try that, hit `enter` to stop it (it should respond with 'Clearing requests').
 
 Use `st` to see the current state of dcafs. This will give you a lot of info including a section about streams which
 should look like this:
@@ -96,7 +96,7 @@ should look like this:
 
 To explain the whole line:
 * TCP : It's a TCP connection
-* [dice] : The ID is 'dice'
+* [dice] : The ID of the stream is 'dice'
 * localhost/127.0.0.1:4000 : The hostname is localhost, IP is 127.0.0.1, and we connected to port 4000
 * 870ms : Received last data 870ms ago
 * [-1s] : The stream is never considered idle, the term used for this period is ttl or 'Time to live'
@@ -137,17 +137,17 @@ What we did so far (starting up dcafs and connecting to a stream) generated a `s
 </dcafs>
 ```
 Some basic information about xml to start:
-* Anything starting with <word> and closing with </word>, is called a node (the text in it a 'tag').
-    * The first such node is called the rootnode, so <dcafs> ... </dcafs> (tag is dcafs)
-    * A node inside another node is called a childnode, so settings is a childnode of dcafs and so on
-* A node can have content, so like eol has crlf as content
-    * A node without content and without childnodes can be closed with just a / fe. <stream id="hello" />
-        * This is not mandatory, just makes it a bit shorter
-* A node can have attributes, the telnet node has port and title as attributes
+* Anything starting with \<word> and closing with \</word>, is called a node (the text in it a 'tag').
+    * The first such node is called the rootnode, so <dcafs> ... </dcafs> (tag is dcafs).
+    * A node inside another node is called a childnode, so settings is a childnode of dcafs and so on.
+* A node can have content, so like eol has crlf as content.
+    * A node without content and without childnodes can be closed with just a / fe. \<stream id="hello" /> instead.
+        * This is not mandatory, just makes it a bit shorter.
+* A node can have attributes, the telnet node has port and title as attributes.
 
 Everything in a stream node of the `settings.xml` file (except the ID) can be altered while running and can be applied
 without restart. To reload a stream after changing something in the `streams` node use `ss:id,reload` or in our case `ss:dice,reload`.  
-Or all at once with `ss:reload`.
+Or all streams at once with `ss:reload`.
 >**Note:** To connect to other data sources (like serial or modbus), the command `ss:?` shows a list of options.
 
 ### 2. Look at the received data
@@ -180,7 +180,7 @@ Some basic info about rtvals:
 * Each rtval belongs to a group and has a name, the id of the rtval is group_name
     * A name can be repeated inside a group if the type is different, but it's better not to.
 
-One way to create and set those values is called 'store', the name is from the optional node inside a stream.  
+One way to create and set those values is called 'store', the name is used for the optional node inside a stream.  
 Store splits incoming data and assigns the values to the predefined rtvals.
 
 So, to define the store,we need to analyse the format of the data.
@@ -194,19 +194,17 @@ The data needs to be split on ':' and then the second element (but counting from
 An overview of all the commands available for store is given with the `store:?` command.  
 (Issue that command in the window that had the ss:? result)
 
-Because all the commands start with the same `store:streamid,` we'll let the interface prepend this with `store:dice,!!`.  
-This tells dcafs that all the following things we'll send need to have everything in front of the '!!' appended.
-
-> Note: This can be cancelled by sending just !!
-
 Now defining the store:
+* Start with `store:dice,!!` because all commands that we'll use start with that.
+  * This tells dcafs that all the following things we'll send need to have everything in front of the '!!' appended.
+  * This can be cancelled by sending just '!!'
 * First we'll set the delimiter to ':' with `delimiter,:`
     * The default delimiter is ',', so if that was the case setting it can be skipped
 * Next up is adding an integer `store:streamid,addint,id<,index>`
     * which we'll call 'rolled' and it's at index 1 so this becomes `addint,rolled,1` or `addi,rolled,1`
     * There's no command to create an empty store, dcafs just makes one on the first 'add' cmd
 
-Now that the store is defined, use `!!` to remove the prefix.
+Now that the store is defined, use `!!` to remove the prefix. This is confirmed with 'Prefix cleared'.
 
 The result of those commands can be seen in the settings.xml.
 ```xml
@@ -229,12 +227,13 @@ Group: dice
 ```
 * Because a group wasn't specified, the id of the stream is used.
 * If we had filled in a `unit` earlier, this would have been appended to the 20
+* You can use the up/down arrow to traverse through the history of commands.
 
 **Extra:** you can get updates on specific rtvals using `type:id` so in this case `int:dice_rolled` or `integer:dice_rolled`.  
 Once again, press return to cancel the request for updates.
 
 Another option is`rtvals:name,rolled` which list those with the name rolled (once instead of streaming).   
-Or if not so certain on the name `rtvals:name,rol*` or actually using regex `rtvals:name,rol.*`
+Or if not so certain on the name using regex `rtvals:name,rol.*`
 (.* means any amount of any character)
 
 ### 4. Simple alterations
@@ -248,7 +247,7 @@ The options are:
 - text -> replace one value with another
 - flag -> use other values for true/false (instead of the default like 1,yes,true,high for true)
 
-Altering the store to increase the roll with 5 (for now, there's no command to do this).
+Altering the store to increase the roll with 5, cmd for this is `store:dice,alterval,rolled,op,i=i+5`
 ```xml
 <store delimiter=":">
       <int i="1" name="rolled" unit=""> <!-- because the content will contain the op, the name becomes an attribute -->
@@ -258,7 +257,7 @@ Altering the store to increase the roll with 5 (for now, there's no command to d
       </int> 
 </store>
 ```
-This can be applied with the cmd `ss:dice,reloadstore`. (check the result with `int:dice_rolled`)
+This can be applied with the cmd `ss:dice,reloadstore`. (check the result with `int:dice_rolled` and compare it to `raw:dice`)
 Or if the roll was stored as a text instead. The node below replaces some bad rolls with better ones.  
 To test the example below, copy it and paste it over the current one in the settings file, save the file and 
 use `ss:dice,reloadstore` to apply it.
@@ -294,7 +293,7 @@ Note that the type was altered to flag, so to see the results `flag:dice_rolled`
 The code doesn't differ much between SQLite or a database server, so we'll go with SQLite.  
 For a full list of database related commands, use `dbm:?`
 The one we are interested in now is `dbm:addsqlite,id(,filename)`, filename is optional, and the default is id.sqlite
-inside the db subfolder.  
+inside the 'db' subfolder.  
 So `dbm:addsqlite,rolls`
 >Created SQLite at db\rolls.sqlite and wrote to settings.xml
 
@@ -365,7 +364,7 @@ So now there's a database ready (go ahead and open the sqlite db in a viewer). B
 It is, however, still empty as no data gets written to it... yet.
 
 In order to actually get data in it, the store must know about where the data needs to go to.  
-Issue `store:id,db,dbid:table` which becomes `store:dice,db,rolls:dice`.
+Command for that is `store:id,db,dbid:table` which becomes `store:dice,db,rolls:dice`.
 
 The result:
 ```xml
@@ -439,20 +438,20 @@ Another option would have been:
 
 #### Periodic SQLite?
 
-It's called rollover (db rolls over to the next), the command for it `dbm:id,addrollover,count,unit,pattern`.
+It's called rollover (db rolls over to the next), the command for it `dbm:id,addrollover,period,pattern`.
 * id is the SQLite id
-* count is the amount of unit to rollover on
-* unit is the time period of the count, options are minute, hour, day, week, month, year
+* period is the amount and unit to rollover on
+  * unit options are minute, hour, day, week, month, year (can add an s fe. hours is fine to)
 * pattern is the text that is added in front of .sqlite of the filename, and allows for datetime patterns.
   * Alternative position can be given be adding `{rollover}` in the filename, this will be replaced 
 
-So as an example a monthly rollover: `dbm:rolls,addrollover,5,min,_HHmm`. 
-Other options for unit are: hour, day, month, year.
+So as an example a monthly rollover: `dbm:rolls,addrollover,5 min,_HHmm`. 
+Other options for unit are: minute, hour, day, month, year.
 To apply it: `dbm:rolls,reload` 
 ```xml
 <databases>
   <sqlite id="rolls" path="db\rolls.sqlite"> 
-    <rollover count="5" unit="minutes">_HHmm</rollover>
+    <rollover period="5 minutes">_HHmm</rollover>
     <flush age="30s" batchsize="30"/>
     <idleclose>-1</idleclose>
     <table name="dice">
@@ -516,10 +515,9 @@ Restore the settings.xml to restart from a clean slate.
   <databases>
      <sqlite id="rolls" path="db\rolls.sqlite"> <!-- fe. db\rolls_2021_05.sqlite -->        
         <flush age="30s" batchsize="30"/>
-        <idleclose>-1</idleclose>
         <table name="dice">
             <utcnow>timestmap</utcnow>
-            <integer>rolled</integer>
+            <int>rolled</int>
         </table>
      </sqlite>
   </databases>
@@ -547,23 +545,28 @@ This also makes it easier to copy-paste them between projects.
 For this example, the path will be added inside the settings.xml.
 Paths have their own cmd's, which are listed with the `pf:?` cmd (pf=pathforward).
 
-So create an empty path with: `pf:dice,new,raw:dice`.
-* dice is the id of the path, we'll use it to cheat the dice rolls with it
+So create an empty path with: `pf:cheat1,new,raw:dice`.
+* cheat1 is the id of the path, we'll use it to cheat the dice rolls with it
 * raw:dice is the source of the data
 
 The result is an extra node added:
 ```xml
   <paths>
-    <path delimiter="," id="dice" src="raw:dice"/>
+    <path delimiter="," id="cheat1" src="raw:dice"/>
   </paths>
 ```
-For now the path is empty, but 'steps' will be added (as childnodes in the xml).
-These are the 'steps' the data takes while travelling along the path.
+For now the path is empty, but 'forwards' will be added (as childnodes in the xml).
+These 'forward' the data along the path.
 
-A path doesn't need a delimiter, but the steps might. That's why a default delimiter can be set
-that will be used by a step (if none is specified by the step).
+A path doesn't need a delimiter, but the forwards might. That's why a default delimiter can be set
+that will be used by it (if none is specified by the forward).
 
-Because we'll use the same data as before, the delimiter can be altered to ':': `pf:dice,delim,:`.
+Because we'll use the same data as before, the delimiter can be altered to ':': using `pf:cheat1,delim,:`.
+
+There are three possible forwards:
+- filter: only forward data that complies to the given rules
+- math: apply mathematical operations to the data
+- editor: alter the content of the data
 
 ### 1. Filter
 There's very little data to filter... unless you want to cheat! (in a much too obvious way)   
@@ -572,31 +575,34 @@ Given how the data looks, choices are limited...
 > minlength : the minimum length the message should be
 
 Let us use that to claim we never roll below 10, the command to add a filter with a single rule `pf:pathid,addfilter/addf,rule:value`.  
-Filled in: `pf:dice,addf,minlength:6`
+Filled in: `pf:cheat1,addf,minlength:6`
 
-Now use `path:dice` to see the result. If you don't see anything, it either doesn't work, or the rolls are really unlucky.  
+Now use `path:cheat1` to see the result. If you don't see anything, it either doesn't work, or the rolls are really unlucky.  
 You could open a second telnet session and use `raw:dice` to see the unfiltered data.
 
 Below is what was added to the settings.xml.
 ```xml
 <paths>
-    <path delimiter=":" id="dice" src="raw:dice">
+    <path delimiter=":" id="cheat1" src="raw:dice">
         <filter type="minlength">6</filter>
     </path>
 </paths>
 ```
 To write this to the database, a store node needs to be added. Because it's inside a path, the cmds are different.  
-All the cmds start with `pf:pathid,store,`, using !! again `pf:dice,store,!!`
+All the cmds start with `pf:pathid,store,`, using !! again `pf:cheat1,store,!!`
 * Because a store takes group from the parent id (dice), this doesn't need to be set.
 * To add an int to a store: `addint,name<,index>`, so `addint,rolled,1`.
     * If a store is the last step in the path, the int will be added to that store.
     * If no store is at the end, a new one will be created for it.
+    * If no index is given, one will be generated based on the amount of nodes already present.
+* The group is taken from the id, but we want it to be dice instead to match the table `group,dice`.
 * Then finally, to set the db reference, `db,rolls:dice`.
 * Next `!!`, to go back to normal entry.
+* Then load the new path with `pf:reload`.
 
 ```xml
-<store db="rolls:dice">
-    <int i="1" unit="">rolled</int>
+<store db="rolls:dice" group="dice">
+  <int i="1" unit="">rolled</int>
 </store>
 ```
 Now when you check the rtvals or the database, results below 10 shouldn't appear anymore. But in the database, it might
@@ -605,23 +611,27 @@ be obvious that there are gaps... this could be fixed but that's for another sec
 > Note: For now, a message must comply with all filters. The only exception to that rule is startswith, you can add multiple
 > of those in a single filter, they will be or'd instead.
 
-This is a really short intro into FilterForward, check the dedicated guide for more.
+This is a really short intro into FilterForward, we'll circle back to it later or check the dedicated guide for more.
 
 ### 2. Math
 
-So we managed to cheat, but it's way too easy to spot, so we'll make it bit harder...
-* Start over by clearing the path, `pf:dice,clear`
-* To use the prefix'ing again `pf:dice,!!`
-* Then we want a filter that removes values below 10 `addf,maxlength:5`
-* Then add a math operation, `addm,i1=i1+5`
-    * Like earlier with the store, math also splits the data and those i's refer to that (and start at 0)
-    * The operation applied is i1=i1+5, so the number at index 1 will be increased with 5
-      * In contrast to the store op, the index number must be specified because the math gets everything 
-    * After this is done, the data is reconstructed fe. d20:5 -> d20:10
-* Then just copy-paste the earlier made store underneath it or...
-    * `store,addi,rolled,1`, `store,db,rolls:dice`
-* Back to normal input with `!!`
-
+So we managed to cheat, but it's way too easy to spot, so we'll make it bit harder. By adding a second path.
+* To use the prefix'ing again `pf:cheat2,!!`.
+* Create the path `new,raw:dice`.
+  * Alter the delimiter `delim,:`.
+* Then we want a filter that retains values below 10 `addf,maxlength:5` (d20:9 is 5 characters long).
+* Then add a math operation, `addm,i1=i1+5`.
+    * Like earlier with the store, math also splits the data and those i's refer to that (and start at 0).
+    * The operation applied is i1=i1+5, so the number at index 1 will be increased with 5.
+      * In contrast to the store op, the index number must be specified because the math gets everything.
+    * After this is done, the data is reconstructed fe. d20:5 -> d20:10.
+* Alter the prefix, to add the store `store,!!`.
+* Alter the group `group,dice`.
+* Add the int `addi,rolled,1`.
+* Set the database `db,rolls:dice`.
+* Back to normal input with `!!`.
+* Then load the new path with `pf:reload`.
+* 
 Below is how it will look in xml.
 ```xml
   <paths>
@@ -647,21 +657,20 @@ d20:11
 d20:7
 12
 ```
-As a (last) reminder, press enter to stop the data from appearing.
 
 Some extra info on maths:
-* There's no limit to the amount of op's
-* The op's are executed in order, so if the first one alters index 1 the next one will use the updated value
-* Besides +, other supported ones are -,/,*,^ and %
+* There's no limit to the amount of op's.
+* The op's are executed in order, so if the first one alters index 1 the next one will use the updated value.
+* Besides +, other supported ones are -,/,*,^ and %.
 * Brackets are allowed but not mandatory because it will follow the priority rules with the minor exception that % has
   lower priority than / and * (who share priority). So 5+2*4 will be 13 and not 28.
 * Both Scientific notation (15E2) and hexadecimal (0xFF) are allowed in both data received and op's.
 
-There's no function (yet) for logical operations in MathForward nor FilterForward, so that's it for cheating...
+There's no function (yet) for logical operations in Math nor Filter, so that's it for cheating...
 It still might be obvious that 1 to 5 never appear but there's little that can be done about that (for now), besides
 its random, so we might just be lucky.
 
-This was a really short intro into MathForward, check the dedicated guide for more.
+This was a really short intro into Math, check the dedicated guide for more.
 
 ### 3. Editor
 
@@ -676,7 +685,8 @@ The most commonly used ones:
 Usage is pretty much the same as filters, this editor will pretend that we actually wanted a d10 instead of a d20 if the
 result was less than 10.
 
-Start of with resetting the path to `pf:dice,clear` and `pf:dice,addf,maxlength:5`
+Start of with removing previous paths `pf:clear` and add a new one `pf:dice,new,raw:dice`.
+Next add a filter again, `pf:dice,addf,maxlength:5`
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
@@ -687,7 +697,7 @@ To add an editor that does a replace, check the earlier `help:editor` for the co
 > replace -> Replace 'find' with the replacement
 > cmd pf:pathid,adde,replace:find|replacement
 
-So this becomes: `pf:dice,adde,replace,d2|d1`
+So this becomes: `pf:dice,adde,replace,d2|d1`, then make it active with `pf:reload`
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
@@ -700,7 +710,7 @@ So this becomes: `pf:dice,adde,replace,d2|d1`
 You can compare the result wih the raw data using `raw:dice` and `path:dice`.
 We'll try a different edit, so remove the last node with `pf:dice,delete,last`.
 
-The resplit one is a bit more complex so to give an example of yet another cheat method.  
+The resplit one is a bit more complex so to give an example.  
 According to `help:editor`, the cmd is `pf:pathid,adde,resplit,delimiter|append/remove|format`.  
 The reason for using '|' instead of ',' is because it's highly likely that delimiter and format contain ','.
 * The delimiter is the same as before, so `:`.
@@ -709,7 +719,7 @@ The reason for using '|' instead of ',' is because it's highly likely that delim
 * Format will be `i0:1i1` so just add a 1 in front of the second item. Because the filter only allows rolls below 10 to
   go through, this results in those rolls becoming much better.
 
-Based on that the cmd becomes: `pf:dice,adde,resplit,:|append|i0:1i1`
+Based on that the cmd becomes: `pf:dice,adde,resplit,:|append|i0:1i1` and apply with `pf:reload,dice`.
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
@@ -739,10 +749,10 @@ So far we made a path for each filter, but it's actually the same when combining
     </store>
 </path>
 ```
-But because this might be confusing, the 'if' was added. Using that node, see below for this alternative. 
+But because this might be confusing, 'if' was added. Using that node, see below for this alternative. 
 Which might not make much sense in this case (because if max length isn't 5 than minlength is 6), but it's just an example.  
 An if can be added with `pf:pathid,addif,type,value`, so `pf:dice,addif,minlength,6` etc.
-And if/else doesn't exist -yet-, nor do cmds to fill it.
+An if/else doesn't exist -yet-, nor do cmds to fill it.
 
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
@@ -767,7 +777,7 @@ And if/else doesn't exist -yet-, nor do cmds to fill it.
 * `stream` tcp/udp/serial connection that can receive/transmit data
 * `source` any possible source of (processed) data
 * `command` a readable instruction that can affect any part of the program
-* `path` a series of steps that the data passes through to get processed
+* `path` a series of forwards that pass the data through to get processed
 
 #### About dataflow
 
@@ -778,7 +788,7 @@ Everytime you want to see data in telnet, that interface acts as the writable.
 Not that it matters for the user, but for example a filter will only request data from its source if it has a writable/target for the
 filtered data.
 
-#### About commands
+#### Common commands
 * For a general beginners aid, use `help`
 * To get an overview of all the streams,databases and such, use `st`
 * If you want to collect data from TCP,UDP and serial, `ss:?`
@@ -801,7 +811,7 @@ For consistency's sake, a lot of subcommands are repeated.
 
 
 Bonus!
-* The up/down arrow can be used to go through history of send commands.
+* The up/down arrow can be used to go through history of send commands. This history is also stored serverside.
 
 ## C. Let's kick it up a notch
 
@@ -839,21 +849,21 @@ Sending data isn't anything special and certainly not 'kicking it up a notch', b
 
 There are three ways to send something to a stream:
 * Use `dice:some text` to send 'some text' to the dice stream
-  * This also means that you can't have a taskmanager with that id! 
 * Send `streams` (or `ss`) to get a list of available streams, this will return a list with currently only **S1:dice**  
   * Use `S1:important` to send important to the dice stream
   * Might be easier if the id's are long
 * `ss:send,dice,unimportant` to send unimportant to the dice stream
 
 As always, this has a couple of extras...
-* By default, the earlier defined eol is appended (so the first command actually sends important\r\n). But eol can be 
-omitted by using CTRL+s instead of enter.
+* By default, the earlier defined eol is appended (so the first command actually sends important\r\n). 
+  * But eol can be omitted:
+    * by using CTRL+s instead of enter.
+    * Ending with \0, so `dice:hello?\0` won't get crlf appended.
 * Hexadecimal escape characters are allowed, so `dice:hello?` and `dice:hello\x3F` send the same thing
     * alternatively, `dice:\h(0x68,0x65,0x6c,0x6c,0x6f,0x3f,0xd,0xa)` would do the same thing, note that the eol sequence needs to be added manually
-* ending with \0 will signal to dcafs to omit the eol sequence so `dice:hello?\0` won't get crlf appended.
-    * Using CTRL+s instead of enter will do the same
+* Incase the device being talked to, wants to receive ESC, either use the hex options or just press ESC.
 * If you plan on transmitting multiple lines, you should start with `dice:!!` from then on, everything send via that
-  telnet session will have dice: prepended and thus be transmitted to dice. Sending `!!` ends this.   
+  telnet session will have dice: prepended and thus be transmitted to dice. 
 
 So now you know pretty much everything there is to know about manually sending data.
 
@@ -922,9 +932,11 @@ We'll automate this.
 1. Alter the stream node in the xml for the regular one
 ```xml
     <stream id="dice" type="tcp">   
-        <address>localhost:4000</address>   
-        <write when="hello">dicer:stopd20s</write> <!-- send the text to stop getting the d20s upon connecting -->
-        <ttl>6s</ttl> <!-- because of no longer receiving data this will expire -->
+        <!-- Setup -->
+        <address>localhost:4000</address>
+        <ttl>6s</ttl> <!-- because of no longer receiving data this will expire -->      
+        <!-- Cmds, writes -->
+        <write when="hello">dicer:stopd20s</write> <!-- send the text to stop getting the d20s upon connecting -->   
         <write when="wakeup">sd</write> <!-- and a shutdown will be asked because of the ttl -->
         <cmd when="close">sd</cmd> <!-- which in turn will trigger a 'close' that will shutdown this instance -->
     </stream>
