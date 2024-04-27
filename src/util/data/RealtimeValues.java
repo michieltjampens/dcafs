@@ -523,10 +523,11 @@ public class RealtimeValues implements Commandable {
 		if( cmds.length<2 )
 			return "! Not enough arguments, at least: fv:id,cmd";
 
-		var flagOpt = getFlagVal(cmds[1]);
-		if( flagOpt.isEmpty() )
+		var flagOpt = getFlagVal(cmds[0]);
+		if( flagOpt.isEmpty() ) {
+			Logger.error("No such flag: "+cmds[0]);
 			return "! No such flag yet";
-
+		}
 		flag=flagOpt.get();
 
 		switch (cmds[1]) {
@@ -577,21 +578,21 @@ public class RealtimeValues implements Commandable {
 		if( cmds.length<2 )
 			return "! Not enough arguments, at least: tv:id,cmd";
 
-		var txtOpt = getTextVal(cmds[1]);
+		var txtOpt = getTextVal(cmds[0]);
 		if( txtOpt.isEmpty() )
 			return "! No such text yet";
 
 		txt=txtOpt.get();
 
 		// Execute the commands
-		if (cmds[0].equals("update")) {
+		if (cmds[1].equals("update")) {
 			if (cmds.length < 3)
 				return "! Not enough arguments: tv:id,update,value";
 			int start = args.indexOf(",update") + 8; // value can contain , so get position of start
 			txt.value(args.substring(start));
 			return "TextVal updated";
 		}
-		return "! No such subcommand in tv: "+cmds[0];
+		return "! No such subcommand in tv: "+cmds[1];
 	}
 	public String replyToRtvalsCmd( String args, boolean html ){
 
