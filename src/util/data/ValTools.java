@@ -255,7 +255,7 @@ public class ValTools {
                     {
                         var val = rtvals.getAbstractVal(p[0]);
                         if( val.isPresent())
-                            yield line.replace( "{"+p[0]+"}",val.get().toString());
+                            yield line.replace( "{"+p[0]+"}",val.get().stringValue());
                         yield line;
                     }
                 };
