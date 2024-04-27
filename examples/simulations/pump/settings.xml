@@ -1,14 +1,37 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
   <settings>
-    <mode>normal</mode>
-    <!-- Settings related to the telnet server -->
-    <telnet port="23" title="DCAFS_pump_scenario"/>
+    <telnet port="23" title="DCAFS_pump_scenario">
+      <textcolor>lightgray</textcolor>
+    </telnet>
+    <!-- The simulation scripts, don't alter or look at it -->
     <taskmanager id="pump">tmscripts\pump.xml</taskmanager>
   </settings>
   <!-- This is part of the dummy, don't change it -->
   <streams>
-    <stream id="pump" type="local">
-    </stream>
+    <!-- connection to the pump -->
+
   </streams>
+  <rtvals>
+    <group id="pump">
+      <real name="temp" unit="°C" def="24" scale="2"/>
+      <text name="state" def="idle"/>
+      <flag name="enabled" def="false"/>
+      <flag name="broken" def="false"/>
+      <real name="warmup" unit="°C" def="0"/>
+    </group>
+    <group id="cooler">
+      <text name="state" def="idle"/>
+      <flag name="enabled" def="false"/>
+      <flag name="broken" def="false"/>
+    </group>
+    <group id="room">
+      <real name="ambient" unit="°C" def="20" scale="2"/>
+    </group>
+  </rtvals>
+  <paths>
+    <path id="pump">
+      <rtvalssrc interval="1s">pump:{t:pump_state},cooler:{t:cooler_state},temp:{r:pump_temp},ambient:{d:room_ambient}</rtvalssrc>
+    </path>
+  </paths>
 </dcafs>

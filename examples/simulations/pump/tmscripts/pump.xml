@@ -1,95 +1,95 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<tasklist>
-  <tasksets>
-      <taskset id="startpump" info="Start the pump">
-            <task output="system" >doubles:update,warmup,1</task>
-            <task output="system" req="!flag:broken" >texts:update,ps,active</task>
-            <task output="manager" trigger="interval:2s">taskset:monitor</task>
-            <task output="manager">stop:stop</task>
-      </taskset>
+<dcafs>
+    <tasklist>
+      <tasksets>
+          <taskset id="startpump" info="Start the pump">
+                <task output="system" req="!flag:cooler_enabled">rv:pump_warmup,update,1</task>
+                <task output="system" req="flag:cooler_enabled">rv:pump_warmup,update,-0.5</task>
+                <task output="system" req="!flag:pump_broken" >tv:pump_state,update,active</task>
+                <task output="manager" trigger="interval:2s">taskset:monitor</task>
+          </taskset>
 
-      <taskset id="monitor" info="Monitor the status">
-          <!-- To hot -->
-          <task output="manager" req="pumptemp above 50">taskset:broken</task>
-          <!-- To cold -->
-          <task output="manager" req="flag:cooler and pumptemp below 0">taskset:brokencooler</task>
-          <task output="system"  req="!flag:cooler and !flag:bc">doubles:update,warmup,1</task>
-      </taskset>
+          <taskset id="monitor" info="Monitor the status">
+              <!-- To hot -->
+              <task output="manager" req="pump_temp above 50">taskset:broken</task>
+              <!-- To cold -->
+              <task output="manager" req="flag:cooler_enabled and pump_temp below 0">taskset:brokencooler</task>
+              <task output="system"  req="!flag:cooler_enabled and !flag:cooler_broken">rv:pump_warmup,update,1</task>
+          </taskset>
 
-      <taskset id="idle" info="Monitor the status when idle">
-          <task output="manager" req="flag:cooler and pumptemp below 0">taskset:brokencooler</task>
-          <!-- Response to cooler being off -->
-          <task output="system"       req="!flag:cooler and !flag:bc">doubles:update,warmup,0</task>
-      </taskset>
-      <taskset id="broken">
-          <task output="manager">stop:startpump</task>
-          <task output="system" >texts:update,ps,broken</task>
-          <task output="system" >flags:raise,broken</task>
-          <task output="manager" trigger="interval:2s">taskset:idle</task>
-      </taskset>
-      <taskset id="stop">
-          <task output="manager">stop:startpump</task>
-          <task output="system" req="!flag:broken" >texts:update,ps,idle</task>
-          <!-- go to idle mode -->
-          <task output="manager" trigger="interval:2s">taskset:idle</task>
-          <task output="system"  req="!flag:cooler">doubles:update,warmup,0</task>
-      </taskset>
-      <!-- Cooler tasksets -->
-      <taskset id="startcooling">
-          <task output="system" req="!flag:bc">flags:raise,cooler</task>
-          <task output="system" req="!flag:bc">texts:update,cs,active</task>
-          <task output="system" req="!flag:bc">doubles:update,warmup,-1</task>
-      </taskset>
-      <taskset id="stopcooling">
-          <task output="system" req="!flag:bc">flags:lower,cooler</task>
-          <task output="system" req="!flag:bc">texts:update,cs,idle</task>
-          <task output="system" req="!flag:bc">doubles:update,warmup,0</task>
-      </taskset>
-      <taskset id="brokencooler">
-          <task output="system" >texts:update,cs,broken</task>
-          <task output="system" >flags:lower,cooler</task>
-          <task output="system" >flags:raise,bc</task>
-      </taskset>
-      <taskset id="ambient">
-          <!-- Warm up when pump is warming up -->
-          <task output="system"  req="ambient not above pumptemp and pumptemp diff ambient above 5">doubles:update,ambient,ambient+0.1</task>
-          <task output="system"  req="ambient not below pumptemp and pumptemp diff ambient above 5">doubles:update,ambient,ambient-0.1</task>
-          <task output="system"  req="ambient not above pumptemp and pumptemp diff ambient above 10">doubles:update,pumptemp,pumptemp-0.2</task>
-          <task output="system"  req="ambient not below pumptemp and pumptemp diff ambient above 10">doubles:update,pumptemp,pumptemp+0.2</task>
-          <task output="system"  req="ambient not below pumptemp">doubles:update,ambient,ambient-0.1</task>
-          <task output="system"  req="ambient not above pumptemp">doubles:update,ambient,ambient+0.1</task>
-          <task output="system"  req="ambient not below pumptemp">doubles:update,ambient,ambient-0.1</task>
-          <task output="system"  req="ambient not above 20">doubles:update,ambient,ambient+0.05</task>
-          <task output="system"  req="ambient not below 20">doubles:update,ambient,ambient-0.05</task>
+          <taskset id="idle" info="Monitor the status when idle">
+              <task output="manager" req="flag:cooler_enabled and pump_temp below 0">taskset:brokencooler</task>
+              <!-- Response to cooler being off -->
+              <task output="system"       req="!flag:cooler_enabled and !flag:cooler_broken">rv:pump_warmup,update,0</task>
+          </taskset>
+          <taskset id="broken">
+              <task output="manager">stop:startpump</task>
+              <task output="system" >texts:pump_state,update,broken</task>
+              <task output="system" >flags:pump_broken,update,true</task>
+              <task output="manager" trigger="interval:2s">taskset:idle</task>
+          </taskset>
+          <taskset id="stop">
+              <task output="manager">stop:startpump</task>
+              <task output="system" req="!flag:pump_broken" >texts:pump_state,update,idle</task>
+              <!-- go to idle mode -->
+              <task output="manager" trigger="interval:2s">taskset:idle</task>
+              <task output="system"  req="!flag:cooler_enabled">rv:pump_warmup,update,0</task>
+          </taskset>
+          <!-- Cooler tasksets -->
+          <taskset id="startcooling">
+              <task output="system" req="!flag:cooler_broken">flags:cooler_enabled,update,true</task>
+              <task output="system" req="!flag:cooler_broken">texts:cooler_state,update,active</task>
+              <task output="system" req="!flag:cooler_broken">rv:pump_warmup,update,-1.5</task>
+          </taskset>
+          <taskset id="stopcooling">
+              <task output="system" req="!flag:cooler_broken">flags:cooler_enabled,update,false</task>
+              <task output="system" req="!flag:cooler_broken">texts:cooler_state,update,idle</task>
+              <task output="system" req="!flag:cooler_broken">rv:pump_warmup,update,0</task>
+          </taskset>
+          <taskset id="brokencooler">
+              <task output="system" >texts:cooler_state,update,broken</task>
+              <task output="system" >flags:cooler_enabled,update,false</task>
+              <task output="system" >flags:cooler_broken,update,true</task>
+          </taskset>
+          <taskset id="ambient">
+              <!-- Warm up when pump is warming up -->
+              <task output="system"  req="room_ambient not above pump_temp and pump_temp diff room_ambient above 5">rv:room_ambient,update,{room_ambient}+0.1</task>
+              <task output="system"  req="room_ambient not below pump_temp and pump_temp diff room_ambient above 5">rv:room_ambient,update,{room_ambient}-0.1</task>
+              <task output="system"  req="room_ambient not above pump_temp and pump_temp diff room_ambient above 10">rv:pump_temp,update,{pump_temp}-0.2</task>
+              <task output="system"  req="room_ambient not below pump_temp and pump_temp diff room_ambient above 10">rv:pump_temp,update,{pump_temp}+0.2</task>
+              <task output="system"  req="room_ambient not below pump_temp">rv:room_ambient,update,{room_ambient}-0.1</task>
+              <task output="system"  req="room_ambient not above pump_temp">rv:room_ambient,update,{room_ambient}+0.1</task>
+              <task output="system"  req="room_ambient not above 20">rv:room_ambient,update,{room_ambient}+0.05</task>
+              <task output="system"  req="room_ambient not below 20">rv:room_ambient,update,{room_ambient}-0.05</task>
 
-          <task output="system"  trigger="delay:200ms" req="pumptemp above ambient and ambient diff pumptemp above 0.1">doubles:update,pumptemp,pumptemp-0.1</task>
-          <task output="system"  trigger="delay:200ms" req="pumptemp below ambient and ambient diff pumptemp above 0.1">doubles:update,pumptemp,pumptemp+0.1</task>
-          <task output="system"  trigger="delay:200ms" req="pumptemp above ambient and ambient diff pumptemp not above 0.1">doubles:update,pumptemp,ambient</task>
-          <task output="system"  trigger="delay:200ms" req="pumptemp below ambient and ambient diff pumptemp not above 0.1">doubles:update,pumptemp,ambient</task>
-      </taskset>
-  </tasksets>
+              <task output="system"  delay="200ms" req="pump_temp above room_ambient and room_ambient diff pump_temp above 0.1">rv:pump_temp,update,{pump_temp}-0.1</task>
+              <task output="system"  delay="200ms" req="pump_temp below room_ambient and room_ambient diff pump_temp above 0.1">rv:pump_temp,update,{pump_temp}+0.1</task>
+              <task output="system"  delay="200ms" req="pump_temp above room_ambient and room_ambient diff pump_temp not above 0.1">rv:pump_temp,update,{room_ambient}</task>
+              <task output="system"  delay="200ms" req="pump_temp below room_ambient and room_ambient diff pump_temp not above 0.1">rv:pump_temp,update,{room_ambient}</task>
+          </taskset>
+            <taskset id="reset">
+                <!-- Fix the cooler -->
+                <task output="system" >flags:cooler_enabled,update,false</task>
+                <task output="system" >flags:cooler_broken,update,false</task>
+                <task output="system" >texts:cooler_state,update,idle</task>
+                <!-- Reset the pump -->
+                <task output="system" >flags:pump_enabled,update,false</task>
+                <task output="system" >flags:pump_broken,update,false</task>
+                <task output="system" >rv:pump_temp,update,24</task>
+                <task output="system" >rv:pump_warmup,update,0</task>
+                <task output="system" >texts:pump_state,update,idle</task>
+                <!-- Other -->
+                <task output="system" >rv:room_ambient,update,20</task>
+            </taskset>
+      </tasksets>
 
-  <!-- Tasks are single commands to execute -->
-  <tasks>
-      <task output="stream:pump" trigger="interval:1s">pump:{t:ps},cooler:{t:cs},temp:{d:pumptemp},ambient:{d:ambient}</task>
-
-      <task id="stop" output="system" >doubles:update,warmup,0</task>
-      <task id="start" output="manager" req="!flag:broken" >taskset:startpump</task>
-
-      <task output="system" trigger="delay:0s">doubles:new,pumptemp,24</task>
-      <task output="system" trigger="delay:100ms">doubles:alter,pumptemp,scale:2</task>
-      <task output="system" trigger="delay:0s">texts:new,ps,idle</task>
-      <task output="system" trigger="delay:0s">texts:new,cs,idle</task>
-      <task output="system" trigger="delay:0s">doubles:new,ambient,20</task>
-      <task output="system" trigger="delay:100ms">doubles:alter,ambient,scale:2</task>
-      <task output="system" trigger="delay:0s">doubles:new,warmup,0</task>
-      <task output="system" trigger="delay:0s">flags:new,cooler,0</task>
-      <task output="system" trigger="delay:0s">flags:new,bc,0</task>
-      <task output="system" trigger="delay:0s">flags:new,broken,0</task>
-      <task output="system" trigger="delay:0s">flags:new,cobroken,0</task>
-
-      <task output="system" trigger="interval:1s">doubles:update,pumptemp,pumptemp+warmup</task>
-      <!-- Ambient changes because of pump -->
-      <task output="manager" trigger="interval:1s" >start:ambient</task>
-  </tasks>
-</tasklist>
+      <!-- Tasks are single commands to execute -->
+      <tasks>
+          <task id="stop" output="system" >rv:pump_warmup,update,0</task>
+          <task id="start" output="system" req="!flag:pump_broken" >pump:startpump</task>
+          <task output="system" interval="1s">rv:pump_temp,update,{pump_temp}+{pump_warmup}</task>
+          <!-- Ambient changes because of pump -->
+          <task output="manager" interval="1s" >start:ambient</task>
+      </tasks>
+    </tasklist>
+</dcafs>
