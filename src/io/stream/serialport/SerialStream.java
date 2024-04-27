@@ -1,13 +1,16 @@
 package io.stream.serialport;
 
 import com.fazecast.jSerialComm.*;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.stream.BaseStream;
 import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.Tools;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 import worker.Datagram;
+
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 
@@ -18,10 +21,14 @@ public class SerialStream extends BaseStream implements Writable {
 
     protected SerialPort serialPort;
     String port ="";
-
+    boolean flush=false;
+    int eolFound=0;
+    byte[] eolBytes;
+    ByteBuf buffer;
     public SerialStream(BlockingQueue<Datagram> dQueue, Element stream) {
         super(dQueue,stream);
     }
+
     protected String getType(){
         return "serial";
     }
@@ -76,7 +83,11 @@ public class SerialStream extends BaseStream implements Writable {
         if (serialPort == null)
             return;
 
-        if (eol.isEmpty()) {
+        if (eol.isEmpty() || flush ) {
+            if( flush ) {
+                buffer = Unpooled.buffer(128,512);
+                eolBytes = eol.getBytes();
+            }
             serialPort.addDataListener(new SerialPortDataListener() {
                 @Override
                 public int getListeningEvents() {
@@ -126,22 +137,54 @@ public class SerialStream extends BaseStream implements Writable {
             Logger.error(e);
         }
     }
+    public void flushBuffer(){
+        if( buffer==null || buffer.readableBytes()==0 )
+            return;
+        var rec = new byte[buffer.readableBytes()];
+        buffer.readBytes(rec);
+        forwardData(new String(rec));
+    }
     protected void processListenerEvent( byte[] data ){
         Logger.debug(id+ " <-- "+Tools.fromBytesToHexString(data));
-        Logger.tag("RAW").warn(id() + "\t" + Tools.fromBytesToHexString(data));
 
         if( readerIdle ){
             listeners.forEach( l -> l.notifyActive(id));
             readerIdle=false;
         }
+        if( flush ){
+            int used = buffer.readableBytes();
+            Logger.info("Used space:"+used);
 
-        if( !targets.isEmpty() ){
+            for ( byte datum : data) {
+                buffer.writeByte(datum);
+                if (datum == eolBytes[eolFound]) {
+                    eolFound++;
+                    if (eolFound == eolBytes.length) { // Got whole eol
+                        var rec = new byte[buffer.readableBytes()-eolFound];
+                        buffer.readBytes(rec); // Read the bytes, but omit the eol
+                        buffer.clear(); // ignore the eol
+                        Logger.tag("RAW").warn(id() + "\t" + Tools.fromBytesToHexString(rec));
+                        forwardData(new String(rec));
+                        eolFound = 0;
+                    }
+                } else {
+                    eolFound = 0;
+                }
+            }
+        }else {
+            Logger.tag("RAW").warn(id() + "\t" + Tools.fromBytesToHexString(data));
+            forwardData(data);
+        }
+    }
+    private void forwardData( byte[] data ){
+        Logger.info("Received: " + new String(data));
+        if (!targets.isEmpty()) {
             try {
-                targets.forEach(dt -> eventLoopGroup.submit(()-> {
+                targets.forEach(dt -> eventLoopGroup.submit(() -> {
                     try {
-                        if( dt.id().contains("telnet")) {
-                            dt.writeString(new String(data)+" ");
-                        }else{
+                        if (dt.id().contains("telnet")) {
+                            dt.writeString(new String(data) + " ");
+                        } else {
                             dt.writeBytes(data);
                         }
                     } catch (Exception e) {
@@ -150,14 +193,14 @@ public class SerialStream extends BaseStream implements Writable {
                     }
                 }));
                 targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
-            }catch(Exception e){
-                Logger.error(id+" -> Something bad in serial port");
+            } catch (Exception e) {
+                Logger.error(id + " -> Something bad in serial port");
                 Logger.error(e);
             }
         }
     }
     protected void processMessageEvent(byte[] data){
-        String msg = new String(data).replace(eol, "");
+        String msg = new String(data).replace(eol, ""); // replace actually needed?
         if( readerIdle ){
             listeners.forEach( l -> l.notifyActive(id));
             readerIdle=false;
@@ -351,10 +394,16 @@ public class SerialStream extends BaseStream implements Writable {
 
     @Override
     protected boolean readExtraFromXML(Element stream) {
-        if (!setPort(XMLtools.getChildStringValueByTag(stream, "port", ""))) {
+        var dig = XMLdigger.goIn(stream);
+        if (!setPort( dig.peekAt("port").value(""))) {
             return false;
         }
-        alterSerialSettings(XMLtools.getChildStringValueByTag(stream, "serialsettings", "19200,8,1,none"));
+        alterSerialSettings(dig.peekAt("serialsettings").value("19200,8,1,none"));
+        if( dig.hasPeek("ttl") ){
+            dig.usePeek();
+            if( dig.hasAttr("flush") && dig.attr("flush",false))
+                flush=true;
+        }
         return true;
     }
     @Override

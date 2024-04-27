@@ -1116,7 +1116,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	@Override
 	public void notifyIdle( BaseStream stream ) {
 		Logger.warn(stream.id() + " is idle for " + stream.getReaderIdleTime() + "s");
-		issues.addIfNewAndStart(stream.id()+".conidle", "TTL passed for "+stream.id());
+		if( stream instanceof SerialStream ){
+			((SerialStream)stream).flushBuffer();
+		}
 		stream.flagAsIdle();
 	}
 
