@@ -472,10 +472,10 @@ Going back to the `dbm:?` command, its shown that database servers are also an o
 Let's take MariaDB as an example: `dbm:addmariadb,id,db name,ip:port,user:pass`
 
 Suppose:
-* give the id diceserver
-* it's running on the same machine and using default port (then you don't need to specify it)
-* It has a database with the same name as the sqlite one made earlier
-* Security isn't great and user is admin and pass stays pass
+* The id is diceserver.
+* It's running on the same machine and using default port (then you don't need to specify it).
+* It has a database with the same name as the sqlite one made earlier.
+* Security isn't great and user is admin and pass stays pass.
 
 The command becomes`dbm:addmariadb,diceserver,rolls,localhost,admin:pass`  
 Which in turn fills in the xml.
@@ -490,7 +490,7 @@ Which in turn fills in the xml.
     </server>
 </databases>
 ```
-All the rest is the same as the SQLite. (meaning adding the table and using the generic with the new db attribute)
+All the rest is the same as the SQLite. (meaning adding the table and using the store with the new db attribute)
 
 ### 6. Summary
 This should serve as a broad, toplevel overview of what happens and what goes where or has which function.
@@ -808,7 +808,6 @@ For consistency's sake, a lot of subcommands are repeated.
 * `cmd:add` will be the start of creation of a new/blank element
 * `cmd:reload` will reload all the elements of the component
 * `cmd:reload,id` will reload the element with that id
-
 
 Bonus!
 * The up/down arrow can be used to go through history of send commands. This history is also stored serverside.
@@ -1249,8 +1248,30 @@ Besides 'below', the other options are:
 ```
 #### Other cmds
 * `rtvals:group,groupid` will return a list of **all** rtvals belonging to requested group, fe. the earlier temps  
-  <b>Group: temps</b>  
-  &nbsp;&nbsp;&nbsp;&nbsp;temp : -999°C  
-  &nbsp;&nbsp;&nbsp;&nbsp;offsettemp : -999°C  
-  &nbsp;&nbsp;&nbsp;&nbsp;location : outdoor  
-  &nbsp;&nbsp;&nbsp;&nbsp;serviced: false
+```
+  Group: temps  
+    temp : -999°C  
+    offsettemp : -999°C  
+    location : outdoor  
+    serviced: false
+```
+
+## D. Pump example
+
+To use the things learned so far in a more 'realistic' scenario, we'll simulate a pump that pumps a hot liquid.  
+Just like the earlier diceroller, this is actually a TaskManager. After this we'll go through that TaskManager and use it to explain the functionality.
+
+What is known about the scenario:
+- Warms up 1°C/s while active and keeps heating up till it breaks (at a measly 50°C).
+- Prefers to stay between about 10°C and 25°C.
+- Has a liquid nitrogen cooler that cools 2°C/s but lacks any safety feature, so can freeze te pump.
+- When idle the pump slowly heats up/cools down to ambient temperature.
+- Ambient will slowly change towards the pump temperature (and faster if far off).
+- Ambient will try to get to 20°C.
+- Data format: pump:active/idle/broken,cooler:active/idle/broken,temp:xx.x,ambient:xx.x
+
+The tasks of the exercise:  
+- Process the data.
+- Make sure the cooler is activated and stopped on time.
+- Keep track of the times the cooler is activated and for how long.
+

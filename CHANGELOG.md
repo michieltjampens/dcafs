@@ -9,15 +9,15 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.9.0 (wip)
-- Updated dependencies: 
-  - netty 4.1.109
-  - jSerialcom 2.11.0
-  - mssql 12.6.1.jre11
-  - postgresql 42.7.3
+## 2.9.0 (27/04/2024)
+
+### Streams
+- Fixed, changing the ttl of a stream no longer reloads it, applies it instead.
 - Can now send data to a stream using the id instead of Sy. 
 - Can now send ESC to a stream using the esc key (eol won't be appended)
-- Editor redate now supports epochmillis and epochseconds. Use 'epochmillis' or epochsec(onds) as inputformat.
+- SerialStream, Added the attribute flush to ttl node. If true, this means that any data in the buffer will be forwarded
+as if the eol was received if the ttl has passed. This can be useful for situations in which a device sends a prompt without eol.
+Or if unsure about the eol but still want data to be more or less per message instead of as received.
 
 ### TaskManager
 - Added {utc:format} as possible fill in value for a task value. This will get replaced with the current utc time
@@ -31,10 +31,10 @@ a bit longer because it has to search in more collections.
   - If it's the first node, it will be 0.
   - If other nodes are already present, it will be the index of the last one +1.
 
-### Other
+### Database
 - Replaced the use of the enum Rolloverunit with the java ChronoUnit.
-- Fixed, changing the ttl of a stream no longer reloads it, applies it instead.
-- Breaking, combined rollover attributes to make it a bit more straightforward.
+- Fixed, filename of the sqlite with rollover in status overview didn't match the actual name on short periods.
+- Breaking, combined rollover attributes to make it a bit more straightforward. Bot SQLite and FileCollector use this.
 ```xml
 <!-- Previous -->
 <rollover count="5" unit="minutes">_HHmm</rollover>
@@ -42,7 +42,16 @@ a bit longer because it has to search in more collections.
 <rollover period="5 minutes">_HHmm</rollover>
 ```
 
-
+### Other
+- Editor redate now supports epochmillis and epochseconds. Use 'epochmillis' or epochsec(onds) as inputformat.
+- Fixed, flagval and textval update command was checking for id in old index so didn't work.
+- RealVal and Intval can now be created with a command.
+- Updated dependencies:
+  - netty 4.1.109
+  - jSerialcom 2.11.0
+  - mssql 12.6.1.jre11
+  - postgresql 42.7.3
+  
 ## 2.8.1 (15/03/2024)
 - Updated netty,activation and json dependency
 - Can now request realtime updates of flags with `flag:id`.
