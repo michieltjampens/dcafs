@@ -178,7 +178,7 @@ public class TcpStream extends BaseStream implements Writable {
 
     /**
      * Get the timestamp of when the last data was received
-     * @return The time in epoch milles or -1 if invalid handler
+     * @return The time in epoch millis or -1 if invalid handler
      */
     @Override
     public long getLastTimestamp() {

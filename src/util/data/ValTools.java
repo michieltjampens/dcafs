@@ -203,6 +203,8 @@ public class ValTools {
                 return Double.NaN;
             }
         }
+        if( Double.isNaN(result) )
+            Logger.error("Something went wrong processing: "+expr);
         return result;
     }
     /**
