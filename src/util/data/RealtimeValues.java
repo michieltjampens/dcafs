@@ -438,28 +438,63 @@ public class RealtimeValues implements Commandable {
 		var cmds = args.split(",");
 
 		NumericVal val;
-		if( cmd.startsWith("r")){ // so real, rv
-			var rOpt = getRealVal(cmds[0]);
-			if( rOpt.isEmpty() )
-				return "! No such real yet";
-			val = rOpt.get();
-		}else{ // so int,iv
-			var iOpt = getIntegerVal(cmds[0]);
-			if( iOpt.isEmpty() )
-				return "! No such int yet";
-			val = iOpt.get();
-		}
 
-		if (cmds[0].equals("update")) {
-			if (cmds.length < 3)
-				return "! Not enough arguments, "+cmd+":id,update,expression";
-			var result = ValTools.processExpression(cmds[2], this);
-			if (Double.isNaN(result))
-				return "! Unknown id(s) in the expression " + cmds[2];
-			val.updateValue(result);
-			return val.id()+" updated to " + result;
-		}
-		return "! No such subcommand in "+cmd+": "+cmds[0];
+		return switch(cmds[1]){
+			case "update","def" -> {
+				if (cmds.length < 3)
+					yield "! Not enough arguments, "+cmd+":id,"+cmds[1]+",expression";
+				if( cmd.startsWith("r")){ // so real, rv
+					var rOpt = getRealVal(cmds[0]);
+					if( rOpt.isEmpty() )
+						yield "! No such real yet";
+					val = rOpt.get();
+				}else{ // so int,iv
+					var iOpt = getIntegerVal(cmds[0]);
+					if( iOpt.isEmpty() )
+						yield "! No such int yet";
+					val = iOpt.get();
+				}
+				var result = ValTools.processExpression(cmds[2], this);
+				if (Double.isNaN(result))
+					yield "! Unknown id(s) in the expression " + cmds[2];
+				val.updateValue(result);
+				yield val.id()+" updated to " + result;
+			}
+			case "new" -> {
+				// Split in group & name
+				String group,name;
+				if( cmds.length==3){
+					group=cmds[2];
+					name=cmds[0];
+				}else if(cmds.length==2){
+					if( !cmds[0].contains("_") )
+						yield "! No underscore in the id, can't split between group and name";
+					group = cmds[0].substring(0, cmds[0].indexOf("_"));
+					name = cmds[0].substring(group.length()+1); //skip the group and underscore
+				}else{
+					yield "! Not enough arguments, "+cmd+":id,new or "+cmd+":name,new,group";
+				}
+				var fab = XMLfab.withRoot(settingsPath,"dcafs");
+				fab.digRoot("rtvals");
+				fab.selectOrAddChildAsParent("group","id",group);
+				if(cmd.startsWith("r")){ // So real
+					if( hasReal(group+"_"+name) )
+						yield "! Already such real";
+					fab.addChild("real").attr("name",name);
+					addRealVal( RealVal.newVal(group,name));
+				}else if(cmd.startsWith("i")){
+					if( hasInteger(group+"_"+name) )
+						yield "! Already such int";
+					fab.addChild("int").attr("name",name);
+					addIntegerVal(IntegerVal.newVal(group,name));
+				}else{
+					yield "! Invalid type";
+				}
+				fab.build();
+				yield "Val added.";
+			}
+			default -> "! No such subcommand in "+cmd+": "+cmds[0];
+		};
 	}
 	public String replyToFlagsCmd( String args, boolean html ){
 
