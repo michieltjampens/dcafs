@@ -79,6 +79,8 @@ public class TextVal extends AbstractVal{
         name(name).group( dig.attr("group", group()));
         defValue( dig.attr( "def", def) );
         defValue( dig.attr( "default", def) );
+        if( !def.isEmpty())
+            value=def;
 
         String options = dig.attr( "options", "");
         for (var opt : options.split(",")) {
