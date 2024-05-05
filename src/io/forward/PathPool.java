@@ -221,6 +221,21 @@ public class PathPool implements Commandable {
                         if( res.startsWith("Table added with ")){
                             var reloadCmd = res.substring( res.indexOf("dbm"));
                             dQueue.add( Datagram.system(reloadCmd));
+
+                        }else if( !res.startsWith("!") ){ // If the command worked
+                            if (res.startsWith("Deleted ")) { // meaning the path was removed from xml, remove it from paths
+                                paths.remove(cmds[0]);
+                            }else{ // Reload after the changes
+                                var ele = XMLfab.withRoot(settingsPath, "dcafs", "paths")
+                                        .getChild("path", "id", cmds[0]);
+                                if (ele.isEmpty())
+                                    return "! Failed to find " + cmds[0] + reg;
+                                if (!paths.containsKey(cmds[0])) // Exists in xml but not in map
+                                    paths.put(cmds[0], new PathForward(rtvals, dQueue, nettyGroup, qw));
+                                var rep = paths.get(cmds[0]).readFromXML(ele.get(), settingsPath.getParent());
+                                if (!rep.isEmpty())
+                                    res = rep;
+                            }
                         }
                         // Add some color based on good or bad result
                         if (res.startsWith("!") || res.startsWith("unknown"))
