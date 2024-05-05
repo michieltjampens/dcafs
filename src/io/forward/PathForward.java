@@ -33,6 +33,8 @@ public class PathForward {
 
     private final ArrayList<Writable> targets = new ArrayList<>(); // The targets to send the final result of the path to
     private final ArrayList<CustomSrc> customs=new ArrayList<>(); // The custom data sources
+    private final HashMap<String,String> defines = new HashMap<>();
+
     enum SRCTYPE {REG,PLAIN,RTVALS,CMD,FILE,SQLITE,INVALID} // Possible custom sources
     RealtimeValues rtvals; // Reference to the realtimevalues
     BlockingQueue<Datagram> dQueue; // The queue to process datagrams
@@ -157,7 +159,7 @@ public class PathForward {
         boolean reqData=false;
         boolean leftover=false;
         int prefIF=-1;
-        HashMap<String,String> defines = new HashMap<>();
+
 
         for( Element step : steps ){
             var dig = XMLdigger.goIn(step);
