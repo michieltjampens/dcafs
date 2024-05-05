@@ -214,7 +214,7 @@ public class PathPool implements Commandable {
                     case "list" -> {
                         if (pp == null)
                             return or+"! No such path: " + cmds[0]+reg;
-                        return green+ "Path: " + pp.id() + (html ? "<br>" : "\r\n") + pp;
+                        return green+ "Path: " + pp.id() + (html ? "<br>" : "\r\n") +reg+ pp;
                     }
                     default -> {
                         var res = PathCmds.replyToCommand(cmd, html, settingsPath);
