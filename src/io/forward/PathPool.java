@@ -195,7 +195,7 @@ public class PathPool implements Commandable {
                         if (cmds.length != 3)
                             return "Incorrect number of arguments, needs to be pf:id,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
                         if (pp == null)
-                            return or+"! No such path: " + cmds[1]+reg;
+                            return or+"! No such path: " + cmds[0]+reg;
                         int nr = NumberUtils.toInt(cmds[2], -2);
                         if (wr == null)
                             return or+"! No valid writable"+reg;
@@ -205,15 +205,15 @@ public class PathPool implements Commandable {
                     }
                     case "reload" -> { // Reload the given path
                         var ele = XMLfab.withRoot(settingsPath, "dcafs", "paths")
-                                .getChild("path", "id", cmds[1]);
+                                .getChild("path", "id", cmds[0]);
                         if (ele.isEmpty())
-                            return or+"! No such path " + cmds[1]+reg;
+                            return or+"! No such path " + cmds[0]+reg;
                         var result = paths.get(cmds[1]).readFromXML(ele.get(), settingsPath.getParent());
                         return result.isEmpty() ? "Path reloaded" : result;
                     }
                     case "list" -> {
                         if (pp == null)
-                            return or+"! No such path: " + cmds[1]+reg;
+                            return or+"! No such path: " + cmds[0]+reg;
                         return green+ "Path: " + pp.id() + (html ? "<br>" : "\r\n") + pp;
                     }
                     default -> {
@@ -222,26 +222,6 @@ public class PathPool implements Commandable {
                             var reloadCmd = res.substring( res.indexOf("dbm"));
                             dQueue.add( Datagram.system(reloadCmd));
                         }
-                        // Reload the path
-                       /* var pEle = XMLfab.withRoot(settingsPath, "dcafs", "paths")
-                                .getChild("path", "id", cmds[0]);
-                        if (!res.startsWith("!")) { // If cmd worked
-                            if (pEle.isPresent()) { // If an existing path was altered
-                                if( res.equalsIgnoreCase("path created")){
-                                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup,qw);
-                                    path.readFromXML( pEle.get(),settingsPath.getParent() );
-                                    paths.put(path.id(),path);
-                                }
-                                var pat = paths.get(cmds[0]);
-                                if( pat!=null) {
-                                    pat.readFromXML(pEle.get(), settingsPath.getParent());
-                                }else{
-                                    return or +"! No valid path found to reload"+reg;
-                                }
-                            } else if (cmds[1].equalsIgnoreCase("delete")) { // meaning the path was removed from xml, remove it from paths
-                                removePath(cmds[0]);
-                            }
-                        }*/
                         // Add some color based on good or bad result
                         if (res.startsWith("!") || res.startsWith("unknown"))
                             return or + res + reg;
