@@ -1,6 +1,7 @@
 package util.task;
 
 import io.Writable;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -141,8 +142,18 @@ public class Task implements Comparable<Task>{
 			reply = dig.attr( "reply", "");
 			var wind = dig.attr("replywindow", "");
 			if( !wind.isEmpty()){
-				replyInterval=TimeTools.parsePeriodStringToSeconds(wind);
-				replyRetries=1;
+				if( wind.contains(",") ) {
+					var items = wind.split(",");
+					replyInterval = TimeTools.parsePeriodStringToSeconds(items[0]);
+					if(NumberUtils.isParsable(items[1])) {
+						replyRetries = NumberUtils.toInt(items[1],replyRetries);
+					}else {
+						replyRetries = 1;
+					}
+				}else{
+					replyInterval = TimeTools.parsePeriodStringToSeconds(wind);
+					replyRetries = 1;
+				}
 			}
 
 			link = dig.attr("link", "");
