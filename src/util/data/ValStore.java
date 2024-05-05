@@ -388,11 +388,12 @@ public class ValStore {
     }
     public String toString(){
         var join = new StringJoiner("\r\n");
-        join.add("\r\nStore splits on '"+delimiter+"'").add( "Targets:");
+        join.add("\r\nStore splits on '"+delimiter+"'"+(db().isEmpty()?"":" and in db at "+db()));
+        join.add( "Rtvals:");
         int index=0;
         for( var val :rtvals ){
             if( val !=null){
-                join.add("   At index "+index+" -> "+val.id());
+                join.add( "   i"+index+" -> "+val.id() );
             }
             index++;
         }
