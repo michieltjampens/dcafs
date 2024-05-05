@@ -127,22 +127,17 @@ public class PathCmds {
                 return "Removed all steps";
             }
             case "delete" -> {
-                if (cmds.length < 3)
-                    return "! Not enough arguments: pf:id,delete,all/last";
-                switch (cmds[2]) {
-                    case "all" -> {
-                        fab.up();
-                        fab.removeChild("path", "id", cmds[0]);
+                if( cmds.length < 3 || cmds[2].equals("all")){
+                    fab.up();
+                    fab.removeChild("path", "id", cmds[0]);
+                    fab.build();
+                    return "Deleted the path completely";
+                }else{
+                    if (fab.removeLastChild("*")) {
                         fab.build();
-                        return "Deleted the path completely";
+                        return "Last node removed";
                     }
-                    case "last" -> {
-                        if (fab.removeLastChild("*")) {
-                            fab.build();
-                            return "Node removed";
-                        }
-                        return "! Failed to remove node";
-                    }
+                    return "! Failed to remove node";
                 }
             }
             case "src" -> {
