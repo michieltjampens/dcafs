@@ -41,6 +41,12 @@ public class MathForward extends AbstractForward {
         super(id,source,dQueue,rtvals);
         valid = rtvals!=null;
     }
+    public MathForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, HashMap<String,String> defs){
+        super(dQueue,rtvals);
+        if( defs !=null )
+            defines.putAll(defs);
+        readOk = readFromXML(ele);
+    }
     public MathForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         super(dQueue,rtvals);
         readOk = readFromXML(ele);
@@ -89,7 +95,6 @@ public class MathForward extends AbstractForward {
 
         highestI=-1;
         suffix = dig.attr("suffix","");
-        defines.clear();
         ops.clear();
         String content = dig.value("");
 

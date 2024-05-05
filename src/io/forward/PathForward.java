@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
@@ -156,6 +157,7 @@ public class PathForward {
         boolean reqData=false;
         boolean leftover=false;
         int prefIF=-1;
+        HashMap<String,String> defines = new HashMap<>();
 
         for( Element step : steps ){
             var dig = XMLdigger.goIn(step);
@@ -172,6 +174,12 @@ public class PathForward {
                 step.setAttribute("id",id+"_"+stepsForward.size());
 
             switch( step.getTagName() ){
+                case "defines" -> {
+                    for( var ele :dig.currentSubs()){
+                        defines.put(ele.getTagName(),ele.getTextContent());
+                    }
+                    continue;
+                }
                 case "if" -> {
                     FilterForward ff = new FilterForward( step, dQueue);
                     applySrc(lastff,ff,leftover,prefIF);
@@ -189,7 +197,7 @@ public class PathForward {
                     stepsForward.add(ff);
                 }
                 case "math" -> {
-                    MathForward mf = new MathForward(step, dQueue, rtvals);
+                    MathForward mf = new MathForward(step, dQueue, rtvals,defines);
                     applySrc(lastff,mf,leftover,prefIF);
                     stepsForward.add(mf);
                 }
