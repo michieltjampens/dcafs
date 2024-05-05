@@ -88,12 +88,15 @@ public class PathCmds {
                             .attr("delimiter",",")
                             .attr("import","paths"+ File.separator+cmds[0]+".xml")
                             .build();
-                    // Actually create the file
-                    XMLfab.withRoot( pathPath.resolve(cmds[0]+".xml"),"dcafs")
-                            .selectOrAddChildAsParent("path","id",cmds[0])
-                            .attr("delimiter",",")
-                            .build();
-                    return "Path created";
+                    // Actually create the file if it doesn't exist
+                    if( Files.notExists(pathPath.resolve(cmds[0]+".xml"))) {
+                        XMLfab.withRoot(pathPath.resolve(cmds[0] + ".xml"), "dcafs")
+                                .selectOrAddChildAsParent("path", "id", cmds[0])
+                                .attr("delimiter", ",")
+                                .build();
+                        return "Path created";
+                    }
+                    return "Path with existing file linked.";
                 }
             }
             return "! No such path yet " + id;
