@@ -22,8 +22,8 @@ create/read the table structure) while additionally raw/altered data can be kept
 * Make sure you have _at least_ java17 installed. If not, [download and install java 17](https://adoptium.net/)
 * Either download the most recent (pre)release [here](https://github.com/michieltjampens/dcafs/releases)
   * Unpack to the working folder  
-* Or clone the repo and compile it in an IDE
-  * copy the resulting dcafs*.jar and lib folder to a working dir
+* Or clone the repo and build it with maven (mvn install) directly or through IDE.
+    * copy the resulting dcafs*.jar and lib folder to a working dir
 
 ## Running it
 ### Windows

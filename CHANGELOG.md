@@ -9,6 +9,22 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
+## 2.9.1 (wip)
+
+### Tasks
+- Task with output stream allows for waiting for reply. The window could be altered with replywindow. But this
+changed attempts to one. Now the attribute allows for attempts to be specified replywindow="5s,3" meaning 3 attempts wih 5s window.
+If no amount is given, it's set to 1.
+- Fixed, args given when running a cmd included the command instead of actual first arg.
+
+### Paths
+- Fixed, pf:id,delete now works again. Was changed to pf:id,delete,all/last.
+- Fixed, pf:id,reload and pf:id,list weren't altered properly from pf:reload,id
+- Fixed, if as first step wasn't working properly
+- Paths will now be reload after changing them (instead of having to do manually).
+- pf:id,list now shows db the store's are writing to and textcolor is now default instead of all green.
+
+
 ## 2.9.0 (27/04/2024)
 
 ### Streams
