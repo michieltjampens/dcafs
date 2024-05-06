@@ -160,7 +160,6 @@ public class PathForward {
         boolean leftover=false;
         int prefIF=-1;
 
-
         for( Element step : steps ){
             var dig = XMLdigger.goIn(step);
             if(step.getTagName().endsWith("src")){
@@ -184,12 +183,12 @@ public class PathForward {
                 }
                 case "if" -> {
                     FilterForward ff = new FilterForward( step, dQueue);
+                    stepsForward.add(ff);
+                    prefIF=stepsForward.size()-1;
                     applySrc(lastff,ff,leftover,prefIF);
                     var subs = new ArrayList<>(dig.currentSubs());
-                    stepsForward.add(ff);
-                    if( prefIF==-1)
-                        prefIF=stepsForward.size()-1;
                     reqData |= processIt( subs, delimiter, ff);
+                    prefIF=-1;
                     continue;
                 }
                 case "filter" -> {
@@ -273,7 +272,7 @@ public class PathForward {
                         step.addSource(ls.id());
                     }
                 }else{
-                    Logger.error(id+" -> Trying to give a target to the last step, but no steps yet");
+                    Logger.error(id+" -> Trying to give a target to the last step, but no steps yet.");
                 }
             }
         }
