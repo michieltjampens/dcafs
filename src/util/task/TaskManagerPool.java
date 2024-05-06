@@ -289,8 +289,7 @@ public class TaskManagerPool implements Commandable {
                                 if (tl.hasTaskset(cmds[2])) {
                                     yield tl.startTaskset(cmds[2]);
                                 } else {
-                                    String[] arg = null;
-                                    arg = Arrays.copyOfRange(cmds, 2, cmds.length);
+                                    String[] arg = Arrays.copyOfRange(cmds, 3, cmds.length);
                                     yield tl.startTask(cmds[2], arg) ? "Task ok" : "! Failed/invalid " + cmds[2];
                                 }
                             }
