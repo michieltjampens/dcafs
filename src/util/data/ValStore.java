@@ -43,6 +43,8 @@ public class ValStore {
         dbtable=table;
     }
     public String db(){
+        if( dbtable.isEmpty())
+            return "";
         return dbids+":"+dbtable;
     }
     public String dbTable(){ return dbtable; }
@@ -388,7 +390,7 @@ public class ValStore {
     }
     public String toString(){
         var join = new StringJoiner("\r\n");
-        join.add("\r\nStore splits on '"+delimiter+"'"+(db().isEmpty()?"":" and in db at "+db()));
+        join.add("\r\nStore splits on '"+delimiter+"'"+(db().length()>1?"":" and in db at "+db()));
         join.add( "Rtvals:");
         int index=0;
         for( var val :rtvals ){

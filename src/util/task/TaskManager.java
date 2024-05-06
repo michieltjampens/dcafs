@@ -568,7 +568,7 @@ public class TaskManager implements CollectorFuture {
 	 * @param task The task to execute
 	 * @return True if it was executed
 	 */
-	private synchronized FAILREASON doTask(Task task) {
+	private synchronized FAILREASON doTask( Task task ) {
 
 		int ver = checkRequirements(task, true); // Verify the pre req's
 		if( ver == -1 ){
