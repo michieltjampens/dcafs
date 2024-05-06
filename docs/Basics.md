@@ -598,7 +598,6 @@ All the cmds start with `pf:pathid,store,`, using !! again `pf:cheat1,store,!!`
 * The group is taken from the id, but we want it to be dice instead to match the table `group,dice`.
 * Then finally, to set the db reference, `db,rolls:dice`.
 * Next `!!`, to go back to normal entry.
-* Then load the new path with `pf:reload`.
 
 ```xml
 <store db="rolls:dice" group="dice">
@@ -630,8 +629,7 @@ So we managed to cheat, but it's way too easy to spot, so we'll make it bit hard
 * Add the int `addi,rolled,1`.
 * Set the database `db,rolls:dice`.
 * Back to normal input with `!!`.
-* Then load the new path with `pf:reload`.
-* 
+
 Below is how it will look in xml.
 ```xml
 <paths>
@@ -697,7 +695,7 @@ To add an editor that does a replace, check the earlier `help:editor` for the co
 > replace -> Replace 'find' with the replacement
 > cmd pf:pathid,adde,replace:find|replacement
 
-So this becomes: `pf:dice,adde,replace,d2|d1`, then make it active with `pf:reload`
+So this becomes: `pf:dice,adde,replace,d2|d1`.
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
@@ -719,7 +717,7 @@ The reason for using '|' instead of ',' is because it's highly likely that delim
 * Format will be `i0:1i1` so just add a 1 in front of the second item. Because the filter only allows rolls below 10 to
   go through, this results in those rolls becoming much better.
 
-Based on that the cmd becomes: `pf:dice,adde,resplit,:|append|i0:1i1` and apply with `pf:reload,dice`.
+Based on that the cmd becomes: `pf:dice,adde,resplit,:|append|i0:1i1`.
 ```xml
 <path delimiter=":" id="dice" src="raw:dice">
     <filter type="maxlength">5</filter>
