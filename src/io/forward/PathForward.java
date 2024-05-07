@@ -372,6 +372,18 @@ public class PathForward {
         return targets;
     }
     public void addTarget(Writable wr){
+        addTarget(wr,stepsForward.get(stepsForward.size()-1));
+    }
+    public void addTarget(Writable wr, String stepId) {
+        for( var step : stepsForward ){
+            if( step.id.equals(stepId) ) {
+                addTarget(wr,step);
+                return;
+            }
+        }
+        Logger.error(id + "(tm) -> Couldnt find requested step: "+stepId);
+    }
+    private void addTarget(Writable wr, AbstractForward target){
         if( stepsForward == null )
             return;
 
@@ -392,10 +404,11 @@ public class PathForward {
             // The path can receive the data but this isn't given to first step unless there's a request for the data
             if (!targets.contains(stepsForward.get(0))) // Check if the first step is a target, if not
                 targets.add(stepsForward.get(0)); // add it
-            stepsForward.get(stepsForward.size()-1).addTarget(wr); // Asking the path data is actually asking the last step
+            target.addTarget(wr); // Asking the path data is actually asking the last step
         }
         enableSource();
     }
+
     private void enableSource(){
         if( targets.size()==1 ){
             if( customs.isEmpty()){

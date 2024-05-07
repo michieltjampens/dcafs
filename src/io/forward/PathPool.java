@@ -102,10 +102,16 @@ public class PathPool implements Commandable {
                         p.removeTarget(wr);
                     return "Remove received";
                 }else {
-                    var p = paths.get(args);
+                    var sp = args.split(",");
+                    var p = paths.get(sp[0]);
                     if (p == null)
                         return "No such path (yet): " + args;
-                    p.addTarget(wr);
+                    if( sp.length==2){
+                        p.addTarget(wr,sp[1]);
+                    }else{
+                        p.addTarget(wr);
+                    }
+
                     return "Request received.";
                 }
             }
