@@ -82,7 +82,6 @@ public class EditorForward extends AbstractForward{
         if( !readBasicsFromXml(dig))
             return false;
 
-        delimiter = dig.attr("delimiter",delimiter,true);
         edits.clear();
         if( dig.hasPeek("*")){
             dig.digOut("*").forEach(this::processNode);
@@ -93,7 +92,8 @@ public class EditorForward extends AbstractForward{
     }
 
     private void processNode(XMLdigger dig ){
-        String deli = dig.attr("delimiter",delimiter);
+        String deli = dig.attr("delimiter",delimiter,true);
+        deli = Tools.fromEscapedStringToBytes(deli);
         String content = dig.value("");
         String from = dig.attr("from",",");
         String error = dig.attr("error","NaN");
