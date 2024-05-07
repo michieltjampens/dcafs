@@ -230,7 +230,6 @@ public class PathForward {
                 }
             }
             leftover=false; // clear the reminder flag
-            prefIF=-1;
         }
         return reqData;
     }
@@ -281,17 +280,9 @@ public class PathForward {
         if( stepsForward!=null)
             stepsForward.forEach( x -> x.removeStoreVals(rtvals));
     }
-    public ArrayList<ValStore> getStores(){
-        ArrayList<ValStore> stores = new ArrayList<>();
-        for( AbstractForward fw : stepsForward)
-            fw.getStore().ifPresent(stores::add);
-        return stores;
-    }
+
     public boolean isValid(){
         return valid;
-    }
-    public String getLastError(){
-        return error;
     }
 
     public String debugStep( String step, Writable wr ){
@@ -419,6 +410,10 @@ public class PathForward {
         }
     }
 
+    /**
+     * Remove a writable as a target from any part of the path
+     * @param wr The writable to remove
+     */
     public void removeTarget( Writable wr){
         if( stepsForward==null||stepsForward.isEmpty() ) {
             targets.remove(wr);// Stop giving data
