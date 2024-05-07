@@ -16,6 +16,7 @@ Note: Version numbering: x.y.z
 changed attempts to one. Now the attribute allows for attempts to be specified replywindow="5s,3" meaning 3 attempts wih 5s window.
 If no amount is given, it's set to 1.
 - Fixed, args given when running a cmd included the command instead of actual first arg.
+- Added {mint2s16b:operation} to calculate 2s complement of a 16b operation.
 
 ### Paths
 - Fixed, pf:id,delete now works again. Was changed to pf:id,delete,all/last.
@@ -23,7 +24,8 @@ If no amount is given, it's set to 1.
 - Fixed, if as first step wasn't working properly
 - Paths will now be reload after changing them (instead of having to do manually).
 - pf:id,list now shows db the store's are writing to and textcolor is now default instead of all green.
-
+- Fixed, delimiter in a edit node wasn't processed for potential chars like \t etc.
+- Added cmd to request the data of a step in a path, (similar to debug) pf:pathid,stepid
 
 ## 2.9.0 (27/04/2024)
 
