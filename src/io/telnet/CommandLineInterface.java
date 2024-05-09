@@ -10,8 +10,8 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 public class CommandLineInterface {
-    private static final int BUFFER_SIZE = 256;
-    ByteBuf buffer = Unpooled.buffer(32,BUFFER_SIZE);       // Buffer that holds the received data
+    private static final int BUFFER_SIZE = 512;
+    ByteBuf buffer = Unpooled.buffer(32);       // Buffer that holds the received data
     private ArrayList<String> cmdHistory = new ArrayList<>(); // Buffer that holds the processed commands
     private int cmdHistoryIndex =-1; // Pointer to the last send historical cmd
 
@@ -143,25 +143,31 @@ public class CommandLineInterface {
      */
     private void insertByte( byte b ){
 
+        try {
+            if (buffer.writerIndex() > 2 && b == 0) {
+                if (buffer.getByte(buffer.writerIndex() - 1) == 0)
+                    return;
+            }
 
-        if( buffer.writerIndex() > 2 && b==0 ){
-            if( buffer.getByte(buffer.writerIndex()-1)==0)
-                return;
-        }
-        byte old = buffer.getByte(buffer.writerIndex());
-        buffer.writeByte(b);
-        writeByte(b);
-        int offset=0;
-        while( old!=0) {
-            byte ol = buffer.getByte(buffer.writerIndex());
-            buffer.writeByte(old);
-            writeByte(old);
-            old=ol;
-            offset++;
-        }
-        if( offset!=0 ) {
-            buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() - offset);
-            writeString(TelnetCodes.cursorLeft(offset));
+            byte old = buffer.writableBytes()==0?0:buffer.getByte(buffer.writerIndex());
+            buffer.writeByte(b);
+
+            writeByte(b);
+            int offset = 0;
+            while (old != 0) { // Meaning there was text in front so move the rest to insert
+                byte ol = buffer.getByte(buffer.writerIndex());
+                buffer.writeByte(old);
+
+                writeByte(old);
+                old = ol;
+                offset++;
+            }
+            if (offset != 0) {
+                buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() - offset);
+                writeString(TelnetCodes.cursorLeft(offset));
+            }
+        }catch( Exception e ){
+            Logger.error(e);
         }
     }
 
@@ -188,9 +194,9 @@ public class CommandLineInterface {
         buffer.clear(); // reset the reader and writer index
         buffer.writeBytes(cmdHistory.get(cmdHistoryIndex).getBytes()); // fill the buffer
         try {
-            buffer.setZero(buffer.writerIndex(), BUFFER_SIZE - buffer.writerIndex()); // clear the rest of the buffer
+            buffer.setZero(buffer.writerIndex(), buffer.writableBytes() ); // clear the rest of the buffer
         }catch(Exception e){
-            Logger.error("Zerosetting failed:"+e.getMessage());
+            Logger.error("Zerosetting failed: "+e.getMessage());
         }
     }
     public void setHistory( ArrayList<String> cmds){
