@@ -1,5 +1,6 @@
 package io.hardware.i2c;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -22,18 +23,26 @@ public class I2CWrite implements I2COp{
         delay = TimeTools.parsePeriodStringToMillis(digger.attr("delay", "0s"));
 
         var reg = digger.attr("reg", "");
+        var optReg = Tools.fromBaseToByte(16,reg);
+
+        var dtype = digger.attr("datatype","hex");
         var content = digger.value("");
         if( content.isEmpty() ){
             Logger.error("No data to write");
         }
-        if( !reg.isEmpty())
-            content = reg+" "+content;
-
-        if( content.contains("i")){ // Check if it contains a reference to an args
-            valid = decodeContent(content);
-        }else{ // No references, so plain data
-            towrite = Tools.fromHexStringToBytes( content );
+        switch( dtype ){
+            case "hex" -> {
+                if( content.contains("i")) {// Check if it contains a reference to an args
+                    valid = decodeContent(content);
+                }else{
+                    towrite = Tools.fromHexStringToBytes( content );
+                }
+            }
+            case "dec" -> towrite = Tools.fromDecStringToBytes(content);
+            case "ascii" ->  towrite = content.getBytes();
         }
+        // if there was a register specified, add it to the front
+        optReg.ifPresent(aByte -> towrite = ArrayUtils.insert(0, towrite, aByte));
 
     }
     private boolean decodeContent( String wr ){
