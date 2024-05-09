@@ -318,10 +318,12 @@ public class I2CWorker implements Commandable,I2COpFinished {
                         Logger.error(e);
                     }
                 }
+
                 var opt = addDevice(cmds[1], cmds[4], NumberUtils.toInt(cmds[2]), Tools.parseInt(cmds[3], -1));
                 if (opt.isEmpty())
                     return "! Probing " + cmds[3] + " on bus " + cmds[2] + " failed";
-                opt.ifPresent(d -> d.storeInXml(XMLfab.withRoot(settingsPath, "dcafs", "settings").digRoot("i2c")));
+
+                opt.ifPresent(d -> d.storeInXml(XMLfab.withRoot(settingsPath, "dcafs").digRoot("i2c")));
 
                 // Check if the script already exists, if not build it
                 var p = scriptsPath.resolve(cmds[4] + (cmds[4].endsWith(".xml")?"":".xml"));
