@@ -33,6 +33,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
     private final BlockingQueue<Datagram> dQueue;
     private final ArrayList<ExtI2CDevice> workQueue = new ArrayList<>();
     private boolean busy = false;
+    private boolean debug=false;
 
     public I2CWorker(Path settings, EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
         this.settingsPath=settings;
@@ -56,8 +57,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
 
         if( dig.isValid() ){
             Logger.info("Found settings for a I2C bus");
-            devices.values().forEach(I2CDevice::close);
-            devices.clear();
+
             for( var i2c_bus : dig.digOut("bus") ){
                 int bus = i2c_bus.attr("controller", -1);
                 Logger.info("Reading devices on the I2C bus of controller "+bus);
@@ -75,9 +75,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                     if( devopt.isPresent() ){
                         // Load the op set
                         loadSet( devopt.get() );
-                        Logger.info("Adding "+id+"("+address+") to the device list of controller "+bus);
-                    }else{
-                        Logger.error("Tried to add "+id+" to the i2c device list, but probe failed");
+                        Logger.info("(i2c) -> Added "+id+"("+address+") to the device list of controller "+bus);
                     }
                 }
             }
@@ -127,26 +125,26 @@ public class I2CWorker implements Commandable,I2COpFinished {
             Logger.warn(id+"(i2c) -> Invalid address given");
             return Optional.empty();
         }
-
-        try (I2CDevice device = new I2CDevice(controller, address)) {
-            if (!device.probe( I2CDevice.ProbeMode.AUTO )) {
-                Logger.warn(id+"(i2c) -> Probing the new device at "+address+" failed.");
-                //return Optional.empty();
+        var hexAddress = "0x"+Integer.toHexString(address)+"@"+controller;
+        for( var dev : devices.values() ) {
+            Logger.info("Checking ("+dev.getAddr()+") vs ("+hexAddress+")");
+            if (dev.getAddr().equalsIgnoreCase(hexAddress)) {
+                Logger.error( "(i2c) -> The address is already used, "+hexAddress+" not adding "+id+".");
+                return Optional.empty();
             }
-        } catch ( RuntimeIOException e ){
-            Logger.warn(id+"(i2c) -> Probing the new device at "+address+" failed.");
-            //return Optional.empty();
         }
-        try{
-            var device = new ExtI2CDevice(id,controller, address, script);
+        try (ExtI2CDevice device = new ExtI2CDevice(id,controller, address, script)) {
+            if (!device.probe( I2CDevice.ProbeMode.AUTO )) {
+                Logger.warn(id+"(i2c) -> Probing the new device at "+hexAddress+" failed.");
+            }
             device.setI2COpFinished(this);
+            device.setDebug(debug);
             devices.put(id, device);
-            Logger.info("(i2c) -> Added "+id);
             return Optional.of(devices.get(id));
-        }catch( RuntimeIOException e){
-            Logger.error(id+"(i2c) -> Probing the new device failed: "+address);
-            return Optional.empty();
+        } catch ( RuntimeIOException e ){
+            Logger.warn(id+"(i2c) -> Runtime error while probing the new device at "+hexAddress+".");
         }
+        return Optional.empty();
     }
     /**
      * Get a readable list of all the registered devices
@@ -194,6 +192,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
      * @return The new debug state
      */
     public boolean setDebug( boolean debug ){
+        this.debug=debug;
         devices.values().forEach( device -> device.setDebug(debug));
         return debug;
     }
