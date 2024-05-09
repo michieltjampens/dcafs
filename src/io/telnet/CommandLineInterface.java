@@ -10,8 +10,7 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 public class CommandLineInterface {
-    private static final int BUFFER_SIZE = 512;
-    ByteBuf buffer = Unpooled.buffer(32);       // Buffer that holds the received data
+    ByteBuf buffer = Unpooled.buffer(32,512);       // Buffer that holds the received data
     private ArrayList<String> cmdHistory = new ArrayList<>(); // Buffer that holds the processed commands
     private int cmdHistoryIndex =-1; // Pointer to the last send historical cmd
 
