@@ -1,10 +1,10 @@
 package util.xml;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
-import util.tools.Tools;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -26,9 +26,13 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class XMLtools {
 
@@ -132,6 +136,7 @@ public class XMLtools {
 	public static void writeXML(Path xmlFile, Document xmlDoc) {
 		if( xmlDoc == null )
 			return;
+		boolean isNew = Files.notExists(xmlFile);
 
 		try ( var fos = new FileOutputStream(xmlFile.toFile());
 			  var writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8)
@@ -151,8 +156,20 @@ public class XMLtools {
 			xformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 			xformer.transform(source, result);
 		} catch (Exception e) {
-			Logger.error("Failed writing XML: "+xmlFile.toString());
+			Logger.error("Failed writing XML: "+xmlFile);
 			Logger.error(e);
+		}
+		// Change it so everyone can alter the files
+		if( SystemUtils.IS_OS_LINUX && isNew ) {
+			try {
+				Set<PosixFilePermission> perms = Files.readAttributes(xmlFile, PosixFileAttributes.class).permissions();
+				Logger.info("Permissions before:"+  PosixFilePermissions.toString(perms));
+				perms.add(PosixFilePermission.OTHERS_WRITE);
+				Logger.info("Permissions after: "+  PosixFilePermissions.toString(perms));
+				Files.setPosixFilePermissions(xmlFile, perms);
+			}catch( Exception e){
+				Logger.error(e);
+			}
 		}
 	}
 	/**
