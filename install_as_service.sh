@@ -25,12 +25,3 @@ systemctl daemon-reload
 systemctl enable $SERVICE_NAME
 systemctl start $SERVICE_NAME
 systemctl status $SERVICE_NAME
-
-
-echo "alias dcafs_restart='sudo systemctl restart dcafs'" >> ~/.bashrc
-echo "alias dcafs_start='sudo systemctl start dcafs'" >> ~/.bashrc
-echo "alias dcafs_stop='sudo systemctl stop dcafs'" >> ~/.bashrc
-echo "alias dcafs_log='sudo journalctl -u dcafs.service'" >> ~/.bashrc
-echo "alias dcafs_track='sudo journalctl -u dcafs.service -f'" >> ~/.bashrc
-echo "alias dcafs='telnet localhost'" >> ~/.bashrc
-
