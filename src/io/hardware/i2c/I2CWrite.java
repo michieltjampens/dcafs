@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 public class I2CWrite implements I2COp{
 
     long delay=0;
-    byte[] towrite;
+    byte[] towrite=new byte[0];
     boolean valid=false;
 
     public I2CWrite( XMLdigger dig ){
@@ -23,6 +23,7 @@ public class I2CWrite implements I2COp{
         delay = TimeTools.parsePeriodStringToMillis(digger.attr("delay", "0s"));
 
         var reg = digger.attr("reg", "");
+        var addCnt = digger.attr("addsize",false);
         var optReg = Tools.fromBaseToByte(16,reg);
 
         var dtype = digger.attr("datatype","hex");
@@ -40,6 +41,11 @@ public class I2CWrite implements I2COp{
             }
             case "dec" -> towrite = Tools.fromDecStringToBytes(content);
             case "ascii" ->  towrite = content.getBytes();
+        }
+        // If the count needs to be added, do so.
+        if( addCnt ) {
+            byte size = (byte) towrite.length;
+            towrite = ArrayUtils.insert(0, towrite,size);
         }
         // if there was a register specified, add it to the front
         optReg.ifPresent(aByte -> towrite = ArrayUtils.insert(0, towrite, aByte));
