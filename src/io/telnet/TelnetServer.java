@@ -34,7 +34,7 @@ public class TelnetServer implements Commandable {
 
     ChannelFuture telnetFuture;
     
-    int port = 23;
+    int port = 2323;
     String title = "dcafs";
     String ignore = "";
     
@@ -64,7 +64,7 @@ public class TelnetServer implements Commandable {
         if( dQueue != null ) {
             var dig = XMLdigger.goIn(settingsPath,"dcafs","settings","telnet");
             if( dig.isValid()){
-                port = dig.attr("port",23);
+                port = dig.attr("port",2323);
                 title = dig.attr( "title", "DCAFS");
                 ignore = dig.attr( "ignore", "");
                 defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
@@ -75,7 +75,7 @@ public class TelnetServer implements Commandable {
     }
     public static void addBlankTelnetToXML(Path xmlPath ){
         XMLfab.withRoot(xmlPath,"dcafs", "settings")
-                .addParentToRoot("telnet", "Settings related to the telnet server").attr("title", "DCAFS").attr("port", 23)
+                .addParentToRoot("telnet", "Settings related to the telnet server").attr("title", "DCAFS").attr("port", 2323)
                 .addChild("textcolor","lightgray")
                 .build();
     }
