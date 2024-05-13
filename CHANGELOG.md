@@ -11,6 +11,9 @@ Note: Version numbering: x.y.z
 
 ## 2.9.1 (wip)
 
+- Telnet normally echo's a backspace. But some term programs send 0x08 instead or don't apply backspace.
+So instead of echo 0x08,0x20,0x08 is returned instead. This moves the cursor left prints a space and moves it left again.
+
 ### Tasks
 - Task with output stream allows for waiting for reply. The window could be altered with replywindow. But this
 changed attempts to one. Now the attribute allows for attempts to be specified replywindow="5s,3" meaning 3 attempts wih 5s window.
