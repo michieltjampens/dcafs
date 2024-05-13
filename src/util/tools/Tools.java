@@ -404,6 +404,15 @@ public class Tools {
         }
         return txt;
     }
+    public static byte[] fromStringToBytes( String txt ) {
+
+        // Replace the known ones like \t, \r and \n
+        txt = txt.replace("\\t", "\t")
+                .replace("\\r", "\r")
+                .replace("\\n", "\n")
+                .replace("\\0", "\0");
+        return txt.getBytes();
+    }
     /**
      * Splits a line trying multiple delimiters, first space, then semicolon and
      * then comma

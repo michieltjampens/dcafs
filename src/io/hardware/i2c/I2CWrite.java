@@ -40,7 +40,7 @@ public class I2CWrite implements I2COp{
                 }
             }
             case "dec" -> towrite = Tools.fromDecStringToBytes(content);
-            case "ascii" ->  towrite = content.getBytes();
+            case "ascii" ->  towrite = Tools.fromStringToBytes(content);
         }
         // If the count needs to be added, do so.
         if( addCnt ) {
