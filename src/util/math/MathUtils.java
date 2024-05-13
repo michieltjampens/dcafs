@@ -5,15 +5,10 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.Tools;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -798,7 +793,7 @@ public class MathUtils {
                 return i2==-1?x->db2:x->x[i2];
 
         }catch( NumberFormatException e){
-            Logger.error("Something went wrong decoding: "+first+" or "+second);
+            Logger.error("Something went wrong decoding: "+first+" or "+second+ "with "+op+" -> "+e.getMessage());
             return null;
         }
 
@@ -1190,7 +1185,18 @@ public class MathUtils {
         }
         return ori;
     }
-
+    /**
+     * Convert a 32bit 2's complement value to an actual signed int
+     * @param ori The value to convert
+     * @return The signed int
+     */
+    public static long toSigned32bit( int ori ){
+        long or = ori;
+        if( or>0x80000000L ){ //two's complement
+            or = -1*((or^0xFFFFFFFF) + 1);
+        }
+        return or;
+    }
     /**
      * Method that does a crc checksum for the given nmea string
      *

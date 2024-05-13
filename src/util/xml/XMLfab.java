@@ -533,7 +533,7 @@ public class XMLfab {
      * @return The build document or null if failed
      */
     public boolean build(){
-        if( validRoot==false)
+        if(!validRoot)
             return false;
         if( xmlPath == null ){
             XMLtools.updateXML(xmlDoc);
