@@ -421,7 +421,7 @@ public class Tools {
      * @return The resulting array
      */
     public static String[] splitList(String line) {
-        String[] delims = { " ", "\t", ";", "," };
+        String[] delims = { " ", "\t", ";", ",","\\|" };
         String[] eles = { line };
         for (String delim : delims) {
             if (line.contains(delim)) {
