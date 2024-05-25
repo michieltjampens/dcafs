@@ -154,9 +154,12 @@ public class DAS implements Commandable{
         if( digger.hasPeek("transserver")) // Check if trans is in xml
             addTransServer(); // and if so, set it up
 
-        /* I2C */
+        /* Hardware: I2C & GPIO */
         addI2CWorker();
-
+        if( digger.hasPeek("gpios") ){
+            Logger.info("Reading interrupt gpio's from settings.xml");
+            isrs = new InterruptPins(dQueue,settingsPath);
+        }
         /* Forwards */
         pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
         addCommandable(pathPool,"paths","path","pf","paths");
@@ -185,14 +188,6 @@ public class DAS implements Commandable{
             fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
             addCommandable(fileMonitor,"fm","fms");
         }
-        /* GPIO's */
-        if( digger.hasPeek("gpio") ){
-            Logger.info("Reading interrupt gpio's from settings.xml");
-            isrs = new InterruptPins(dQueue,settingsPath);
-        }else{
-            Logger.info("No gpio's defined in settings.xml");
-        }
-
         /* Matrix */
         if( digger.hasPeek("matrix") ){
             Logger.info("Reading Matrix info from settings.xml");
