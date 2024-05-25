@@ -312,9 +312,7 @@ public class DAS implements Commandable{
     }
     public Optional<Writable> getStreamWritable( String id ){
         var opt = streamManager.getStream(id);
-        if( opt.isPresent())
-            return Optional.of((Writable)opt.get());
-        return Optional.empty();
+        return opt.map(baseStream -> (Writable) baseStream);
     }
     /* *************************************  L A B E L W O R K E R **********************************************/
     /**
@@ -507,7 +505,7 @@ public class DAS implements Commandable{
         final String TEXT_GREEN = html?"":TelnetCodes.TEXT_GREEN;
         final String TEXT_CYAN = html?"":TelnetCodes.TEXT_CYAN;
         final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
-        final String TEXT_YELLOW = html?"":TelnetCodes.TEXT_DEFAULT;
+        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
         final String TEXT_RED = html?"":TelnetCodes.TEXT_RED;
         final String TEXT_NB = html?"":TelnetCodes.TEXT_REGULAR;
         final String TEXT_BRIGHT = html?"":TelnetCodes.TEXT_BRIGHT;
@@ -526,16 +524,16 @@ public class DAS implements Commandable{
             b.append(TEXT_GREEN).append("DCAFS Status at ").append(TimeTools.formatNow("HH:mm:ss")).append("\r\n\r\n")
                     .append(UNDERLINE_OFF);
         }
-        b.append(TEXT_YELLOW).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")\r\n");
-        b.append(TEXT_YELLOW).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append("\r\n");
-        b.append(TEXT_YELLOW).append("Memory: ").append(TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
-        b.append(TEXT_YELLOW).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP());
+        b.append(TEXT_DEFAULT).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")\r\n");
+        b.append(TEXT_DEFAULT).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append("\r\n");
+        b.append(TEXT_DEFAULT).append("Memory: ").append(TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
+        b.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP());
         b.append(UNDERLINE_OFF).append("\r\n");
 
         if (html) {
             b.append("<br><b>Streams</b><br>");
         } else {
-            b.append(TEXT_YELLOW).append(TEXT_CYAN).append("\r\n").append("Streams").append("\r\n").append(UNDERLINE_OFF).append(TEXT_YELLOW);
+            b.append(TEXT_DEFAULT).append(TEXT_CYAN).append("\r\n").append("Streams").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
         }
         if (streamManager != null) {
             if (streamManager.getStreamCount() == 0) {
@@ -543,7 +541,7 @@ public class DAS implements Commandable{
             } else {
                 for (String s : streamManager.getStatus().split("\r\n")) {
                     if (s.startsWith("!!")) {
-                        b.append(TEXT_RED).append(s).append(TEXT_YELLOW).append(UNDERLINE_OFF);
+                        b.append(TEXT_RED).append(s).append(TEXT_DEFAULT).append(UNDERLINE_OFF);
                     } else {
                         b.append(s);
                     }
@@ -551,15 +549,15 @@ public class DAS implements Commandable{
                 }
             }
         }
-        if( i2cWorker !=null && i2cWorker.getDeviceCount()!=0){
+        if( i2cWorker != null && i2cWorker.getDeviceCount()!=0){
             if (html) {
                 b.append("<br><b>Devices</b><br>");
             } else {
-                b.append(TEXT_YELLOW).append(TEXT_CYAN).append("\r\n").append("Devices").append("\r\n").append(UNDERLINE_OFF).append(TEXT_YELLOW);
+                b.append(TEXT_CYAN).append("\r\n").append("Devices").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
             }
             for( String s : i2cWorker.getStatus("\r\n").split("\r\n") ){
                 if (s.startsWith("!!") || s.endsWith("false")) {
-                    b.append(TEXT_RED).append(s).append(TEXT_YELLOW).append(UNDERLINE_OFF);
+                    b.append(TEXT_RED).append(s).append(TEXT_DEFAULT).append(UNDERLINE_OFF);
                 } else {
                     b.append(s);
                 }
@@ -570,7 +568,7 @@ public class DAS implements Commandable{
             if (html) {
                 b.append("<br><b>MQTT</b><br>");
             } else {
-                b.append(TEXT_YELLOW).append(TEXT_CYAN).append("\r\n").append("MQTT").append("\r\n").append(UNDERLINE_OFF).append(TEXT_YELLOW);
+                b.append(TEXT_DEFAULT).append(TEXT_CYAN).append("\r\n").append("MQTT").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
             }
             b.append(mqttPool.getMqttBrokersInfo()).append("\r\n");
         }
@@ -586,7 +584,7 @@ public class DAS implements Commandable{
         } catch (java.lang.NullPointerException e) {
             Logger.error("Error reading buffers " + e.getMessage());
         }
-
+        /* DATABASES */
         if (html) {
             b.append("<br><b>Databases</b><br>");
         } else {
