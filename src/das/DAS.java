@@ -565,7 +565,16 @@ public class DAS implements Commandable{
                 b.append("\r\n");
             }
         }
-        if (mqttPool !=null && !mqttPool.getMqttWorkerIDs().isEmpty()) {
+        if( isrs != null ){
+            if (html) {
+                b.append("<br><b>GPIO Isr</b><br>");
+            } else {
+                b.append(TEXT_CYAN).append("\r\n").append("GPIO Isr").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
+            }
+            b.append(isrs.getStatus("\r\n"));
+            b.append("\r\n");
+        }
+        if (mqttPool != null && !mqttPool.getMqttWorkerIDs().isEmpty()) {
             if (html) {
                 b.append("<br><b>MQTT</b><br>");
             } else {
