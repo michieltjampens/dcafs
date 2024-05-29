@@ -155,11 +155,12 @@ public class DAS implements Commandable{
             addTransServer(); // and if so, set it up
 
         /* Hardware: I2C & GPIO */
-        addI2CWorker();
         if( digger.hasPeek("gpios") ){
             Logger.info("Reading interrupt gpio's from settings.xml");
             isrs = new InterruptPins(dQueue,settingsPath);
         }
+        addI2CWorker();
+
         /* Forwards */
         pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
         addCommandable(pathPool,"paths","path","pf","paths");
