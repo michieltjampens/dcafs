@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
   <settings>
-    <telnet port="23" title="DCAFS_pump_scenario">
+    <telnet port="2323" title="DCAFS_pump_scenario">
       <textcolor>lightgray</textcolor>
     </telnet>
     <!-- The simulation scripts, don't alter or look at it -->
@@ -9,7 +9,6 @@
   </settings>
   <!-- This is part of the dummy, don't change it -->
   <streams>
-    <!-- connection to the pump -->
 
   </streams>
   <rtvals>

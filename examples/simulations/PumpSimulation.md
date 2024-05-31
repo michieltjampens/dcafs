@@ -16,9 +16,9 @@ Below is the settings file to start from (included in the earlier linked zip).
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
   <settings>
-    <mode>normal</mode>
-    <!-- Settings related to the telnet server -->
-    <telnet port="23" title="DCAFS_pump_scenario"/>
+    <telnet port="2323" title="DCAFS_pump_scenario">
+      <textcolor>lightgray</textcolor>
+    </telnet>
     <!-- The simulation scripts, don't alter or look at it -->
     <taskmanager id="pump">tmscripts\pump.xml</taskmanager>
   </settings>
@@ -30,10 +30,10 @@ Below is the settings file to start from (included in the earlier linked zip).
   </streams>
 </dcafs>
 ````
-**The goals:**  
-a. Process the data  
-b. Make sure the cooler is activated and stopped on time  
-c. Keep track of the times the cooler is activated and for how long
+**The tasks:**  
+- Process the data.
+- Make sure the cooler is activated and stopped on time.
+- Keep track of the times the cooler is activated and for how long.
 
 ### Process the data
 
@@ -42,11 +42,11 @@ Let's look at the data using `raw:pump`, should be something like this:
 
 > pump:idle,cooler:idle,temp:20.0,ambient:20.0
 
-So the three states are idle,active,broken.
+The three possible states are idle,active,broken.
 
-Next up is processing it, add a datapath with the id proc that has:
-* editor node to alter the received states to numbers, and : to , for easier generic use
-* generic to write those numbers to realvals
+Next up is processing it, add a path with the id proc that has:
+* editor node to alter the received states to numbers, and : to , for easier store use
+* store to write those numbers to rtvals
   * 2x integer (pump_state and pump_cooler)
   * 2x real (pump_temp,pump_ambient)
 

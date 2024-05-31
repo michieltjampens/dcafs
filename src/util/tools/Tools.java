@@ -415,7 +415,7 @@ public class Tools {
     }
     /**
      * Splits a line trying multiple delimiters, first space, then semicolon and
-     * then comma
+     * then comma and finally |
      * 
      * @param line The string to split
      * @return The resulting array

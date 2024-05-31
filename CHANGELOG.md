@@ -9,7 +9,48 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.9.1 (wip)
+## 2.10.0 (wip)
+- (If) dcafs runs with root permissions files created are only writable by root. This is not needed,
+so now new xml files are created with 'others write' permission. But owner remains.
+- Changed default telnet port to 2323, because 23 requires root on linux.
+
+### Telnet
+- CTRL+s can be used to send things to streams without eol sequence
+- Using the ESC key will actually send and ESC
+- Fixed, rewrote part of the cli code to make it less error prone. Things tended to break
+when the length of the text equals the size of the buffer and edits are done.
+
+### Interrupts
+- Can now add gpio if the board isn't recognised by diozero.
+- Added `admin:chexkpins` to check which gpio are recognized
+- Breaking, changed the xml format to fit this extra info
+```xml
+<gpios chiplines="32">
+  <!-- defining a gpio if board is unknown -->
+  <gpio name="GPIO2_A3" chip="2" line="4">
+    <physical header="X1" pin="13"/>
+    <modes>digital_input</modes>
+    <interrupt edge="falling">
+      <cmd>info:hello?</cmd>
+    </interrupt>
+  </gpio>
+  <!-- defining a gpio board is known -->
+  <gpio name="GPIO2_A4"> <!-- name needs to match -->
+    <interrupt edge="falling">
+      <cmd>info:hello 2?</cmd>
+    </interrupt>
+  </gpio>
+</gpios>
+```
+### I2C
+- Added attribute 'datatype' to the write op. Allows to change datatype of the content to dec or ascii instead
+of the default hex.
+- Added attribute 'addsize' to write node, default false. If true appends the amount of bytes to send
+after the register.
+- Debug state is now carried over on reload.
+- When adding devices, now there's a check for duplicate addres&bus.
+
+## 2.9.1 (05/05/2024)
 
 - Telnet normally echo's a backspace. But some term programs send 0x08 instead or don't apply backspace.
 So instead of echo 0x08,0x20,0x08 is returned instead. This moves the cursor left prints a space and moves it left again.
@@ -25,7 +66,7 @@ If no amount is given, it's set to 1.
 - Fixed, pf:id,delete now works again. Was changed to pf:id,delete,all/last.
 - Fixed, pf:id,reload and pf:id,list weren't altered properly from pf:reload,id
 - Fixed, if as first step wasn't working properly
-- Paths will now be reload after changing them (instead of having to do manually).
+- Paths will now be reloaded after changing them (instead of having to do manually).
 - pf:id,list now shows db the store's are writing to and textcolor is now default instead of all green.
 - Fixed, delimiter in a edit node wasn't processed for potential chars like \t etc.
 - Added cmd to request the data of a step in a path, (similar to debug) pf:pathid,stepid
