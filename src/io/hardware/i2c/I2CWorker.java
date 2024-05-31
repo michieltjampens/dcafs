@@ -10,12 +10,10 @@ import io.telnet.TelnetCodes;
 import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.io.IOException;
@@ -25,15 +23,16 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 
 public class I2CWorker implements Commandable,I2COpFinished {
-    private final HashMap<String, ExtI2CDevice> devices = new HashMap<>();
+    private final HashMap<String, I2cDevice> devices = new HashMap<>();
     private final Path scriptsPath; // Path to the scripts
     private final Path settingsPath; // Path to the settingsfile
     private final EventLoopGroup eventloop; // Executor to run the opsets
     private final RealtimeValues rtvals;
     private final BlockingQueue<Datagram> dQueue;
-    private final ArrayList<ExtI2CDevice> workQueue = new ArrayList<>();
+    private final ArrayList<I2cOpper> workQueue = new ArrayList<>();
     private boolean busy = false;
     private boolean debug=false;
+    private ArrayList<I2cBus> busses = new ArrayList<>();
 
     public I2CWorker(Path settings, EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
         this.settingsPath=settings;
@@ -49,7 +48,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
      * consists of devices with their opsets.
      */
     private String readFromXML() {
-        devices.values().forEach(I2CDevice::close); // First close them before removing
+        devices.values().forEach( x-> x.getDevice().close() ); // First close them before removing
         devices.clear(); // Remove any existing ones
 
         int cnt=0;
@@ -57,26 +56,25 @@ public class I2CWorker implements Commandable,I2COpFinished {
 
         if( dig.isValid() ){
             Logger.info("Found settings for a I2C bus");
+            debug = dig.attr("debug",false);
 
             for( var i2c_bus : dig.digOut("bus") ){
-                int bus = i2c_bus.attr("controller", -1);
-                Logger.info("Reading devices on the I2C bus of controller "+bus);
-                if( bus ==-1 ){
-                    Logger.error("Invalid controller number given.");
+                int controller = i2c_bus.attr("controller", -1);
+                Logger.info("(i2c) -> Reading devices on the I2C bus of controller "+controller);
+                if( controller ==-1 ){
+                    Logger.error("(i2c) -> Invalid controller number given.");
                     continue;
                 }
+                var bus = getBus(controller);
                 for( var device : i2c_bus.digOut("device")){
                     cnt++;
-                    String id = device.attr("id", "").toLowerCase();
-                    String script = device.attr("script", "").toLowerCase();
-
-                    int address = Tools.parseInt( device.attr( "address", "0x00" ),16);
-                    var devopt = addDevice( id, script, bus, address );
-                    if( devopt.isPresent() ){
-                        // Load the op set
-                        loadSet( devopt.get() );
-                        Logger.info("(i2c) -> Added "+id+"("+address+") to the device list of controller "+bus);
-                    }
+                    var dev = new I2cOpper( device,bus,dQueue);
+                    devices.put(dev.id(),dev);
+                }
+                for( var device : i2c_bus.digOut("uart")){
+                    cnt++;
+                    var dev = new I2cUart( device,bus,dQueue);
+                    devices.put(dev.id,dev);
                 }
             }
         }
@@ -84,7 +82,14 @@ public class I2CWorker implements Commandable,I2COpFinished {
             return "Found all devices";
         return "Found "+devices+" on checked busses, while looking for "+cnt+" devices";
     }
-    private void loadSet(ExtI2CDevice device ){
+    private I2cBus getBus( int controller ){
+        while(busses.size() <= controller)
+            busses.add(null);
+        if( busses.get(controller)==null)
+            busses.set( controller, new I2cBus(controller,eventloop));
+        return busses.get(controller);
+    }
+    private void loadSet(I2cOpper device ){
         var script = device.getScript();
         var xml = scriptsPath.resolve(script+".xml");
 
@@ -112,41 +117,6 @@ public class I2CWorker implements Commandable,I2COpFinished {
     }
     /* ***************************************************************************************************** */
     /**
-     * Adds a device to the hashmap
-     * 
-     * @param id         The name of the device, will be used to reference it from the TaskManager etc
-     * @param controller The controller the device is connected to
-     * @param address    The address the device had
-     * @return The created device
-     */
-    public Optional<ExtI2CDevice> addDevice(String id, String script, int controller, int address) {
-
-        if( address==-1) {
-            Logger.warn(id+"(i2c) -> Invalid address given");
-            return Optional.empty();
-        }
-        var hexAddress = "0x"+Integer.toHexString(address)+"@"+controller;
-        for( var dev : devices.values() ) {
-            Logger.info("Checking ("+dev.getAddr()+") vs ("+hexAddress+")");
-            if (dev.getAddr().equalsIgnoreCase(hexAddress)) {
-                Logger.error( "(i2c) -> The address is already used, "+hexAddress+" not adding "+id+".");
-                return Optional.empty();
-            }
-        }
-        try (ExtI2CDevice device = new ExtI2CDevice(id,controller, address, script)) {
-            if (!device.probe( I2CDevice.ProbeMode.AUTO )) {
-                Logger.warn(id+"(i2c) -> Probing the new device at "+hexAddress+" failed.");
-            }
-            device.setI2COpFinished(this);
-            device.setDebug(debug);
-            devices.put(id, device);
-            return Optional.of(devices.get(id));
-        } catch ( RuntimeIOException e ){
-            Logger.warn(id+"(i2c) -> Runtime error while probing the new device at "+hexAddress+".");
-        }
-        return Optional.empty();
-    }
-    /**
      * Get a readable list of all the registered devices
      * @return Comma separated list of registered devices
      */
@@ -168,7 +138,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
      * @return True if the addition was ok
      */
     public boolean addTarget(String id, Writable wr){
-        ExtI2CDevice device =  devices.get(id);
+        var device =  devices.get(id);
         if( device == null )
             return false;
         device.addTarget(wr);
@@ -222,7 +192,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
 		for (int device_address = 0; device_address < 128; device_address++) {
 			if (device_address >= 0x03 && device_address <= 0x77) {
 				try (I2CDevice device = new I2CDevice(controller, device_address)) {
-					if (device.probe( I2CDevice.ProbeMode.AUTO )) {
+					if (device.probe()) {
 						b.add( gr+"Free"+ye+" - 0x"+String.format("%02x ", device_address) );
 					}
 				} catch (DeviceBusyException e) {
@@ -241,7 +211,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
     @Override
     public boolean removeWritable( Writable wr ){
         int cnt=0;
-        for( ExtI2CDevice device : devices.values() ){
+        for( var device : devices.values() ){
             cnt += device.removeTarget(wr)?1:0;
         }
         return cnt!=0;
@@ -282,12 +252,10 @@ public class I2CWorker implements Commandable,I2COpFinished {
             }
             case "debug" -> {
                 if (cmds.length == 2) {
-                    if (setDebug(cmds[1].equalsIgnoreCase("on")))
-                        return "Debug " + cmds[1];
-                    return "! Failed to set debug, maybe no i2cworker yet?";
-                } else {
-                    return "! Incorrect number of variables: i2c:debug,on/off";
+                    setDebug(cmds[1].equalsIgnoreCase("on"));
+                    return "Debug " + cmds[1];
                 }
+                return "! Incorrect number of variables: i2c:debug,on/off";
             }
             case "addscript" -> {
                 if (cmds.length != 2)
@@ -317,12 +285,19 @@ public class I2CWorker implements Commandable,I2COpFinished {
                         Logger.error(e);
                     }
                 }
-
-                var opt = addDevice(cmds[1], cmds[4], NumberUtils.toInt(cmds[2]), Tools.parseInt(cmds[3], -1));
-                if (opt.isEmpty())
+                var bus = getBus( NumberUtils.toInt(cmds[2]) );
+                var opper = new I2cOpper(cmds[1],bus,NumberUtils.createInteger(cmds[3]),cmds[4],dQueue);
+                if( !opper.probeIt() )
                     return "! Probing " + cmds[3] + " on bus " + cmds[2] + " failed";
 
-                opt.ifPresent(d -> d.storeInXml(XMLfab.withRoot(settingsPath, "dcafs").digRoot("i2c")));
+                devices.put(cmds[1],opper);
+
+                var fab = XMLfab.withRoot(settingsPath, "dcafs").digRoot("i2c");
+                fab.selectOrAddChildAsParent("bus","controller",cmds[2]);
+                fab.selectOrAddChildAsParent("device").attr("id",cmds[1]);
+                fab.addChild("address").content(cmds[3]);
+                fab.addChild("script").content(cmds[4]);
+                fab.build();
 
                 // Check if the script already exists, if not build it
                 var p = scriptsPath.resolve(cmds[4] + (cmds[4].endsWith(".xml")?"":".xml"));
@@ -368,8 +343,8 @@ public class I2CWorker implements Commandable,I2COpFinished {
                 var dev = devices.get(cmds[0]);
                 if( dev == null)
                     return "! No such device id: "+cmds[0];
-                if( cmds[1].equalsIgnoreCase("?"))
-                    return dev.getOpsInfo(true);
+                if( cmds[1].equalsIgnoreCase("?")&& dev.getClass()== I2cOpper.class )
+                    return ((I2cOpper)dev).getOpsInfo(true);
                 return addWork(cmds[0], cmds.length>2?cmds[1].substring(args.indexOf(",")):cmds[1]);
             }
         }
@@ -388,15 +363,15 @@ public class I2CWorker implements Commandable,I2COpFinished {
         if( devices.isEmpty())
             return "! No devices present yet.";
 
-        ExtI2CDevice device = devices.get(id.toLowerCase());
-        if (device == null) {
-            Logger.error("Invalid job received, unknown device '" + id + "'");
+        var dev = devices.get(id.toLowerCase());
+        if (dev == null || dev.getClass() != I2cOpper.class) {
+            Logger.error("(i2c) -> Invalid job received, unknown device '" + id + "'");
             return "! Invalid job received, unknown device '" + id + "'";
         }
-
+        var device = (I2cOpper) dev;
         if (!device.hasOp(opset.split(",")[0])) {
-            Logger.error("Invalid opset received '" + device.getScript()+":"+opset + "'.");
-            return "! Invalid opset received '" + device.getScript()+":"+opset + "'.";
+            Logger.error("(i2c) -> Invalid opset received for "+id+" '" + device.getScript()+":"+opset + "'.");
+            return "! Invalid opset received for "+id+" '" + device.getScript()+":"+opset + "'.";
         }
         if( busy && !device.isBusy()){ // Bus is busy and it's not this device, queue the work
             device.queueOp(opset);
@@ -409,7 +384,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
         }
         return "ok";
     }
-    private void doWork(ExtI2CDevice device, String opsetId) {
+    private void doWork(I2cOpper device, String opsetId) {
 
         byte[] args = new byte[0];
         // Strip the arguments from the opsetId
@@ -430,9 +405,8 @@ public class I2CWorker implements Commandable,I2COpFinished {
     public void deviceDone() {
         if( workQueue.isEmpty() ) {
             busy = false;
-            Logger.info("Device done.");
         }else{
-            Logger.info("Device done, doing next");
+            Logger.debug("Device done, doing next.");
             var device = workQueue.remove(0);
             device.doNext(eventloop);
         }

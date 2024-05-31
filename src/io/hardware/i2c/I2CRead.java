@@ -73,7 +73,7 @@ public class I2CRead implements I2COp{
         delay=millis;
     }
     @Override
-    public ArrayList<Double> doOperation(ExtI2CDevice device) {
+    public ArrayList<Double> doOperation(I2cOpper device) {
 
         if( !valid ) {
             Logger.error("Read not valid, aborting");
@@ -81,7 +81,7 @@ public class I2CRead implements I2COp{
         }
         Logger.debug("Reading block...");
         byte[] rec = new byte[recBytes];
-        device.readI2CBlockData(reg, rec);
+        device.getDevice().readI2CBlockData(reg, rec);
         if( device.isDebug())
             Logger.info(device.id()+"(i2c) -> Read: "+Tools.fromBytesToHexString(rec));
         if( bitsets!=null ){

@@ -1,45 +1,41 @@
 package io.hardware.i2c;
 
-import com.diozero.api.I2CDevice;
-import com.diozero.api.RuntimeIOException;
-import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
-import util.tools.TimeTools;
-import util.xml.XMLfab;
+import util.xml.XMLdigger;
+import worker.Datagram;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.BlockingQueue;
 
 /**
  * Extension for the I2CDevice class that adds das relevant functionality
  */
-public class ExtI2CDevice extends I2CDevice {
+public class I2cOpper extends I2cDevice{
 
-	private final String id;
-	private final String script;
-	private Instant timestamp;
-	private final ArrayList<Writable> targets = new ArrayList<>();
-	private boolean debug=false;
+	private String script;
 	private final HashMap<String,I2COpSet> ops = new HashMap<>();
 	private boolean busy=false;
 	private final ArrayList<String> queue = new ArrayList<>();
 	private I2COpFinished worker;
 	/**
 	 * Extension of the @see I2CDevice class that adds the command functionality
-	 * 
+	 * @param dev The digger pointing to the xml node about this
 	 * @param bus The controller on which this device is connected
-	 * @param address The address of the device
 	 */
-	public ExtI2CDevice (String id,int bus, int address, String script){
-		super(bus,address);
-		this.id=id;
+	public I2cOpper(XMLdigger dev, I2cBus bus, BlockingQueue<Datagram> dQeueu ){
+		super(dev,bus,dQeueu);
+
+		script = dev.attr("script", "").toLowerCase();;
+		if( script.isEmpty()) // Might be a node instead of an attribute
+			script =  dev.peekAt("script").value("");
+	}
+	public I2cOpper( String id, I2cBus bus, int address, String script, BlockingQueue<Datagram> dQeueu){
+		super(id,address,bus,dQeueu);
 		this.script=script;
-		Logger.info("Connecting to controller:"+bus +" and address:"+address);
+		Logger.info("I2cOpper created for "+bus.id()+":"+address+" with script "+script+".");
 	}
 	public void setI2COpFinished( I2COpFinished worker){
 		this.worker=worker;
@@ -52,78 +48,15 @@ public class ExtI2CDevice extends I2CDevice {
 		ops.values().forEach( set -> set.removeRtvals(rtvals));
 		ops.clear();
 	}
-	public String id(){
-		return id;
-	}
-	public boolean probeIt(){
-		try {
-			if (!this.probe()){
-				Logger.warn("(i2c) -> Probe failed for "+id);
-				return false;
-			}
-		}catch(RuntimeIOException e ){
-			Logger.warn("(i2c) -> Probe failed for "+id+" -> "+e.getMessage());
-			return false;
-		}
-		return true;
-	}
+
 	public String toString(){
-		return "@"+getController()+":0x"+String.format("%02x", getAddress())
-				+" using script "+script+ (probeIt()?" [OK]":"[NOK]");
+		return "@"+bus+":0x"+String.format("%02x", address)
+				+" using script "+script + " queue:"+queue.size()
+				+(probeIt()?" [OK]":"[NOK]");
 	}
-	public String getStatus(String id){
-		String age = getAge()==-1?"Not used yet": TimeTools.convertPeriodtoString(getAge(), TimeUnit.SECONDS);
-		return (probeIt()?"":"!!")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
-	}
-	public String getAddr(){
-		return "0x"+String.format("%02x", getAddress())+"@"+getController();
-	}
+
 	public String getScript(){
 		return script;
-	}
-	public void setDebug( boolean state){
-		debug=state;
-	}
-	public boolean isDebug(){
-		return debug;
-	}
-	/**
-	 * Add a @Writable to which data received from this device is send
-	 * @param wr Where the data will be send to
-	 */
-	public void addTarget(Writable wr){
-		if( wr!=null&&!targets.contains(wr))
-			targets.add(wr);
-	}
-	public boolean removeTarget(Writable wr ){
-		return targets.remove(wr);
-	}
-	/**
-	 * Get the list containing the writables
-	 * @return The list of writables
-	 */
-	public List<Writable> getTargets(){
-		return targets;
-	}
-	public String getWritableIDs(){
-		StringJoiner join = new StringJoiner(", ");
-		join.setEmptyValue("None yet.");
-		targets.forEach(wr -> join.add(wr.id()));
-		return join.toString();
-	}
-	public void updateTimestamp(){
-		timestamp = Instant.now();
-	}
-	public long getAge(){
-		if( timestamp==null)
-			return -1;
-		return Duration.between(timestamp,Instant.now()).getSeconds();
-	}
-	public void storeInXml(XMLfab fab){
-		fab.selectOrAddChildAsParent("bus","controller",getController())
-				.selectOrAddChildAsParent("device","id",id)
-				.attr("address","0x"+String.format("%02x", getAddress()))
-				.attr("script",script).build();
 	}
 	public String getOpsInfo( boolean full){
 		String last="";
@@ -182,10 +115,6 @@ public class ExtI2CDevice extends I2CDevice {
 		queue.add(setId);
 	}
 	private void startOp(String id, EventLoopGroup scheduler ){
-
-		if( !probeIt() )  // First check if the device is still there?
-			return;
-
 		ops.get(id).startOp(this,scheduler);
 		updateTimestamp(); // Update last used timestamp, because we had comms
 	}

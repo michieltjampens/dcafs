@@ -126,7 +126,7 @@ public class I2COpSet {
      * @param device The device to run it on
      * @param scheduler The scheduler to use for the threads
      */
-    public void startOp(ExtI2CDevice device, EventLoopGroup scheduler){
+    public void startOp(I2cOpper device, EventLoopGroup scheduler){
         Logger.debug(id+" -> Starting on "+device.id());
         index=0;
         received.clear();
@@ -140,7 +140,7 @@ public class I2COpSet {
      * @param device The device to run the set on
      * @param scheduler The scheduler to get a thread from to use it
      */
-    private void runOp(ExtI2CDevice device, EventLoopGroup scheduler ){
+    private void runOp(I2cOpper device, EventLoopGroup scheduler ){
         long delay = 0;
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
 
@@ -179,7 +179,7 @@ public class I2COpSet {
      * @param device The device the results came from
      * @param altRes The result of the opset
      */
-    private void forwardDoubleResult(ExtI2CDevice device, ArrayList<Double> altRes){
+    private void forwardDoubleResult(I2cOpper device, ArrayList<Double> altRes){
 
         StringJoiner output = new StringJoiner(";",device.id()+";"+id+";","");
         switch (outType) {
@@ -208,7 +208,7 @@ public class I2COpSet {
      * @param device The device that was used
      * @param output The formatted output
      */
-    private void forwardData( ExtI2CDevice device, String output){
+    private void forwardData(I2cOpper device, String output){
         try {
             device.getTargets().forEach(wr -> wr.writeLine(output));
             device.getTargets().removeIf(wr -> !wr.isConnectionValid()); // Remove unresponsive targets
