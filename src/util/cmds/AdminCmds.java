@@ -3,7 +3,9 @@ package util.cmds;
 import das.Commandable;
 import io.email.Email;
 import io.email.EmailSending;
+import io.hardware.gpio.InterruptPins;
 import io.telnet.TelnetCodes;
+import org.apache.commons.lang3.SystemUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -24,8 +26,10 @@ public class AdminCmds {
                 String reg = html ? "" : TelnetCodes.TEXT_DEFAULT;
                 StringJoiner join = new StringJoiner(nl);
                 join.add(gre + "admin:getlogs" + reg + " -> Send last/current info and error log to admin email")
+                        .add(gre + "admin:getlastraw" + reg + " -> Send last raw log to admin email")
                         .add(gre + "admin:adddebugnode" + reg + " -> Adds a debug node with default values")
                         .add(gre + "admin:clock" + reg + " -> Get the current timestamp")
+                        .add(gre + "admin:checkgpios" + reg + " -> Checks the gpio's found by diozero lib")
                         .add(gre + "admin:regex,<regex>,<match>" + reg + " -> Test a regex")
                         .add(gre + "admin:ipv4" + reg + " -> Get the IPv4 and MAC of all network interfaces")
                         .add(gre + "admin:ipv6" + reg + " -> Get the IPv6 and MAC of all network interfaces")
@@ -34,6 +38,11 @@ public class AdminCmds {
                         .add(gre + "admin:reboot" + reg + " -> Reboot the computer (linux only)")
                         .add(gre + "admin:sleep,x" + reg + " -> Sleep for x time (linux only");
                 return join.toString();
+            }
+            case "checkgpios","checkgpio" ->{
+                if (SystemUtils.IS_OS_WINDOWS)
+                    return "No use checking for gpios on windows";
+              return InterruptPins.checkGPIOS();
             }
             case "getlogs" -> {
                 if (sendEmail != null) {
@@ -53,7 +62,7 @@ public class AdminCmds {
                     var last = list.filter(f -> !Files.isDirectory(f)).max(Comparator.comparingLong(f -> f.toFile().lastModified()));
                     if (last.isPresent()) {
                         var path = last.get();
-                        sendEmail.sendEmail(Email.toAdminAbout("Taskmanager.log").subject("File attached (probably)").attachment(path));
+                        sendEmail.sendEmail(Email.toAdminAbout("Raw.log").subject("File attached (probably)").attachment(path));
                         return "Tried sending " + path;
                     }
                     return "! File not found";
