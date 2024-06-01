@@ -193,6 +193,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             this.frequency=frequency;
             this.samples=samples==1?2:samples;
             this.updateRate=updateRate;
+            stamps.ensureCapacity(samples);
         }
         public void trigger( DigitalInputEvent event ){
             // Could probably be made more efficient is update rate is low and trigger interval is high?
@@ -201,8 +202,8 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             if( stamps.size()==samples ){ // Wait till enough samples collected
                 counter ++; // Increment counter that determines update rate of the realval
                 if( counter == updateRate ) { // If the counter matches the requested rate, actually calculate frequency
-                    var res = (double)1000000000/(event.getNanoTime()-stamps.remove(0) );
-                    frequency.updateValue(res / (samples - 1));
+                    var res = (double)1000000000/((event.getNanoTime()-stamps.remove(0) )/(samples-1));
+                    frequency.updateValue( res );
                     Logger.info("Frequency: " + frequency.asValueString());
                     counter=0;
                 }else{// If not, just remove old sample
