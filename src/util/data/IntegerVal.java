@@ -185,6 +185,9 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         }
         return this;
     }
+    public void increment(){
+        value(value+1);
+    }
     public void resetValue(){
         value=defVal;
     }

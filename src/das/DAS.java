@@ -157,7 +157,7 @@ public class DAS implements Commandable{
         /* Hardware: I2C & GPIO */
         if( digger.hasPeek("gpios") ){
             Logger.info("Reading interrupt gpio's from settings.xml");
-            isrs = new InterruptPins(dQueue,settingsPath);
+            isrs = new InterruptPins(dQueue,settingsPath,rtvals);
         }
         addI2CWorker();
 
