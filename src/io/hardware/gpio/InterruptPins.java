@@ -93,9 +93,10 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
                                 }
                             }
                             if( isrDig.hasPeek("frequency") ){
-                                var val = isrDig.peekAt("frequency").value("");
-                                var samples = isrDig.attr("samples",2);
+                                var samples = isrDig.peekAt("frequency").attr("samples",2);
                                 var updateRate = isrDig.attr("updaterate",1);
+                                var val = isrDig.value("");
+
                                 var realOpt = rtvals.getRealVal(val);
                                 if (realOpt.isPresent()) {
                                     addIsrAction(pinInfo.getDeviceNumber(), new IsrFrequency(realOpt.get(), samples, updateRate));
