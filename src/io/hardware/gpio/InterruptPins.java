@@ -9,6 +9,7 @@ import org.tinylog.Logger;
 import util.data.IntegerVal;
 import util.data.RealVal;
 import util.data.RealtimeValues;
+import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
@@ -87,6 +88,8 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
                                 var val = isrDig.peekAt("counter").value("");
                                 var intOpt = rtvals.getIntegerVal(val);
                                 if (intOpt.isPresent()) {
+                                    Logger.info("(isr) -> Added counting isr saving to "+val
+                                                        +" after interrupt on "+pinInfo.getDeviceNumber()+".");
                                     addIsrAction(pinInfo.getDeviceNumber(), new IsrCounter(intOpt.get()));
                                 } else {
                                     Logger.error("(isr) -> No such int yet '" + val + "'");
@@ -99,14 +102,26 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
 
                                 var realOpt = rtvals.getRealVal(val);
                                 if (realOpt.isPresent()) {
-                                    addIsrAction(pinInfo.getDeviceNumber(), new IsrFrequency(realOpt.get(), samples, updateRate));
+                                    Logger.info("(isr) -> Added frequency isr saving to "+val
+                                                    +" after interrupt on "+pinInfo.getDeviceNumber()+".");
+                                    addIsrAction( pinInfo.getDeviceNumber(), new IsrFrequency(realOpt.get(), samples, updateRate) );
                                 } else {
                                     Logger.error("(isr) -> No such real yet '" + val + "'");
                                 }
-                            }else {
-                                if (trigger == GpioEventTrigger.BOTH) {
-                                    var idle = Tools.parseBool(isrDig.attr("idle", "high"), true);
-                                    addIsrAction(pinInfo.getDeviceNumber(), new IsrPulse(idle));
+                            }
+                            if( isrDig.hasPeek("period") ){
+                                if( trigger != GpioEventTrigger.BOTH){
+                                    Logger.error("(i2c) -> Period isr requires triggering on 'both' edges.");
+                                }else {
+                                    var idle = isrDig.peekAt("period").attr("idle", true);
+                                    var val = isrDig.value("");
+                                    var periodOpt = rtvals.getRealVal(val);
+                                    if (periodOpt.isEmpty()) {
+                                        Logger.error("(isr) -> No such real " + val + ".");
+                                    } else {
+                                        Logger.info("(isr) -> Added period isr saving to "+val+" with idle "+(idle?"high":"low"));
+                                        addIsrAction( pinInfo.getDeviceNumber(), new IsrPeriod(periodOpt.get(), idle) );
+                                    }
                                 }
                             }
                         }
@@ -152,8 +167,10 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
     public void accept(DigitalInputEvent event) {
         // Check the event is for one of the interrupt gpio's and if so, execute the commands
         var isrActions = isrs.get(event.getGpio());
-        if( isrActions!=null )
-            isrActions.forEach( isr -> isr.trigger(event) );
+        Logger.debug( "Trigger: " + event );
+        if( isrActions!=null ) {
+            isrActions.parallelStream().forEach(isr -> isr.trigger(event));
+        }
     }
 
     @Override
@@ -173,7 +190,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
     }
     private static class IsrCounter implements IsrAction {
         IntegerVal counter;
-        long last=0;
+
         public IsrCounter( IntegerVal counter ){
             this.counter=counter;
         }
@@ -196,7 +213,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             stamps.ensureCapacity(samples);
         }
         public void trigger( DigitalInputEvent event ){
-            // Could probably be made more efficient is update rate is low and trigger interval is high?
+            // Could probably be made more efficient if update rate is low and trigger interval is high?
             // As in when you want the average of 10 samples but only care every 100, ignore first 90?
             stamps.add( event.getNanoTime() ); // Always store time of last trigger
             if( stamps.size()==samples ){ // Wait till enough samples collected
@@ -204,7 +221,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
                 if( counter == updateRate ) { // If the counter matches the requested rate, actually calculate frequency
                     var res = (double)1000000000/((event.getNanoTime()-stamps.remove(0) )/(samples-1));
                     frequency.updateValue( res );
-                    Logger.info("Frequency: " + frequency.asValueString());
+                    Logger.debug("Frequency: " + frequency.asValueString());
                     counter=0;
                 }else{// If not, just remove old sample
                     stamps.remove(0);
@@ -212,30 +229,22 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             }
         }
     }
-    private static class IsrPulse implements IsrAction{
+    private static class IsrPeriod implements IsrAction{
         long last=0;
         boolean idle;
-        long negativeOffset = Long.MAX_VALUE;
-        long positiveOffset = Long.MIN_VALUE;
+        RealVal period;
 
-        public IsrPulse(boolean idle){
+        public IsrPeriod(RealVal period, boolean idle){
+            this.period=period;
             this.idle=idle;
         }
         public void trigger(DigitalInputEvent event){
             if( event.getValue() != idle ) {
-                if( last !=0) {
-                    var res = Math.toIntExact((event.getNanoTime()-last)/1000);
-                    Logger.info("Interval:" +res+"us");
-                }
                 last=event.getNanoTime();
-            }else{
-                long duration = event.getNanoTime()-last;
-                int us = Math.toIntExact(duration/1000);
-                int offset = 5000-us;
-                Logger.info("Duration of pulse: "+duration+"ns or "+ us+"us ("+offset+"us)");
-                negativeOffset = Math.min(offset, negativeOffset);
-                positiveOffset = Math.max(offset, positiveOffset);
-                Logger.info("Offset:" +negativeOffset+" -> "+positiveOffset );
+            }else if(last!=0){
+                int us = Math.toIntExact((event.getNanoTime()-last)/1000);
+                period.updateValue(us);
+                Logger.info("Duration of pulse: " + us+"us");
             }
         }
     }
@@ -246,7 +255,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             cmds.addAll(list);
         }
         public void trigger(DigitalInputEvent event){
-            Logger.info("Interrupt -> {}", event);
+            Logger.debug("Interrupt -> {}", event);
             cmds.forEach(cmd -> dQueue.add(Datagram.system(cmd)));
         }
     }
