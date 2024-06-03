@@ -31,6 +31,7 @@ import util.xml.XMLtools;
 import worker.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -38,6 +39,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DAS implements Commandable{
 
@@ -79,6 +82,7 @@ public class DAS implements Commandable{
     private FileMonitor fileMonitor; // Monitor files for changes
 
     private Instant lastCheck; // Timestamp of the last clock check, to know if the clock was changed after das booted
+    private long maxRawAge=3600; // 1 hour default for the age of raw data writes status to turn red
 
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
@@ -127,6 +131,16 @@ public class DAS implements Commandable{
             return;
         }
         var digger = XMLdigger.goIn(settingsPath,"dcafs"); // Use digger to go through settings.xml
+
+        if( digger.hasPeek("settings") ){
+            digger.digDown("settings");
+            var age = digger.peekAt("maxrawage").value("1h");
+            maxRawAge = TimeTools.parsePeriodStringToSeconds(age);
+            if( maxRawAge==0){
+                Logger.error("Invalid maxrawage value: "+age+" defaulting to 1 hour.");
+            }
+            digger.goUp();
+        }
         Logger.info("Program booting");
 
         /* CommandPool */
@@ -527,8 +541,16 @@ public class DAS implements Commandable{
         }
         b.append(TEXT_DEFAULT).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")\r\n");
         b.append(TEXT_DEFAULT).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append("\r\n");
-        b.append(TEXT_DEFAULT).append("Memory: ").append(TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
-        b.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP());
+        b.append(TEXT_DEFAULT).append("Memory: ").append(usedMem>250?TEXT_RED:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
+        b.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP()).append("\r\n");
+        b.append(TEXT_DEFAULT).append("Raw Age: ");
+        long age = getLastRawAge();
+        if( age == -1 ){
+            b.append(TEXT_RED).append("No daily file yet!");
+        }else{
+            var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
+            b.append( (age>maxRawAge?TEXT_RED:TEXT_GREEN)).append(convert);
+        }
         b.append(UNDERLINE_OFF).append("\r\n");
 
         if (html) {
@@ -617,6 +639,35 @@ public class DAS implements Commandable{
         return b.toString().replace("false", TEXT_RED + "false" + TEXT_GREEN);
     }
 
+    /**
+     * Get the age in seconds of the latest file in the raw folder
+     * @return Age of last write to the daily raw file
+     */
+    private long getLastRawAge(){
+        var raw = Path.of(workPath).resolve("raw").resolve(TimeTools.formatNow("yyyy-MM"));
+        var date = TimeTools.formatNow("yyyy-MM-dd")+"_RAW_";
+
+        try (Stream<Path> stream = Files.list(raw)) {
+            var list = stream
+                    .filter(file -> !Files.isDirectory(file))
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter( fn -> fn.startsWith(date))
+                    .filter( fn-> fn.endsWith(".log") )// Because it can contain zip files
+                    .collect(Collectors.toList());
+            if(list.isEmpty())
+                return -1;
+
+            Collections.sort(list);
+            var file = raw.resolve(list.get(list.size()-1));
+            var fileTime = Files.getLastModifiedTime(file);
+            Instant fileInstant = fileTime.toInstant();
+            Duration difference = Duration.between(fileInstant, Instant.now());
+            return difference.getSeconds();
+        }catch( IOException e){
+            return -1;
+        }
+    }
     /**
      * Get a status update of the various queues, mostly to verify that they are
      * empty
