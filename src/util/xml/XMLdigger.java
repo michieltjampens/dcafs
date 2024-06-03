@@ -19,7 +19,8 @@ import java.util.StringJoiner;
 public class XMLdigger {
 
     private boolean valid = true;
-    private Document xmlDoc;        // The xml document
+    private Document xmlDoc;   // The xml document
+    private Element firstRoot;
     private Element root;
     private Element last;
     private Element peek;
@@ -35,6 +36,7 @@ public class XMLdigger {
         }else {
             last = cur;
             root = (Element) cur.getParentNode();
+            firstRoot=root;
             root = root == null ? last : root;
         }
     }
@@ -50,6 +52,7 @@ public class XMLdigger {
         if( digger.valid ){ // If the xml file exists
             var root = (Element) digger.xmlDoc.getFirstChild(); // Get the root node
             if( root!=null && root.getTagName().equals(rootNode[0])) { // The root exists
+                digger.firstRoot=root;
                 digger.stepDown(root); // Go down the root
                 for( int a=1;a<rootNode.length;a++) // Step down further if wanted
                     digger.digDown(rootNode[a]);
@@ -228,6 +231,9 @@ public class XMLdigger {
         last = root;
         peeked=false;
 
+        if( last == firstRoot) // Meaning the parent is the top root
+            return;
+
         var parent = (Element) root.getParentNode();
         if(  validated(parent!=null) ) {
             root = (Element)root.getParentNode();
@@ -245,7 +251,7 @@ public class XMLdigger {
             return;
         valid=true;
         last = root;
-        while( !last.getTagName().equalsIgnoreCase(tag)) {
+        while( last!=null && !last.getTagName().equalsIgnoreCase(tag)) {
             var parent = (Element) root.getParentNode();
             if (validated(parent != null)) {
                 root = parent;
@@ -253,6 +259,9 @@ public class XMLdigger {
             }else{
                 valid=false;
             }
+        }
+        if( root==null) {
+            return;
         }
         var parent = (Element) root.getParentNode();
         if( parent!=null)
