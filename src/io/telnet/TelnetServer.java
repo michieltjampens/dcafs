@@ -14,6 +14,8 @@ import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import org.tinylog.Logger;
+import util.tools.TimeTools;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -45,6 +47,7 @@ public class TelnetServer implements Commandable {
     private final ArrayList<String> messages=new ArrayList<>();
     private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
     private HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
+    private long maxAge=3600;
 
     public TelnetServer( BlockingQueue<Datagram> dQueue, Path settingsPath, EventLoopGroup eventGroup ) {
         this.dQueue=dQueue;
@@ -68,6 +71,8 @@ public class TelnetServer implements Commandable {
                 title = dig.attr( "title", "DCAFS");
                 ignore = dig.attr( "ignore", "");
                 defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
+                dig.goUp();
+                maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
             }else {
                 addBlankTelnetToXML(settingsPath);
             }
@@ -99,6 +104,11 @@ public class TelnetServer implements Commandable {
                         cmdHistory.computeIfAbsent(remoteIp, k -> new ArrayList<>());
                         handler.setCmdHistory(cmdHistory.get(remoteIp));
                         handler.setDefaultColor(defColor);
+                        if(Tools.getLastRawAge(settingsPath.getParent())>maxAge){
+                            messages.add("Raw data is older then allowed! Something wrong with tinylog?");
+                        }else{
+                            messages.remove("Raw data is older then allowed! Something wrong with tinylog?");
+                        }
                         messages.forEach(handler::addOneTime);
                         writables.add(handler.getWritable());
                         pipeline.addLast( handler );
