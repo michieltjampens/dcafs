@@ -5,13 +5,19 @@ import org.tinylog.Logger;
 import util.gis.GisTools;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A collection of various often used small methods that do a variety of usefull
@@ -830,5 +836,31 @@ public class Tools {
             }
         }
         return b.toString();
+    }
+    /**
+     * Get the age in seconds of the latest file in the raw folder
+     * @return Age of last write to the daily raw file
+     */
+    public static long getLastRawAge(Path workpath){
+        var raw = workpath.resolve("raw").resolve(TimeTools.formatNow("yyyy-MM"));
+        try (Stream<Path> stream = Files.list(raw)) {
+            var list = stream
+                    .filter(file -> !Files.isDirectory(file))
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter( fn-> fn.endsWith(".log") )// Because it can contain zip files
+                    .collect(Collectors.toList());
+            if(list.isEmpty())
+                return -1;
+
+            Collections.sort(list);
+            var file = raw.resolve(list.get(list.size()-1));
+            var fileTime = Files.getLastModifiedTime(file);
+            Instant fileInstant = fileTime.toInstant();
+            Duration difference = Duration.between(fileInstant, Instant.now());
+            return difference.getSeconds();
+        }catch( IOException e){
+            return -1;
+        }
     }
 }

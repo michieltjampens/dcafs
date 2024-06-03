@@ -544,9 +544,9 @@ public class DAS implements Commandable{
         b.append(TEXT_DEFAULT).append("Memory: ").append(usedMem>250?TEXT_RED:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
         b.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP()).append("\r\n");
         b.append(TEXT_DEFAULT).append("Raw Age: ");
-        long age = getLastRawAge();
+        long age = Tools.getLastRawAge(Path.of(workPath));
         if( age == -1 ){
-            b.append(TEXT_RED).append("No daily file yet!");
+            b.append(TEXT_RED).append("No file yet!");
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
             b.append( (age>maxRawAge?TEXT_RED:TEXT_GREEN)).append(convert);
@@ -637,36 +637,6 @@ public class DAS implements Commandable{
             return b.toString().replace("\r\n","<br>");
         }
         return b.toString().replace("false", TEXT_RED + "false" + TEXT_GREEN);
-    }
-
-    /**
-     * Get the age in seconds of the latest file in the raw folder
-     * @return Age of last write to the daily raw file
-     */
-    private long getLastRawAge(){
-        var raw = Path.of(workPath).resolve("raw").resolve(TimeTools.formatNow("yyyy-MM"));
-        var date = TimeTools.formatNow("yyyy-MM-dd")+"_RAW_";
-
-        try (Stream<Path> stream = Files.list(raw)) {
-            var list = stream
-                    .filter(file -> !Files.isDirectory(file))
-                    .map(Path::getFileName)
-                    .map(Path::toString)
-                    .filter( fn -> fn.startsWith(date))
-                    .filter( fn-> fn.endsWith(".log") )// Because it can contain zip files
-                    .collect(Collectors.toList());
-            if(list.isEmpty())
-                return -1;
-
-            Collections.sort(list);
-            var file = raw.resolve(list.get(list.size()-1));
-            var fileTime = Files.getLastModifiedTime(file);
-            Instant fileInstant = fileTime.toInstant();
-            Duration difference = Duration.between(fileInstant, Instant.now());
-            return difference.getSeconds();
-        }catch( IOException e){
-            return -1;
-        }
     }
     /**
      * Get a status update of the various queues, mostly to verify that they are
