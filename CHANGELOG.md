@@ -13,12 +13,27 @@ Note: Version numbering: x.y.z
 - (If) dcafs runs with root permissions files created are only writable by root. This is not needed,
 so now new xml files are created with 'others write' permission. But owner remains.
 - Changed default telnet port to 2323, because 23 requires root on linux.
+- Happened that tinylog stopped writing for unknown reason, added the age of the daily raw 
+file to the status report. Default is one hour, can be changed with maxrawage node in settings.
+- Base path of tinylog can be set in xml using tinylog node in the settings node
+ ```xml
+  <settings>
+    <!-- Settings related to the telnet server -->
+    <telnet port="23" title="DCAFS">
+      <textcolor>lightgray</textcolor>
+    </telnet>
+    <taskmanager id="pm">tmscripts\pm.xml</taskmanager>
+    <maxrawage>10m</maxrawage> <!-- Max age of raw data to consider good -->
+    <tinylog>/mnt/sd</tinylog> <!-- Store logs on sd card -->
+  </settings>
+```
 
 ### Telnet
 - CTRL+s can be used to send things to streams without eol sequence
 - Using the ESC key will actually send and ESC
 - Fixed, rewrote part of the cli code to make it less error prone. Things tended to break
 when the length of the text equals the size of the buffer and edits are done.
+- Will show message on opening session if raw data is abnormally old.
 
 ### Interrupts
 - Can now add gpio if the board isn't recognised by diozero.
@@ -42,6 +57,22 @@ when the length of the text equals the size of the buffer and edits are done.
   </gpio>
 </gpios>
 ```
+- Added more actions to do on an interrupt: 
+  - counter: counts the amount of pulses detected
+  - frequency: calculates the frequency of the pulses, based on moving average or single interval
+  - period: measures the length of a pulse of minimum length of 500µs with 100µs accuracy.
+```xml
+    <gpio chip="2" line="3" name="GPIO2_A3">
+      <physical header="X1" pin="13"/>
+      <modes>digital_input</modes>
+      <interrupt edge="rising">
+	    <counter>aws_rain</counter> <!-- count the amount of pulses, stores it in a int rtval -->
+		<frequency samples="5">aws_frequency</frequency> <!-- Calculates the frequency of the pulses with moving average -->
+      </interrupt>
+    </gpio>
+```
+- Because these update an rtval, the triggers on said rtval can be used.
+
 ### I2C
 - Added attribute 'datatype' to the write op. Allows to change datatype of the content to dec or ascii instead
 of the default hex.
