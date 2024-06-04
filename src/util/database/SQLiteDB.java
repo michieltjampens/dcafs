@@ -10,14 +10,12 @@ import util.xml.XMLfab;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.StringJoiner;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -78,6 +76,8 @@ public class SQLiteDB extends SQLDB{
 
         SQLiteDB db = SQLiteDB.createDB(id,path.get());
 
+        db.maxInsertAge = TimeTools.parsePeriodStringToSeconds(dig.peekAt("maxinsertage").value("1h"));
+
         /* RollOver */
         if( dig.peekAt("rollover").hasValidPeek() ){
             String period = dig.attr("period","").toLowerCase();
@@ -118,16 +118,22 @@ public class SQLiteDB extends SQLDB{
     /* ************************************************************************************************************** */
     @Override
     public String toString(){
-        String status = getPath() +" -> " +getRecordsCount()+"/"+maxQueries;
+        var time = getTimeSinceLastInsert();
+        var join = new StringJoiner("");
+        if( time > maxInsertAge || getRecordsCount()>maxQueries )
+            join.add("!! ");
+        join.add( id +" : ");
+        join.add( getPath() +" -> " +getRecordsCount()+"/"+maxQueries);
         if( rollUnit != ChronoUnit.FOREVER){
             if( rollOverFuture==null ){
-                status += " -> No proper rollover determined...";
+                join.add( " -> No proper rollover determined..." );
             }else {
-                status += " ->  rollover in " + TimeTools.convertPeriodtoString(rollOverFuture.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
+                join.add(" ->  rollover in " + TimeTools.convertPeriodtoString(rollOverFuture.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS));
             }
         }
-        status += isValid(1)?"":" (NC)";
-        return status;
+        join.add(isValid(1)?"":" (NC)");
+        join.add( " ["+TimeTools.convertPeriodtoString(time,TimeUnit.SECONDS)+"]");
+        return join.toString();
     }
     /**
      * Get the current path this database can be found at

@@ -122,8 +122,8 @@ public class DatabaseManager implements QueryWriting, Commandable {
      */
     public String getStatus() {
         StringJoiner join = new StringJoiner("\r\n", "", "\r\n");
-        lites.forEach((id, db) -> join.add( id + " : " + db.toString() ));
-        sqls.forEach((id, db)  -> join.add( id + " : " + db.toString() + (db.isValid(1)?"":" (NC)")));
+        lites.forEach((id, db) -> join.add( db.toString() ));
+        sqls.forEach((id, db)  -> join.add( db.toString() ));
         return join.toString();
     }
 

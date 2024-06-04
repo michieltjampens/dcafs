@@ -634,8 +634,12 @@ public class DAS implements Commandable{
         }
         if (dbManager.hasDatabases()) {
             for( String l : dbManager.getStatus().split("\r\n") ){
-                if (l.endsWith("(NC)"))
+                if (l.endsWith("(NC)")) {
                     l = TEXT_NB + l + TEXT_BRIGHT;
+                }
+                if( l.startsWith( "!! ")){
+                    l = TelnetCodes.TEXT_RED+l+TelnetCodes.TEXT_DEFAULT;
+                }
                 b.append(l.replace(workPath+File.separator,"")).append("\r\n");
             }
         }else{

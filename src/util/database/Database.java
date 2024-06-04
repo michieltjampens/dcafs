@@ -6,6 +6,7 @@ import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +24,7 @@ public abstract class Database{
     protected long maxAge = 30; // Maximum age of the oldest query in the buffer before a flush is triggered
     protected int idleCount = 0; // How many seconds this has been idle
     protected int idleTime = -1; // Amount of seconds before a database is considered idle and the disconnected
-                                 // (-1 is never)
+    protected long maxInsertAge=3600;   // Max age since last insert before it's considered a problem
     protected STATE state = STATE.IDLE; // current state of the database
 
     protected enum STATE {
@@ -73,7 +74,12 @@ public abstract class Database{
             Logger.debug( id+" -> No changes requested to default flush/idle values ");
         }
     }
-
+    protected long getTimeSinceLastInsert(){
+        long prep=Math.max(firstPrepStamp,firstSimpleStamp);
+        if(prep==0)
+            return -1;
+        return (Instant.now().toEpochMilli()-prep)/1000;
+    }
     /* Abstract Methods */
 
     /**

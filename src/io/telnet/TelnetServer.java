@@ -73,8 +73,8 @@ public class TelnetServer implements Commandable {
                 defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
                 dig.goUp();
                 maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
-                var opt = dig.peekAt("tinylog").value(settingsPath.getParent());
-                opt.ifPresent(path -> tinylogPath = path);
+                var pth = dig.peekAt("tinylog").value("");
+                tinylogPath = pth.isEmpty()?settingsPath.getParent():Path.of(pth);
             }else {
                 addBlankTelnetToXML(settingsPath);
             }

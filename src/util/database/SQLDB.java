@@ -95,7 +95,19 @@ public class SQLDB extends Database implements TableInsert{
     }
     /* ************************************************************************************************* */
     public String toString(){
-        return type.toString().toLowerCase()+"@"+getTitle() +" -> " +getRecordsCount()+"/"+maxQueries;
+        var age = getTimeSinceLastInsert();
+        var time = TimeTools.convertPeriodtoString( age,TimeUnit.SECONDS);
+        var join = new StringJoiner("");
+        if( age > maxInsertAge || getRecordsCount()>maxQueries )
+            join.add("!! ");
+        join.add(id+" : ");
+        join.add(type.toString().toLowerCase()+"@"+getTitle());
+        join.add(" -> ");
+        join.add(getRecordsCount()+"/"+maxQueries);
+        join.add(" ["+time+"]");
+        if( !isValid(3))
+            join.add(" (NC)");
+        return  join.toString();
     }
 
     /**
@@ -568,6 +580,7 @@ public class SQLDB extends Database implements TableInsert{
         }
 
         db.id = dbDig.attr("id","");
+        db.maxInsertAge = TimeTools.parsePeriodStringToSeconds(dbDig.peekAt("maxinsertage").value("1h"));
 
         /* Setup */
         if( dbDig.hasPeek("flush")){
