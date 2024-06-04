@@ -541,14 +541,15 @@ public class DAS implements Commandable{
         }
         b.append(TEXT_DEFAULT).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")\r\n");
         b.append(TEXT_DEFAULT).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append("\r\n");
-        b.append(TEXT_DEFAULT).append("Memory: ").append(usedMem>250?TEXT_RED:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
+        b.append(TEXT_DEFAULT).append(usedMem>60?"!! ":"").append("Memory: ").append(usedMem>60?TEXT_RED:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
         b.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP()).append("\r\n");
-        b.append(TEXT_DEFAULT).append("Raw Age: ");
+
         long age = Tools.getLastRawAge(Path.of(workPath));
         if( age == -1 ){
-            b.append(TEXT_RED).append("No file yet!");
+            b.append(TEXT_DEFAULT).append("!! Raw Age: ").append(TEXT_RED).append("No file yet!");
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
+            b.append(TEXT_DEFAULT).append( (age>maxRawAge?"!! ":"")).append("Raw Age: ");
             b.append( (age>maxRawAge?TEXT_RED:TEXT_GREEN)).append(convert);
         }
         b.append(UNDERLINE_OFF).append("\r\n");
