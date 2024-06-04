@@ -109,12 +109,20 @@ public class DAS implements Commandable{
         }else if( workPath.contains("repository")){
             workPath = Path.of("").toAbsolutePath().toString();
         }
+        settingsPath = Path.of(workPath, "settings.xml");
+        var tinylogPath = workPath;
+        if( Files.exists(settingsPath)){
+            var digger = XMLdigger.goIn(settingsPath,"dcafs","settings");
+            tinylogPath = digger.peekAt("tinylog").value(workPath);
+        }
+
         System.out.println("Workpath lib: "+workPath); // System because logger isn't initiated yet
+        System.out.println("Workpath tinylog: "+tinylogPath); // System because logger isn't initiated yet
         if( System.getProperty("tinylog.directory") == null ) { // don't overwrite this
             // Re set the paths for the file writers to use the same path as the rest of the program
-            System.setProperty("tinylog.directory", workPath); // Set work path as system property
+            System.setProperty("tinylog.directory", tinylogPath); // Set work path as system property
         }
-        settingsPath = Path.of(workPath, "settings.xml");
+
 
         /* *************************** FROM HERE ON TINYLOG CAN BE USED ****************************************** */
 
