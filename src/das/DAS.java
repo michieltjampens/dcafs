@@ -634,11 +634,15 @@ public class DAS implements Commandable{
         }
         if (dbManager.hasDatabases()) {
             for( String l : dbManager.getStatus().split("\r\n") ){
-                if (l.endsWith("(NC)")) {
-                    l = TEXT_NB + l + TEXT_BRIGHT;
-                }
                 if( l.startsWith( "!! ")){
-                    l = TelnetCodes.TEXT_RED+l+TelnetCodes.TEXT_DEFAULT;
+                    var before = l.substring(2, l.indexOf("->")+2);
+                    var after = l.substring(l.indexOf("->")+2);
+                    l = TelnetCodes.TEXT_RED+"!!"+TelnetCodes.TEXT_DEFAULT
+                            +before+TelnetCodes.TEXT_RED+after+TelnetCodes.TEXT_DEFAULT;
+                }else if( l.contains("(NC)")){
+                    var before = l.substring(0, l.indexOf("->")+2);
+                    var after = l.substring(l.indexOf("->")+2);
+                    l = before+TelnetCodes.TEXT_ORANGE+after+TelnetCodes.TEXT_DEFAULT;
                 }
                 b.append(l.replace(workPath+File.separator,"")).append("\r\n");
             }
