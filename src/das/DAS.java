@@ -39,8 +39,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class DAS implements Commandable{
 
@@ -48,7 +46,7 @@ public class DAS implements Commandable{
 
     private final Path settingsPath; // Path to the settings.xml
     private String workPath; // Path to the working dir of dcafs
-
+    private String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
 
     /* Workers */
@@ -110,7 +108,7 @@ public class DAS implements Commandable{
             workPath = Path.of("").toAbsolutePath().toString();
         }
         settingsPath = Path.of(workPath, "settings.xml");
-        var tinylogPath = workPath;
+        tinylogPath = workPath;
         if( Files.exists(settingsPath)){
             var digger = XMLdigger.goIn(settingsPath,"dcafs","settings");
             tinylogPath = digger.peekAt("tinylog").value(workPath);
@@ -552,13 +550,14 @@ public class DAS implements Commandable{
         b.append(TEXT_DEFAULT).append(usedMem>60?"!! ":"").append("Memory: ").append(usedMem>60?TEXT_RED:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
         b.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP()).append("\r\n");
 
-        long age = Tools.getLastRawAge(Path.of(workPath));
+        long age = Tools.getLastRawAge(Path.of(tinylogPath));
         if( age == -1 ){
             b.append(TEXT_DEFAULT).append("!! Raw Age: ").append(TEXT_RED).append("No file yet!");
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
+            var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
             b.append(TEXT_DEFAULT).append( (age>maxRawAge?"!! ":"")).append("Raw Age: ");
-            b.append( (age>maxRawAge?TEXT_RED:TEXT_GREEN)).append(convert);
+            b.append((age > maxRawAge ? TEXT_RED : TEXT_GREEN)).append(convert).append(" [").append(max).append("]");
         }
         b.append(UNDERLINE_OFF).append("\r\n");
 

@@ -841,14 +841,14 @@ public class Tools {
      * Get the age in seconds of the latest file in the raw folder
      * @return Age of last write to the daily raw file
      */
-    public static long getLastRawAge(Path workpath){
-        var raw = workpath.resolve("raw").resolve(TimeTools.formatNow("yyyy-MM"));
+    public static long getLastRawAge(Path tinypath){
+        var raw = tinypath.resolve("raw").resolve(TimeTools.formatNow("yyyy-MM"));
         try (Stream<Path> stream = Files.list(raw)) {
             var list = stream
                     .filter(file -> !Files.isDirectory(file))
                     .map(Path::getFileName)
                     .map(Path::toString)
-                    .filter( fn-> fn.endsWith(".log") )// Because it can contain zip files
+                    .filter( fn-> fn.endsWith(".log") && fn.contains("RAW"))// Because it can contain zip files and sql backup
                     .collect(Collectors.toList());
             if(list.isEmpty())
                 return -1;
