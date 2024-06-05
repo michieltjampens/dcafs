@@ -528,10 +528,9 @@ public class DAS implements Commandable{
         final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
         final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
         final String TEXT_RED = html?"":TelnetCodes.TEXT_RED;
-        final String TEXT_NB = html?"":TelnetCodes.TEXT_REGULAR;
-        final String TEXT_BRIGHT = html?"":TelnetCodes.TEXT_BRIGHT;
+        final String TEXT_ORANGE = html?"":TelnetCodes.TEXT_ORANGE;
 
-        StringBuilder b = new StringBuilder();
+        var b = new StringJoiner("");
 
         double totalMem = (double)Runtime.getRuntime().totalMemory();
         double usedMem = totalMem-Runtime.getRuntime().freeMemory();
@@ -540,114 +539,117 @@ public class DAS implements Commandable{
         usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
 
         if (html) {
-            b.append("<b><u>DCAFS Status at ").append(TimeTools.formatNow("HH:mm:ss")).append(".</b></u><br><br>");
+            b.add("<b><u>DCAFS Status at ").add(TimeTools.formatNow("HH:mm:ss")).add(".</b></u><br><br>");
         } else {
-            b.append(TEXT_GREEN).append("DCAFS Status at ").append(TimeTools.formatNow("HH:mm:ss")).append("\r\n\r\n")
-                    .append(UNDERLINE_OFF);
+            b.add(TEXT_GREEN).add("DCAFS Status at ").add(TimeTools.formatNow("HH:mm:ss")).add("\r\n\r\n")
+                    .add(UNDERLINE_OFF);
         }
-        b.append(TEXT_DEFAULT).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")\r\n");
-        b.append(TEXT_DEFAULT).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append("\r\n");
-        b.append(TEXT_DEFAULT).append(usedMem>60?"!! ":"").append("Memory: ").append(usedMem>60?TEXT_RED:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB\r\n");
-        b.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP()).append("\r\n");
+        b.add(TEXT_DEFAULT).add("DCAFS Version: ").add(TEXT_GREEN).add(version).add(" (jvm:").add(System.getProperty("java.version")).add(")\r\n");
+        b.add(TEXT_DEFAULT).add("Uptime: ").add(TEXT_GREEN).add(getUptime()).add("\r\n");
+        b.add(TEXT_DEFAULT).add(usedMem>70?"!! ":"").add("Memory: ")
+                .add(usedMem>70?TEXT_RED:TEXT_GREEN).add(String.valueOf(usedMem)).add("/").add(String.valueOf(totalMem)).add("MB\r\n");
+        b.add(TEXT_DEFAULT).add("IP: ").add(TEXT_GREEN).add(Tools.getLocalIP()).add("\r\n");
 
         long age = Tools.getLastRawAge(Path.of(tinylogPath));
         if( age == -1 ){
-            b.append(TEXT_DEFAULT).append("!! Raw Age: ").append(TEXT_RED).append("No file yet!");
+            b.add(TEXT_DEFAULT).add("!! Raw Age: ").add(TEXT_RED).add("No file yet!");
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
             var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
-            b.append(TEXT_DEFAULT).append( (age>maxRawAge?"!! ":"")).append("Raw Age: ");
-            b.append((age > maxRawAge ? TEXT_RED : TEXT_GREEN)).append(convert).append(" [").append(max).append("]");
+            b.add(TEXT_DEFAULT).add( (age>maxRawAge?"!! ":"")).add("Raw Age: ");
+            b.add((age > maxRawAge ? TEXT_RED : TEXT_GREEN)).add(convert).add(" [").add(max).add("]");
         }
-        b.append(UNDERLINE_OFF).append("\r\n");
+        b.add(UNDERLINE_OFF).add("\r\n");
 
         if (html) {
-            b.append("<br><b>Streams</b><br>");
+            b.add("<br><b>Streams</b><br>");
         } else {
-            b.append(TEXT_DEFAULT).append(TEXT_CYAN).append("\r\n").append("Streams").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
+            b.add(TEXT_DEFAULT).add(TEXT_CYAN).add("\r\n").add("Streams").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
         }
         if (streamManager != null) {
             if (streamManager.getStreamCount() == 0) {
-                b.append("No streams defined (yet)").append("\r\n");
+                b.add("No streams defined (yet)").add("\r\n");
             } else {
                 for (String s : streamManager.getStatus().split("\r\n")) {
                     if (s.startsWith("!!")) {
-                        b.append(TEXT_RED).append(s).append(TEXT_DEFAULT).append(UNDERLINE_OFF);
+                        b.add(TEXT_RED).add(s).add(TEXT_DEFAULT).add(UNDERLINE_OFF);
                     } else {
-                        b.append(s);
+                        b.add(s);
                     }
-                    b.append("\r\n");
+                    b.add("\r\n");
                 }
             }
         }
         if( i2cWorker != null && i2cWorker.getDeviceCount()!=0){
             if (html) {
-                b.append("<br><b>Devices</b><br>");
+                b.add("<br><b>Devices</b><br>");
             } else {
-                b.append(TEXT_CYAN).append("\r\n").append("Devices").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
+                b.add(TEXT_CYAN).add("\r\n").add("Devices").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
             }
             for( String s : i2cWorker.getStatus("\r\n").split("\r\n") ){
                 if (s.startsWith("!!") || s.endsWith("false")) {
-                    b.append(TEXT_RED).append(s).append(TEXT_DEFAULT).append(UNDERLINE_OFF);
+                    b.add(TEXT_RED).add(s).add(TEXT_DEFAULT).add(UNDERLINE_OFF);
                 } else {
-                    b.append(s);
+                    b.add(s);
                 }
-                b.append("\r\n");
+                b.add("\r\n");
             }
         }
         if( isrs != null ){
             if (html) {
-                b.append("<br><b>GPIO Isr</b><br>");
+                b.add("<br><b>GPIO Isr</b><br>");
             } else {
-                b.append(TEXT_CYAN).append("\r\n").append("GPIO Isr").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
+                b.add(TEXT_CYAN).add("\r\n").add("GPIO Isr").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
             }
-            b.append(isrs.getStatus("\r\n"));
-            b.append("\r\n");
+            b.add(isrs.getStatus("\r\n"));
+            b.add("\r\n");
         }
         if (mqttPool != null && !mqttPool.getMqttWorkerIDs().isEmpty()) {
             if (html) {
-                b.append("<br><b>MQTT</b><br>");
+                b.add("<br><b>MQTT</b><br>");
             } else {
-                b.append(TEXT_DEFAULT).append(TEXT_CYAN).append("\r\n").append("MQTT").append("\r\n").append(UNDERLINE_OFF).append(TEXT_DEFAULT);
+                b.add(TEXT_DEFAULT).add(TEXT_CYAN).add("\r\n").add("MQTT").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
             }
-            b.append(mqttPool.getMqttBrokersInfo()).append("\r\n");
+            b.add(mqttPool.getMqttBrokersInfo()).add("\r\n");
         }
 
         try {
             if (html) {
-                b.append("<br><b>Buffers</b><br>");
+                b.add("<br><b>Buffers</b><br>");
             } else {
                 b.append(TelnetCodes.TEXT_CYAN).append("\r\nBuffers\r\n").append(TelnetCodes.TEXT_DEFAULT)
                         .append(TelnetCodes.UNDERLINE_OFF);
+                b.add(TEXT_CYAN).add("\r\nBuffers\r\n").add(TEXT_DEFAULT)
+                        .add(UNDERLINE_OFF);
             }
-            b.append(getQueueSizes());
+            b.add(getQueueSizes());
         } catch (java.lang.NullPointerException e) {
             Logger.error("Error reading buffers " + e.getMessage());
         }
         /* DATABASES */
         if (html) {
-            b.append("<br><b>Databases</b><br>");
+            b.add("<br><b>Databases</b><br>");
         } else {
-            b.append(TelnetCodes.TEXT_CYAN)
-                    .append("\r\nDatabases\r\n")
-                    .append(TelnetCodes.TEXT_DEFAULT).append(TelnetCodes.UNDERLINE_OFF);
+            b.add(TelnetCodes.TEXT_CYAN)
+                    .add("\r\nDatabases\r\n")
+                    .add(TEXT_DEFAULT).add(UNDERLINE_OFF);
         }
         if (dbManager.hasDatabases()) {
             for( String l : dbManager.getStatus().split("\r\n") ){
                 if( l.startsWith( "!! ")){
                     var before = l.substring(2, l.indexOf("->")+2);
                     var after = l.substring(l.indexOf("->")+2);
-                    l = TelnetCodes.TEXT_RED+"!!"+TelnetCodes.TEXT_DEFAULT
-                            +before+TelnetCodes.TEXT_RED+after+TelnetCodes.TEXT_DEFAULT;
+                    l = TEXT_RED+"!!"+TEXT_DEFAULT
+                            +before+TEXT_RED+after+TEXT_DEFAULT;
                 }else if( l.contains("(NC)")){
                     var before = l.substring(0, l.indexOf("->")+2);
                     var after = l.substring(l.indexOf("->")+2);
-                    l = before+TelnetCodes.TEXT_ORANGE+after+TelnetCodes.TEXT_DEFAULT;
+                    l = before+TEXT_ORANGE+after+TEXT_DEFAULT;
                 }
-                b.append(l.replace(workPath+File.separator,"")).append("\r\n");
+                b.add(l.replace(workPath+File.separator,"")).add("\r\n");
             }
         }else{
-            b.append("None yet\r\n");
+            b.add("None yet\r\n");
         }
         if( html ){
             return b.toString().replace("\r\n","<br>");
