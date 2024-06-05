@@ -82,6 +82,9 @@ public class DAS implements Commandable{
     private Instant lastCheck; // Timestamp of the last clock check, to know if the clock was changed after das booted
     private long maxRawAge=3600; // 1 hour default for the age of raw data writes status to turn red
 
+    private int badChecks = 0;
+    private long checkInterval=3600;
+
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
 
@@ -145,6 +148,8 @@ public class DAS implements Commandable{
             if( maxRawAge==0){
                 Logger.error("Invalid maxrawage value: "+age+" defaulting to 1 hour.");
             }
+            var check = digger.peekAt("checkinterval").value("1h");
+            checkInterval = TimeTools.parsePeriodStringToSeconds(check);
             digger.goUp();
         }
         Logger.info("Program booting");
@@ -512,10 +517,30 @@ public class DAS implements Commandable{
             Logger.info("Trying to login to matrix");
             matrixClient.login();
         }
+        // Start the checks?
+        if( emailWorker != null && checkInterval>0) // No use checking if we can't report on it or if it's disabled
+            nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // First check, half hour after startup
 
-        Logger.debug("Finished");
+        Logger.info("Finished startAll");
     }
     /* **************************** * S T A T U S S T U F F *********************************************************/
+    private void checkStatus(){
+        var status = getStatus(true);
+        if( status.contains("!!")){
+            if( badChecks==0){
+                emailWorker.sendEmail( Email.toAdminAbout("[Issue] Status report").content(status));
+            }
+            nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // Reschedule, but earlier
+            badChecks++;
+            if( badChecks == 13) { // Every 6 hours, send a reminder?
+                badChecks=0;
+            }
+            return;
+        }else if( badChecks !=0 ){
+            emailWorker.sendEmail( Email.toAdminAbout("[Resolved] Status report").content(status));
+        }
+        nettyGroup.schedule(this::checkStatus,checkInterval,TimeUnit.SECONDS);
+    }
     /**
      * Request a status message regarding the streams, databases, buffers etc
      * 
@@ -617,8 +642,6 @@ public class DAS implements Commandable{
             if (html) {
                 b.add("<br><b>Buffers</b><br>");
             } else {
-                b.append(TelnetCodes.TEXT_CYAN).append("\r\nBuffers\r\n").append(TelnetCodes.TEXT_DEFAULT)
-                        .append(TelnetCodes.UNDERLINE_OFF);
                 b.add(TEXT_CYAN).add("\r\nBuffers\r\n").add(TEXT_DEFAULT)
                         .add(UNDERLINE_OFF);
             }
