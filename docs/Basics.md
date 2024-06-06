@@ -34,13 +34,13 @@ And some important commands:
 > Note: If you get a JNI error message, this likely means an incorrect version of Java
 7. `settings.xml` should be generated in the regular folder. 
 
-> Note: Dummy can be accessed via telnet if needed, it is listening on port 24 instead of the standard 23. Dcafs refuses to start if there is a telnet active on port 23. This prevents duplicate instances running.
+> Note: Dummy can be accessed via telnet if needed, it is listening on port 2324 instead of the standard 2323. Dcafs refuses to start if there is a telnet active on port 23. This prevents duplicate instances running.
 
 ### Workspace layout
 
 The following is the recommended workspace layout for setting up dcafs in general:
 * Have two dcafs telnet instances open
-  * Open PuTTY, select telnet as the protocol, use `localhost` as the ip, keep the default port.
+  * Open PuTTY, select telnet as the protocol, use `localhost` as the ip, change the port to 2323.
      * Localhost means that dcafs is running on your PC/laptop 'locally'.
      * Type 'dcafs' in the 'saved session' box and click 'Save'.
      * Click 'Open', to open the connection.
@@ -123,7 +123,7 @@ What we did so far (starting up dcafs and connecting to a stream) generated a `s
 <dcafs>
   <settings>
     <!-- Settings related to the telnet server -->
-    <telnet port="23" title="dcafs"> <!-- The telnet server is available on port 23 and the title presented is dcafs -->
+    <telnet port="2323" title="dcafs"> <!-- The telnet server is available on port 2323 and the title presented is dcafs -->
         <textcolor>lightgray</textcolor> <!-- default color of standard text in telnet -->
     </telnet>
   </settings>
@@ -510,7 +510,7 @@ Restore the settings.xml to restart from a clean slate.
   <settings>
     <mode>normal</mode>
     <!-- Settings related to the telnet server -->
-    <telnet port="23" title="dcafs"/> <!-- The telnet server is available on port 23 and the title presented is dcafs -->
+    <telnet port="2323" title="dcafs"/> <!-- The telnet server is available on port 2323 and the title presented is dcafs -->
   </settings>
   <databases>
      <sqlite id="rolls" path="db\rolls.sqlite"> <!-- fe. db\rolls_2021_05.sqlite -->        
@@ -937,7 +937,7 @@ We'll automate this.
         <cmd when="close">sd</cmd> <!-- which in turn will trigger a 'close' that will shutdown this instance -->
     </stream>
 ```
-5. Start the regular one and open a telnet connection on port 23
+5. Start the regular one and open a telnet connection on port 2323
 1. Shortly after no more updates will appear in the dummy session
 1. After about 6 seconds it will close and shortly after the regular one
 
@@ -975,7 +975,7 @@ Anything new/added will be explained in the comments.
     <settings>
         <mode>normal</mode>
         <!-- Settings related to the telnet server -->
-        <telnet port="23" title="dcafs"/>
+        <telnet port="2323" title="dcafs"/>
         <databases>
             <sqlite id="rolls" path="db\rolls.sqlite">
                 <setup batchsize="10" flushtime="10s" idletime="-1"/>
