@@ -59,6 +59,7 @@ public class I2cDevice{
         device = I2CDevice.builder(address).setController(bus.id()).build();
     }
     public boolean connect(){
+        Logger.info(id+"(i2c) -> Trying to connect to "+Integer.toHexString(address));
         if( !valid ) {
             Logger.warn(id+" (i2c) -> Not connecting because invalid");
             return false;
@@ -66,8 +67,11 @@ public class I2cDevice{
         if( device != null)
             device.close();
         device = I2CDevice.builder(address).setController(bus.id()).build();
-        if( !probeIt() )
+        if( !probeIt() ) {
+            Logger.error(id+"(i2c) -> Probe of "+Integer.toHexString(address)+" failed.");
             device = null;
+        }
+        Logger.info(id+"(i2c) -> Connected to "+Integer.toHexString(address)+" and probed.");
         return device != null;
     }
     public String id(){
