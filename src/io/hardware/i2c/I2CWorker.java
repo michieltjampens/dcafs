@@ -66,10 +66,13 @@ public class I2CWorker implements Commandable,I2COpFinished {
                     continue;
                 }
                 var bus = getBus(controller);
-                for( var device : i2c_bus.digOut("device")){
-                    cnt++;
-                    var dev = new I2cOpper( device,bus,dQueue);
-                    devices.put(dev.id(),dev);
+                if(i2c_bus.hasPeek("device")) {
+                    for (var device : i2c_bus.digOut("device")) {
+                        cnt++;
+                        var dev = new I2cOpper(device, bus, dQueue);
+                        devices.put(dev.id(), dev);
+                    }
+                    i2c_bus.goUp();
                 }
                 for( var device : i2c_bus.digOut("uart")){
                     cnt++;
