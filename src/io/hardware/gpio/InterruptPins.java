@@ -9,8 +9,6 @@ import org.tinylog.Logger;
 import util.data.IntegerVal;
 import util.data.RealVal;
 import util.data.RealtimeValues;
-import util.tools.TimeTools;
-import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
@@ -179,9 +177,24 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
     }
 
     @Override
-    public String payloadCommand(String cmd, String args, Object payload) {
-
-        return "";
+    public String payloadCommand(String cmd, String arg, Object payload) {
+        var args = arg.split(",");
+        if( args[0].equals("watch") ){
+            var input = inputs.get(args[1]);
+            if( input == null ) {
+                Logger.error("(isr) -> Not a valid gpio given: "+args[1]);
+                return "! Not a valid gpio given: " + args[1];
+            }
+            if( payload instanceof DeviceEventConsumer ) {
+                var dev = (DeviceEventConsumer<DigitalInputEvent>) payload;
+                input.addListener(dev);
+                Logger.info("(isr) -> Added callback to "+args[1]);
+                return "Callback attached for "+args[1];
+            }
+            Logger.error("(isr) -> Not proper layout for "+args[1]);
+            return "! No proper payload for "+args[1];
+        }
+        return "! Unknown cmd: "+cmd+":"+arg;
     }
 
     @Override

@@ -32,8 +32,10 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
         eolBytes=eol.getBytes();
 
         var irq = dig.peekAt("irq").value("");
-        if( !irq.isEmpty() ) // Meaning an irq has been defined for this port
-            dQueue.add( Datagram.system("isr:"+irq).payload(this) );
+        if( !irq.isEmpty() ) { // Meaning an irq has been defined for this port
+            Logger.info( id+"(i2c) -> Found irq node with "+irq+" requesting watch");
+            dQueue.add(Datagram.system("isr:watch," + irq).payload(this));
+        }
         connect();
     }
     public void useBus(){

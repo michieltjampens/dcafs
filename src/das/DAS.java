@@ -183,6 +183,7 @@ public class DAS implements Commandable{
         if( digger.hasPeek("gpios") ){
             Logger.info("Reading interrupt gpio's from settings.xml");
             isrs = new InterruptPins(dQueue,settingsPath,rtvals);
+            addCommandable(isrs,"gpios","isr");
         }
         addI2CWorker();
 
