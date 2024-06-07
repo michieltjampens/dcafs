@@ -11,6 +11,7 @@ import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
+import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -226,6 +227,12 @@ public class I2CWorker implements Commandable,I2COpFinished {
         String gr=html?"":TelnetCodes.TEXT_GREEN;
         String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
+        var dev = devices.get(cmd);
+        if( dev instanceof I2cUart uart){
+            uart.writeLine(args);
+            return "Written '"+args+"' to "+cmd;
+        }
+
         switch (cmds[0]) {
             case "?" -> {
                 StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
@@ -329,12 +336,12 @@ public class I2CWorker implements Commandable,I2COpFinished {
             default -> {
                 if (cmds.length == 1) { // single arguments points to a data request
                     StringBuilder oks = new StringBuilder();
-                    for (var dev : devices.entrySet()) {
-                        if (dev.getKey().matches(cmds[0])) {
-                            dev.getValue().addTarget(wr);
+                    for (var device : devices.entrySet()) {
+                        if (device.getKey().matches(cmds[0])) {
+                            device.getValue().addTarget(wr);
                             if (!oks.isEmpty())
                                 oks.append(", ");
-                            oks.append(dev.getKey());
+                            oks.append(device.getKey());
                         }
                     }
                     if (!oks.isEmpty())
@@ -343,11 +350,27 @@ public class I2CWorker implements Commandable,I2COpFinished {
                     Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());
                     return "! No such subcommand in "+cmd+": "+args;
                 }
-                var dev = devices.get(cmds[0]);
-                if( dev == null)
+                var device = devices.get(cmds[0]);
+                if( device == null)
                     return "! No such device id: "+cmds[0];
-                if( cmds[1].equalsIgnoreCase("?")&& dev.getClass()== I2cOpper.class )
-                    return ((I2cOpper)dev).getOpsInfo(true);
+                if( cmds[1].equalsIgnoreCase("?")&& dev.getClass()== I2cOpper.class ) {
+                    return ((I2cOpper) dev).getOpsInfo(true);
+                }else if( device instanceof I2cUart uart ){
+                    return switch( cmds[1] ){
+                        case "status" ->{
+                            uart.requestStatus(wr);
+                            yield "Status requested for "+cmds[0]+" (result should follow...)";
+                        }
+                        case "clock" -> {
+                            uart.writeLine(TimeTools.formatNow("HH:mm:ss.SSS"));
+                            yield "Sending current time";
+                        }
+                        default -> {
+                            Logger.warn("No such subcmd yet: "+cmds[1]);
+                            yield "! No such subcmd yet: "+cmds[1];
+                        }
+                    };
+                }
                 return addWork(cmds[0], cmds.length>2?cmds[1].substring(args.indexOf(",")):cmds[1]);
             }
         }
@@ -413,5 +436,10 @@ public class I2CWorker implements Commandable,I2COpFinished {
             var device = workQueue.remove(0);
             device.doNext(eventloop);
         }
+    }
+    public ArrayList<String> getUartIds(){
+        var list = new ArrayList<String>();
+        devices.values().stream().filter( dev -> dev instanceof I2cUart).map( uart -> uart.id).forEach(list::add);
+        return list;
     }
 }
