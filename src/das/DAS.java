@@ -414,6 +414,7 @@ public class DAS implements Commandable{
         i2cWorker = new I2CWorker(settingsPath,nettyGroup,rtvals,dQueue);
         addCommandable(i2cWorker,"i2c","i_c");
         addCommandable(i2cWorker,"stop");
+        i2cWorker.getUartIds().forEach( id -> addCommandable(i2cWorker,id) );
     }
     /* ******************************** * S H U T D O W N S T U F F ***************************************** */
     /**
