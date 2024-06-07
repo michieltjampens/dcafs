@@ -1,6 +1,7 @@
 package io.hardware.i2c;
 
 import io.netty.channel.EventLoopGroup;
+import org.tinylog.Logger;
 import worker.Datagram;
 
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ public class I2cBus {
         return requests;
     }
     /* ****************************** R E A D I N G ******************************************* */
-    public void addSlot( I2cDevice dev){
+    public void requestSlot(I2cDevice dev){
         requests++;
         if( busy ){
             if( !slotWait.contains(dev)) // No need to add it twice
