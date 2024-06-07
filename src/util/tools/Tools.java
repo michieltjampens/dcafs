@@ -143,7 +143,10 @@ public class Tools {
         int a = b;
         return a < 0 ? a + 256 : a;
     }
-
+    public static int toUnsignedWord(int b) {
+        int a = b;
+        return a < 0 ? a + 65536 : a;
+    }
     /**
      * Adds zeros to the front of an integer till it has the specified length
      * @param nr the integer to alter
