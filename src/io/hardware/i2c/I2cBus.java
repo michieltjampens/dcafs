@@ -28,12 +28,13 @@ public class I2cBus {
         return requests;
     }
     /* ****************************** R E A D I N G ******************************************* */
-    public void requestSlot(I2cDevice dev){
+    public synchronized void requestSlot(I2cDevice dev){
         requests++;
         if( busy ){
             if( !slotWait.contains(dev)) // No need to add it twice
                 slotWait.add(dev);
         }else{
+            busy=true;
             eventloop.submit( dev::useBus );
         }
     }
