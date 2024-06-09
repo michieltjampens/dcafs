@@ -84,7 +84,6 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
 
             if( data!=null ) { // If no data read, no need tor process
                 Logger.info(id + "(uart) -> Read " + size + " bytes for uart.");
-                readBuffer.writeBytes(data);
                 updateTimestamp();
                 processRead(data);
             }else if( requested == WAITING_FOR.STATUS){
