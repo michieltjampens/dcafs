@@ -61,46 +61,46 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
         }
         // Read data from it.
         if( irqTriggered ) {
-            Logger.info( "Trying to read from reg 1" );
+            Logger.info( id+"(uart) -> Trying to read from reg 1" );
+            irqTriggered = false;
 
-            var status = (int)device.readWordSwapped(1); // Read status 4bits of status followed 12 bits buffer use
+            var status = (int)device.readWordData(1); // Read status 4bits of status followed 12 bits buffer use
             status = Tools.toUnsignedWord(status);
 
             // split it
-            Logger.info("Read: "+status+" -> "+Integer.toBinaryString(status)+" -> "+Integer.toHexString(status));
-
-            int state = status / 8192; // First 4 bits are state info
             int size = status % 8192;  // Next 12 bits are buffer used size
-
-            switch (requested){
-                case IDLE -> Logger.info("Requested idle...?");
-                case STATUS -> {
-                    if( tempTarget!=null){
-                        tempTarget.writeLine("State: 0x"+Integer.toHexString(state)+" Buffer:"+size);
-                        tempTarget=null; // remove it
-                    }else{
-                        Logger.warn(id+"(uart) -> Status requested but no valid writable to write to");
-                    }
-                }
-                case UNKNOWN -> {
-                    Logger.info("Requested unknown...?");
-                    if (size != 0) {
-                        data = device.readBytes(size);
-                        readBuffer.writeBytes(data);
-                        updateTimestamp();
-                        // process the data?
+            Logger.info("Status: "+status);
+            if( requested == WAITING_FOR.UNKNOWN ){
+                if (size != 0) {
+                    try {
+                        data = device.readI2CBlockDataByteArray(5,Math.min(size, 255));
+                    }catch( RuntimeIOException e ){
+                        Logger.error(id+"(uart) -> Runtime exception when trying to read: "+e.getMessage());
                     }
                 }
             }
+
             bus.doNext(); // Release the bus
-            irqTriggered = false;
+
             if( data!=null ) { // If no data read, no need tor process
+                Logger.info(id + "(uart) -> Read " + size + " bytes for uart.");
+                readBuffer.writeBytes(data);
+                updateTimestamp();
                 processRead(data);
+            }else if( requested == WAITING_FOR.STATUS){
+                if( tempTarget!=null){
+                    int state = status / 8192; // First 4 bits are state info
+                    Logger.info(id+"(uart) -> Read: "+status+" -> state:"+Integer.toBinaryString(state)+" , size:"+size);
+                    tempTarget.writeLine("State: 0x"+Integer.toHexString(state)+" Buffer:"+size);
+                    tempTarget=null; // remove it
+                }else{
+                    Logger.warn(id+"(uart) -> Status requested but no valid writable to write to");
+                }
             }
         }else if( writeBuffer.readableBytes() != 0 ){
             device.writeBytes( getData() );
-            Logger.info("Data send: "+ TimeTools.formatNow("HH:mm:ss.SSS"));
             bus.doNext(); // Release the bus
+            Logger.info(id+"(uart) -> Data send: "+ TimeTools.formatNow("HH:mm:ss.SSS"));
         }
     }
     private void processRead( byte[] data ){
