@@ -10,12 +10,18 @@ Note: Version numbering: x.y.z
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
 ## 2.10.0 (wip)
+
+This release is mainly a rewrite (again) of the i²c code and expanding on the gpio code. Next major point is adding
+more feedback in the status report for possible issues.
+
 - (If) dcafs runs with root permissions files created are only writable by root. This is not needed,
 so now new xml files are created with 'others write' permission. But owner remains.
 - Changed default telnet port to 2323, because 23 requires root on linux.
 - Happened that tinylog stopped writing for unknown reason, added the age of the daily raw 
 file to the status report. Default is one hour, can be changed with maxrawage node in settings.
-- Base path of tinylog can be set in xml using tinylog node in the settings node
+- Base path of tinylog can be set in xml using tinylog node in the settings node..
+- By default, dcafs now runs a global check every hour to see if there are (possibly unreported issues). Interval can
+be altered or set to 0s to disable it.
  ```xml
   <settings>
     <!-- Settings related to the telnet server -->
@@ -25,6 +31,7 @@ file to the status report. Default is one hour, can be changed with maxrawage no
     <taskmanager id="pm">tmscripts\pm.xml</taskmanager>
     <maxrawage>10m</maxrawage> <!-- Max age of raw data to consider good -->
     <tinylog>/mnt/sd</tinylog> <!-- Store logs on sd card -->
+    <checkinterval>1h</checkinterval> <!-- time interval to run a general check -->
   </settings>
 ```
 
@@ -80,6 +87,32 @@ of the default hex.
 after the register.
 - Debug state is now carried over on reload.
 - When adding devices, now there's a check for duplicate addres&bus.
+
+### I2C Uart
+- Basic implementation to use https://github.com/michieltjampens/i2c_uart_stm32
+```xml
+  <i2c>
+    <bus controller="1">
+      <uart id="uart1">        
+        <address>0x1b</address>
+		<eol>crlf</eol>
+		<irq>GPIO2_A3</irq>
+		<serialsettings>38400,8,1,none</serialsettings>
+      </uart>
+	  <uart id="uart2">        
+        <address>0x2b</address>
+		<eol>crlf</eol>
+		<irq>GPIO2_A3</irq>
+		<serialsettings>38400,8,1,none</serialsettings>
+      </uart>
+    </bus>
+  </i2c>
+```
+
+### DBM
+- Database can now have the node `maxinsertage` which determines what the max time since the last insert is. When beyond
+this, the status will turn red in the `st` cmd result. 
+- When the amount of queries buffered is higher than the max, this will also turn red.
 
 ## 2.9.1 (05/05/2024)
 

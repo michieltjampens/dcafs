@@ -61,7 +61,7 @@ The following is the recommended workspace layout for setting up dcafs in genera
       * Or find the small purple icon on the toolbar and click it (near the end about six from the eye)
 
 
-## Interacting with Regular
+## Interacting with dcafs
 
 The earlier workspace layout connected to dcafs. 
 
