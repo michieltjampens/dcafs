@@ -345,7 +345,7 @@ public class I2CWorker implements Commandable,I2COpFinished {
                         }
                     }
                     if (!oks.isEmpty())
-                        return "Request for i2c:" + cmds[0] + " accepted from " + oks;
+                        return "Request from" + wr.id() + " accepted for i2c:" + oks;
 
                     Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());
                     return "! No such subcommand in "+cmd+": "+args;
