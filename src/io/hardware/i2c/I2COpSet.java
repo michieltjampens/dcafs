@@ -120,42 +120,22 @@ public class I2COpSet {
     public String getInfo(){
         return id+" -> "+info;
     }
-
-    /**
-     * Start this opset on the given device
-     * @param device The device to run it on
-     * @param scheduler The scheduler to use for the threads
-     */
-    public void startOp(ExtI2CDevice device, EventLoopGroup scheduler){
-        Logger.debug(id+" -> Starting on "+device.id());
-        index=0;
-        received.clear();
-        if( future != null)
-            future.cancel(true);
-        runOp(device,scheduler);
-    }
-
     /**
      * Execute the next step in the opset
      * @param device The device to run the set on
-     * @param scheduler The scheduler to get a thread from to use it
      */
-    private void runOp(ExtI2CDevice device, EventLoopGroup scheduler ){
-        long delay = 0;
+    public long runOp(I2cDevice device){
+
+        if( index == 0 ){ // Running first op, so reset the received buffer
+            received.clear();
+        }
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
 
         if( ops.get(index) instanceof I2COp op){
-            Logger.debug(id+"(i2c) ->  Executing op: "+op);
-            received.addAll(op.doOperation(device));
-            delay = op.getDelay();
+            received.addAll( op.doOperation(device) );
         }else if( ops.get(index) instanceof MathForward mf){
-            Logger.debug(id+"(i2c) ->  Executing mf:"+mf.id());
             var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
-            if( lastOp ) { // Meaning that was last operation
-                forwardDoubleResult(device, res);
-                device.doNext(scheduler);
-                return;
-            }else{ // Not the last operation, replace the int arraylist with the calculated doubles
+            if( !lastOp ) {  // Not the last operation, replace the int arraylist with the calculated doubles
                 received.clear();
                 received.addAll(res); // Refill with altered values
             }
@@ -165,23 +145,23 @@ public class I2COpSet {
 
         if( !lastOp) {
             index++;    // Increment to go to the next op
-            delay = Math.max(delay,1);  // delay needs to be at least 1ms
-            Logger.debug(id+" -> Scheduling next op in "+delay+"ms");
-            future = scheduler.schedule(() -> runOp(device, scheduler), delay, TimeUnit.MILLISECONDS);
-        }else{
-            forwardDoubleResult(device,received);
-            device.doNext(scheduler);
+            if( ops.get(index) instanceof I2COp op) {
+                return op.getDelay(); // Return the wait time till the next op
+            }
+            return 0;
         }
+        index=0; // Set finished, reset the index
+        return -1;
     }
-
+    public String getResult(){
+        return parseDoubleResult(received);
+    }
     /**
      * Take the results of an opset and parse the doubles to the chosen output type
-     * @param device The device the results came from
      * @param altRes The result of the opset
      */
-    private void forwardDoubleResult(ExtI2CDevice device, ArrayList<Double> altRes){
-
-        StringJoiner output = new StringJoiner(";",device.id()+";"+id+";","");
+    private String parseDoubleResult(ArrayList<Double> altRes){
+        StringJoiner output = new StringJoiner(";",id+";","");
         switch (outType) {
             case DEC,NONE -> altRes.forEach(x -> {
                 if (x.toString().endsWith(".0")) {
@@ -201,21 +181,7 @@ public class I2COpSet {
                 output.add(line.toString());
             }
         }
-        forwardData(device,output.toString());
-    }
-    /**
-     * Actually forward the result to the registered targets
-     * @param device The device that was used
-     * @param output The formatted output
-     */
-    private void forwardData( ExtI2CDevice device, String output){
-        try {
-            device.getTargets().forEach(wr -> wr.writeLine(output));
-            device.getTargets().removeIf(wr -> !wr.isConnectionValid()); // Remove unresponsive targets
-        }catch(Exception e){
-            Logger.error(e);
-        }
-        Logger.tag("RAW").warn( device.id() + "\t" + output );
+        return output.toString();
     }
     public String getOpsInfo(String prefix,boolean full){
         if( !full )
@@ -224,10 +190,6 @@ public class I2COpSet {
         StringJoiner join = new StringJoiner("\r\n");
         join.add(getInfo());
         ops.forEach( op -> join.add(prefix+op.toString()));
-        /*if( math !=null) {
-            join.add(prefix+"Math ops");
-            join.add( prefix+math.getRules().replace("\r\n","\r\n"+prefix));
-        }*/
         return join.toString();
     }
     public void removeRtvals( RealtimeValues rtvals){

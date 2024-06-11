@@ -47,9 +47,9 @@ public class I2CAlter implements I2COp{
         return delay;
     }
     @Override
-    public ArrayList<Double> doOperation(ExtI2CDevice device) {
-        device.writeByte(reg);
-        var rec = device.readByte();
+    public ArrayList<Double> doOperation(I2cDevice device) {
+        device.getDevice().writeByte(reg);
+        var rec = device.getDevice().readByte();
         if( device.isDebug() )
             Logger.info(device.id() +"(i2c) -> Read 0x"+Integer.toHexString(rec));
         switch(operand){
@@ -58,7 +58,7 @@ public class I2CAlter implements I2COp{
             case NOT ->  rec ^= 0xFF;
             case XOR -> rec ^= alter;
         }
-        device.writeByte( rec );
+        device.getDevice().writeByte( rec );
         return new ArrayList<>();
     }
 

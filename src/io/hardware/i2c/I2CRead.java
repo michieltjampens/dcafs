@@ -55,11 +55,11 @@ public class I2CRead implements I2COp{
             if( sum%8!=0)
                 recBytes++;
         }else{
-            Logger.error("No return defined, need either 'return' or 'bitsplit'");
+            Logger.error("(i2c) -> No return defined, need either 'return' or 'bitsplit'");
             return;
         }
         if( recBytes > 32 ){
-            Logger.error("To many bytes requested in a single op");
+            Logger.error("(i2c) -> To many bytes requested in a single op");
             return;
         }
         valid=true;
@@ -73,15 +73,21 @@ public class I2CRead implements I2COp{
         delay=millis;
     }
     @Override
-    public ArrayList<Double> doOperation(ExtI2CDevice device) {
+    public ArrayList<Double> doOperation(I2cDevice device) {
 
         if( !valid ) {
-            Logger.error("Read not valid, aborting");
+            Logger.error(device.id()+"(i2c) -> Read not valid, aborting");
             return new ArrayList<>();
         }
         Logger.debug("Reading block...");
         byte[] rec = new byte[recBytes];
-        device.readI2CBlockData(reg, rec);
+        if(reg==-1){
+            rec = device.getDevice().readBytes(recBytes);
+        }else if( recBytes==1 ){
+            rec[0] = device.getDevice().readByteData((byte)reg);
+        }else {
+            device.getDevice().readNoStop((byte) reg, rec, false);
+        }
         if( device.isDebug())
             Logger.info(device.id()+"(i2c) -> Read: "+Tools.fromBytesToHexString(rec));
         if( bitsets!=null ){

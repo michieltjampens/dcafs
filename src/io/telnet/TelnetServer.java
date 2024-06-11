@@ -14,6 +14,8 @@ import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import org.tinylog.Logger;
+import util.tools.TimeTools;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Simplistic telnet server.
@@ -39,12 +42,13 @@ public class TelnetServer implements Commandable {
     String ignore = "";
     
     BlockingQueue<Datagram> dQueue;
-    static final String XML_PARENT_TAG = "telnet";
     ArrayList<Writable> writables = new ArrayList<>();
     private final Path settingsPath;
     private final ArrayList<String> messages=new ArrayList<>();
     private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
     private HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
+    private long maxAge=3600;
+    private Path tinylogPath;
 
     public TelnetServer( BlockingQueue<Datagram> dQueue, Path settingsPath, EventLoopGroup eventGroup ) {
         this.dQueue=dQueue;
@@ -55,7 +59,6 @@ public class TelnetServer implements Commandable {
     public String getTitle(){
         return title;
     }
-
     public void addMessage( String message ){
         messages.add(message);
     }
@@ -68,6 +71,10 @@ public class TelnetServer implements Commandable {
                 title = dig.attr( "title", "DCAFS");
                 ignore = dig.attr( "ignore", "");
                 defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
+                dig.goUp();
+                maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
+                var pth = dig.peekAt("tinylog").value("");
+                tinylogPath = pth.isEmpty()?settingsPath.getParent():Path.of(pth);
             }else {
                 addBlankTelnetToXML(settingsPath);
             }
@@ -83,7 +90,7 @@ public class TelnetServer implements Commandable {
             
         ServerBootstrap b = new ServerBootstrap();			// Server bootstrap connection
         b.group(bossGroup, workerGroup)						// Adding thread groups to the connection
-            .channel(NioServerSocketChannel.class)				// Setting up the connection/channel             
+            .channel(NioServerSocketChannel.class)			// Setting up the connection/channel
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     public void initChannel(SocketChannel ch){
@@ -99,6 +106,10 @@ public class TelnetServer implements Commandable {
                         cmdHistory.computeIfAbsent(remoteIp, k -> new ArrayList<>());
                         handler.setCmdHistory(cmdHistory.get(remoteIp));
                         handler.setDefaultColor(defColor);
+                        var time = Tools.getLastRawAge(tinylogPath);
+                        if( time>maxAge){
+                            handler.addOneTime("Raw data is older then allowed! Something wrong with tinylog? Age:"+ TimeTools.convertPeriodtoString(time, TimeUnit.SECONDS));
+                        }
                         messages.forEach(handler::addOneTime);
                         writables.add(handler.getWritable());
                         pipeline.addLast( handler );
