@@ -80,7 +80,7 @@ public class I2CWrite implements I2COp{
         return true;
     }
     @Override
-    public ArrayList<Double> doOperation(I2cOpper device) {
+    public ArrayList<Double> doOperation(I2cDevice device) {
         if( device.isDebug())
             Logger.info(device.id()+"(i2c) -> Writing "+Tools.fromBytesToHexString(towrite));
         try{

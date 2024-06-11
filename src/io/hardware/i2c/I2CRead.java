@@ -73,7 +73,7 @@ public class I2CRead implements I2COp{
         delay=millis;
     }
     @Override
-    public ArrayList<Double> doOperation(I2cOpper device) {
+    public ArrayList<Double> doOperation(I2cDevice device) {
 
         if( !valid ) {
             Logger.error("Read not valid, aborting");
