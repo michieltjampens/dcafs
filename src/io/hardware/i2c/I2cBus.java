@@ -2,10 +2,7 @@ package io.hardware.i2c;
 
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
-import worker.Datagram;
-
 import java.util.ArrayList;
-import java.util.concurrent.BlockingQueue;
 
 public class I2cBus {
 
@@ -15,7 +12,6 @@ public class I2cBus {
     int requests=0;
 
     ArrayList<I2cDevice> slotWait = new ArrayList<>();
-    BlockingQueue<Datagram> dQueue;
 
     public I2cBus(int bus, EventLoopGroup eventLoopGroup ){
         this.bus=bus;
@@ -27,21 +23,30 @@ public class I2cBus {
     public int getTotalRequests(){
         return requests;
     }
+    public int queuedSize(){
+        return slotWait.size();
+    }
     /* ****************************** R E A D I N G ******************************************* */
     public synchronized void requestSlot(I2cDevice dev){
         requests++;
         if( busy ){
-            if( !slotWait.contains(dev)) // No need to add it twice
+
+            if( !slotWait.contains(dev)) { // No need to add it twice
                 slotWait.add(dev);
+                Logger.info("Request from "+dev.id()+" queued.");
+            }else{
+                Logger.debug("Request from "+dev.id()+" denied, duplicate.");
+            }
         }else{
             busy=true;
-            eventloop.submit( dev::useBus );
+            Logger.info("Request from "+dev.id()+" approved.");
+            eventloop.submit( ()->dev.useBus(eventloop) );
         }
     }
     /* *************************************************************************************** */
     public void doNext(){
         if( !slotWait.isEmpty() ){
-            eventloop.submit( () -> slotWait.remove(0).useBus());
+            eventloop.submit( () -> slotWait.remove(0).useBus(eventloop));
         }
         busy=false;
     }

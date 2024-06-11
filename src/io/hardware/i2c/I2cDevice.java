@@ -2,6 +2,7 @@ package io.hardware.i2c;
 
 import com.diozero.api.*;
 import io.Writable;
+import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
@@ -20,6 +21,7 @@ public class I2cDevice{
     protected final String id;
     protected int address;
     protected Instant timestamp;
+    protected Instant lastOkProbe;
     protected final ArrayList<Writable> targets = new ArrayList<>();
     protected boolean debug=false;
     protected I2CDevice device;
@@ -45,7 +47,7 @@ public class I2cDevice{
             Logger.error("Tried to create i2c-uart, but no id nor address.");
             valid=false;
         }else{
-            Logger.info("(i2c) -> Created "+id+" ("+Integer.toHexString(address)+") for controller "+bus);
+            Logger.info("(i2c) -> Created "+id+" ("+Integer.toHexString(address)+") for controller "+bus.id());
         }
         if( valid )
             device = I2CDevice.builder(address).setController(bus.id()).build();
@@ -78,9 +80,9 @@ public class I2cDevice{
         return id;
     }
     public String getAddr(){
-        return "0x"+String.format("%02x", address)+"@"+bus;
+        return "0x"+String.format("%02x", address)+"@"+bus.id();
     }
-    public void useBus(){
+    public void useBus(EventLoopGroup scheduler){
         Logger.warn("Not implemented!");
     }
     public I2CDevice getDevice(){
@@ -93,14 +95,17 @@ public class I2cDevice{
         }
         try{
             if (device.probe()) {
+                lastOkProbe = Instant.now();
                 Logger.info("(i2c) -> Probe OK for "+id+" at "+getAddr() );
             }else{
                 Logger.warn("(i2c) -> Probe failed for "+id+" at "+getAddr() );
                 return false;
             }
         } catch (DeviceBusyException e) {
+            lastOkProbe = Instant.now();
             Logger.info(id+"(i2c) -> Device busy for at "+getAddr() );
         } catch( DeviceAlreadyOpenedException e){
+            lastOkProbe = Instant.now();
             Logger.info(id+"(i2c) -> Device already opened at "+getAddr() );
         } catch( RuntimeIOException e ){
             Logger.warn(id+"(i2c) -> Runtime error during probe at "+getAddr() );
@@ -114,7 +119,8 @@ public class I2cDevice{
     public boolean isDebug(){
         return debug;
     }
-    public String getStatus(String id){
+    // TODO: Remove the probeIt, might interfere with ongoing use of the bus
+    public String getStatus(){
         String age = getAge()==-1?"Not used yet": TimeTools.convertPeriodtoString(getAge(), TimeUnit.SECONDS);
         return (probeIt()?"":"!!")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
     }
@@ -167,5 +173,6 @@ public class I2cDevice{
                 Logger.error(e);
             }
         }
+        Logger.tag("RAW").warn( id() + "\t" + message );
     }
 }

@@ -5,6 +5,7 @@ import com.diozero.api.function.DeviceEventConsumer;
 import io.Writable;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
@@ -53,7 +54,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
         tempTarget=wr;
         bus.requestSlot(this);
     }
-    public void useBus(){
+    public void useBus(EventLoopGroup scheduler){
         // Write data to the device
         byte[] data=null;
         if( device==null){
