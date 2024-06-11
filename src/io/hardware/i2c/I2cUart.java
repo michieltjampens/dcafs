@@ -73,7 +73,8 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
             if( requested == WAITING_FOR.UNKNOWN ){
                 if (size != 0) {
                     try {
-                        data = device.readI2CBlockDataByteArray(5,Math.min(size, 255));
+                        data = new byte[size];
+                        device.readNoStop((byte)5,data,false);
                     }catch( RuntimeIOException e ){
                         Logger.error(id+"(uart) -> Runtime exception when trying to read: "+e.getMessage());
                     }
