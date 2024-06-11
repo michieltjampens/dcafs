@@ -26,3 +26,25 @@
 		</store>
 	</i2cop>
 </i2cscript>
+<!--
+ Stuff needed in settings.xml
+  <databases>
+    <sqlite id="data" path="data.sqlite">
+      <flush age="30s" batchsize="30"/>
+      <idleclose>-1</idleclose>
+      <table name="aht20">
+        <utcnow>timestamp</utcnow>
+        <real>humidity</real>
+        <real>temperature</real>
+      </table>
+    </sqlite>
+  </databases>
+  <i2c>
+    <bus controller="1">  < Depends on hardware
+		<device id="aht20">
+			<address>0x38</address>
+			<script>aht20</script>
+		</device>
+	</bus>
+</i2c>
+-->
