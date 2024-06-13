@@ -172,16 +172,6 @@ public class Tools {
         return res.toString();
     }
     /* ************************************** S T R I N G ******************************************************** */
-
-    public static String getEOLString( String eol ){
-
-        if( eol.length()==3 && eol.charAt(0)==127 && eol.charAt(1)==127 && eol.charAt(0)==127 )
-            return "nextion";
-        return eol.replace("\r","cr")
-                    .replace("\n","lf")
-                    .replace("\t","tab");
-
-    }
     public static boolean isNullEnded( String txt ){
         var bytes = txt.getBytes();
         if( bytes.length==0)

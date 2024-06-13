@@ -351,7 +351,6 @@ public class I2CWorker implements Commandable {
                 if( device == null)
                     return "! No such device id: "+cmds[0];
                 if( cmds[1].equalsIgnoreCase("?") && device instanceof I2cOpper opper ) {
-                    Logger.info("Requesting info on opper "+device.id);
                     return opper.getOpsInfo(true);
                 }else if( device instanceof I2cUart uart ){
                     return switch( cmds[1] ){
@@ -374,7 +373,7 @@ public class I2CWorker implements Commandable {
         }
     }
     public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
+        return "! No such payload cmd in "+cmd;
     }
     /**
      * Add work to the worker
@@ -390,7 +389,7 @@ public class I2CWorker implements Commandable {
         var dev = devices.get(id.toLowerCase());
         if( dev == null ){
             Logger.error("(i2c) -> Invalid job received, unknown device '" + id + "'");
-            return "! Invalid job received, unknown device '" + id + "'";
+            return "! Invalid because unknown device '" + id + "'";
         }
         if ( dev instanceof I2cOpper opper) {
             return opper.queueSet(setId)?"Set "+setId+" on "+opper.id() +" queued.":"! No such setId";

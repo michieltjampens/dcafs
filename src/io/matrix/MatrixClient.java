@@ -81,6 +81,7 @@ public class MatrixClient implements Writable, Commandable {
 
     private final ArrayList<String[]> failedMessages = new ArrayList<>();
     private String filterID="";
+
     public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, Path settingsFile ){
         this.dQueue=dQueue;
         this.settingsFile=settingsFile;
@@ -209,23 +210,7 @@ public class MatrixClient implements Writable, Commandable {
     }
 
 
-    public void keyClaim(){
 
-        JSONObject js = new JSONObject()
-                .put("one_time_keys",new JSONObject().put(userID,new JSONObject().put(deviceID,"signed_curve25519")))
-                .put("timeout",10000);
-
-        asyncPOST( keys+"claim",js,
-                            res -> {
-                                if( res.statusCode()==200 ){
-                                    Logger.info("matrix -> Key Claimed");
-                                    return true;
-                                }
-                                processError(res);
-                                return false;
-                            }
-                    );
-    }
 
 
     public void sync( boolean first){
@@ -281,19 +266,7 @@ public class MatrixClient implements Writable, Commandable {
             Logger.error(e);
         }
     }
-    public void requestRoomInvite( String room ){
-        Logger.info("Requesting invite to "+room);
-        asyncPOST( knockBaseUrl +room,new JSONObject().put("reason","i want to"),
-                res -> {
-                    var body = new JSONObject(res.body());
-                    if( res.statusCode()==200 ){
-                        System.out.println(body);
-                        return true;
-                    }
-                    processError(res);
-                    return false;
-        });
-    }
+
     /**
      * Join a specific room (by room id not alias) and make it the active one
      * @param room The room to join
@@ -645,20 +618,6 @@ public class MatrixClient implements Writable, Commandable {
             Logger.error(e);
         }
     }
-    private void asyncPUT( String url, JSONObject data, CompletionEvent onCompletion){
-        try{
-            url=server+url;
-            if( !accessToken.isEmpty())
-                url+="?access_token="+accessToken;
-            var request = HttpRequest.newBuilder(new URI(url))
-                    .POST(HttpRequest.BodyPublishers.ofString(data.toString()))
-                    .build();
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenApply(onCompletion::onCompletion);
-        } catch (URISyntaxException e) {
-            Logger.error(e);
-        }
-    }
     private void asyncPOST( String url, JSONObject data, CompletionEvent onCompletion){
         asyncPOST(url,data,onCompletion,fail -> {
                                             Logger.error(fail.getMessage());
@@ -715,7 +674,51 @@ public class MatrixClient implements Writable, Commandable {
         }
         return events;
     }
-    /* ************************** not used ***************************************************** */
+    /* ************************** not used for now ***************************************** */
+    public void requestRoomInvite( String room ){
+        Logger.info("Requesting invite to "+room);
+        asyncPOST( knockBaseUrl +room,new JSONObject().put("reason","i want to"),
+                res -> {
+                    var body = new JSONObject(res.body());
+                    if( res.statusCode()==200 ){
+                        System.out.println(body);
+                        return true;
+                    }
+                    processError(res);
+                    return false;
+                });
+    }
+    public void keyClaim(){
+
+        JSONObject js = new JSONObject()
+                .put("one_time_keys",new JSONObject().put(userID,new JSONObject().put(deviceID,"signed_curve25519")))
+                .put("timeout",10000);
+
+        asyncPOST( keys+"claim",js,
+                res -> {
+                    if( res.statusCode()==200 ){
+                        Logger.info("matrix -> Key Claimed");
+                        return true;
+                    }
+                    processError(res);
+                    return false;
+                }
+        );
+    }
+    private void asyncPUT( String url, JSONObject data, CompletionEvent onCompletion){
+        try{
+            url=server+url;
+            if( !accessToken.isEmpty())
+                url+="?access_token="+accessToken;
+            var request = HttpRequest.newBuilder(new URI(url))
+                    .POST(HttpRequest.BodyPublishers.ofString(data.toString()))
+                    .build();
+            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(onCompletion::onCompletion);
+        } catch (URISyntaxException e) {
+            Logger.error(e);
+        }
+    }
     public void pushers(){
         try{
             String url = server+push+"?access_token="+accessToken;
