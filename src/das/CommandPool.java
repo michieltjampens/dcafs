@@ -179,14 +179,16 @@ public class CommandPool {
 
 		if( result.startsWith("! No such cmd group") ){
 			if( result.contains("matrix")){
-				if( split[1].equals("add")) {
-					if( MatrixClient.addBlankElement(settingsPath) ) {
-						result = "Blank matrix element added to settings.xml, go fill it in!";
+				if( split[1].startsWith("add")) {
+					// TODO: Passwords that contain a , ...?
+					if( MatrixClient.addBlankElement(settingsPath, split[1].split(",")) ) {
+						result = "Matrix element added to settings.xml.";
 					}else{
 						result = "! No valid settings.xml?";
 					}
 				}else{
-					result = "! No matrix yet, only available cmd is 'matrix:add' to add element to xml";
+					result = "! No matrix yet, only available cmd is 'matrix:add,user,pass,room' to add element to xml," +
+							" user,pass and room are optional at this stage.";
 				}
 			}else if( result.contains("email")){
 				if( split[1].equals("add")) {
@@ -219,7 +221,7 @@ public class CommandPool {
 			}
 		}
 		// If the receiver is a telnet session, change coloring on short results based on a ! prepended (! means bad news)
-		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<50)
+		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<150)
 			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
 
 		return result + (html ? "<br>" : "\r\n");
