@@ -890,13 +890,7 @@ public class MatrixClient implements Writable, Commandable {
                 }
             }
             case "addblank" -> {
-                var fab = XMLfab.withRoot(settingsFile, "dcafs", "matrix");
-                fab.attr("user").attr("pass").attr("homeserver")
-                        .addChild("room").attr("id").down()
-                        .addChild("url")
-                        .addChild("entering", "Hello!")
-                        .addChild("leaving", "Bye :(")
-                        .addChild("greet", "Welcome");
+                MatrixClient.addBlankElement(settingsFile,cmds);
                 return "Blank matrix node added";
             }
             case "addmacro" -> {
@@ -935,14 +929,17 @@ public class MatrixClient implements Writable, Commandable {
             }
         }
     }
-    public static boolean addBlankElement( Path settingsPath ){
+    public static boolean addBlankElement( Path settingsPath,String[] split ){
         if( Files.notExists(settingsPath))
             return false;
+        var user = split.length>=2?split[1]:"";
+        var pass = split.length>=3?split[2]:"";
+        var room = split.length>=4?split[3]:"";
         var fab = XMLfab.withRoot(settingsPath, "dcafs", "matrix");
-        fab.attr("user","@:matrix.org").attr("pass")
+        fab.attr("user","@"+user+":matrix.org").attr("pass",pass)
                 .addChild("server","matrix-client.matrix.org")
-                .addChild("room").attr("id").down()
-                .addChild("url",":matrix.org")
+                .addChild("room").attr("id","roomid").down()
+                .addChild("url",room+":matrix.org")
                 .addChild("entering", "Hello!")
                 .addChild("leaving", "Bye :(")
                 .addChild("greet", "Welcome");
