@@ -906,7 +906,7 @@ public class MatrixClient implements Writable, Commandable {
                 return "Initiated sync";
             }
             default -> {
-                var room = rooms.get(cmds[0]);
+                var room = rooms.get("matrix:"+cmds[0]);
                 if( room != null) {
                     if(cmds.length >= 2){
                         switch(cmds[1]){
