@@ -128,12 +128,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 
 			join.add(stream.getInfo()).add("\t");
-			if( stream instanceof TcpServerStream ) {
-				join.add( ((TcpServerStream)stream).getClientCount()+" client(s)").add("\r\n");
+			if( stream instanceof TcpServerStream tss) {
+				join.add( tss.getClientCount()+" client(s)" ).add("\r\n");
 			}else if (stream.getLastTimestamp() == -1) {
 				join.add("No data yet! ");
-				join.add(TimeTools.convertPeriodtoString(Instant.now().toEpochMilli() - stream.getOpenedStamp(), TimeUnit.MILLISECONDS)).add(" [");
-				join.add(TimeTools.convertPeriodtoString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
+				join.add(" [").add(TimeTools.convertPeriodtoString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
 			} else {
 				join.add(TimeTools.convertPeriodtoString(ttl, TimeUnit.MILLISECONDS)).add(" [");
 				join.add(TimeTools.convertPeriodtoString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
