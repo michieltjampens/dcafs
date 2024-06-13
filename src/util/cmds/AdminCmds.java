@@ -9,6 +9,7 @@ import org.apache.commons.lang3.SystemUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLfab;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,7 +37,8 @@ public class AdminCmds {
                         .add(gre + "admin:gc" + reg + " -> Fore a java garbage collection")
                         .add(gre + "admin:lt" + reg + " -> Show all threads")
                         .add(gre + "admin:reboot" + reg + " -> Reboot the computer (linux only)")
-                        .add(gre + "admin:sleep,x" + reg + " -> Sleep for x time (linux only");
+                        .add(gre + "admin:sleep,x" + reg + " -> Sleep for x time (linux only)")
+                        .add(gre + "admin:addstatuscheck" + reg + " -> Adds the statuscheck node");
                 return join.toString();
             }
             case "checkgpios","checkgpio" ->{
@@ -141,6 +143,15 @@ public class AdminCmds {
                     Logger.error(e);
                 }
                 return "! Never gonna happen?";
+            }
+            case "addstatuscheck" -> {
+                var xml = Path.of(workPath).resolve("settings.xml");
+                var fab = XMLfab.withRoot(xml,"dcafs","settings","statuscheck");
+                fab.addChild("interval").content("1h");
+                fab.addChild("email").content("admin");
+                fab.addChild("matrix");
+                fab.build();
+                return "Statuscheck node added";
             }
             default -> {
                 return "! No such subcommand in admin:" + args;
