@@ -31,7 +31,6 @@ import util.xml.XMLtools;
 import worker.*;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -82,8 +81,11 @@ public class DAS implements Commandable{
     private Instant lastCheck; // Timestamp of the last clock check, to know if the clock was changed after das booted
     private long maxRawAge=3600; // 1 hour default for the age of raw data writes status to turn red
 
-    private int badChecks = 0;
-    private long checkInterval=3600;
+    /* Status Checks */
+    private int statusBadChecks = 0;
+    private long statusCheckInterval =3600;
+    private String statusEmail="";
+    private String statusMatrixRoom="";
 
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
@@ -148,9 +150,15 @@ public class DAS implements Commandable{
             if( maxRawAge==0){
                 Logger.error("Invalid maxrawage value: "+age+" defaulting to 1 hour.");
             }
-            var check = digger.peekAt("checkinterval").value("1h");
-            checkInterval = TimeTools.parsePeriodStringToSeconds(check);
-            digger.goUp();
+            if( digger.hasPeek("statuscheck") ){
+                digger.digDown("statuscheck");
+                var check = digger.peekAt("checkinterval").value("1h");
+                statusCheckInterval = TimeTools.parsePeriodStringToSeconds(check);
+                statusEmail = digger.peekAt("email").value(statusEmail);
+                statusMatrixRoom = digger.peekAt("matrix").value(statusMatrixRoom);
+                digger.goUp(); // Back from statuscheck to settings
+            }
+            digger.goUp(); // Back from settings to root
         }
         Logger.info("Program booting");
 
@@ -208,6 +216,7 @@ public class DAS implements Commandable{
         if( digger.hasPeek("email") ) {
             addEmailWorker();
         }else{
+            statusEmail="";
             Logger.info( "No email defined in xml");
         }
         /* File monitor */
@@ -221,6 +230,7 @@ public class DAS implements Commandable{
             matrixClient = new MatrixClient( dQueue, rtvals, settingsPath );
             addCommandable(matrixClient,"matrix");
         }else{
+            statusMatrixRoom="";
             Logger.info("No matrix settings");
         }
 
@@ -294,6 +304,7 @@ public class DAS implements Commandable{
     private void createXML() {
        XMLfab.withRoot(settingsPath, "dcafs")
                 .addParentToRoot("settings")
+                    .addChild("maxrawage").content("1h")
                 .addParentToRoot("streams")
                     .comment("Defining the various streams that need to be read")
                 .build();
@@ -520,28 +531,38 @@ public class DAS implements Commandable{
             matrixClient.login();
         }
         // Start the checks?
-        if( emailWorker != null && checkInterval>0) // No use checking if we can't report on it or if it's disabled
-            nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // First check, half hour after startup
+        if( (!statusMatrixRoom.isEmpty()||(emailWorker != null && !statusEmail.isEmpty())) && statusCheckInterval >0) // No use checking if we can't report on it or if it's disabled
+            nettyGroup.schedule(this::checkStatus,20,TimeUnit.MINUTES); // First check, half hour after startup
 
         Logger.info("Finished startAll");
     }
     /* **************************** * S T A T U S S T U F F *********************************************************/
     private void checkStatus(){
         var status = getStatus(true);
+
         if( status.contains("!!")){
-            if( badChecks==0){
-                emailWorker.sendEmail( Email.toAdminAbout("[Issue] Status report").content(status));
+            if( statusBadChecks ==0){
+                if( !statusEmail.isEmpty() )
+                    emailWorker.sendEmail( Email.to(statusEmail).subject("[Issue] Status report").content(status));
+                if( !statusMatrixRoom.isEmpty() ){
+                    var header = "Issue found!<br>";
+                    dQueue.add( Datagram.system("matrix:" + statusMatrixRoom + ",txt,"+header+status) );
+                }
             }
             nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // Reschedule, but earlier
-            badChecks++;
-            if( badChecks == 13) { // Every 6 hours, send a reminder?
-                badChecks=0;
+            statusBadChecks++;
+            if( statusBadChecks == 13) { // Every 6 hours, send a reminder?
+                statusBadChecks =0;
             }
             return;
-        }else if( badChecks !=0 ){
-            emailWorker.sendEmail( Email.toAdminAbout("[Resolved] Status report").content(status));
+        }else if( statusBadChecks !=0 ){
+            if( !statusEmail.isEmpty())
+                emailWorker.sendEmail( Email.to(statusEmail).subject("[Resolved] Status report").content(status));
+            if( !statusMatrixRoom.isEmpty() ) {
+                dQueue.add(Datagram.system("matrix:" + statusMatrixRoom + ",txt,Issues resolved"));
+            }
         }
-        nettyGroup.schedule(this::checkStatus,checkInterval,TimeUnit.SECONDS);
+        nettyGroup.schedule(this::checkStatus, statusCheckInterval,TimeUnit.SECONDS);
     }
     /**
      * Request a status message regarding the streams, databases, buffers etc
@@ -566,7 +587,7 @@ public class DAS implements Commandable{
         usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
 
         if (html) {
-            b.add("<b><u>DCAFS Status at ").add(TimeTools.formatNow("HH:mm:ss")).add(".</b></u><br><br>");
+            b.add("<b><u>DCAFS Status at ").add(TimeTools.formatNow("HH:mm:ss")).add(".</u></b><br><br>");
         } else {
             b.add(TEXT_GREEN).add("DCAFS Status at ").add(TimeTools.formatNow("HH:mm:ss")).add("\r\n\r\n")
                     .add(UNDERLINE_OFF);
@@ -699,7 +720,8 @@ public class DAS implements Commandable{
     @Override
     public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
         if( cmd.equalsIgnoreCase("st"))
-            return getStatus(html);
+            return getStatus(html);            matrixClient = new MatrixClient( dQueue, rtvals, settingsPath );
+        addCommandable(matrixClient,"matrix");
         return "Unknown command";
     }
     public String payloadCommand( String cmd, String args, Object payload){
