@@ -545,8 +545,14 @@ public class DAS implements Commandable{
                 if( !statusEmail.isEmpty() )
                     emailWorker.sendEmail( Email.to(statusEmail).subject("[Issue] Status report").content(status));
                 if( !statusMatrixRoom.isEmpty() ){
-                    var header = "Issue found!<br>";
-                    dQueue.add( Datagram.system("matrix:" + statusMatrixRoom + ",txt,"+header+status) );
+                    var header = "<b>Issue found!</b><br>";
+                    for( var line : status.split("<br>")){
+                        if( line.startsWith( "!!") ) {
+                            dQueue.add(Datagram.system("matrix:" + statusMatrixRoom + ",txt," + header + line));
+                            header=""; // Only add header once
+                        }
+                    }
+
                 }
             }
             nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // Reschedule, but earlier
