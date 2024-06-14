@@ -832,7 +832,7 @@ public class Tools {
     }
     /**
      * Get the age in seconds of the latest file in the raw folder
-     * @return Age of last write to the daily raw file
+     * @return Age of last write to the daily raw file or -1 if no or empty file
      */
     public static long getLastRawAge(Path tinypath){
         var raw = tinypath.resolve("raw").resolve(TimeTools.formatNow("yyyy-MM"));
@@ -841,16 +841,28 @@ public class Tools {
                     .filter(file -> !Files.isDirectory(file))
                     .map(Path::getFileName)
                     .map(Path::toString)
-                    .filter( fn-> fn.endsWith(".log") && fn.contains("RAW"))// Because it can contain zip files and sql backup
-                    .collect(Collectors.toList());
-            if(list.isEmpty())
+                    .filter( fn-> (fn.endsWith(".log")||fn.endsWith(".log.gz")) && fn.contains("RAW"))// Because it can contain zip files and sql backup
+                    .sorted() // sort alphabetically to get the last one
+                    .toList();
+            if(list.isEmpty()) // No files found
                 return -1;
 
-            Collections.sort(list);
-            var file = raw.resolve(list.get(list.size()-1));
+            // Go through the list in reverse order, looking for one with content
+            int index= list.size()-1;
+            while( index > 0 ){
+                var file = raw.resolve(list.get(index));
+                if( Files.size(file) < 21 ) { // .gz of empty file reports as 20 bytes on windows
+                    index--;
+                }else{
+                    break;
+                }
+            }
+            if( index == -1 ) // If no file found with size > 20 bytes
+                return -1;
+
+            var file = raw.resolve(list.get(index));
             var fileTime = Files.getLastModifiedTime(file);
-            Instant fileInstant = fileTime.toInstant();
-            Duration difference = Duration.between(fileInstant, Instant.now());
+            Duration difference = Duration.between( fileTime.toInstant(), Instant.now());
             return difference.getSeconds();
         }catch( IOException e){
             return -1;
