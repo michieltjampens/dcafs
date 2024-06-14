@@ -9,6 +9,8 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
+## 2.10.1 (wip)
+
 ## 2.10.0 (14/06/24)
 
 This release is mainly a rewrite (again) of the i²c code and expanding on the gpio code. Next major point is adding
