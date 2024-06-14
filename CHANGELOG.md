@@ -9,7 +9,7 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.10.0 (wip)
+## 2.10.0 (14/06/24)
 
 This release is mainly a rewrite (again) of the i²c code and expanding on the gpio code. Next major point is adding
 more feedback in the status report for possible issues.
@@ -21,19 +21,24 @@ so now new xml files are created with 'others write' permission. But owner remai
 file to the status report. Default is one hour, can be changed with maxrawage node in settings.
 - Base path of tinylog can be set in xml using tinylog node in the settings node..
 - By default, dcafs now runs a global check every hour to see if there are (possibly unreported issues). Interval can
-be altered or set to 0s to disable it.
+be altered or set to 0s to disable it. Only works if email/matrix is setup, because no use checking if can't be reported.
  ```xml
   <settings>
     <!-- Settings related to the telnet server -->
-    <telnet port="23" title="DCAFS">
+    <telnet port="2323" title="DCAFS">
       <textcolor>lightgray</textcolor>
     </telnet>
-    <taskmanager id="pm">tmscripts\pm.xml</taskmanager>
     <maxrawage>10m</maxrawage> <!-- Max age of raw data to consider good -->
     <tinylog>/mnt/sd</tinylog> <!-- Store logs on sd card -->
-    <checkinterval>1h</checkinterval> <!-- time interval to run a general check -->
+    <statuscheck>
+      <interval>1h</interval> <!-- time interval to run a general check -->
+      <email>admin</email> <!-- id of email recipient -->
+      <matrix>playground</matrix> <!-- id of the matrix room -->
+    </statuscheck>
   </settings>
 ```
+- Status report has been updated to include some more info and unified appearance.
+- Fixed, matrix:roomid,txt/say required the room id to have matrix prepended
 
 ### Telnet
 - CTRL+s can be used to send things to streams without eol sequence
@@ -86,10 +91,11 @@ of the default hex.
 - Added attribute 'addsize' to write node, default false. If true appends the amount of bytes to send
 after the register.
 - Debug state is now carried over on reload.
-- When adding devices, now there's a check for duplicate addres&bus.
+- When adding devices, now there's a check for duplicate address&bus.
 
 ### I2C Uart
-- Basic implementation to use https://github.com/michieltjampens/i2c_uart_stm32
+- Basic implementation to test https://github.com/michieltjampens/i2c_uart_stm32
+- For now, only sending and receiving data works. 
 ```xml
   <i2c>
     <bus controller="1">
@@ -108,6 +114,7 @@ after the register.
     </bus>
   </i2c>
 ```
+
 
 ### DBM
 - Database can now have the node `maxinsertage` which determines what the max time since the last insert is. When beyond

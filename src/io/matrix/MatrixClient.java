@@ -177,7 +177,7 @@ public class MatrixClient implements Writable, Commandable {
                                         Logger.warn("matrix -> No such filter yet.");
                                         return false;
                                     }else{
-                                        Logger.info("matrix -> Active filter:"+res.body());
+                                        Logger.debug("matrix -> Active filter:"+res.body());
                                         return true;
                                     }
                                 });
