@@ -559,6 +559,7 @@ public class MatrixClient implements Writable, Commandable {
                     .thenApply( res -> {
                         if( res.statusCode()!=200 ){
                             processError(res);
+                            failedMessages.add(new String[]{room,mes});
                         }
                         return 0;
                     })
