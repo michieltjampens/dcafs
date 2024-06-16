@@ -57,6 +57,10 @@ public class CommandPool {
 				var old = oldOpt.get();
 				commandables.remove(old.getKey());
 				id+=";"+old.getKey();
+			}else{
+				if( commandables.get(id)!=null){
+					Logger.error("Overwriting an existing commandable with same id: "+id);
+				}
 			}
 			commandables.put(id, cmdbl);
 		}
