@@ -190,6 +190,7 @@ public class MqttPool implements Commandable {
             fab.addParentToRoot("broker").attr("id",cmds[1]); // make broker root
             fab.addChild("address",cmds[2]);
             fab.addChild("defaulttopic",cmds[3]);
+            fab.build();
             readXMLsettings();
             return "Broker added";
         }else{
