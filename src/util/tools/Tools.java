@@ -622,20 +622,7 @@ public class Tools {
             if(list.isEmpty()) // No files found
                 return -1;
 
-            // Go through the list in reverse order, looking for one with content
-            int index= list.size()-1;
-            while( index > 0 ){
-                var file = raw.resolve(list.get(index));
-                if( Files.size(file) < 21 ) { // .gz of empty file reports as 20 bytes on windows
-                    index--;
-                }else{
-                    break;
-                }
-            }
-            if( index == -1 ) // If no file found with size > 20 bytes
-                return -1;
-
-            var file = raw.resolve(list.get(index));
+            var file = raw.resolve(list.get(list.size()-1));
             var fileTime = Files.getLastModifiedTime(file);
             Duration difference = Duration.between( fileTime.toInstant(), Instant.now());
             return difference.getSeconds();
