@@ -5,7 +5,6 @@ import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.tinylog.Logger;
 import util.data.AbstractVal;
-import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +38,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private String id; // Name/if/title for this worker
 	private String brokerAddress = ""; // The address of the broker
 	private final String clientId; // Client id to use for the broker
-	private final String defTopic; // The defaulttopic for this broker, will be prepended to publish/subscribe etc
+	private final String rootTopic; // The defaulttopic for this broker, will be prepended to publish/subscribe etc
 	private boolean publishing = false; // Flag that shows if the worker is publishing data
 	private boolean connecting = false; // Flag that shows if the worker is trying to connect to the broker
 
@@ -48,13 +47,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private final Map<String, AbstractVal> subscriptions = new HashMap<>(); // Map containing all the subscriptions
 	private final Map<String, String> provide = new HashMap<>();
 	private final ArrayList<Writable> targets = new ArrayList<>();
-	private final BlockingQueue<Datagram> dQueue;
 
-	public MqttWorker( String id, String address, String clientId, String defTopic, BlockingQueue<Datagram> dQueue ) {
+	public MqttWorker( String id, String address, String clientId, String rootTopic) {
 		this.id=id;
 		setBrokerAddress(address);
 		this.clientId=clientId;
-		this.defTopic=defTopic+(defTopic.endsWith("/")?"":"/");
+		this.rootTopic = rootTopic +(rootTopic.endsWith("/")?"":"/"); // append / if it doesn't have it
 	}
 	/**
 	 * Set the id of this worker
@@ -127,7 +125,10 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			client = new MqttClient( brokerAddress, MqttClient.generateClientId(), persistence);
 			client.setTimeToWait(10000);
 			client.setCallback(this);
-			
+			if( !subscriptions.isEmpty() ){ // If we have subscriptions, connect.
+				connecting=true;
+				scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS );
+			}
 		} catch (MqttException e) {
 			Logger.error(e);
 		}
@@ -147,7 +148,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			Logger.error(id+"(mqtt) -> Invalid topic");
 			return 0;
 		}
-		if( defTopic.endsWith("/") && topic.startsWith("/") )
+		if( rootTopic.endsWith("/") && topic.startsWith("/") )
 			topic = topic.substring(1);			
 		
 		subscriptions.put(topic,null);
@@ -158,7 +159,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			Logger.error(id+"(mqtt) -> Invalid topic");
 			return 0;
 		}
-		if( defTopic.endsWith("/") && topic.startsWith("/") )
+		if( rootTopic.endsWith("/") && topic.startsWith("/") )
 			topic = topic.substring(1);
 
 		subscriptions.put(topic, val);
@@ -190,9 +191,9 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	public String getSubscriptions( String nl ){
 		if( subscriptions.isEmpty() )
 			return "No active subscriptions"+nl;
-		StringJoiner join = new StringJoiner(nl,"",nl);
+		StringJoiner join = new StringJoiner(nl,"  Subs"+nl,nl);
 		subscriptions.forEach(
-			(topic,label) -> join.add("==> "+topic+" -> "+label)
+			(topic,label) -> join.add("  ==> "+ rootTopic +topic)
 		);
 		return join.toString();
 	}
@@ -211,8 +212,8 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			}
 		} else{
 			try {
-				Logger.info( id+"(mqtt) -> Subscribing to "+defTopic+topic);
-				client.subscribe( defTopic + topic );
+				Logger.info( id+"(mqtt) -> Subscribing to "+ rootTopic +topic);
+				client.subscribe( rootTopic + topic );
 				return 1;
 			} catch (MqttException e) {
 				Logger.error(e);
@@ -227,8 +228,8 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 */	
 	private boolean unsubscribe( String topic ){
 		try {
-			Logger.info( id+"(mqtt) -> Unsubscribing from "+defTopic+topic);
-			client.unsubscribe(defTopic + topic);
+			Logger.info( id+"(mqtt) -> Unsubscribing from "+ rootTopic +topic);
+			client.unsubscribe(rootTopic + topic);
 		} catch (MqttException e) {
 			Logger.error(e);
 			return false;
@@ -248,7 +249,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		Logger.debug("Rec: "+topic+" load:"+load);
 		Logger.tag("RAW").warn(id+"\t"+topic+"\t"+load);  // Store it like any other received data
 
-		var rtval = subscriptions.get(topic.substring(defTopic.length()));
+		var rtval = subscriptions.get(topic.substring(rootTopic.length()));
 		if( rtval != null ){
 			rtval.parseValue(load);
 		}
@@ -306,14 +307,10 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		try {
 			for( String sub:subscriptions.keySet() ){
 				subs=sub;
-				client.subscribe( defTopic+sub );
-			}
-			for( String sub:subscriptions.keySet() ){
-				subs=sub;
-				client.subscribe( defTopic+sub );
+				client.subscribe( rootTopic +sub );
 			}
 		} catch (MqttException e) {
-			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+defTopic+subs);
+			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+ rootTopic +subs);
 		}
 		if( !mqttQueue.isEmpty() )
 			scheduler.schedule( new Publisher(),0,TimeUnit.SECONDS);
@@ -358,7 +355,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 					}
 					if( work.isInvalid())
 						continue;
-					client.publish(defTopic + work.getTopic(), work.getMessage() );
+					client.publish(rootTopic + work.getTopic(), work.getMessage() );
 				} catch (InterruptedException e) {
 					Logger.error(e);
 					// Restore interrupted state...

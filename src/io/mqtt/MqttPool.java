@@ -44,11 +44,11 @@ public class MqttPool implements Commandable {
      * @return The earlier mentioned descriptive listing
      */
     public String getMqttBrokersInfo() {
-        StringJoiner join = new StringJoiner("\r\n", "id -> broker -> online?\r\n", "");
+        StringJoiner join = new StringJoiner("\r\n");
         join.setEmptyValue("No brokers yet");
-        mqttWorkers.forEach((id, worker) -> join
-                .add(id + " -> " + worker.getBrokerAddress() + " -> " + (worker.isConnected() ? "online" : "offline"))
-                .add(worker.getSubscriptions("\r\n")));
+        mqttWorkers.forEach( (id, worker) -> join
+                .add( (worker.isConnected() ? "" : "!! ")+id + " -> " + worker.getBrokerAddress() )
+                .add( worker.getSubscriptions("\r\n")) );
         return join.toString();
     }
     /**
@@ -70,9 +70,9 @@ public class MqttPool implements Commandable {
             var id = broker.attr("id","general");
             var addr = broker.peekAt("address").value("");
             var clientid = broker.peekAt("clientid").value("");
-            var defTopic = broker.peekAt("defaulttopic").value("");
+            var defTopic = broker.peekAt("roottopic").value("");
 
-            var worker = new MqttWorker(id,addr,clientid,defTopic,dQueue);
+            var worker = new MqttWorker( id,addr,clientid,defTopic );
 
             broker.peekOut("subscribe").forEach( sub -> {
                 worker.addSubscription(sub.getTextContent());
@@ -85,8 +85,11 @@ public class MqttPool implements Commandable {
                     var group = rtval.getAttribute("group");
                     if( group.isEmpty())
                         group = id;
-                    var name = rtval.getTextContent();
-
+                    var name = rtval.getAttribute("name");
+                    if( name.isEmpty())
+                        name = rtval.getTextContent();
+                    if( name.isEmpty() || name.contains("<") )
+                        Logger.error(id+"(mqtt) -> No proper name defined for "+rtval.getTagName());
                     var val = rtvals.getAbstractVal( group+"_"+name);
                     if( val.isEmpty() ){// doesn't exist yet, add it
                         if( rtvals.processRtvalElement(rtval,group) ) {
@@ -138,18 +141,19 @@ public class MqttPool implements Commandable {
                     StringJoiner join = new StringJoiner(nl);
                     join.add(TelnetCodes.TEXT_RED + "Purpose" + reg);
                     join.add("The MQTT manager manages the workers that connect to brokers").add("");
+                    join.add("Terminology info: https://www.freertos.org/mqtt/mqtt_terminology.html");
                     join.add(cyan + "General" + reg)
                             .add(green + "   mqtt:?" + reg + " -> Show this message")
                             .add(green + "   mqtt:addbroker,id,address,topic " + reg + "-> Add a new broker with the given id found at the address")
                             .add(green + "   mqtt:brokers " + reg + "-> Get a listing of the current registered brokers")
                             .add(green + "   mqtt:id,reload " + reg + "-> Reload the settings for the broker from the xml.");
                     join.add(cyan + "Subscriptions" + reg)
-                            .add(green + "   mqtt:brokerid,subscribe,topic " + reg + "-> Subscribe to a topic with given label on given broker")
+                            .add(green + "   mqtt:brokerid,subscribe,topic " + reg + "-> Subscribe to a topic with given label on given broker. Mqtt wildcard is #.")
                             .add(green + "   mqtt:brokerid,unsubscribe,topic " + reg + "-> Unsubscribe from a topic on given broker")
                             .add(green + "   mqtt:brokerid,unsubscribe,all " + reg + "-> Unsubscribe from all topics on given broker");
                     join.add(cyan + "Rtvals" + reg)
                             .add(green + "   mqtt:id,provide,rtval<,topic> " + reg + "-> Provide a certain rtval to the broker, topic is group/name by default.")
-                            .add(green + "   mqtt:id,store,topic,rtval " + reg + "-> Store a certain topic as a rtval.");
+                            .add(green + "   mqtt:id,store,topic<,rtval> " + reg + "-> Store a certain topic as a rtval, if no rtval is specified topic is used as rtval id");
                     join.add(cyan + "Send & Receive" + reg)
                             .add(green + "   mqtt:id " + reg + "-> Forwards the data received from the given broker to the issuing writable")
                             .add(green + "   mqtt:id,send,topic:value " + reg + "-> Sends the value to the topic of the brokerid");
@@ -189,7 +193,7 @@ public class MqttPool implements Commandable {
             var fab = XMLfab.withRoot(settingsFile,"dcafs","mqtt");
             fab.addParentToRoot("broker").attr("id",cmds[1]); // make broker root
             fab.addChild("address",cmds[2]);
-            fab.addChild("defaulttopic",cmds[3]);
+            fab.addChild("roottopic",cmds[3]);
             fab.build();
             readXMLsettings();
             return "Broker added";
