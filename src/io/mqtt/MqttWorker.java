@@ -119,7 +119,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			connOpts.setUserName(clientId);
 		connOpts.setAutomaticReconnect(true); //works
 		
-		Logger.info("Creating client for "+brokerAddress);
+		Logger.info( id+"(mqtt) -> Creating client");
 
 		try {
 			if( client != null ){
@@ -216,7 +216,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			}
 		} else{
 			try {
-				Logger.info("Subscribing to "+defTopic+topic);
+				Logger.info( id+"(mqtt) -> Subscribing to "+defTopic+topic);
 				client.subscribe( defTopic + topic );
 				return 1;
 			} catch (MqttException e) {
@@ -232,7 +232,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 */	
 	private boolean unsubscribe( String topic ){
 		try {
-			Logger.info("Unsubscribing from "+defTopic+topic);
+			Logger.info( id+"(mqtt) -> Unsubscribing from "+defTopic+topic);
 			client.unsubscribe(defTopic + topic);
 		} catch (MqttException e) {
 			Logger.error(e);
@@ -298,17 +298,19 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	}
 	@Override
 	public void connectionLost(Throwable cause) {
-		if (!mqttQueue.isEmpty()) {
-			Logger.debug("Connection lost but still work to do, reconnecting");
+		if (!mqttQueue.isEmpty() && !subscriptions.isEmpty()) {
+			Logger.debug( id+"(mqtt) -> Connection lost but still work to do, reconnecting...");
 			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
+		}else{
+			Logger.warn( id+"(mqtt) -> Connection lost.");
 		}
 	}
 	@Override
 	public void connectComplete(boolean reconnect, String serverURI) {
 		if( reconnect ){
-			Logger.info("Reconnected to "+serverURI );
+			Logger.info( id+"(mqtt) -> Reconnecting." );
 		}else{
-			Logger.debug("First connection to "+serverURI);
+			Logger.debug( id+"(mqtt) -> First connection established" );
 		}		
 		connecting=false;
 		String subs="";
@@ -322,7 +324,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 				client.subscribe( defTopic+sub );
 			}
 		} catch (MqttException e) {
-			Logger.error("Failed to subscribe to: "+defTopic+subs);
+			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+defTopic+subs);
 		}
 		if( !mqttQueue.isEmpty() )
 			scheduler.schedule( new Publisher(),0,TimeUnit.SECONDS);
@@ -342,11 +344,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			if (!client.isConnected()) {
 				try {					
 					client.connect(connOpts);
-					Logger.info("Connected to broker: " + brokerAddress + " ...");
+					Logger.info( id+"(mqtt) -> Connected");
 				} catch (MqttException me) {					
 					attempt++;
 					var time = Math.max(attempt*5,60);
-					Logger.warn("Failed to connect to "+ brokerAddress +",  trying again in "+ time+"s");
+					Logger.warn( id+"(mqtt) -> Failed to connect,  trying again in "+ time+"s");
 					scheduler.schedule( new Connector(attempt), Math.max(attempt * 5, 60), TimeUnit.SECONDS );
 				}
 			}
