@@ -54,8 +54,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		this.id=id;
 		setBrokerAddress(address);
 		this.clientId=clientId;
-		this.defTopic=defTopic;
-		this.dQueue=dQueue;
+		this.defTopic=defTopic+(defTopic.endsWith("/")?"":"/");
 	}
 	/**
 	 * Set the id of this worker
