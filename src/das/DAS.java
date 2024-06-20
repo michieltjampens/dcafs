@@ -605,7 +605,9 @@ public class DAS implements Commandable{
         b.add(TEXT_DEFAULT).add("IP: ").add(TEXT_GREEN).add(Tools.getLocalIP()).add("\r\n");
 
         long age = Tools.getLastRawAge(Path.of(tinylogPath));
-        if( age == -1 ){
+        if( streamManager.getStreamCount()==0){
+            b.add(TEXT_DEFAULT).add("Raw Age: ").add(TEXT_RED).add("No streams yet.");
+        }else if( age == -1 ){
             b.add(TEXT_DEFAULT).add("!! Raw Age: ").add(TEXT_RED).add("No file yet!");
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
