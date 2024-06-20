@@ -616,7 +616,7 @@ public class Tools {
                     .filter(file -> !Files.isDirectory(file))
                     .map(Path::getFileName)
                     .map(Path::toString)
-                    .filter( fn-> (fn.endsWith(".log")||fn.endsWith(".log.gz")) && fn.contains("RAW"))// Because it can contain zip files and sql backup
+                    .filter( fn-> (fn.endsWith(".log")) && fn.contains("RAW"))// Because it can contain zip files and sql backup
                     .sorted() // sort alphabetically to get the last one
                     .toList();
             if(list.isEmpty()) // No files found
