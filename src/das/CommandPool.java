@@ -311,6 +311,8 @@ public class CommandPool {
 				return "! Something went wrong processing: "+question;
 			}
 			return result;
+		}else{
+			Logger.error("No cmd found with "+cmd+":"+question);
 		}
 		return UNKNOWN_CMD;
 	}
