@@ -144,9 +144,9 @@ public class MqttPool implements Commandable {
                             .add(green + "   mqtt:brokers " + reg + "-> Get a listing of the current registered brokers")
                             .add(green + "   mqtt:id,reload " + reg + "-> Reload the settings for the broker from the xml.");
                     join.add(cyan + "Subscriptions" + reg)
-                            .add(green + "   mqtt:id,subscribe,label,topic " + reg + "-> Subscribe to a topic with given label on given broker")
-                            .add(green + "   mqtt:id,unsubscribe,topic " + reg + "-> Unsubscribe from a topic on given broker")
-                            .add(green + "   mqtt:id,unsubscribe,all " + reg + "-> Unsubscribe from all topics on given broker");
+                            .add(green + "   mqtt:brokerid,subscribe,label,topic " + reg + "-> Subscribe to a topic with given label on given broker")
+                            .add(green + "   mqtt:brokerid,unsubscribe,topic " + reg + "-> Unsubscribe from a topic on given broker")
+                            .add(green + "   mqtt:brokerid,unsubscribe,all " + reg + "-> Unsubscribe from all topics on given broker");
                     join.add(cyan + "Rtvals" + reg)
                             .add(green + "   mqtt:id,provide,rtval<,topic> " + reg + "-> Provide a certain rtval to the broker, topic is group/name by default.")
                             .add(green + "   mqtt:id,store,topic,rtval " + reg + "-> Store a certain topic as a rtval.");
@@ -213,7 +213,7 @@ public class MqttPool implements Commandable {
             switch (cmds[1]) {
                 case "subscribe" -> {
                     if (cmds.length != 4)
-                        return "! Wrong amount of arguments -> mqtt:id,subscribe,label,topic";
+                        return "! Wrong amount of arguments -> mqtt:brokerid,subscribe,label,topic";
                     int res = worker.addSubscription(cmds[3], cmds[2]);
                     if(  res != 0 ) {
                         fab.addChild("subscribe").attr("label",cmds[2]).content(cmds[3]);
@@ -225,7 +225,7 @@ public class MqttPool implements Commandable {
                 }
                 case "unsubscribe" -> {
                     if (cmds.length != 3)
-                        return "! Wrong amount of arguments -> mqtt:unsubscribe,brokerid,topic";
+                        return "! Wrong amount of arguments -> mqtt:brokerid,unsubscribe,topic";
                     if( worker.removeSubscription(cmds[2])) {
                         if( fab.removeChild("subscribe",cmds[2])){
                             fab.build();
