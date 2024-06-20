@@ -110,7 +110,11 @@ public class RealVal extends AbstractVal implements NumericVal{
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         });
-        setParseOp(dig.attr("op",""));
+        var op = dig.attr("op","");
+        if( op.isEmpty() )
+            op = dig.peekAt("op").value("");
+        if( !op.isEmpty())
+            setParseOp(op);
 
         return this;
     }
