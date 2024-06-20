@@ -45,11 +45,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // Scheduler for the publish and
 																						// connect class
-	private final Map<String, String> subscriptions = new HashMap<>(); // Map containing all the subscriptions
-	private final Map<String, AbstractVal> rtvals = new HashMap<>();
+	private final Map<String, AbstractVal> subscriptions = new HashMap<>(); // Map containing all the subscriptions
 	private final Map<String, String> provide = new HashMap<>();
 	private final ArrayList<Writable> targets = new ArrayList<>();
-	private BlockingQueue<Datagram> dQueue;
+	private final BlockingQueue<Datagram> dQueue;
+
 	public MqttWorker( String id, String address, String clientId, String defTopic, BlockingQueue<Datagram> dQueue ) {
 		this.id=id;
 		setBrokerAddress(address);
@@ -136,18 +136,14 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		for( String key : subscriptions.keySet() ){
 			subscribe( key );
 		}
-		for( String key : rtvals.keySet() ){
-			subscribe( key );
-		}
 	}	
 	/* ****************************************** S U B S C R I B E  *********************************************** */
 	/**
 	 * Subscribe to a given topic on the associated broker
 	 * @param topic The topic so subscribe to
-	 * @param label The label used by the BaseWorker to process the received data
 	 * @return 0 if failed to add, 1 if ok, 2 if added but not send to broker
 	 */
-	public int addSubscription( String topic, String label ){
+	public int addSubscription( String topic ){
 		if( topic==null){
 			Logger.error(id+"(mqtt) -> Invalid topic");
 			return 0;
@@ -155,7 +151,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( defTopic.endsWith("/") && topic.startsWith("/") )
 			topic = topic.substring(1);			
 		
-		subscriptions.put(topic, label);
+		subscriptions.put(topic,null);
 		return subscribe( topic );
 	}
 	public int addSubscription( String topic, AbstractVal val ){
@@ -166,7 +162,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( defTopic.endsWith("/") && topic.startsWith("/") )
 			topic = topic.substring(1);
 
-		rtvals.put(topic, val);
+		subscriptions.put(topic, val);
 		return subscribe( topic );
 	}
 	/**
@@ -251,17 +247,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 
 		String load = new String(message.getPayload());	// Get the payload
 		Logger.debug("Rec: "+topic+" load:"+load);
+		Logger.tag("RAW").warn(id+"\t"+topic+"\t"+load);  // Store it like any other received data
 
-		String label = subscriptions.get(topic.substring(defTopic.length()));
-		if( label!=null){
-			Logger.tag("RAW").warn(label+"\t"+topic+"\t"+load);  // Store it like any other received data
-			dQueue.add(Datagram.build(load).origin(topic).label(label));
-		}else{
-			Logger.tag("RAW").warn(topic+"\t"+load);
-			var rtval = rtvals.get(topic.substring(defTopic.length()));
-			if( rtval != null ){
-				rtval.parseValue(load);
-			}
+		var rtval = subscriptions.get(topic.substring(defTopic.length()));
+		if( rtval != null ){
+			rtval.parseValue(load);
 		}
 		if( !targets.isEmpty() )
 			targets.removeIf(dt -> !dt.writeLine( load ) );
@@ -319,7 +309,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 				subs=sub;
 				client.subscribe( defTopic+sub );
 			}
-			for( String sub:rtvals.keySet() ){
+			for( String sub:subscriptions.keySet() ){
 				subs=sub;
 				client.subscribe( defTopic+sub );
 			}
