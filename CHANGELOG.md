@@ -10,6 +10,15 @@ Note: Version numbering: x.y.z
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
 ## 2.10.1 (wip)
+- The raw age check now ignores empty files (on startup tinylog creates a file before it has data to write).
+- Will now log an error if a commandable with same id is added. For example, taskmanager and stream share an id.
+- Fixed, realval couldn't get an op via node.
+
+### MQTT
+- Fixed, addbroker cmd didn't write to xml.
+- Fixed, if the default topic didn't end with /, none was added.
+- Removed use of label.
+- Breaking, renamed defaulttopic to roottopic.
 
 ## 2.10.0 (14/06/24)
 
@@ -21,9 +30,9 @@ so now new xml files are created with 'others write' permission. But owner remai
 - Changed default telnet port to 2323, because 23 requires root on linux.
 - Happened that tinylog stopped writing for unknown reason, added the age of the daily raw 
 file to the status report. Default is one hour, can be changed with maxrawage node in settings.
-- Base path of tinylog can be set in xml using tinylog node in the settings node..
+- Base path of tinylog can be set in xml using tinylog node in the settings node.
 - By default, dcafs now runs a global check every hour to see if there are (possibly unreported issues). Interval can
-be altered or set to 0s to disable it. Only works if email/matrix is setup, because no use checking if can't be reported.
+be altered or set to 0s to disable it. Only works if email/matrix is set up, because no use checking if can't be reported.
  ```xml
   <settings>
     <!-- Settings related to the telnet server -->
@@ -40,11 +49,11 @@ be altered or set to 0s to disable it. Only works if email/matrix is setup, beca
   </settings>
 ```
 - Status report has been updated to include some more info and unified appearance.
-- Fixed, matrix:roomid,txt/say required the room id to have matrix prepended
+- Fixed, matrix:roomid,txt/say required the room id to have matrix prepended.
 
 ### Telnet
-- CTRL+s can be used to send things to streams without eol sequence
-- Using the ESC key will actually send and ESC
+- CTRL+s can be used to send things to streams without eol sequence.
+- Using the ESC key will actually send and ESC.
 - Fixed, rewrote part of the cli code to make it less error prone. Things tended to break
 when the length of the text equals the size of the buffer and edits are done.
 - Will show message on opening session if raw data is abnormally old.

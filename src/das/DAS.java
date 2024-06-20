@@ -605,15 +605,18 @@ public class DAS implements Commandable{
         b.add(TEXT_DEFAULT).add("IP: ").add(TEXT_GREEN).add(Tools.getLocalIP()).add("\r\n");
 
         long age = Tools.getLastRawAge(Path.of(tinylogPath));
-        if( streamManager.getStreamCount()==0){
-            b.add(TEXT_DEFAULT).add("Raw Age: ").add(TEXT_RED).add("No streams yet.");
-        }else if( age == -1 ){
+        if( age == -1 ){
             b.add(TEXT_DEFAULT).add("!! Raw Age: ").add(TEXT_RED).add("No file yet!");
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
             var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
-            b.add(TEXT_DEFAULT).add( (age>maxRawAge?"!! ":"")).add("Raw Age: ");
-            b.add((age > maxRawAge ? TEXT_RED : TEXT_GREEN)).add(convert).add(" [").add(max).add("]");
+
+            if( age > maxRawAge && streamManager.getStreamCount()==0){
+                b.add(TEXT_DEFAULT).add("Raw Age: ").add(TEXT_ORANGE).add("No streams yet.");
+            }else{
+                b.add(TEXT_DEFAULT).add( (age>maxRawAge?"!! ":"")).add("Raw Age: ");
+                b.add((age > maxRawAge ? TEXT_RED : TEXT_GREEN)).add(convert).add(" [").add(max).add("]");
+            }
         }
         b.add(UNDERLINE_OFF).add("\r\n");
 
