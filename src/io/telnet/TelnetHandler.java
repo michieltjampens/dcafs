@@ -120,7 +120,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			writeString(TelnetCodes.TEXT_DEFAULT + ">");
 			channel.flush();
 			if (!start.isEmpty()) {
-				dQueue.add(Datagram.build(start).label(LABEL).writable(this).origin("telnet:" + channel.remoteAddress().toString()));
+				dQueue.add( Datagram.build(start).label(LABEL).writable(this).origin("telnet:" + channel.remoteAddress().toString()).toggleSilent() );
 			}
 		}else{
 			writeLine(TelnetCodes.TEXT_RED + "Issue in settings.xml, can't start up properly! Please fix! " + TelnetCodes.TEXT_ORANGE);
