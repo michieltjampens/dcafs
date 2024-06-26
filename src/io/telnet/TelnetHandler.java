@@ -287,7 +287,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 				}
 				case "es" -> {
 					es = !es;
-					writeLine("Elapsed time stamping " + (ds ? "enabled" : "disabled"));
+					writeLine("Elapsed time stamping " + (es ? "enabled" : "disabled"));
 				}
 
 				case "prefix" -> {
