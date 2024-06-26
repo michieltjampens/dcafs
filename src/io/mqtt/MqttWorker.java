@@ -21,10 +21,10 @@ import java.util.concurrent.*;
  * 3) Check if the worker is currently publishing
  *     a) If not, start the doPublish thread
  *     b) If so, do nothing
- * 
+
  * If a connection is established all subscriptions will be subscribed to and
  * doPublish will be started if any work is to be done.
- *
+
  * For now nothing happens with the connection when no work is present and no subscriptions are made, an
  * option is to disconnect.
  */
@@ -154,6 +154,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		subscriptions.put(topic,null);
 		return subscribe( topic );
 	}
+	/**
+	 * Subscribe to a given topic on the associated broker and store the received data in the val.
+	 * @param topic The topic so subscribe to
+	 * @param val The rtval the data will be stored in.
+	 * @return 0 if failed to add, 1 if ok, 2 if added but not send to broker
+	 */
 	public int addSubscription( String topic, AbstractVal val ){
 		if( topic==null){
 			Logger.error(id+"(mqtt) -> Invalid topic");
@@ -236,6 +242,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		}
 		return true;
 	}
+
+	/**
+	 *
+	 * @param rtval The rtval to send to the broker.
+	 * @param topic The topic the rtval data is attached to.
+	 */
 	public void addProvide( String rtval, String topic){
 		if( !topic.equalsIgnoreCase(rtval))
 			provide.put(rtval,topic);
@@ -256,11 +268,22 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( !targets.isEmpty() )
 			targets.removeIf(dt -> !dt.writeLine( load ) );
 
-	}	
+	}
+
+	/**
+	 * Add a target for the received data
+	 * @param wr The writable to write to
+	 */
 	public void registerWritable(Writable wr ){
 		if(!targets.contains(wr))
 			targets.add(wr);
 	}
+
+	/**
+	 * Remove a writable from the list of targets
+	 * @param wr The writable to remove
+	 * @return True if it was removed.
+	 */
 	public boolean removeWritable( Writable wr ){
 		return targets.remove(wr);
 	}
@@ -275,6 +298,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		return client.isConnected();
 		
 	}
+
+	/**
+	 * Disconnect the client from the broker
+	 * @return True if disconnected.
+	 */
 	public boolean disconnect(){
 		if( client==null)
 			return false;

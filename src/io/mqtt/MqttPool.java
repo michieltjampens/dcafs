@@ -95,7 +95,9 @@ public class MqttPool implements Commandable {
                         if( rtvals.processRtvalElement(rtval,group) ) {
                             val = rtvals.getAbstractVal( group+"_"+name);
                             if( val.isPresent()) {
-                                worker.addSubscription(topic, val.get());
+                                if( worker.addSubscription(topic, val.get())==0){
+                                    Logger.error(id+" (mqtt) -> Failed to add subscription to "+topic);
+                                }
                             }else{
                                 Logger.error(id+" (mqtt) -> Failed to read the rtval, after creation? "+group+"_"+name);
                             }
@@ -281,6 +283,7 @@ public class MqttPool implements Commandable {
                     return "Store added";
                 }
                 default -> {
+                    Logger.error("(mqtt) -> No such command "+ cmd + ": " + cmds[0]);
                     return "! No such subcommand in " + cmd + ": " + cmds[0];
                 }
             }
