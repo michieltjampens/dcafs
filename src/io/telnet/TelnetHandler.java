@@ -189,9 +189,12 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			return;
 		}else if( d.getData().startsWith(">>")) {
 			var split = new String[2];
-			String[] cmds={"prefix","ts","ds"};
+			String[] cmds={"prefix","ts","ds","id?"};
 
 			String cmd = d.getData().substring(2);
+			if(cmd.startsWith(">")) // If three are used
+				cmd=cmd.substring(1);
+
 			if( !d.getData().contains(":") && !Arrays.asList(cmds).contains(cmd)){
 				writeLine("Missing ':'");
 				return;
@@ -206,7 +209,13 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			}
 
 			switch (split[0]) {
-				case "id" -> {
+				case "id?" -> {
+					if( id.equalsIgnoreCase("telnet")){
+						writeLine("No id set yet");
+					}else{
+						writeLine("Current id: "+id);
+					}
+				}case "id" -> {
 					id = split[1];
 					var dig = XMLdigger.goIn(settingsPath,"dcafs","settings","telnet");
 					if( dig.isInvalid() ) {
