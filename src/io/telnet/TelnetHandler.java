@@ -17,8 +17,10 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implements Writable {
 	
@@ -47,7 +49,8 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	CommandLineInterface cli;
 	ArrayList<String> onetime = new ArrayList<>();
 	ArrayList<String> ids = new ArrayList<>();
-	private boolean prefix=false,ts=false,ds=false;
+	private boolean prefix=false,ts=false,ds=false,es=false;
+	private long elapsed=-1;
 	private String format="HH:mm:ss.SSS";
 	private String default_text_color=TelnetCodes.TEXT_LIGHT_GRAY;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
@@ -189,7 +192,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			return;
 		}else if( d.getData().startsWith(">>")) {
 			var split = new String[2];
-			String[] cmds={"prefix","ts","ds","id?"};
+			String[] cmds={"prefix","ts","ds","id?","es"};
 
 			String cmd = d.getData().substring(2);
 			if(cmd.startsWith(">")) // If three are used
@@ -282,6 +285,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 					ds = !ds;
 					writeLine("Date stamping " + (ds ? "enabled" : "disabled"));
 				}
+				case "es" -> {
+					es = !es;
+					writeLine("Elapsed time stamping " + (ds ? "enabled" : "disabled"));
+				}
+
 				case "prefix" -> {
 					prefix = !prefix;
 					writeLine("Prefix " + (prefix ? "enabled" : "disabled"));
@@ -358,7 +366,12 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 		if( ts || ds)
 			time = TelnetCodes.TEXT_ORANGE+TimeTools.formatUTCNow(ts?format:"yyyy-MM-dd HH:mm:ss.SSS")+"   "+TelnetCodes.TEXT_DEFAULT;
-
+		if( es ) {
+			if( elapsed != -1){
+				time = TelnetCodes.TEXT_ORANGE+TimeTools.convertPeriodtoString(Instant.now().toEpochMilli()-elapsed, TimeUnit.MILLISECONDS)+"   "+TelnetCodes.TEXT_DEFAULT;
+			}
+			elapsed=Instant.now().toEpochMilli();
+		}
 		if(prefix) {
 			var end = ids.get(ids.size()-1).equals(origin)?newLine+"------------- ("+ids.size()+")":"";
 			if( ids.size()==1)
