@@ -239,16 +239,17 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 					repeat = "telnet:write," + split[1] + ",";
 				}
 				case "start" -> {
-					if (id.isEmpty()) {
+					if (id.isEmpty() || id.equalsIgnoreCase("telnet")) {
 						writeLine("Please set an id first with >>id:newid");
 					}else {
 						start = split[1];
-						writeString("Startup command has been set to '" + start + "'");
-						writeLine(XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
+						writeLine("Startup command has been set to '" + start + "'");
+						writeLine( XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
 								.map(f -> {
 									f.addChild("start", split[1]);
-									return "Start set to " + id + "\r\n>";
-								}).orElse("Couldn't find the node"));
+									f.build();
+									return "Result of "+split[1] + " will be shown on log in.\r\n>";
+								}).orElse("Couldn't find the node?"));
 					}
 				}
 				case "color" -> {
