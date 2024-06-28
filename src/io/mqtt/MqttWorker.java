@@ -51,7 +51,6 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private final ArrayList<Writable> targets = new ArrayList<>();
 
 	private RealtimeValues rtvals;
-	private boolean hasWildcard=false;
 	private BlockingQueue<Datagram> dQueue;
 	private String storeTopic="";
 
@@ -123,14 +122,13 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( !clientId.isBlank() )
 			connOpts.setUserName(clientId);
 		connOpts.setAutomaticReconnect(true); //works
-		
-		Logger.info( id+"(mqtt) -> Creating client");
 
 		try {
 			if( client != null ){
 				client.disconnect();
 			}
 			client = new MqttClient( brokerAddress, MqttClient.generateClientId(), persistence);
+			Logger.info( id+"(mqtt) -> Created client");
 			client.setTimeToWait(10000);
 			client.setCallback(this);
 			if( !subscriptions.isEmpty() ){ // If we have subscriptions, connect.
@@ -138,11 +136,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 				scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS );
 			}
 		} catch (MqttException e) {
-			Logger.error(e);
-		}
-		// Subscriptions
-		for( String key : subscriptions ){
-			subscribe( key );
+			Logger.error(id+"(mqtt) -> "+e);
 		}
 	}	
 	/* ****************************************** S U B S C R I B E  *********************************************** */
@@ -173,8 +167,6 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( val != null)
 			valReceived.put(topic,val);
 
-		if( topic.contains("#"))
-			hasWildcard=true;
 		return subscribe( topic );
 	}
 	/**
@@ -186,12 +178,9 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 
 		if( topic.equals("all")){
 			subscriptions.removeIf(this::unsubscribe);
-			hasWildcard=false;
 			return subscriptions.isEmpty();
 		}else{
 			if( subscriptions.remove(topic) ){
-				if( subscriptions.isEmpty() || subscriptions.stream().noneMatch(tp->tp.contains("#")))
-					hasWildcard=false;
 				unsubscribe( topic );
 				return true;
 			}
@@ -217,7 +206,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 */	
 	private int subscribe( String topic ){
 		if( client == null)
-			return 0;
+			return 2;
 		if (!client.isConnected() ) { // If not connected, try to connect
 			if( !connecting ){
 				connecting=true;
@@ -366,10 +355,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	}
 	@Override
 	public void connectionLost(Throwable cause) {
+
 		if (!mqttQueue.isEmpty() && !subscriptions.isEmpty()) {
 			Logger.info( id+"(mqtt) -> Connection lost but still work to do, reconnecting...");
 			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
 		}else{
+			connecting=false;
 			Logger.warn( id+"(mqtt) -> "+cause.getMessage());
 		}
 	}
@@ -378,7 +369,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( reconnect ){
 			Logger.info( id+"(mqtt) -> Reconnecting." );
 		}else{
-			Logger.debug( id+"(mqtt) -> First connection established" );
+			Logger.info( id+"(mqtt) -> First connection established" );
 		}		
 		connecting=false;
 		String subs="";
@@ -386,6 +377,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			for( String sub:subscriptions ){
 				subs=sub; // Purely to know when the error occurred
 				client.subscribe( sub );
+				Logger.info(id+"(mqtt) -> Subscribed to "+sub);
 			}
 		} catch (MqttException e) {
 			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+ subs);
@@ -394,7 +386,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			scheduler.schedule( new Publisher(),0,TimeUnit.SECONDS);
 	}
 	/**
-	 * Small class that handles connection to the broker so it's not blocking 
+	 * Small class that handles connection to the broker, so it's not blocking.
 	 */
 	private class Connector implements Runnable {
 		int attempt;
@@ -405,16 +397,19 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 
 		@Override
 		public void run() {
+
 			if (!client.isConnected()) {
-				try {					
+				try {
 					client.connect(connOpts);
 					Logger.info( id+"(mqtt) -> Connected");
 				} catch (MqttException me) {					
 					attempt++;
-					var time = Math.max(attempt*5,60);
-					Logger.warn( id+"(mqtt) -> Failed to connect,  trying again in "+ time+"s");
-					scheduler.schedule( new Connector(attempt), Math.max(attempt * 5, 60), TimeUnit.SECONDS );
+					var time = Math.min(attempt*5,60);
+					Logger.warn( id+"(mqtt) -> Failed to connect,  trying again in "+ time+"s. Cause: "+me.getMessage());
+					scheduler.schedule( new Connector(attempt), time, TimeUnit.SECONDS );
 				}
+			}else{
+				Logger.info( id+"(mqtt) -> Client already connected.");
 			}
 		}
 	}
