@@ -796,7 +796,7 @@ public class SqlTable{
         PrepStatement stat = preps.get("");
 
         StringJoiner qMarks = new StringJoiner(",", "", ");");
-        StringJoiner cols = new StringJoiner(",", "INSERT INTO " + name + " (", ") VALUES (");
+        StringJoiner cols = new StringJoiner(",", "INSERT INTO \"" + name + "\" (", ") VALUES (");
         stat.getIndexes().forEach(c -> {
             qMarks.add("?");
             cols.add( columns.get(c).title );
