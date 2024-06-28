@@ -83,32 +83,10 @@ public class MqttPool implements Commandable {
                 worker.setGenerateStore(broker.attr("generate",""));
 
                 broker.digOut("*").forEach( rtval -> {
-                    var topic = rtval.attr("topic","");
-                    if( topic.isEmpty() ) {
-                        Logger.error(id + "(mqtt) -> No valid topic");
-                        return;
-                    }
-                    var groupName = AbstractVal.readGroupAndName(rtval.currentTrusted(),id);
-                    if( groupName == null )
-                        return;
-
-                    var gn = groupName[0]+"_"+groupName[1];
-                    if(rtvals.hasAbstractVal(gn) ) {// doesn't exist yet, add it
-                        var val = rtvals.getAbstractVal( gn);
-                        val.ifPresent(abstractVal -> worker.addSubscription(topic, abstractVal));
-                    }else {
-                        if (rtvals.processRtvalElement(rtval.currentTrusted(), groupName[0]) ) {
-                            var val = rtvals.getAbstractVal(gn);
-                            if (val.isPresent()) {
-                                if (worker.addSubscription(topic, val.get()) == 0) {
-                                    Logger.error(id + " (mqtt) -> Failed to add subscription to " + topic);
-                                }
-                            } else {
-                                Logger.error(id + " (mqtt) -> Failed to read the rtval, after creation? " + gn);
-                            }
-                        } else {
-                            Logger.error(id + " (mqtt) -> Failed to read the rtval " + gn);
-                        }
+                    if( rtval.tagName("").equalsIgnoreCase("group")){
+                        rtval.digOut("*").forEach( val -> processVal(worker,val) );
+                    }else{
+                        processVal(worker,rtval);
                     }
                 });
                 broker.goUp();
@@ -130,7 +108,35 @@ public class MqttPool implements Commandable {
         });
         return true;
     }
+    private void processVal( MqttWorker worker, XMLdigger rtval ){
+        var topic = rtval.attr("topic","");
+        if( topic.isEmpty() ) {
+            Logger.error(worker.id() + "(mqtt) -> No valid topic");
+            return;
+        }
+        var groupName = AbstractVal.readGroupAndName(rtval.currentTrusted(),worker.id());
+        if( groupName == null )
+            return;
 
+        var gn = groupName[0]+"_"+groupName[1];
+        if(rtvals.hasAbstractVal(gn) ) {// doesn't exist yet, add it
+            var val = rtvals.getAbstractVal( gn);
+            val.ifPresent(abstractVal -> worker.addSubscription(topic, abstractVal));
+        }else {
+            if (rtvals.processRtvalElement(rtval.currentTrusted(), groupName[0]) ) {
+                var val = rtvals.getAbstractVal(gn);
+                if (val.isPresent()) {
+                    if (worker.addSubscription(topic, val.get()) == 0) {
+                        Logger.error(worker.id() + " (mqtt) -> Failed to add subscription to " + topic);
+                    }
+                } else {
+                    Logger.error(worker.id() + " (mqtt) -> Failed to read the rtval, after creation? " + gn);
+                }
+            } else {
+                Logger.error(worker.id() + " (mqtt) -> Failed to read the rtval " + gn);
+            }
+        }
+    }
     @Override
     public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
         String[] cmds = args.split(",");
