@@ -120,7 +120,7 @@ public class SQLiteDB extends SQLDB{
     public String toString(){
         var time = getTimeSinceLastInsert();
         var join = new StringJoiner("");
-        if( time > maxInsertAge || getRecordsCount()>maxQueries )
+        if( time > maxInsertAge || getRecordsCount()>maxQueries || insertErrors!=0 )
             join.add("!! ");
         join.add( id +" : ");
         join.add( getPath() +" -> " +getRecordsCount()+"/"+maxQueries);
@@ -131,8 +131,10 @@ public class SQLiteDB extends SQLDB{
                 join.add(" ->  rollover in " + TimeTools.convertPeriodtoString(rollOverFuture.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS));
             }
         }
-        join.add(isValid(1)?"":" (NC)");
         join.add( " ["+TimeTools.convertPeriodtoString(time,TimeUnit.SECONDS)+"]");
+        if( insertErrors!=0)
+            join.add( " errors:"+insertErrors);
+        join.add(isValid(1)?"":" (NC)");
         return join.toString();
     }
     /**

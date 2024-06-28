@@ -25,6 +25,7 @@ public class SQLDB extends Database implements TableInsert{
     protected ArrayList<String> simpleQueries = new ArrayList<>();// Simple query buffer
 
     protected Connection con = null; // Database connection
+    protected int insertErrors=0;
 
     DBTYPE type;                                  // The type of database this object connects to
     public enum DBTYPE {MSSQL,MYSQL,MARIADB, POSTGRESQL} // Supported types
@@ -98,13 +99,17 @@ public class SQLDB extends Database implements TableInsert{
         var age = getTimeSinceLastInsert();
         var time = TimeTools.convertPeriodtoString( age,TimeUnit.SECONDS);
         var join = new StringJoiner("");
-        if( age > maxInsertAge || getRecordsCount()>maxQueries )
+        if( age > maxInsertAge || getRecordsCount()>maxQueries || insertErrors!=0 )
             join.add("!! ");
         join.add(id+" : ");
         join.add(type.toString().toLowerCase()+"@"+getTitle());
         join.add(" -> ");
         join.add(getRecordsCount()+"/"+maxQueries);
         join.add(" ["+time+"]");
+
+        if( insertErrors!=0)
+            join.add( " errors:"+insertErrors);
+
         if( !isValid(3))
             join.add(" (NC)");
         return  join.toString();
@@ -771,6 +776,7 @@ public class SQLDB extends Database implements TableInsert{
                             con.commit();
                         temp.set(a,""); // if executed, clear the entry in the temp arraylist
                     } catch (SQLException e) {
+                        insertErrors++;
                         if( e.getErrorCode()==19){
                             temp.set(a,""); // Don't care about this error, clear the entry
                         }else if( e.getMessage().contains("syntax error") || e.getMessage().contains("no such ")
@@ -829,6 +835,7 @@ public class SQLDB extends Database implements TableInsert{
                         queries.set(a, "");
                     batchOk = true;
                 } catch (BatchUpdateException g) {
+                    insertErrors++;
                     var result = g.getUpdateCounts();
                     boolean first = false;
                     for (int x = 0; x < result.length; x++) {
@@ -884,11 +891,13 @@ public class SQLDB extends Database implements TableInsert{
                                     } catch (BatchUpdateException e) {
                                         // One or multiple queries in the batch failed
                                         Logger.error(getID()+" (db)-> Batch error, clearing batched:"+e.getMessage());
+                                        insertErrors++;
                                         Logger.error(e.getErrorCode());
                                         Logger.error(getID()+" (db)-> Removed bad records: "+t.clearRecords( id, e.getLargeUpdateCounts() )); // just drop the data or try one by one?
                                     } catch (SQLException e) {
                                         errors++;
-                                        if( e.getMessage().contains("no such table")&& SQLDB.this instanceof SQLiteDB){
+                                        insertErrors++;
+                                        if( e.getMessage().contains("no such table") && SQLDB.this instanceof SQLiteDB){
                                             Logger.error(getID()+"(db) -> Got no such sqlite table error, trying to resolve...");
                                             try {
                                                 var c = con.createStatement();
@@ -902,10 +911,10 @@ public class SQLDB extends Database implements TableInsert{
                                         if( errors>10) {
                                             Logger.error(getID()+" -(db)> 10x SQL Error:"+e.getMessage() );
                                             Logger.error( "Errorcode:" +e.getErrorCode() );
-                                            Logger.error(getID()+" (db)-> "+SQLDB.this);
                                             ok = false;
                                         }
                                     } catch (Exception e) {
+                                        insertErrors++;
                                         Logger.error(getID()+"(db) -> General Error:"+e);
                                         Logger.error(e);
                                         ok=false;
