@@ -75,8 +75,9 @@ public class RealVal extends AbstractVal implements NumericVal{
         reset();
 
         var dig = XMLdigger.goIn(rtval);
-        unit( dig.attr("unit", "") );
-        scale( dig.attr("scale", -1)) ;
+        unit( dig.attr("unit", dig.peekAt("unit").value("")) );
+        scale( dig.attr("scale", dig.peekAt("scale").value(-1)) ) ;
+
         defValue( dig.attr("default", defVal) );
         defValue( dig.attr("def", defVal) );
 
