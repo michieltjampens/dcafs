@@ -370,7 +370,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			Logger.info( id+"(mqtt) -> Connection lost but still work to do, reconnecting...");
 			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
 		}else{
-			Logger.warn( id+"(mqtt) -> Connection lost because of "+cause.getMessage());
+			Logger.warn( id+"(mqtt) -> "+cause.getMessage());
 		}
 	}
 	@Override

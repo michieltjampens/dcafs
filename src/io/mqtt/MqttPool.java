@@ -275,7 +275,9 @@ public class MqttPool implements Commandable {
                     //cmds[2] += cmds[2].endsWith("#")?"":"#"; // Make sure it ends on the wildcard
                     fab.alterChild("store").attr("generate",cmds[2]).build();
                     worker.setGenerateStore(cmds[2]);
-                    return "Generating store on receiving topic updates.";
+                    if( cmds[2].endsWith("#"))
+                        return "Generating store on receiving topic updates.";
+                    return "Generating store on receiving topic updates, Note: no wildcard in topic!";
                 }
                 case "store" ->{
                     if (cmds.length < 4)

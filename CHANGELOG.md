@@ -9,16 +9,29 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.10.1 (wip)
+## 2.11.0 (wip)
 - The raw age check now ignores empty files (on startup tinylog creates a file before it has data to write).
 - Will now log an error if a commandable with same id is added. For example, taskmanager and stream share an id.
 - Fixed, realval couldn't get an op via node.
+
+### Telnet
+- Fixed, telnet start cmd was executed but result not requested nor worked well with default id.
+- Added `id?` cmd to request current id.
+- Added `es`, adds the elapsed time since last received data.
 
 ### MQTT
 - Fixed, addbroker cmd didn't write to xml.
 - Fixed, if the default topic didn't end with /, none was added.
 - Removed use of label.
-- Breaking, renamed defaulttopic to roottopic.
+- If a topic contains \ it will be replaced with /
+- Added cmd mqtt:brokerid,generate,topic this will generate store entries for messages received
+that match the topic (use wildcard!). Data received will determine data type: int,real or txt.
+- Breaking, removed the use of defaulttopic. Added more possible confusion than actual use.
+
+### Valstore
+- db attribute now allows multiple tables and multiple id:table sets. Can be handy if a single store
+needs to write to multiple tables.Mo
+  - For example db="db1:table1,table2" or db="db1:table1;db2:table2"
 
 ## 2.10.0 (14/06/24)
 

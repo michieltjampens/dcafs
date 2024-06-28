@@ -161,7 +161,7 @@ public class RealtimeValues implements Commandable {
 	}
 	/* ************************************ R E A L V A L ***************************************************** */
 	/**
-	 * Add a RealVal to the collection if it doesn't exist yet, optionally writing it to xml
+	 * Add a RealVal to the collection if it doesn't exist yet
 	 * @param rv The RealVal to add
 	 * @return RESULT.OK if ok, RESULT.EXISTS if already existing, RESULT.ERROR if something went wrong
 	 */
