@@ -242,7 +242,7 @@ public class SQLiteDB extends SQLDB{
             }
 
             try( Statement stmt = con.createStatement() ){
-                ResultSet rs = stmt.executeQuery("PRAGMA table_info("+table.getName()+");");
+                ResultSet rs = stmt.executeQuery("PRAGMA table_info(\""+table.getName()+"\");");
                 if (rs != null) {
                     try {                                        
                         while (rs.next()) {                        

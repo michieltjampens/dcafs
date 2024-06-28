@@ -363,10 +363,10 @@ public class SqlTable{
      */
     public String toString() {
         if( columns.isEmpty() ) {
-            return "CREATE TABLE" + (ifnotexists ? " IF NOT EXISTS " : " ") + name+";";
+            return "CREATE TABLE" + (ifnotexists ? " IF NOT EXISTS " : " ")+"\"" + name+"\";";
         }
         StringJoiner join = new StringJoiner(", ",
-                "CREATE TABLE " + (ifnotexists ? "IF NOT EXISTS" : "") + " " + name + " (", " );");
+                "CREATE TABLE " + (ifnotexists ? "IF NOT EXISTS" : "") + " \"" + name + "\" (", " );");
         columns.forEach(x -> join.add(x.toString()));
         return join.toString();
     }
