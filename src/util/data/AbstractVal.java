@@ -58,7 +58,11 @@ public abstract class AbstractVal {
         var group = dig.attr("group","");
         if( group.isEmpty() ){ // If none defined, check the parent node
             dig.goUp();
-            group = dig.attr("group","");
+            if( dig.tagName("").equalsIgnoreCase("group")){
+                group = dig.attr("id","");
+            }else {
+                group = dig.attr("group", "");
+            }
         }
         if( group.isEmpty()){ // If neither of the three options, this failed
             if( altGroup.isEmpty()) {
