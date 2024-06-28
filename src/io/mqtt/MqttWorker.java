@@ -1,10 +1,12 @@
 package io.mqtt;
 
 import io.Writable;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.tinylog.Logger;
-import util.data.AbstractVal;
+import util.data.*;
+import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,21 +40,27 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private String id; // Name/if/title for this worker
 	private String brokerAddress = ""; // The address of the broker
 	private final String clientId; // Client id to use for the broker
-	private final String rootTopic; // The defaulttopic for this broker, will be prepended to publish/subscribe etc
 	private boolean publishing = false; // Flag that shows if the worker is publishing data
 	private boolean connecting = false; // Flag that shows if the worker is trying to connect to the broker
 
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // Scheduler for the publish and
 																						// connect class
-	private final Map<String, AbstractVal> subscriptions = new HashMap<>(); // Map containing all the subscriptions
+	private final Map<String, AbstractVal> valReceived = new HashMap<>(); // Map containing all the subscriptions
+	private final ArrayList<String> subscriptions = new ArrayList<>();
 	private final Map<String, String> provide = new HashMap<>();
 	private final ArrayList<Writable> targets = new ArrayList<>();
 
-	public MqttWorker( String id, String address, String clientId, String rootTopic) {
+	private RealtimeValues rtvals;
+	private boolean hasWildcard=false;
+	private BlockingQueue<Datagram> dQueue;
+	private String storeTopic="";
+
+	public MqttWorker(String id, String address, String clientId, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
 		this.id=id;
 		setBrokerAddress(address);
 		this.clientId=clientId;
-		this.rootTopic = rootTopic +(rootTopic.endsWith("/")?"":"/"); // append / if it doesn't have it
+		this.rtvals=rtvals;
+		this.dQueue=dQueue;
 	}
 	/**
 	 * Set the id of this worker
@@ -133,7 +141,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			Logger.error(e);
 		}
 		// Subscriptions
-		for( String key : subscriptions.keySet() ){
+		for( String key : subscriptions ){
 			subscribe( key );
 		}
 	}	
@@ -144,15 +152,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 * @return 0 if failed to add, 1 if ok, 2 if added but not send to broker
 	 */
 	public int addSubscription( String topic ){
-		if( topic==null){
-			Logger.error(id+"(mqtt) -> Invalid topic");
-			return 0;
-		}
-		if( rootTopic.endsWith("/") && topic.startsWith("/") )
-			topic = topic.substring(1);			
-		
-		subscriptions.put(topic,null);
-		return subscribe( topic );
+		return addSubscription( topic,null );
 	}
 	/**
 	 * Subscribe to a given topic on the associated broker and store the received data in the val.
@@ -165,10 +165,16 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			Logger.error(id+"(mqtt) -> Invalid topic");
 			return 0;
 		}
-		if( rootTopic.endsWith("/") && topic.startsWith("/") )
-			topic = topic.substring(1);
+		topic = topic.replace("\\","/"); // Make sure the correct one is used
+		if( subscriptions.contains(topic) )
+			return 2;
 
-		subscriptions.put(topic, val);
+		subscriptions.add(topic);
+		if( val != null)
+			valReceived.put(topic,val);
+
+		if( topic.contains("#"))
+			hasWildcard=true;
 		return subscribe( topic );
 	}
 	/**
@@ -179,10 +185,13 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	public boolean removeSubscription( String topic ){
 
 		if( topic.equals("all")){
-			subscriptions.keySet().removeIf(this::unsubscribe);
+			subscriptions.removeIf(this::unsubscribe);
+			hasWildcard=false;
 			return subscriptions.isEmpty();
 		}else{
-			if( subscriptions.remove(topic) != null){
+			if( subscriptions.remove(topic) ){
+				if( subscriptions.isEmpty() || subscriptions.stream().noneMatch(tp->tp.contains("#")))
+					hasWildcard=false;
 				unsubscribe( topic );
 				return true;
 			}
@@ -198,9 +207,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( subscriptions.isEmpty() )
 			return "No active subscriptions"+nl;
 		StringJoiner join = new StringJoiner(nl,"  Subs"+nl,nl);
-		subscriptions.forEach(
-			(topic,label) -> join.add("  ==> "+ rootTopic +topic)
-		);
+		subscriptions.forEach( sub -> join.add("  ==> "+ sub) );
 		return join.toString();
 	}
 	/**
@@ -218,8 +225,8 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			}
 		} else{
 			try {
-				Logger.info( id+"(mqtt) -> Subscribing to "+ rootTopic +topic);
-				client.subscribe( rootTopic + topic );
+				Logger.info( id+"(mqtt) -> Subscribing to "+ topic);
+				client.subscribe( topic );
 				return 1;
 			} catch (MqttException e) {
 				Logger.error(e);
@@ -234,8 +241,8 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 */	
 	private boolean unsubscribe( String topic ){
 		try {
-			Logger.info( id+"(mqtt) -> Unsubscribing from "+ rootTopic +topic);
-			client.unsubscribe(rootTopic + topic);
+			Logger.info( id+"(mqtt) -> Unsubscribing from "+ topic);
+			client.unsubscribe(topic);
 		} catch (MqttException e) {
 			Logger.error(e);
 			return false;
@@ -244,13 +251,19 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	}
 
 	/**
-	 *
-	 * @param rtval The rtval to send to the broker.
 	 * @param topic The topic the rtval data is attached to.
+	 * @param rtval The rtval to send to the broker.
 	 */
-	public void addProvide( String rtval, String topic){
+	public void addProvide( String topic,String rtval ){
 		if( !topic.equalsIgnoreCase(rtval))
 			provide.put(rtval,topic);
+	}
+	public void setGenerateStore( String topic ){
+		if( topic.isEmpty() )
+			return;
+		topic = topic.replace("\\","/"); // Make sure the correct slash is used.
+		addSubscription(topic);
+		storeTopic=topic;
 	}
 	/* ****************************************** R E C E I V I N G  ************************************************ */
 
@@ -258,12 +271,50 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	public void messageArrived(String topic, MqttMessage message) {
 
 		String load = new String(message.getPayload());	// Get the payload
-		Logger.debug("Rec: "+topic+" load:"+load);
+		Logger.info("Rec: "+topic+" load:"+load);
 		Logger.tag("RAW").warn(id+"\t"+topic+"\t"+load);  // Store it like any other received data
 
-		var rtval = subscriptions.get(topic.substring(rootTopic.length()));
+		var rtval = valReceived.get(topic);
 		if( rtval != null ){
 			rtval.parseValue(load);
+		}else if( !storeTopic.isEmpty()){ //
+			var key = storeTopic.substring(0,storeTopic.indexOf("#"));
+			if( key.isEmpty() || topic.startsWith(key)){
+				var split = topic.split("/"); // split it in parts, we only want last two
+				if(split.length<2) {
+					Logger.warn(id+"(mqtt) -> Received topic for the genstore, but not enough elements -> "+topic);
+				}else {
+					var group = split[split.length - 2];
+					var name = split[split.length - 1];
+
+					var val = rtvals.getAbstractVal(group + "_" + name);
+					if (val.isPresent()) {
+						valReceived.put(topic, val.get());
+					} else {
+						// Figure out if its int,real or text?
+						if (NumberUtils.isParsable(load)) { // So int or real
+							if (load.contains(".") || load.contains(",")) { // so real
+								var real = RealVal.newVal(group, name);
+								real.parseValue(load);
+								rtvals.addRealVal(real);
+								valReceived.put(topic, real);
+								dQueue.add(Datagram.system("mqtt:" + id + ",store,real," + real.id() + "," + topic));
+							} else { // int
+								var i = IntegerVal.newVal(group, name);
+								i.parseValue(load);
+								rtvals.addIntegerVal(i);
+								valReceived.put(topic, i);
+								dQueue.add(Datagram.system("mqtt:" + id + ",store,int," + i.id() + "," + topic));
+							}
+						} else { // So text
+							var txt = TextVal.newVal(group, name).value(load);
+							rtvals.addTextVal(txt);
+							valReceived.put(topic, txt);
+							dQueue.add(Datagram.system("mqtt:" + id + ",store,txt," + txt.id() + "," + topic));
+						}
+					}
+				}
+			}
 		}
 		if( !targets.isEmpty() )
 			targets.removeIf(dt -> !dt.writeLine( load ) );
@@ -296,7 +347,6 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if (client == null)
 			return false;
 		return client.isConnected();
-		
 	}
 
 	/**
@@ -317,10 +367,10 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	@Override
 	public void connectionLost(Throwable cause) {
 		if (!mqttQueue.isEmpty() && !subscriptions.isEmpty()) {
-			Logger.debug( id+"(mqtt) -> Connection lost but still work to do, reconnecting...");
+			Logger.info( id+"(mqtt) -> Connection lost but still work to do, reconnecting...");
 			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
 		}else{
-			Logger.warn( id+"(mqtt) -> Connection lost.");
+			Logger.warn( id+"(mqtt) -> Connection lost because of "+cause.getMessage());
 		}
 	}
 	@Override
@@ -333,12 +383,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		connecting=false;
 		String subs="";
 		try {
-			for( String sub:subscriptions.keySet() ){
-				subs=sub;
-				client.subscribe( rootTopic +sub );
+			for( String sub:subscriptions ){
+				subs=sub; // Purely to know when the error occurred
+				client.subscribe( sub );
 			}
 		} catch (MqttException e) {
-			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+ rootTopic +subs);
+			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+ subs);
 		}
 		if( !mqttQueue.isEmpty() )
 			scheduler.schedule( new Publisher(),0,TimeUnit.SECONDS);
@@ -383,7 +433,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 					}
 					if( work.isInvalid())
 						continue;
-					client.publish(rootTopic + work.getTopic(), work.getMessage() );
+					client.publish( work.getTopic(), work.getMessage() );
 				} catch (InterruptedException e) {
 					Logger.error(e);
 					// Restore interrupted state...

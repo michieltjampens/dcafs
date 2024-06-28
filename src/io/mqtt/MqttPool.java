@@ -70,9 +70,8 @@ public class MqttPool implements Commandable {
             var id = broker.attr("id","general");
             var addr = broker.peekAt("address").value("");
             var clientid = broker.peekAt("clientid").value("");
-            var defTopic = broker.peekAt("roottopic").value("");
 
-            var worker = new MqttWorker( id,addr,clientid,defTopic );
+            var worker = new MqttWorker( id, addr, clientid, rtvals, dQueue );
 
             broker.peekOut("subscribe").forEach( sub -> {
                 worker.addSubscription(sub.getTextContent());
@@ -80,6 +79,7 @@ public class MqttPool implements Commandable {
 
             if( broker.hasPeek( "store")){
                 broker.digDown("store");
+                worker.setGenerateStore(broker.attr("generate",""));
                 broker.peekOut("*").forEach( rtval -> {
                     var topic = rtval.getAttribute("topic");
                     var group = rtval.getAttribute("group");
@@ -118,7 +118,7 @@ public class MqttPool implements Commandable {
                     }else{
                         var topic = sub.getAttribute("provide");
                         if( !topic.isEmpty())
-                            worker.addProvide(sub.getTextContent(),topic);
+                            worker.addProvide(topic,sub.getTextContent());
                     }
                 });
             }
@@ -154,8 +154,9 @@ public class MqttPool implements Commandable {
                             .add(green + "   mqtt:brokerid,unsubscribe,topic " + reg + "-> Unsubscribe from a topic on given broker")
                             .add(green + "   mqtt:brokerid,unsubscribe,all " + reg + "-> Unsubscribe from all topics on given broker");
                     join.add(cyan + "Rtvals" + reg)
-                            .add(green + "   mqtt:id,provide,rtval<,topic> " + reg + "-> Provide a certain rtval to the broker, topic is group/name by default.")
-                            .add(green + "   mqtt:id,store,topic<,rtval> " + reg + "-> Store a certain topic as a rtval, if no rtval is specified topic is used as rtval id");
+                            .add(green + "   mqtt:brokerid,provide,rtval<,topic> " + reg + "-> Provide a certain rtval to the broker, topic is group/name by default.")
+                            .add(green + "   mqtt:brokerid,store,type,topic<,rtval> " + reg + "-> Store a certain topic as a rtval, if no rtval is specified topic is used as rtval id")
+                            .add(green + "   mqtt:brokerid,generate,topic "+reg+"-> Generate store entries based on received messages after subscribing to topic.");
                     join.add(cyan + "Send & Receive" + reg)
                             .add(green + "   mqtt:id " + reg + "-> Forwards the data received from the given broker to the issuing writable")
                             .add(green + "   mqtt:id,send,topic:value " + reg + "-> Sends the value to the topic of the brokerid");
@@ -182,7 +183,8 @@ public class MqttPool implements Commandable {
                     if (wr == null) {
                         Logger.error("Not a valid writable asking for " + cmds[0]);
                         return "! Not a valid writable asking for " + cmds[0];
-                    } worker.registerWritable(wr);
+                    }
+                    worker.registerWritable(wr);
                     return "Sending data from " + cmds[0] + " to " + wr.id();
                 }
             }
@@ -266,6 +268,14 @@ public class MqttPool implements Commandable {
                         fab.attr("topic",topic);
                     fab.build();
                     return "Provide added";
+                }
+                case "generate" -> {
+                    if (cmds.length < 3)
+                        return "! Wrong amount of arguments -> mqtt:id,generate,topic";
+                    //cmds[2] += cmds[2].endsWith("#")?"":"#"; // Make sure it ends on the wildcard
+                    fab.alterChild("store").attr("generate",cmds[2]).build();
+                    worker.setGenerateStore(cmds[2]);
+                    return "Generating store on receiving topic updates.";
                 }
                 case "store" ->{
                     if (cmds.length < 4)
