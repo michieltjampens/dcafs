@@ -3,6 +3,7 @@ package io.mqtt;
 import io.Writable;
 import io.telnet.TelnetCodes;
 import das.Commandable;
+import util.data.AbstractVal;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
 import util.xml.XMLdigger;
@@ -80,32 +81,34 @@ public class MqttPool implements Commandable {
             if( broker.hasPeek( "store")){
                 broker.digDown("store");
                 worker.setGenerateStore(broker.attr("generate",""));
-                broker.peekOut("*").forEach( rtval -> {
-                    var topic = rtval.getAttribute("topic");
-                    var group = rtval.getAttribute("group");
-                    if( group.isEmpty())
-                        group = id;
-                    var name = rtval.getAttribute("name");
-                    if( name.isEmpty())
-                        name = rtval.getTextContent();
-                    if( name.isEmpty() || name.contains("<") )
-                        Logger.error(id+"(mqtt) -> No proper name defined for "+rtval.getTagName());
-                    var val = rtvals.getAbstractVal( group+"_"+name);
-                    if( val.isEmpty() ){// doesn't exist yet, add it
-                        if( rtvals.processRtvalElement(rtval,group) ) {
-                            val = rtvals.getAbstractVal( group+"_"+name);
-                            if( val.isPresent()) {
-                                if( worker.addSubscription(topic, val.get())==0){
-                                    Logger.error(id+" (mqtt) -> Failed to add subscription to "+topic);
+
+                broker.digOut("*").forEach( rtval -> {
+                    var topic = rtval.attr("topic","");
+                    if( topic.isEmpty() ) {
+                        Logger.error(id + "(mqtt) -> No valid topic");
+                        return;
+                    }
+                    var groupName = AbstractVal.readGroupAndName(rtval.currentTrusted(),id);
+                    if( groupName == null )
+                        return;
+
+                    var gn = groupName[0]+"_"+groupName[1];
+                    if(rtvals.hasAbstractVal(gn) ) {// doesn't exist yet, add it
+                        var val = rtvals.getAbstractVal( gn);
+                        val.ifPresent(abstractVal -> worker.addSubscription(topic, abstractVal));
+                    }else {
+                        if (rtvals.processRtvalElement(rtval.currentTrusted(), groupName[0]) ) {
+                            var val = rtvals.getAbstractVal(gn);
+                            if (val.isPresent()) {
+                                if (worker.addSubscription(topic, val.get()) == 0) {
+                                    Logger.error(id + " (mqtt) -> Failed to add subscription to " + topic);
                                 }
-                            }else{
-                                Logger.error(id+" (mqtt) -> Failed to read the rtval, after creation? "+group+"_"+name);
+                            } else {
+                                Logger.error(id + " (mqtt) -> Failed to read the rtval, after creation? " + gn);
                             }
-                        }else{
-                            Logger.error(id+" (mqtt) -> Failed to read the rtval "+group+"_"+name);
+                        } else {
+                            Logger.error(id + " (mqtt) -> Failed to read the rtval " + gn);
                         }
-                    }else{
-                        worker.addSubscription(topic,val.get());
                     }
                 });
                 broker.goUp();

@@ -1,6 +1,9 @@
 package util.data;
 
 import io.Writable;
+import org.tinylog.Logger;
+import org.w3c.dom.Element;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.time.Instant;
@@ -30,7 +33,44 @@ public abstract class AbstractVal {
     protected ArrayList<Writable> targets = new ArrayList<>();
 
     enum TRIGGERTYPE {ALWAYS,CHANGED,STDEV,COMP}
-    /* ************************************* Options ******************************************************** */
+    /* ************************************ X M L ************************************************ */
+    public static String[] readGroupAndName(Element rtval,String altGroup ){
+
+        var dig = XMLdigger.goIn(rtval);
+
+        // Get the name
+        var name = dig.attr("name","");
+        if( name.isEmpty()) {
+            if( dig.hasChilds() ){
+                name = dig.peekAt("name").value("");
+            }else{
+                name = dig.value("");
+            }
+            if( name.isEmpty())
+                name = dig.attr("id",name);             // or the attribute id
+        }
+        if( name.isEmpty()){ // If neither of the three options, this failed
+            Logger.error("Tried to create a RealVal without id/name");
+            return null;
+        }
+
+        // Get the group
+        var group = dig.attr("group","");
+        if( group.isEmpty() ){ // If none defined, check the parent node
+            dig.goUp();
+            group = dig.attr("group","");
+        }
+        if( group.isEmpty()){ // If neither of the three options, this failed
+            if( altGroup.isEmpty()) {
+                Logger.error("Tried to create a RealVal without group");
+                return null;
+            }
+            group=altGroup;
+        }
+        // Get the group and return found things
+        return new String[]{group,name};
+    }
+    /* ************************************* Options ********************************************* */
     public void reset(){
         keepTime=false;
         keepHistory=0;

@@ -58,24 +58,13 @@ public class RealVal extends AbstractVal implements NumericVal{
     /**
      * Create a new Realval based on a rtval real node
      * @param rtval The node
-     * @param group The group the node is found in
      * @return The created node, still needs dQueue set
      */
-    public static Optional<RealVal> build(Element rtval, String group){
-        var dig = XMLdigger.goIn(rtval);
-        String name = dig.attr("name",""); // The name is in the attribute name
-        name = dig.attr("id",name);             // or the attribute id
-
-        if( name.isEmpty() && dig.peekOut("*").isEmpty() ) // or not an attribute, but the value/content
-            name = dig.value("");
-
-        if( name.isEmpty()){ // If neither of the three options, this failed
-            Logger.error("Tried to create a RealVal without id/name, group "+group);
+    public static Optional<RealVal> build(Element rtval,String altGroup){
+        var read = readGroupAndName(rtval,altGroup);
+        if( read == null)
             return Optional.empty();
-        }
-        group = dig.attr("group",group); // group in the attribute or the global one
-
-        return Optional.of(RealVal.newVal(group,name).alter(rtval));
+        return Optional.of(RealVal.newVal(read[0],read[1]).alter(rtval));
     }
 
     /**

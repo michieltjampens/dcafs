@@ -44,22 +44,13 @@ public class TextVal extends AbstractVal{
      * Create a new TextVal based on a rtval text node
      * @param rtval The node
      * @param group The group the node is found in
-     * @return The created node, still needs dQueue set
+     * @return The created node
      */
     public static Optional<TextVal> build(Element rtval, String group){
-        var dig = XMLdigger.goIn(rtval);
-        String name = dig.attr("name","");
-        name = dig.attr("id",name);
-        group = dig.attr("group",group);
-
-        if( name.isEmpty() && dig.peekOut("*").isEmpty() )
-            name = dig.value("");
-
-        if( name.isEmpty()){
-            Logger.error("Tried to create a TextVal without id/name, group "+group);
+        var read = readGroupAndName(rtval,group);
+        if( read == null)
             return Optional.empty();
-        }
-        return Optional.of(TextVal.newVal(group,name).reload(rtval));
+        return Optional.of(TextVal.newVal(read[0],read[1]).reload(rtval));
     }
     public TextVal makeLocalDT(){
         type=TYPE.LOCALDT;

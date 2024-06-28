@@ -42,19 +42,10 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
     /* **************************** C O N S T R U C T I N G ******************************************************* */
     public static Optional<FlagVal> build(Element rtval, String group){
-        var dig = XMLdigger.goIn(rtval);
-        String name = dig.attr("name","");
-        name = dig.attr("id",name);
-        group = dig.attr("group",group);
-
-        if( name.isEmpty() && dig.peekOut("*").isEmpty() )
-            name = dig.value("");
-
-        if( name.isEmpty()) {
-            Logger.error("Tried to create a FlagVal without id/name, group " + group);
+        var read = readGroupAndName(rtval,group);
+        if( read == null)
             return Optional.empty();
-        }
-        return Optional.of(FlagVal.newVal(group,name).reload(rtval));
+        return Optional.of(FlagVal.newVal(read[0],read[1]).reload(rtval));
     }
     public FlagVal reload(Element rtval){
         reset(); // reset is needed if this is called because of reload

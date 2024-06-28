@@ -56,19 +56,12 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      * @return The created node, still needs dQueue set
      */
     public static Optional<IntegerVal> build(Element rtval, String group){
-        var dig = XMLdigger.goIn(rtval);
-        String name = dig.attr("name","");
-        name = dig.attr("id",name);
-        group = dig.attr("group",group);
 
-        if( name.isEmpty() && dig.peekOut("*").isEmpty() )
-            name = dig.value("");
-
-        if( name.isEmpty()){
-            Logger.error("Tried to create a IntegerVal without name, group "+group);
+        var read = readGroupAndName(rtval,group);
+        if( read == null)
             return Optional.empty();
-        }
-        return Optional.of(IntegerVal.newVal(group,name).alter(rtval));
+
+        return Optional.of(IntegerVal.newVal(read[0],read[1]).alter(rtval));
     }
 
     /**
@@ -78,7 +71,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public IntegerVal alter( Element rtval ){
         reset();
         var dig = XMLdigger.goIn(rtval);
-        unit( dig.attr("unit","") );
+        unit( dig.attr("unit", dig.peekAt("unit").value("")) );
         defValue( dig.attr( "def", defVal) );
         defValue( dig.attr( "default", defVal) );
         roundDoubles = dig.attr("allowreal",false);
