@@ -324,6 +324,15 @@ public class XMLdigger {
         return XMLtools.getChildElements(last);
     }
 
+    /**
+     * Check if the current node has any child nodes
+     * @return True if it does
+     */
+    public boolean hasChilds(){
+        if( !valid )
+            return false;
+        return !XMLtools.getChildElements(last).isEmpty();
+    }
 
     /**
      * Iterate through the siblings found
