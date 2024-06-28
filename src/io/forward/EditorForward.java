@@ -48,6 +48,10 @@ public class EditorForward extends AbstractForward{
 
         for( var edit:edits){
             data = edit.apply(data);
+            if( data == null ){
+                Logger.error(id+"(ef) -> Editor step failed, stopped processing.");
+                return true; // Still accept new data
+            }
         }
 
         if( debug ){ // extra info given if debug is active
@@ -231,17 +235,17 @@ public class EditorForward extends AbstractForward{
             String[] items = input.split(deli);
             if( index > items.length ){
                 Logger.error( id +"(ef) -> (ListReplace) Not enough elements after split of "+input);
-                return input;
+                return null;
             }
             int pos = NumberUtils.toInt(items[index],Integer.MAX_VALUE);
             if( pos == Integer.MAX_VALUE){
                 Logger.error(id+" (ef) -> (ListReplace) Parsing to int failed for "+items[index]);
-                return input;
+                return null;
             }
             pos = pos-first;
             if( pos <0 || pos > opts.length){
                 Logger.error( id+" (ef) -> (ListReplace) Invalid index for the list ("+pos+")");
-                return input;
+                return null;
             }
             items[index]=opts[pos];
             return String.join(deli,items);
@@ -267,7 +271,7 @@ public class EditorForward extends AbstractForward{
         {
             if(indexes.get(indexes.size()-1) > input.length()){
                 Logger.error(id+ "(ef) Can't split "+input+" if nothing is at "+indexes.get(indexes.size()-1));
-                return input;
+                return null;
             }
             try {
                 StringJoiner result = new StringJoiner(delimiter);
@@ -281,7 +285,7 @@ public class EditorForward extends AbstractForward{
             }catch( ArrayIndexOutOfBoundsException e){
                 Logger.error(id+ "(ef) Failed to apply charsplit on "+input);
             }
-            return input;
+            return null;
         };
         edits.add(edit);
     }
@@ -293,8 +297,8 @@ public class EditorForward extends AbstractForward{
             if( split.length > index){
                 long millis = NumberUtils.toLong(split[index],-1L);
                 if( millis == -1L ){
-                    Logger.error( id() + " -> Couldn't convert "+split[index]+" to millis");
-                    return input;
+                    Logger.error( id() + "(ef) -> Couldn't convert "+split[index]+" to millis");
+                    return null;
                 }
                 var ins = Instant.ofEpochMilli(millis);
                 try {
@@ -304,17 +308,17 @@ public class EditorForward extends AbstractForward{
                         split[index] = DateTimeFormatter.ofPattern(to).withZone(ZoneId.of("UTC")).format(ins);
                     }
                     if (split[index].isEmpty()) {
-                        Logger.error(id() + " -> Failed to convert datetime " + split[index]);
-                        return input;
+                        Logger.error(id() + "(ef) -> Failed to convert datetime " + split[index]);
+                        return null;
                     }
                     return String.join(delimiter, split);
                 }catch(IllegalArgumentException | DateTimeException e){
-                    Logger.error( id() + " -> Invalid format in millis to date: "+to+" -> "+e.getMessage());
-                    return input;
+                    Logger.error( id() + "(ef) -> Invalid format in millis to date: "+to+" -> "+e.getMessage());
+                    return null;
                 }
             }
-            Logger.error(id+" -> To few elements after split for redate");
-            return input;
+            Logger.error(id+"(ef) -> To few elements after split for millistodate in "+input);
+            return null;
         };
         edits.add(edit);
     }
@@ -339,13 +343,13 @@ public class EditorForward extends AbstractForward{
             if( split.length > index){
                 split[index] = TimeTools.reformatDate(split[index], from, to);
                 if( split[index].isEmpty()) {
-                    Logger.error( id() + " -> Failed to convert datetime "+split[index]);
-                    return input;
+                    Logger.error( id() + " -> Failed to convert datetime "+input.split(deli)[index]);
+                    return null;
                 }
                 return String.join(deli,split);
             }
-            Logger.error(id+" -> To few elements after split for redate");
-            return input;
+            Logger.error(id+" -> To few elements after split for redate in "+input);
+            return null;
         };
         edits.add(edit);
     }
@@ -369,12 +373,14 @@ public class EditorForward extends AbstractForward{
             String[] split = input.split(deli);
             if( split.length > index){
                 split[index] = TimeTools.reformatTime(split[index],from,to);
-                if( split[index].isEmpty())
-                    return input;
+                if( split[index].isEmpty()) {
+                    Logger.error(id+"(ef) -> Tried to retime "+input+" but no such index "+index);
+                    return null;
+                }
                 return String.join(deli,split);
             }
-            Logger.error(id+" -> To few elements after split for redate");
-            return input;
+            Logger.error(id+" -> To few elements after split for retime in "+input);
+            return null;
         };
         edits.add(edit);
     }
@@ -441,7 +447,8 @@ public class EditorForward extends AbstractForward{
                         join.add( ValTools.parseRTline(filler[a+1],error,rtvals));
                     inputEles[indexes[a]] = null;
                 }catch( IndexOutOfBoundsException e){
-                    Logger.error("Out of bounds when processing: "+input);
+                    Logger.error(id+"(ef) -> Out of bounds when processing: "+input);
+                    return null;
                 }
             }
             if( indexes.length!=inputEles.length && append){
@@ -458,7 +465,7 @@ public class EditorForward extends AbstractForward{
     }
     private void addIndexReplace( int index, String delimiter, String value ){
         if( index==-1) {
-            Logger.error("Invalid index given for indexreplace/removeindex");
+            Logger.error(id+"(ef) -> Invalid index given for indexreplace/removeindex");
             return;
         }
         if( value.isEmpty() ) {
@@ -477,7 +484,8 @@ public class EditorForward extends AbstractForward{
                     if (index < list.size()) {
                         list.remove(index);
                     } else {
-                        Logger.error("Tried to remove index " + index + " from " + input + " but no such thing.");
+                        Logger.error(id+"(ef) -> Tried to remove index " + index + " from " + input + " but no such thing.");
+                        return null;
                     }
                     return String.join(delimiter, list);
                 });
@@ -510,7 +518,13 @@ public class EditorForward extends AbstractForward{
     }
     private void addInsert( int position, String addition ){
         rulesString.add( new String[]{"","insert","add:"+addition+" at "+position} );
-        edits.add( input -> input.substring(0,position)+addition+input.substring(position) );
+        edits.add( input -> {
+            if( input.length() < position ) {
+                Logger.error(id+"(ef) -> Tried to insert "+addition+" at "+position+" but input string to short -> >"+input+"<");
+                return null;
+            }
+            return input.substring(0,position)+addition+input.substring(position);
+        } );
     }
     private void addReplacement( String find, String replace){
         edits.add( input -> input.replace(Tools.fromEscapedStringToBytes(find),Tools.fromEscapedStringToBytes(replace)) );
@@ -531,11 +545,11 @@ public class EditorForward extends AbstractForward{
     }
     private void addCutStart(int characters ){
         rulesString.add( new String[]{"","cropstart","remove "+characters+" chars from start of data"} );
-        edits.add( input -> input.length()>characters?input.substring(characters):"" );
+        edits.add( input -> input.length()>characters?input.substring(characters):null );
     }
     private void addCutEnd( int characters ){
         rulesString.add( new String[]{"","cutend","remove "+characters+" chars from end of data"} );
-        edits.add( input -> input.length()>characters?input.substring(0,input.length()-characters):"" );
+        edits.add( input -> input.length()>characters?input.substring(0,input.length()-characters):null );
     }
     private void converToAscii(String delimiter){
         rulesString.add( new String[]{"","tochar","convert delimited data to char's"} );
