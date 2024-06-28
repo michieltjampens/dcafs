@@ -65,7 +65,8 @@ public class EditorForward extends AbstractForward{
 
         if( store !=null ) {
             store.apply(data);
-            tableInserters.forEach(ti -> ti.insertStore(store.dbTable()));
+            for( var dbInsert:store.dbInsertSets())
+                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
         }
         // If there are no targets, no label, this no longer needs to be a target
         if( targets.isEmpty() && !log && store==null){

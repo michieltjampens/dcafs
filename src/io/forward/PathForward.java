@@ -219,10 +219,8 @@ public class PathForward {
                         var store = storeOpt.get();
                         var fw = stepsForward.get(stepsForward.size()-1);
                         fw.setStore(store);
-                        var ids = store.dbIds().split(",");
-                        for( var dbid : ids ){
-                            dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+store.dbTable()).payload(fw));
-                        }
+                        for( var db : store.dbInsertSets() )
+                            dQueue.add( Datagram.system("dbm:"+db[0]+",tableinsert,"+db[1]).payload(fw));
                         reqData=true;
                     }
                     leftover=true; // Reminder that a store was processed last

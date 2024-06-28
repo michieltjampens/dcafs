@@ -46,7 +46,8 @@ public class FilterForward extends AbstractForward {
 
             if( store !=null ) {
                 store.apply(data);
-                tableInserters.forEach(ti -> ti.insertStore(store.dbTable()));
+                for( var dbInsert:store.dbInsertSets())
+                    tableInserters.forEach(ti -> ti.insertStore(dbInsert));
             }
         }else{
             reversed.forEach( t-> t.writeLine(data) );

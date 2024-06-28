@@ -175,11 +175,4 @@ public abstract class Database{
      */
     public abstract void addQuery(String query);
 
-    /**
-     * Insert the current content of the store in the table
-     * @param table The name of the table
-     * @return True If successful
-     */
-    public abstract boolean insertStore(String table);
-
 }

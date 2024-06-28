@@ -55,7 +55,10 @@ public class StoreCollector extends AbstractCollector {
     protected boolean addData(String data) {
         if( store !=null ) {
             store.apply(data);
-            tis.forEach(ti -> ti.insertStore(store.dbTable()));
+            tis.forEach(ti -> {
+                for( var db : store.dbInsertSets())
+                    ti.insertStore(db);
+            });
         }else{
             Logger.error(id+" -> Forward without a valid store...");
             return false;
@@ -88,26 +91,15 @@ public class StoreCollector extends AbstractCollector {
      * @return True if it does
      */
     public boolean needsDB(){
-        return store!=null && !store.dbIds().isEmpty();
+        return store!=null && !store.dbInsertSets().isEmpty();
     }
-
-    /**
-     * Get the table name this store writes to
-     * @return The name of the table or empty if none
-     */
-    public String dbTable(){
-        if( store==null)
-            return "";
-        return store.dbTable();
-    }
-
     /**
      * The id's that this store writes to
      * @return An array containing the id's or empty if none
      */
-    public String[] dbids(){
+    public ArrayList<String[]> dbInsertSets(){
         if( store==null)
-            return new String[0];
-        return store.dbIds().split(",");
+            return new ArrayList<>();
+        return store.dbInsertSets();
     }
 }

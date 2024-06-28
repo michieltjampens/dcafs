@@ -27,7 +27,7 @@ public class SQLDB extends Database implements TableInsert{
     protected Connection con = null; // Database connection
 
     DBTYPE type;                                  // The type of database this object connects to
-    enum DBTYPE {MSSQL,MYSQL,MARIADB, POSTGRESQL} // Supported types
+    public enum DBTYPE {MSSQL,MYSQL,MARIADB, POSTGRESQL} // Supported types
 
     boolean busySimple =false;   // Busy with the executing the simple queries
     boolean busyPrepared =false; // Busy with executing the prepared statement queries
@@ -464,21 +464,25 @@ public class SQLDB extends Database implements TableInsert{
     public void buildStores( RealtimeValues rtvals ){
         tables.values().forEach(x->x.buildStore(rtvals));
     }
-    public synchronized boolean insertStore(String table ) {
+    public synchronized boolean insertStore(String[] dbInsert ) {
+        if( !id.equalsIgnoreCase(dbInsert[0])) {
+            Logger.warn(id+"(db) -> Mismatch between insert id and current db");
+            return false;
+        }
         if (!hasRecords())
             firstPrepStamp = Instant.now().toEpochMilli();
 
-        if( getTable(table).isEmpty() ){
-            Logger.error(id+"(db) ->  No such table <"+table+">");
+        if( getTable(dbInsert[1]).isEmpty() ){
+            Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+">");
             return false;
         }
 
-        if (getTable(table).map(t -> t.insertStore("")).orElse(false)) {
+        if (getTable(dbInsert[1]).map(t -> t.insertStore("")).orElse(false)) {
             if(tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
                 flushPrepared();
             return true;
         }else{
-            Logger.error(id+"(db) -> Build insert failed for <"+table+">");
+            Logger.error(id+"(db) -> Build insert failed for <"+dbInsert[1]+">");
         }
         return false;
     }

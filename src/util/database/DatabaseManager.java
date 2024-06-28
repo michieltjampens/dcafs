@@ -202,11 +202,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
         for( var id : ids.split(",")) {
            for (SQLiteDB sqlite : lites.values()) {
                if (sqlite.getID().equalsIgnoreCase(id))
-                  ok += sqlite.insertStore(table)?1:0;
+                  ok += sqlite.insertStore( new String[]{id,table} )?1:0;
            }
            for (SQLDB sqldb : sqls.values()) {
                if (sqldb.getID().equalsIgnoreCase(id))
-                   ok += sqldb.insertStore(table)?1:0;
+                   ok += sqldb.insertStore( new String[]{id,table} )?1:0;
            }
        }
        return ok==ids.split(",").length;

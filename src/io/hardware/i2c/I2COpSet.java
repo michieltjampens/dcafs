@@ -89,10 +89,8 @@ public class I2COpSet {
                     }else {
                         if (ops.get(ops.size() - 1) instanceof MathForward mf) {
                             mf.setStore(store);
-                            var ids = store.dbIds().split(",");
-                            for (var dbid : ids) {
-                                dQueue.add(Datagram.system("dbm:" + dbid + ",tableinsert," + store.dbTable()).payload(mf));
-                            }
+                            for( var db : store.dbInsertSets() )
+                                dQueue.add( Datagram.system("dbm:"+db[0]+",tableinsert,"+db[1]).payload(mf));
                         } else { // Not added to a math
                             ops.add(store);
                         }

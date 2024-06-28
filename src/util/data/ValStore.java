@@ -13,9 +13,8 @@ public class ValStore {
     private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
     private final ArrayList<AbstractVal> calVal = new ArrayList<>();
     private final ArrayList<String> calOps = new ArrayList<>();
+    private final ArrayList<String[]> dbInsert = new ArrayList<>();
     private String delimiter = ",";
-    private String dbids; // dbid,table
-    private String dbtable;
     private String id;
 
     /* * MAPPED * */
@@ -24,6 +23,7 @@ public class ValStore {
     private boolean idleReset=false;
     private boolean valid=true;
     private String lastKey=""; // Last key trigger db store
+
     public ValStore(String id){
         this.id=id;
     }
@@ -39,16 +39,23 @@ public class ValStore {
     }
     public void db( String db, String table ){
         Logger.info( id+" (Store) -> DB set to "+db+"->"+table);
-        dbids=db;
-        dbtable=table;
+        if( dbInsert.isEmpty()) {
+            dbInsert.add(new String[]{db, table});
+        }else{
+            dbInsert.set(0,new String[]{db, table});
+        }
     }
     public String db(){
-        if( dbtable.isEmpty())
+        if( dbInsert.isEmpty())
             return "";
-        return dbids+":"+dbtable;
+        var join = new StringJoiner(";");
+        for( var db : dbInsert )
+            join.add(db[0]+":"+db[1]);
+        return join.toString();
     }
-    public String dbTable(){ return dbtable; }
-    public String dbIds(){ return dbids; }
+    public ArrayList<String[]> dbInsertSets(){
+        return dbInsert;
+    }
     public String id(){
         return id;
     }
@@ -103,7 +110,21 @@ public class ValStore {
 
         // Checking for database connection
         if ( store.hasAttribute("db")) {
-            var db = dig.attr("db","").split(":");
+            var db = dig.attr("db","").split(";");
+            for( var dbi : db ){
+                var split = dbi.split(":");
+                if( split[0].contains(",")&&split[1].contains(",")) {
+                    Logger.error( id+"(store) -> Can't have multiple id's and tables defined.");
+                }else if( split[0].contains(",")){ // multiple id's but same tables
+                    for( var id : split[0].split(","))
+                        dbInsert.add( new String[]{id,split[1]});
+                }else if( split[1].contains(",") ){ // multiple tables but same id
+                    for( var table : split[1].split(","))
+                        dbInsert.add( new String[]{split[0],table});
+                }else{ // one of each
+                    dbInsert.add( split );
+                }
+            }
             if( db.length==2 ) {
                 db(db[0],db[1]);
             }else{
@@ -111,8 +132,7 @@ public class ValStore {
             }
         }else{
             Logger.info( id + " -> No database referenced.");
-            dbids="";
-            dbtable="";
+            dbInsert.clear();
         }
 
         // Map

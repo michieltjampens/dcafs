@@ -472,8 +472,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		bs.addTarget(sf); // Make sure the forward is a target of the stream
 		if( sf.needsDB() ){ // If it contains db writing, ask for a link
-			for( var dbid : sf.dbids() ){ // Request the table insert object
-				dQueue.add( Datagram.system("dbm:"+dbid+",tableinsert,"+sf.dbTable()).payload(sf));
+			for( var dbInsert : sf.dbInsertSets() ){ // Request the table insert object
+				dQueue.add( Datagram.system("dbm:"+dbInsert[0]+",tableinsert,"+dbInsert[1]).payload(sf));
 			}
 		}
 		return true;

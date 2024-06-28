@@ -224,7 +224,8 @@ public abstract class AbstractForward implements Writable {
      * @param ti The table insert to add.
      */
     public void addTableInsert( TableInsert ti ){
-        tableInserters.add(ti);
+        if(!tableInserters.contains(ti))
+            tableInserters.add(ti);
     }
     /* *********************** Abstract Methods ***********************************/
     /**

@@ -279,7 +279,8 @@ public class MathForward extends AbstractForward {
                 }
             }
 
-            tableInserters.forEach(ti -> ti.insertStore(store.dbTable()) );
+            for( var dbInsert:store.dbInsertSets())
+                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
             store.doCalVals();
         }
 
@@ -382,7 +383,8 @@ public class MathForward extends AbstractForward {
                     store.setValueAt(a,bds[a]);
                 }
             }
-            tableInserters.forEach(ti -> ti.insertStore(store.dbTable()) );
+            for( var dbInsert:store.dbInsertSets())
+                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
             store.doCalVals();
         }
         return results;
