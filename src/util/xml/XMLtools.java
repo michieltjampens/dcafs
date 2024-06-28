@@ -160,7 +160,7 @@ public class XMLtools {
 			Logger.error(e);
 		}
 		// Change it so everyone can alter the files
-		if( SystemUtils.IS_OS_LINUX && isNew ) {
+		/*if( SystemUtils.IS_OS_LINUX && isNew ) {
 			try {
 				Set<PosixFilePermission> perms = Files.readAttributes(xmlFile, PosixFileAttributes.class).permissions();
 				Logger.info("Permissions before:"+  PosixFilePermissions.toString(perms));
@@ -170,7 +170,7 @@ public class XMLtools {
 			}catch( Exception e){
 				Logger.error(e);
 			}
-		}
+		}*/
 	}
 	/**
 	 * Write the xmldoc to the file it was read from
