@@ -735,6 +735,7 @@ public class RealtimeValues implements Commandable {
 
 		StringJoiner join = new StringJoiner(eol, title + eol, "");
 		join.setEmptyValue("None yet");
+		var list = new ArrayList<String>();
 		ArrayList<NumericVal> nums = new ArrayList<>();
 		if (showReals){
 			nums.addAll(realVals.values().stream().filter(rv -> rv.group().equalsIgnoreCase(group)).toList());
@@ -752,21 +753,28 @@ public class RealtimeValues implements Commandable {
 						}
 					})
 					.map(nv -> {
-					//	if( nv instanceof RealVal)
-					//		return "  " + nv.name() + " : "+ nv.asValueString();
+
 						return "  "+ nv.name() + " : "+applyUnit(nv);
 					} ) // change it to strings
-					.forEach(join::add);
+					.forEach(list::add);
 		}
 		if( showTexts ) {
 			textVals.values().stream().filter( v -> v.group().equalsIgnoreCase(group))
 					.map(v -> "  " + v.name() + " : " + (v.value().isEmpty()?"<empty>":v.value()) )
-					.sorted().forEach(join::add);
+					.sorted().forEach(list::add);
 		}
 		if( showFlags ) {
 			flagVals.values().stream().filter(fv -> fv.group().equalsIgnoreCase(group))
 					.map(v -> "  " + v.name() + " : " + v) //Change it to strings
-					.sorted().forEach(join::add); // Then add the sorted the strings
+					.sorted().forEach(list::add); // Then add the sorted the strings
+		}
+		boolean toggle=false;
+		for( var line : list ){
+			if( !line.contains("Group:") ){
+				line = (toggle?TelnetCodes.TEXT_DEFAULT:TelnetCodes.TEXT_YELLOW)+line;
+				toggle=!toggle;
+			}
+			join.add(line);
 		}
 		return join.toString();
 	}
