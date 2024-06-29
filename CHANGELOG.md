@@ -12,27 +12,44 @@ Note: Version numbering: x.y.z
 ## 2.11.0 (wip)
 - The raw age check now ignores empty files (on startup tinylog creates a file before it has data to write).
 - Will now log an error if a commandable with same id is added. For example, taskmanager and stream share an id.
-- Fixed, realval couldn't get an op via node.
+- Fixed, editor just kept working with the data of the previous step if a step failed, now aborts.
+- Fixed, tablename's can't start with a number if not surrounded by " in queries.
 
 ### Telnet
 - Fixed, telnet start cmd was executed but result not requested nor worked well with default id.
 - Added `id?` cmd to request current id.
 - Added `es`, adds the elapsed time since last received data.
+- Fixed, if the result is 25 lines or longer the output was colored by line. This shouldn't be done
+if it contains telnet codes (fe. st reply).
+- Fixed, if dcafs starts without settings.xml, path for tinylog remained null. Because of this, telnet clients
+couldn't connect.
 
 ### MQTT
 - Fixed, addbroker cmd didn't write to xml.
-- Fixed, if the default topic didn't end with /, none was added.
 - Removed use of label.
 - If a topic contains \ it will be replaced with /
 - Added cmd mqtt:brokerid,generate,topic this will generate store entries for messages received
 that match the topic (use wildcard!). Data received will determine data type: int,real or txt.
 - Breaking, removed the use of defaulttopic. Added more possible confusion than actual use.
+- Can use a group node in store node like global rtvals.
 
 ### Valstore
 - db attribute now allows multiple tables and multiple id:table sets. Can be handy if a single store
 needs to write to multiple tables.Mo
   - For example db="db1:table1,table2" or db="db1:table1;db2:table2"
 
+## Rtvals
+- Fixed, realval couldn't get an op via node.
+- Vals now share the code that reads group/name and name can be attr,content or node.
+- Unit node can now be used as default unit/scale setup for vals.
+```xml
+<rtvals>
+    <!-- If the name of the val matches the nameregex, the unit/scale will be applied -->
+    <!-- This won't overwrite unit/scale settings --> 
+    <unit base="°C" nameregex="temp.*" scale="1" />
+    <unit base="%"  nameregex="hum.*"  scale="1" />
+</rtvals>
+```
 ## 2.10.0 (14/06/24)
 
 This release is mainly a rewrite (again) of the i²c code and expanding on the gpio code. Next major point is adding

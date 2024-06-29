@@ -271,7 +271,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			if( key.isEmpty() || topic.startsWith(key)){
 				var split = topic.split("/"); // split it in parts, we only want last two
 				if(split.length<2) {
-					Logger.warn(id+"(mqtt) -> Received topic for the genstore, but not enough elements -> "+topic);
+					Logger.warn(id+"(mqtt) -> Received topic, but less than two elements -> "+topic);
 				}else {
 					var group = split[split.length - 2];
 					var name = split[split.length - 1];
