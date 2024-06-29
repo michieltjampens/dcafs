@@ -610,6 +610,8 @@ public class Tools {
      * @return Age of last write to the daily raw file or -1 if no or empty file
      */
     public static long getLastRawAge(Path tinypath){
+        if( tinypath==null)
+            return -1;
         var raw = tinypath.resolve("raw").resolve(TimeTools.formatNow("yyyy-MM"));
         try (Stream<Path> stream = Files.list(raw)) {
             var list = stream
