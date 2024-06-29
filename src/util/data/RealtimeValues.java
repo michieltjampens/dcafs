@@ -80,7 +80,7 @@ public class RealtimeValues implements Commandable {
 	 * @param rtval The node to process
 	 * @param group The group of the Val incase none is specified
 	 */
-	public boolean processRtvalElement(Element rtval, String group ){
+	public Optional<AbstractVal> processRtvalElement(Element rtval, String group ){
 		return switch (rtval.getTagName()) {
 			case "double", "real" -> {
 				var r = RealVal.build(rtval,group);
@@ -88,9 +88,9 @@ public class RealtimeValues implements Commandable {
 					var rr = r.get();
 					rr.enableTriggeredCmds(dQueue);
 					realVals.put(rr.id(),rr);
-					yield true;
+					yield Optional.of(rr);
 				}
-				yield false;
+				yield Optional.empty();
 			}
 			case "integer", "int" -> {
 				var i = IntegerVal.build(rtval,group);
@@ -98,9 +98,9 @@ public class RealtimeValues implements Commandable {
 					var ii = i.get();
 					ii.enableTriggeredCmds(dQueue);
 					integerVals.put(ii.id(),ii);
-					yield true;
+					yield Optional.of(ii);
 				}
-				yield false;
+				yield Optional.empty();
 			}
 			case "flag" -> {
 				var f = FlagVal.build(rtval, group);
@@ -108,9 +108,9 @@ public class RealtimeValues implements Commandable {
 					var ff =f.get();
 					ff.enableTriggeredCmds(dQueue);
 					flagVals.put(ff.id(), ff);
-					yield true;
+					yield Optional.of(ff);
 				}
-				yield false;
+				yield Optional.empty();
 			}
 			case "text" -> {
 				var t = TextVal.build(rtval, group);
@@ -118,11 +118,11 @@ public class RealtimeValues implements Commandable {
 					var tt = t.get();
 					tt.enableTriggeredCmds(dQueue);
 					textVals.put(tt.id(), tt);
-					yield true;
+					yield Optional.of(tt);
 				}
-				yield false;
+				yield Optional.empty();
 			}
-			default -> false;
+			default -> Optional.empty();
 		};
 	}
 	private void processUnitElement(Element unit ){
