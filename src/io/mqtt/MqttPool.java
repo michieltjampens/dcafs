@@ -109,7 +109,7 @@ public class MqttPool implements Commandable {
         return true;
     }
     private void processVal( MqttWorker worker, XMLdigger rtval ){
-        var topic = rtval.attr("topic","");
+        var topic = rtval.attr("topic",rtval.peekAt("topic").value("")); // Attr or val
         if( topic.isEmpty() ) {
             Logger.error(worker.id() + "(mqtt) -> No valid topic");
             return;
@@ -123,14 +123,10 @@ public class MqttPool implements Commandable {
             var val = rtvals.getAbstractVal( gn);
             val.ifPresent(abstractVal -> worker.addSubscription(topic, abstractVal));
         }else {
-            if (rtvals.processRtvalElement(rtval.currentTrusted(), groupName[0]) ) {
-                var val = rtvals.getAbstractVal(gn);
-                if (val.isPresent()) {
-                    if (worker.addSubscription(topic, val.get()) == 0) {
-                        Logger.error(worker.id() + " (mqtt) -> Failed to add subscription to " + topic);
-                    }
-                } else {
-                    Logger.error(worker.id() + " (mqtt) -> Failed to read the rtval, after creation? " + gn);
+            var valOpt = rtvals.processRtvalElement(rtval.currentTrusted(), groupName[0]);
+            if ( valOpt.isPresent()) {
+                if (worker.addSubscription(topic, valOpt.get()) == 0) {
+                    Logger.error(worker.id() + " (mqtt) -> Failed to add subscription to " + topic);
                 }
             } else {
                 Logger.error(worker.id() + " (mqtt) -> Failed to read the rtval " + gn);
@@ -293,13 +289,13 @@ public class MqttPool implements Commandable {
                         return "! Wrong amount of arguments -> mqtt:id,store,type,rtval<,topic>";
 
                     var topic = cmds.length==5?cmds[4]:cmds[3].replace("_","/");
-                    var group = cmds[3].contains("_")?cmds[3].split("_")[0]:"";
-                    var name =  cmds[3].contains("_")?cmds[3].split("_")[1]:cmds[3];
+                    var group = cmds[3].contains("_")?cmds[3].substring(0,cmds[3].indexOf("_")):"";
+                    var name =  cmds[3].contains("_")?cmds[3].substring(cmds[3].indexOf("_")+1):cmds[3];
 
                     fab.alterChild("store").down();
-                    fab.addChild(cmds[2]).attr("topic",topic).content(name);
-                    if( !group.isEmpty())
-                        fab.attr("group",group);
+                    fab.selectOrAddChildAsParent("group","id",group);
+                    fab.addChild(cmds[2]).attr("name",name).down();
+                    fab.addChild("topic",topic);
                     fab.build();
                     return "Store added";
                 }
