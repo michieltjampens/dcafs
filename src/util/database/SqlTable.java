@@ -363,10 +363,10 @@ public class SqlTable{
      */
     public String toString() {
         if( columns.isEmpty() ) {
-            return "CREATE TABLE" + (ifnotexists ? " IF NOT EXISTS " : " ")+"\"" + name+"\";";
+            return "CREATE TABLE" + (ifnotexists ? " IF NOT EXISTS " : " ")+"`" + name+"`;";
         }
         StringJoiner join = new StringJoiner(", ",
-                "CREATE TABLE " + (ifnotexists ? "IF NOT EXISTS" : "") + " \"" + name + "\" (", " );");
+                "CREATE TABLE " + (ifnotexists ? "IF NOT EXISTS" : "") + " `" + name + "` (", " );");
         columns.forEach(x -> join.add(x.toString()));
         return join.toString();
     }
@@ -796,7 +796,7 @@ public class SqlTable{
         PrepStatement stat = preps.get("");
 
         StringJoiner qMarks = new StringJoiner(",", "", ");");
-        StringJoiner cols = new StringJoiner(",", "INSERT INTO \"" + name + "\" (", ") VALUES (");
+        StringJoiner cols = new StringJoiner(",", "INSERT INTO `" + name + "` (", ") VALUES (");
         stat.getIndexes().forEach(c -> {
             qMarks.add("?");
             cols.add( columns.get(c).title );
