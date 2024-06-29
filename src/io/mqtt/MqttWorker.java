@@ -347,15 +347,26 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			return false;
 		try {
 			client.disconnect();
+			Logger.info(id+"(mqtt) -> Disconnected after request.");
 		}catch( MqttException e){
 			Logger.error(e);
 			return false;
 		}
 		return true;
 	}
+
+	/**
+	 * Clear all data from the worker to be able to reload it.
+	 * @param rtvals RealtimeValues that hold the ones used by this worker.
+	 */
+	public void clear( RealtimeValues rtvals ){
+		subscriptions.forEach(this::unsubscribe);
+		valReceived.values().forEach(rtvals::removeVal);
+		targets.clear();
+		disconnect();
+	}
 	@Override
 	public void connectionLost(Throwable cause) {
-
 		if (!mqttQueue.isEmpty() && !subscriptions.isEmpty()) {
 			Logger.info( id+"(mqtt) -> Connection lost but still work to do, reconnecting...");
 			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);

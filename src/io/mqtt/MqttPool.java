@@ -60,7 +60,7 @@ public class MqttPool implements Commandable {
     public boolean readXMLsettings() {
 
         // Disconnect current ones if any
-        mqttWorkers.values().forEach(MqttWorker::disconnect);
+        mqttWorkers.values().forEach( worker -> worker.clear(rtvals));
         mqttWorkers.clear(); // Clear to start fresh
 
         var dig = XMLdigger.goIn(settingsFile,"dcafs","mqtt");
