@@ -201,7 +201,6 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         }
         try {
             var res = NumberUtils.createInteger(val.trim());
-            rawValue=res;
             if( parseOp != null) {
                 var dres = parseOp.solveFor((double)res);
                 if( Double.isNaN(dres)) {
@@ -209,7 +208,9 @@ public class IntegerVal extends AbstractVal implements NumericVal{
                 }else{
                     res = (int) dres;
                 }
+
             }
+            rawValue=res;
             value(res);
             return true;
         }catch( NumberFormatException e ){

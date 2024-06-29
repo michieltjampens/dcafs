@@ -152,12 +152,12 @@ public class RealVal extends AbstractVal implements NumericVal{
         var res = NumberUtils.toDouble(val,Double.NaN);
 
         if(!Double.isNaN(res)){
-            rawValue=res;
             if( parseOp != null) {
                 res = parseOp.solveFor(res);
                 if( Double.isNaN(res))
                     Logger.error(id()+" -> Failed to parse "+val+" with "+parseOp.getOri());
             }
+            rawValue=res;
             value(res);
             return true;
         }else if( Double.isNaN(defVal) ){
