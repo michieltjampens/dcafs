@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -615,7 +616,7 @@ public class SqlTable{
                     }
                     case LOCALDTNOW -> {
                         if( server ){
-                            val = OffsetDateTime.now();
+                            val = LocalDateTime.now();
                         }else{
                             var v = rt.get(index);
                             if( v!=null){
@@ -764,7 +765,7 @@ public class SqlTable{
             if( type == COLUMN_TYPE.EPOCH )
                 return title+" REAL" + (unique?" UNIQUE":"") + (notnull?" NOT NULL":"")+(primary?" PRIMARY KEY":"");
             if( (type == COLUMN_TYPE.LOCALDTNOW || type== COLUMN_TYPE.UTCDTNOW)  )
-                return title+" timestamptz" + (unique?" UNIQUE":"") + (notnull?" NOT NULL":"")+(primary?" PRIMARY KEY":"");
+                return title+" DATETIME" + (unique?" UNIQUE":"") + (notnull?" NOT NULL":"")+(primary?" PRIMARY KEY":"");
             return title+" "+type + (unique?" UNIQUE":"") + (notnull?" NOT NULL":"")+(primary?" PRIMARY KEY":"");
         }
     }
