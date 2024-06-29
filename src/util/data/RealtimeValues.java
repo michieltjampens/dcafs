@@ -774,7 +774,7 @@ public class RealtimeValues implements Commandable {
 		if( units.isEmpty())
 			return nv.asValueString();
 		var unit = units.get(nv.unit());
-		if( unit==null)
+		if( unit==null||unit.noSubs())
 			return nv.asValueString();
 		if( nv.getClass() == RealVal.class) {
 			var rv = (RealVal)nv;
@@ -878,6 +878,9 @@ public class RealtimeValues implements Commandable {
 		}
 		public int baseScale(){
 			return baseScale;
+		}
+		public boolean noSubs(){
+			return subs.isEmpty();
 		}
 		public void addStep( String unit, int cnt ){
 			type=TYPE.STEP;
