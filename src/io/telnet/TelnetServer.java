@@ -54,7 +54,7 @@ public class TelnetServer implements Commandable {
         this.dQueue=dQueue;
         this.workerGroup = eventGroup;
         this.settingsPath = settingsPath;
-      //  tinylogPath = settingsPath.getParent();
+        tinylogPath = settingsPath.getParent();
         readSettingsFromXML();
     }
     public String getTitle(){
