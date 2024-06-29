@@ -41,10 +41,7 @@ public class RealtimeValues implements Commandable {
 		this.settingsPath=settingsPath;
 		this.dQueue=dQueue;
 
-		XMLdigger.goIn(settingsPath,"dcafs")
-					.digDown("rtvals")
-					.current()
-				    .ifPresentOrElse(this::readFromXML,() -> Logger.info("No rtvals in settings.xml"));
+		readFromXML( XMLdigger.goIn(settingsPath,"dcafs","rtvals") );
 
 		issuePool = new IssuePool(dQueue, settingsPath,this);
 	}
@@ -53,27 +50,21 @@ public class RealtimeValues implements Commandable {
 	/**
 	 * Read an rtvals node
 	 */
-	public void readFromXML( Element rtvalsEle ){
+	public void readFromXML( XMLdigger dig ){
 
-		var dig = XMLdigger.goIn(rtvalsEle).digDown("*"); // inside the rtvals node
-
-		if( !dig.isValid())
+		if( dig.isInvalid() ) {
+			Logger.info("No rtvals in settings.xml");
 			return;
-
-		Logger.info("Reading rtvals element");
-
-		while ( dig.iterate() ) { // If any found, iterate through vals
-			var groupName = dig.attr("id", ""); // get the node id
-			// Dig down into the group node
-			if( dig.hasTagName("group")) {
-				dig.currentSubs().forEach(rtval -> processRtvalElement(rtval, groupName));
-			}else if( dig.hasTagName("unit")){
-				processUnitElement(dig.currentTrusted());
-			}
 		}
-	}
-	public void readFromXML( XMLfab fab ){
-		readFromXML(fab.getCurrentElement());
+		Logger.info("Reading rtvals");
+		dig.digOut("*").forEach( node -> {
+			if( node.hasTagName("group")) {
+				var groupName = node.attr("id", ""); // get the node id
+				node.currentSubs().forEach(rtval -> processRtvalElement(rtval, groupName));
+			}else if( node.hasTagName("unit")){
+				processUnitElement(node);
+			}
+		});
 	}
 	/**
 	 * Process a Val node
@@ -87,6 +78,15 @@ public class RealtimeValues implements Commandable {
 				if( r.isPresent() ){
 					var rr = r.get();
 					rr.enableTriggeredCmds(dQueue);
+					for( var unit : units.values() ){
+						if( unit.matchesRegex(rr.name) ){
+							if( rr.unit().isEmpty())
+								rr.unit(unit.base);
+							if( rr.scale()!=-1 && unit.baseScale()!=-1)
+								rr.scale(unit.baseScale());
+							break;
+						}
+					}
 					realVals.put(rr.id(),rr);
 					yield Optional.of(rr);
 				}
@@ -97,6 +97,13 @@ public class RealtimeValues implements Commandable {
 				if( i.isPresent() ){
 					var ii = i.get();
 					ii.enableTriggeredCmds(dQueue);
+					for( var unit : units.values() ){
+						if( unit.matchesRegex(ii.name) ){
+							if( ii.unit().isEmpty())
+								ii.unit(unit.base);
+							break;
+						}
+					}
 					integerVals.put(ii.id(),ii);
 					yield Optional.of(ii);
 				}
@@ -125,26 +132,29 @@ public class RealtimeValues implements Commandable {
 			default -> Optional.empty();
 		};
 	}
-	private void processUnitElement(Element unit ){
-		var dig = XMLdigger.goIn(unit);
+	private void processUnitElement(XMLdigger dig ){
+
 		var base = dig.attr("base",""); // Starting point
-		units.put(base, new DynamicUnit(base));
+		var unit = new DynamicUnit(base,dig.attr("scale",-1));
+		unit.setValRegex(dig.attr("nameregex",""));
+
 		if( dig.hasPeek("level")){
 			for( var lvl : dig.digOut("level")){ // Go through the levels
 				var val = lvl.value(""); // the unit
 				var div = lvl.attr("div",1); // the multiplier to go to next step
 				var from = lvl.attr("from",div); // From which value the nex unit should be used
-				units.get(base).addLevel(val,div,from);
+				unit.addLevel(val,div,from);
 			}
 		}else if(dig.hasPeek("step")){
 			for( var step : dig.digOut("step")){ // Go through the steps
 				var val = step.value(""); // the unit
 				var cnt = step.attr("cnt",1); // the multiplier to go to next step
-				units.get(base).addStep(val,cnt);
+				unit.addStep(val,cnt);
 			}
 		}else{
-			Logger.error("No valid subnodes in the unit node for "+base);
+			Logger.warn("No valid subnodes in the unit node for "+base);
 		}
+		units.put(base, unit);
 	}
 	public void removeVal( AbstractVal val ){
 		if( val == null)
@@ -641,7 +651,7 @@ public class RealtimeValues implements Commandable {
 					return join.toString();
 				}
 				case "reload" -> {
-					readFromXML(XMLfab.withRoot(settingsPath, "dcafs", "settings", "rtvals"));
+					readFromXML(XMLdigger.goIn(settingsPath, "dcafs", "rtvals"));
 					return "Reloaded rtvals";
 				}
 				case "groups" -> {
@@ -850,11 +860,24 @@ public class RealtimeValues implements Commandable {
 	}
 	public static class DynamicUnit{
 		String base;
+		int baseScale=-1;
+		String valRegex="";
 		TYPE type = TYPE.STEP;
 		ArrayList<SubUnit> subs = new ArrayList<>();
 		enum TYPE {STEP,LEVEL};
-		public DynamicUnit( String base ){
+
+		public DynamicUnit( String base, int baseScale ){
 			this.base=base;
+			this.baseScale=baseScale;
+		}
+		public void setValRegex( String regex ){
+			this.valRegex=regex;
+		}
+		public boolean matchesRegex(String name){
+			return !valRegex.isEmpty() && name.matches(valRegex);
+		}
+		public int baseScale(){
+			return baseScale;
 		}
 		public void addStep( String unit, int cnt ){
 			type=TYPE.STEP;
