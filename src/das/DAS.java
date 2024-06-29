@@ -731,8 +731,8 @@ public class DAS implements Commandable{
     @Override
     public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
         if( cmd.equalsIgnoreCase("st"))
-            return getStatus(html);            matrixClient = new MatrixClient( dQueue, rtvals, settingsPath );
-        addCommandable(matrixClient,"matrix");
+            return getStatus(html);
+
         return "Unknown command";
     }
     public String payloadCommand( String cmd, String args, Object payload){
