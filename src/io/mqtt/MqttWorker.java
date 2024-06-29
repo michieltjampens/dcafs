@@ -415,7 +415,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 					Logger.info( id+"(mqtt) -> Connected");
 				} catch (MqttException me) {					
 					attempt++;
-					var time = Math.min(attempt*5,60);
+					var time = Math.min(attempt*25+25,120);
 					Logger.warn( id+"(mqtt) -> Failed to connect,  trying again in "+ time+"s. Cause: "+me.getMessage());
 					scheduler.schedule( new Connector(attempt), time, TimeUnit.SECONDS );
 				}
