@@ -9,8 +9,11 @@ Note: Version numbering: x.y.z
 - pf:reload doesn't seem to reload the db tag of a store? 
 - pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
 
-## 2.11.0 (wip)
-- The raw age check now ignores empty files (on startup tinylog creates a file before it has data to write).
+## 2.11.1 (wip)
+
+## 2.11.0 (29/06/2024)
+Earlier than planned because of a telnet issue. Should probably start working with branches...
+
 - Will now log an error if a commandable with same id is added. For example, taskmanager and stream share an id.
 - Fixed, editor just kept working with the data of the previous step if a step failed, now aborts.
 - Fixed, tablename's can't start with a number if not surrounded by " in queries.
@@ -38,7 +41,7 @@ that match the topic (use wildcard!). Data received will determine data type: in
 needs to write to multiple tables.Mo
   - For example db="db1:table1,table2" or db="db1:table1;db2:table2"
 
-## Rtvals
+### Rtvals
 - Fixed, realval couldn't get an op via node.
 - Vals now share the code that reads group/name and name can be attr,content or node.
 - Unit node can now be used as default unit/scale setup for vals.
