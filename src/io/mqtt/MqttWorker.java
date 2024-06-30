@@ -1,13 +1,16 @@
 package io.mqtt;
 
 import io.Writable;
+import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.tinylog.Logger;
 import util.data.*;
+import util.tools.TimeTools;
 import worker.Datagram;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,12 +50,14 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 																						// connect class
 	private final Map<String, AbstractVal> valReceived = new HashMap<>(); // Map containing all the subscriptions
 	private final ArrayList<String> subscriptions = new ArrayList<>();
+	private final ArrayList<Long> subsRecStamp = new ArrayList<>();
 	private final Map<String, String> provide = new HashMap<>();
 	private final ArrayList<Writable> targets = new ArrayList<>();
 
-	private RealtimeValues rtvals;
-	private BlockingQueue<Datagram> dQueue;
+	private final RealtimeValues rtvals;
+	private final BlockingQueue<Datagram> dQueue;
 	private String storeTopic="";
+	private long ttl=-1L;
 
 	public MqttWorker(String id, String address, String clientId, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
 		this.id=id;
@@ -89,13 +94,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	/* ************************************ Q U E U E ************************************************************* **/
 	/**
 	 * Give work to the worker, it will be placed in the queue
-	 * 
+	 *
 	 * @param work The work to do
-	 * @return true if the work was accepted
 	 */
-	public boolean addWork(MqttWork work) {
+	public void addWork(MqttWork work) {
 		if( work.isInvalid() )
-			return false;
+			return;
 		mqttQueue.add(work);
 		if (!client.isConnected()) { // If not connected, try to connect
 			if (!connecting) {
@@ -106,7 +110,6 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			publishing = true;
 			scheduler.schedule( new Publisher(), 0, TimeUnit.SECONDS);
 		}
-		return true;
 	}
 	public void addWork(String topic, String value){
 		addWork(new MqttWork(topic, value));
@@ -138,7 +141,10 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		} catch (MqttException e) {
 			Logger.error(id+"(mqtt) -> "+e);
 		}
-	}	
+	}
+	public void setTTL( long ttl ){
+		this.ttl=ttl;
+	}
 	/* ****************************************** S U B S C R I B E  *********************************************** */
 	/**
 	 * Subscribe to a given topic on the associated broker
@@ -164,6 +170,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			return 2;
 
 		subscriptions.add(topic);
+		subsRecStamp.add(-1L);
 		if( val != null)
 			valReceived.put(topic,val);
 
@@ -178,9 +185,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 
 		if( topic.equals("all")){
 			subscriptions.removeIf(this::unsubscribe);
+			subsRecStamp.clear();
 			return subscriptions.isEmpty();
 		}else{
-			if( subscriptions.remove(topic) ){
+			int index = subscriptions.indexOf(topic);
+			subsRecStamp.remove(index);
+			if( subscriptions.remove(index).equals(topic) ){
 				unsubscribe( topic );
 				return true;
 			}
@@ -195,8 +205,40 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	public String getSubscriptions( String nl ){
 		if( subscriptions.isEmpty() )
 			return "No active subscriptions"+nl;
-		StringJoiner join = new StringJoiner(nl,"  Subs"+nl,nl);
-		subscriptions.forEach( sub -> join.add("  ==> "+ sub) );
+
+		var ttlInfo = ttl>0?" [ttl:"+TimeTools.convertPeriodtoString(ttl,TimeUnit.MILLISECONDS)+"]":"";
+
+		StringJoiner join = new StringJoiner(nl,"  Subs"+ttlInfo+nl,nl);
+		boolean toggle=false; // Toggle between gray or yellow line
+		int max=0;
+
+		// Find the length of the longest string
+		for( var sub :subscriptions )
+			max = Math.max(max,sub.length());
+		max += 6; // Add a bit of space
+
+		for( int a=0;a<subscriptions.size();a++ ){
+			boolean old=false;
+			// Figure out how much time passed since last data or subscription
+			long passed = Instant.now().toEpochMilli()-Math.abs(subsRecStamp.get(a));
+			if( passed > ttl ) // If passed is longer than ttl, consider it old
+				old=true;
+
+			// Build the prefix, !! if data is old and alternating color lines
+			var prefix = (old?"  !! ":"  ")+(toggle?TelnetCodes.TEXT_YELLOW:TelnetCodes.TEXT_DEFAULT);
+			toggle = !toggle;
+
+			// Build the suffix, showing the age of the data or -1 if none yet, color depends on old.
+			String suffix;
+			if( subsRecStamp.get(a)<0 ) {
+				suffix = (old?TelnetCodes.TEXT_RED:TelnetCodes.TEXT_ORANGE)+"[-1]";
+			}else{
+				suffix = (old?TelnetCodes.TEXT_RED:"")+"["+TimeTools.convertPeriodtoString(passed,TimeUnit.MILLISECONDS)+"]";
+			}
+
+			// Put it all together, add spaces between depending on the length of the longest sub
+			join.add(prefix + "==> "+ subscriptions.get(a) + " ".repeat(max-subscriptions.get(a).length() +(old?-3:0)) + suffix + TelnetCodes.TEXT_DEFAULT);
+		}
 		return join.toString();
 	}
 	/**
@@ -263,6 +305,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		Logger.info("Rec: "+topic+" load:"+load);
 		Logger.tag("RAW").warn(id+"\t"+topic+"\t"+load);  // Store it like any other received data
 
+		// Update data timestamps taking wildcards in account
+		for( int a=0;a<subscriptions.size();a++ ){
+			if( topic.matches(subscriptions.get(a).replace("#",".*")) )
+				subsRecStamp.set(a,Instant.now().toEpochMilli());
+		}
+		// Process the message
 		var rtval = valReceived.get(topic);
 		if( rtval != null ){
 			rtval.parseValue(load);
@@ -372,7 +420,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
 		}else{
 			connecting=false;
-			Logger.warn( id+"(mqtt) -> "+cause.getMessage());
+			Logger.warn( id+"(mqtt) -> "+cause.getMessage() + "->" + cause);
 		}
 	}
 	@Override
@@ -389,6 +437,9 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 				subs=sub; // Purely to know when the error occurred
 				client.subscribe( sub );
 				Logger.info(id+"(mqtt) -> Subscribed to "+sub);
+				int index = subscriptions.indexOf(sub);
+				if( index != -1)
+					subsRecStamp.set( index, -1L*Instant.now().toEpochMilli() );
 			}
 		} catch (MqttException e) {
 			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+ subs);

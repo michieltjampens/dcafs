@@ -6,6 +6,7 @@ import das.Commandable;
 import util.data.AbstractVal;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
+import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -73,6 +74,8 @@ public class MqttPool implements Commandable {
             var clientid = broker.peekAt("clientid").value("");
 
             var worker = new MqttWorker( id, addr, clientid, rtvals, dQueue );
+            var ttl = TimeTools.parsePeriodStringToMillis( broker.attr("ttl",broker.peekAt("ttl").value("")));
+            worker.setTTL(ttl);
 
             broker.peekOut("subscribe").forEach( sub -> {
                 worker.addSubscription(sub.getTextContent());
@@ -172,7 +175,7 @@ public class MqttPool implements Commandable {
                 }
                 case "reload" -> {
                     if (readXMLsettings())
-                        return "Settings for " + cmds[0] + " reloaded.";
+                        return "Settings reloaded.";
                     return "! Failed to reload settings.";
                 }
                 case "test" -> {
