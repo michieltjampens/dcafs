@@ -296,6 +296,42 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		addSubscription(topic);
 		storeTopic=topic;
 	}
+
+	/**
+	 * Get info about the subs to val relations
+	 * @return The info
+	 */
+	public String getSubStoreInfo(){
+		var join = new StringJoiner("");
+		boolean toggle=false;
+		int topicLength=0;
+		int idLength=0;
+
+		// Determine the max length of all values in a column
+		for( var set : valReceived.entrySet() ){
+			topicLength=Math.max(set.getKey().length(),topicLength);
+			idLength=Math.max(set.getValue().id().length(),idLength);
+		}
+		// Add spacing from longest to next
+		topicLength+=3;
+		idLength+=3;
+
+		// Header
+		join.add( TelnetCodes.TEXT_CYAN+"Topic").add(" ".repeat(topicLength-5))
+			.add( "Val ID").add(" ".repeat(idLength-6))
+			.add( "Last Value" )
+			.add("\r\n");
+
+		//Body with alternating colored lines
+		for( var set : valReceived.entrySet() ){
+			join.add( (toggle?TelnetCodes.TEXT_DEFAULT:TelnetCodes.TEXT_YELLOW)+set.getKey())
+				.add( " ".repeat(topicLength-set.getKey().length())).add(set.getValue().id())
+				.add( " ".repeat(idLength-set.getValue().id().length())).add(set.getValue().toString())
+				.add("\r\n");
+			toggle = !toggle;
+		}
+		return join.toString();
+	}
 	/* ****************************************** R E C E I V I N G  ************************************************ */
 
 	@Override

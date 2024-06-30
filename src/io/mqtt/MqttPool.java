@@ -164,6 +164,7 @@ public class MqttPool implements Commandable {
                     join.add(cyan + "Rtvals" + reg)
                             .add(green + "   mqtt:brokerid,provide,rtval<,topic> " + reg + "-> Provide a certain rtval to the broker, topic is group/name by default.")
                             .add(green + "   mqtt:brokerid,store,type,topic<,rtval> " + reg + "-> Store a certain topic as a rtval, if no rtval is specified topic is used as rtval id")
+                            .add(green + "   mqtt:brokerid,stores "+ reg +"-> Get info on all the active sub to val links")
                             .add(green + "   mqtt:brokerid,generate,topic "+reg+"-> Generate store entries based on received messages after subscribing to topic.");
                     join.add(cyan + "Send & Receive" + reg)
                             .add(green + "   mqtt:id " + reg + "-> Forwards the data received from the given broker to the issuing writable")
@@ -286,6 +287,9 @@ public class MqttPool implements Commandable {
                     if( cmds[2].endsWith("#"))
                         return "Generating store on receiving topic updates.";
                     return "Generating store on receiving topic updates, Note: no wildcard in topic!";
+                }
+                case "stores" -> {
+                    return worker.getSubStoreInfo();
                 }
                 case "store" ->{
                     if (cmds.length < 4)
