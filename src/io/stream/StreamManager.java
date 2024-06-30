@@ -119,6 +119,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public String getStatus() {
 		StringJoiner join = new StringJoiner("");
 
+		int infoLength = 0;
+		for( BaseStream stream : streams.values() ){
+			infoLength = Math.max(stream.getInfo().length(),infoLength);
+		}
+		infoLength += 3;
 		for( BaseStream stream : streams.values() ){
 			long ttl = Instant.now().toEpochMilli() - stream.getLastTimestamp();
 			if( !stream.isConnectionValid() ){
@@ -127,7 +132,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				join.add("!! ");
 			}
 
-			join.add(stream.getInfo()).add("\t");
+			join.add(stream.getInfo()).add(" ".repeat(infoLength-stream.getInfo().length()));
 			if( stream instanceof TcpServerStream tss) {
 				join.add( tss.getClientCount()+" client(s)" ).add("\r\n");
 			}else if (stream.getLastTimestamp() == -1) {
@@ -140,23 +145,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		return join.toString();
 	}
-
-	/**
-	 * Request information regarding the settings of all the connections, this is
-	 * very rudimentary.
-	 *
-	 * @return The label, id, address and TTL of each stream
-	 */
-	public String getSettings() {
-		StringJoiner join = new StringJoiner("\r\n");
-		streams.values().forEach(
-				stream -> join.add( stream.getInfo() + " Max. TTL:"
-						+ TimeTools.convertPeriodtoString(stream.readerIdleSeconds,TimeUnit.SECONDS))
-		);
-		return join.toString();
-	}
-
-
 	/**
 	 * Get a list of all the StreamDescriptors available
 	 * @param html Whether to use html formatting
@@ -233,8 +221,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 			if( !stream.isConnectionValid() ){
 				Logger.error("No connection to stream named " + stream);
-		//		if( stream.reconnectFuture==null || stream.reconnectFuture.)
-		//			reloadStream(id);
 				return "";
 			}
 			Writable wr = (Writable)stream;
