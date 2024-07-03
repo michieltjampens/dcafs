@@ -26,6 +26,8 @@ public class FilterForward extends AbstractForward {
     private final ArrayList<Writable> reversed = new ArrayList<>();
     private boolean negate=false; // If the filter is negated or not
 
+    private AbstractForward parent;
+
     public FilterForward(String id, String source, BlockingQueue<Datagram> dQueue ){
         super(id,source,dQueue,null);
     }
@@ -39,6 +41,7 @@ public class FilterForward extends AbstractForward {
 
         if( doFilter(data) ){
             // Use multithreading so the writables don't have to wait for the whole process
+            nextSteps.parallelStream().filter( ns -> ns.enabled).forEach( ns -> ns.getForward().writeLine(id(),data));
             targets.parallelStream().forEach( wr -> wr.writeLine(id(),data));
 
             if( log )

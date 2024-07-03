@@ -48,6 +48,7 @@ public class PathForward {
     String error=""; // Last error that occurred
     boolean valid=false; // Whether this path is valid (xml processing went ok)
     QueryWriting db;
+    AbstractForward root=null;
 
     public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, QueryWriting db){
         this.rtvals = rtvals;
@@ -81,7 +82,7 @@ public class PathForward {
         customs.forEach(CustomSrc::stop);
 
         if( stepsForward!=null && !stepsForward.isEmpty()) {// If this is a reload, reset the steps
-            dQueue.add(Datagram.system("nothing").writable(stepsForward.get(0))); // stop asking for data
+            stepsForward.forEach( step -> dQueue.add(Datagram.system("nothing").writable(step))); // stop asking for data
             stepsForward.forEach( AbstractForward::invalidate ); // Make sure these get removed as targets
             lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
@@ -101,9 +102,9 @@ public class PathForward {
                 if( id.isEmpty())
                     id=dig.attr("id","");
                 delimiter=dig.attr("delimiter",delimiter);
-                Logger.info("Valid path script found at "+importPath);
+                Logger.info(id+"(pf) -> Valid path script found at "+importPath);
             }else{
-                Logger.error("No valid path script found: "+importPath);
+                Logger.error(id+"(pf) -> No valid path script found: "+importPath);
                 error="No valid path script found: "+importPath;
                 String error = XMLtools.checkXML(importPath);
                 if( !error.isEmpty())
@@ -124,7 +125,7 @@ public class PathForward {
             steps.get(0).setAttribute("src",this.src);
 
         // Now process all the steps
-        var validData = processIt(steps, delimiter,null);
+        var validData = addSteps(steps, delimiter,null);
 
         if( !oldTargets.isEmpty()&&!stepsForward.isEmpty()){ // Restore old requests
             oldTargets.forEach(this::addTarget);
@@ -140,12 +141,14 @@ public class PathForward {
                 }
             } else {// If custom sources
                 if( !stepsForward.isEmpty()) { // and there are steps
-                    targets.add(stepsForward.get(0));
+                    targets.addAll(stepsForward);
                     customs.forEach(CustomSrc::start);
                 }
             }
         }
         customs.trimToSize();
+        stepsForward.trimToSize();
+
         valid=true;
         error="";
 
@@ -154,11 +157,8 @@ public class PathForward {
         }
         return "";
     }
-
-    private boolean processIt( ArrayList<Element> steps, String delimiter, FilterForward lastff ){
+    private boolean addSteps( ArrayList<Element> steps, String delimiter, AbstractForward parent ){
         boolean reqData=false;
-        boolean leftover=false;
-        int prefIF=-1;
 
         for( Element step : steps ){
             var dig = XMLdigger.goIn(step);
@@ -171,108 +171,64 @@ public class PathForward {
             if( !step.hasAttribute("delimiter") && !delimiter.isEmpty())
                 step.setAttribute("delimiter",delimiter);
             // If this step doesn't have an id, alter it
-            if( !step.hasAttribute("id"))
-                step.setAttribute("id",id+"_"+stepsForward.size());
+            if( !step.hasAttribute("id")) {
+                if(parent==null) {
+                    step.setAttribute("id", id + "_" + stepsForward.size());
+                }else{
+                    step.setAttribute("id", parent.firstParentId()+"_"+parent.siblings() );
+                }
+            }
+            parent = switch( step.getTagName() ){
 
-            switch( step.getTagName() ){
+                case "if" -> {
+                    FilterForward ff = new FilterForward(step, dQueue);
+                    // Now link to the source
+                    checkParent( parent,ff);
+                    // Go deeper
+                    var subs = new ArrayList<>(dig.currentSubs());
+                    reqData |= addSteps( subs, delimiter, ff);
+                    yield parent; // This doesn't alter the parent
+                }
+                case "filter" -> checkParent( parent,new FilterForward(step, dQueue) );
+                case "math" ->   checkParent( parent,new MathForward(step, dQueue, rtvals,defines) );
+                case "editor" -> checkParent( parent,new EditorForward(step, dQueue, rtvals) );
+                case "cmd" -> checkParent( parent,new CmdForward(step,dQueue,rtvals),true );
                 case "defines" -> {
                     for( var ele :dig.currentSubs()){
                         defines.put(ele.getTagName(),ele.getTextContent());
                     }
-                    continue;
-                }
-                case "if" -> {
-                    FilterForward ff = new FilterForward( step, dQueue);
-                    stepsForward.add(ff);
-                    prefIF=stepsForward.size()-1;
-                    applySrc(lastff,ff,leftover,prefIF);
-                    var subs = new ArrayList<>(dig.currentSubs());
-                    reqData |= processIt( subs, delimiter, ff);
-                    prefIF=-1;
-                    continue;
-                }
-                case "filter" -> {
-                    FilterForward ff = new FilterForward(step, dQueue);
-                    applySrc(lastff,ff,leftover,prefIF);
-                    lastff = ff;
-                    stepsForward.add(ff);
-                }
-                case "math" -> {
-                    MathForward mf = new MathForward(step, dQueue, rtvals,defines);
-                    applySrc(lastff,mf,leftover,prefIF);
-                    stepsForward.add(mf);
-                }
-                case "editor" -> {
-                    var ef = new EditorForward(step, dQueue, rtvals);
-                    applySrc(lastff,ef,leftover,prefIF);
-                    stepsForward.add(ef);
-                }
-                case "cmd" -> {
-                    var cf = new CmdForward(step,dQueue,rtvals);
-                    applySrc(lastff,cf,leftover,prefIF);
-                    stepsForward.add(cf);
-                    reqData=true;
+                    yield parent; // This doesn't alter the parent
                 }
                 case "store" -> {
                     var storeOpt = ValStore.build(step,id,rtvals);
                     if( storeOpt.isPresent()) { // If processed properly
                         var store = storeOpt.get();
-                        var fw = stepsForward.get(stepsForward.size()-1);
-                        fw.setStore(store);
-                        for( var db : store.dbInsertSets() )
-                            dQueue.add( Datagram.system("dbm:"+db[0]+",tableinsert,"+db[1]).payload(fw));
-                        reqData=true;
+                        if( parent != null ) {
+                            parent.setStore(store);
+                            for (var db : store.dbInsertSets())
+                                dQueue.add(Datagram.system("dbm:" + db[0] + ",tableinsert," + db[1]).payload(parent));
+                        }else{ // No parent node, so it's the only node in the path...?
+                            Logger.warn("Still to implement a path that only contains a store, should be in the stream instead");
+                        }
                     }
-                    leftover=true; // Reminder that a store was processed last
-                    continue;
+                    yield parent; // This doesn't alter the parent
                 }
-            }
-            leftover=false; // clear the reminder flag
+                default -> parent;
+            };
         }
         return reqData;
     }
-
-    /**
-     * Connect the current step to the correct previous one
-     * @param lastff The last filter that was processed
-     * @param step The current step
-     * @param leftover If this step should get the data the last filter discarded
-     * @param prevIf The index of the start of the previous if
-     */
-    private void applySrc( FilterForward lastff, AbstractForward step, boolean leftover, int prevIf ){
-        if( step.hasSrc() ) {
-            var s = getStep(src);
-            if( s != null ) {
-                if( s instanceof FilterForward && src.startsWith("!")){
-                    ((FilterForward) s).addReverseTarget(step);
-                }else {
-                    s.addTarget(step);
-                }
-            }else if( !src.startsWith("raw")){
-                Logger.warn(id+" -> Couldn't find "+src+" to give target "+step.id()+", missing or not a step?");
-            }
-        }else{
-            if( prevIf!=-1 ) { // If previous step was an if block
-                if( prevIf==0 ){ // Meaning the if was the first step
-                    step.addSource(src);
-                }else{
-                    stepsForward.get(prevIf-1).addTarget(step);
-                    step.addSource(stepsForward.get(prevIf-1).id());
-                }
-            }else if( lastff !=null && leftover){ // If it should get the reverse of the last filter
-                lastff.addReverseTarget(step);
-            }else{ // If it's just the next step
-                if( !stepsForward.isEmpty() ) {
-                    if( lastStep().isPresent() ){
-                        var ls = lastStep().get();
-                        ls.addTarget(step);
-                        step.addSource(ls.id());
-                    }
-                }else{
-                    Logger.error(id+" -> Trying to give a target to the last step, but no steps yet.");
-                }
-            }
+    private AbstractForward checkParent( AbstractForward parent, AbstractForward child ){
+        return checkParent(parent,child,false);
+    }
+    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, boolean askData){
+        if (parent==null){ // No parent so root of the path, so get the source of the path and it's a step
+            stepsForward.add(child);
+            child.addSource(src); // It's in the root, so add the path source
+        }else{ // Not the root, so add it to the parent
+            parent.addNextStep(child,askData);
         }
+        return child;
     }
     public void clearStores(){
         if( stepsForward!=null)
@@ -329,17 +285,12 @@ public class PathForward {
         return "Request for "+s.getXmlChildTag()+":"+s.id+" received";
     }
     public Optional<AbstractForward> lastStep(){
-        if( stepsForward == null ||stepsForward.isEmpty())
+        if( stepsForward == null || stepsForward.isEmpty())
             return Optional.empty();
-        return Optional.ofNullable(stepsForward.get(stepsForward.size()-1));
+        var step = stepsForward.get(stepsForward.size()-1);
+        return Optional.ofNullable(step.getLastStep());
     }
-    private AbstractForward getStep(String id){
-        for( var step : stepsForward){
-            if( id.endsWith(step.id)) // so that the ! (for reversed) is ignored
-                return step;
-        }
-        return null;
-    }
+
     public String toString(){
         var join = new StringJoiner("\r\n");
         if( customs.isEmpty() ){

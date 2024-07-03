@@ -266,7 +266,9 @@ public class MathForward extends AbstractForward {
             Logger.info(id()+" -> After:  "+result); // after applying the operations
         }
 
-        targets.forEach(t->t.writeLine(id(),result));
+        // Use multithreading so the writables don't have to wait for the whole process
+        nextSteps.parallelStream().filter( ns -> ns.enabled).forEach( ns -> ns.getForward().writeLine(id(),result));
+        targets.parallelStream().forEach( wr -> wr.writeLine(id(),result));
 
         if( log )
             Logger.tag("RAW").info( id() + "\t" + result);

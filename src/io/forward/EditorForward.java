@@ -59,7 +59,9 @@ public class EditorForward extends AbstractForward{
         }
         String finalData = data;
 
-        targets.forEach(t->t.writeLine(id(),finalData));
+        // Use multithreading so the writables don't have to wait for the whole process
+        nextSteps.parallelStream().filter( ns -> ns.enabled).forEach( ns -> ns.getForward().writeLine(id(),finalData));
+        targets.parallelStream().forEach( wr -> wr.writeLine(id(),finalData));
 
         if( log )
             Logger.tag("RAW").info( id() + "\t" + data);
@@ -73,7 +75,7 @@ public class EditorForward extends AbstractForward{
                 tableInserters.forEach(ti -> ti.insertStore(dbInsert));
         }
         // If there are no targets, no label, this no longer needs to be a target
-        if( targets.isEmpty() && !log && store==null){
+        if( noTargets() ){
             valid=false;
             return false;
         }

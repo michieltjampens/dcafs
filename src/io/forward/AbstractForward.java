@@ -42,6 +42,10 @@ public abstract class AbstractForward implements Writable {
     protected boolean parsedOk=true;
     protected String delimiter = ","; // Delimiter to use for splitting
 
+    // Consecutive steps in a path
+    protected final ArrayList<NextStep> nextSteps = new ArrayList<>();       // To where the data needs to be send
+    protected AbstractForward parent;
+
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.id=id;
         this.rtvals=rtvals;
@@ -67,10 +71,18 @@ public abstract class AbstractForward implements Writable {
         if( !sources.contains(source) && !source.isEmpty()){
             sources.add(source);
             Logger.info(id() +" -> Adding source "+source);
-            if( valid ){
-                Logger.info(id() +" -> Requesting data from "+source);
-                dQueue.add( Datagram.system( source ).writable(this) );
-            }
+        }
+    }
+
+    /**
+     * Request the data from the source of this forward (asks the whole chain)
+     */
+    private void requestSource(){
+        valid=true;
+        if( parent == null ) {
+            sources.forEach(source -> dQueue.add(Datagram.system(source).writable(this)));
+        }else{
+            parent.sendDataToStep(this); // Request data from parent
         }
     }
     /**
@@ -113,7 +125,7 @@ public abstract class AbstractForward implements Writable {
         targets.clear();
     }
     public boolean noTargets(){
-        return targets.isEmpty() && store==null && !log;
+        return targets.isEmpty() && store==null && !log && nextSteps.stream().noneMatch(ns->ns.enabled);
     }
     public ArrayList<Writable> getTargets(){
         return targets;
@@ -197,8 +209,7 @@ public abstract class AbstractForward implements Writable {
     public void setStore( ValStore store ){
         this.store=store;
         if( !valid && store!=null){
-            valid=true;
-            sources.forEach( source -> dQueue.add( Datagram.system( source ).writable(this) ) );
+            requestSource();
         }
     }
 
@@ -217,6 +228,7 @@ public abstract class AbstractForward implements Writable {
     public void removeStoreVals(RealtimeValues rtv){
         if( store!=null)
             store.removeRealtimeValues(rtv);
+        nextSteps.forEach( x -> x.getForward().removeStoreVals(rtv));
     }
 
     /**
@@ -243,6 +255,66 @@ public abstract class AbstractForward implements Writable {
     public abstract boolean readFromXML( Element fwElement );
     protected abstract String getXmlChildTag();
 
+    protected void addNextStep( AbstractForward fw, boolean askData ){
+        if( fw != null ) {
+            fw.setParent(this); // Let the next step know its parent
+            nextSteps.add( new NextStep(fw, askData) ); // Add it to the list of steps
+        }else{
+            Logger.error(id()+" -> Tried to add step, but null.");
+        }
+    }
+    protected void setParent( AbstractForward fw ){
+        if( parent != fw ) {
+            parent = fw;
+        }else{
+            Logger.error(id()+" -> Can't make this forward it's own parent.");
+        }
+    }
+
+    protected void sendDataToStep( AbstractForward step ){
+        var matchOpt = nextSteps.stream().filter( ns -> ns.af==step).findFirst();
+        if( matchOpt.isPresent()) {
+            var match = matchOpt.get();
+            if( !match.enabled ){ // No use asking twice
+                if( nextSteps.stream().noneMatch(ns -> ns.enabled) )  // If any other step is enabled, then source has been requested
+                    requestSource();
+                match.enabled = true;
+            }else{
+                Logger.info(id()+ "-> Already enabled "+step.id());
+            }
+        }else{
+            Logger.error( id()+" -> No match found for "+step.id() );
+        }
+    }
+    protected void stopDataToStep( AbstractForward step ){
+        var matchOpt = nextSteps.stream().filter( ns -> ns.af==step).findFirst();
+        if( matchOpt.isPresent()) {
+            var match = matchOpt.get();
+            match.enabled = false;
+        }else{
+            Logger.error( id()+" -> No match found for "+step.id() );
+        }
+    }
+    protected AbstractForward getLastStep(){
+        if( nextSteps.isEmpty())
+            return this;
+        return nextSteps.get(nextSteps.size()-1).getForward().getLastStep();
+    }
+    protected int steps(){
+        return nextSteps.size();
+    }
+    protected int siblings(){
+        int total = nextSteps.size();
+        if( parent != null)
+            total += parent.siblings();
+        return total;
+    }
+    protected String firstParentId(){
+        String oriId=id;
+        if( parent != null)
+            oriId = parent.firstParentId();
+        return oriId;
+    }
     /* **********************Writable implementation ****************************/
     @Override
     public boolean writeString(String data) {
@@ -272,5 +344,17 @@ public abstract class AbstractForward implements Writable {
     public Writable getWritable(){
         return this;
     }
+    /* ********************** Storage class  ****************************/
+    protected static class NextStep{
+        AbstractForward af;
+        boolean enabled;
 
+        NextStep( AbstractForward af, boolean askData){
+            this.af=af;
+            this.enabled=askData;
+        }
+        public AbstractForward getForward(){
+            return af;
+        }
+    }
 }
