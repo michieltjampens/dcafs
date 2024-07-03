@@ -312,7 +312,7 @@ public class CommandPool {
 			}
 			return result;
 		}else{
-			Logger.error("No cmd found with "+cmd+":"+question);
+			Logger.error("No cmd found with "+cmd+":"+question+ (wr!=null?" requested by "+wr.id()+".":"."));
 		}
 		return UNKNOWN_CMD;
 	}

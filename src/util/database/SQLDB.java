@@ -574,9 +574,11 @@ public class SQLDB extends Database implements TableInsert{
             return null;                
 
         var dbDig = XMLdigger.goIn(dbe);
-        if( !dbDig.hasPeek("db") || !dbDig.hasPeek("address") )
+        var id = dbDig.attr("id","");
+        if( !dbDig.hasPeek("db") || !dbDig.hasPeek("address") ) {
+            Logger.error(id+"(dbm) -> No db and/or address node found");
             return null;
-
+        }
         dbDig.digDown("db");
         var dbName = dbDig.value("");                         // The name of the database
         String user = dbDig.attr("user", "");            // A username with writing rights
@@ -593,7 +595,7 @@ public class SQLDB extends Database implements TableInsert{
             case "mariadb" -> db = SQLDB.asMARIADB(address, dbName, user, pass);
             case "postgresql" -> db = SQLDB.asPOSTGRESQL(address, dbName, user, pass);
             default -> {
-                Logger.error("Invalid database type: " + type);
+                Logger.error(id+"(dbm) -> Invalid database type: " + type);
                 return null;
             }
         }
