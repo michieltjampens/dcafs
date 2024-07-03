@@ -618,8 +618,9 @@ public class SQLDB extends Database implements TableInsert{
             });
         }
 
-        db.getCurrentTables(false);
-        db.lastError = db.createContent(true);
+        if( db.getCurrentTables(false)){ // No use trying to create content of reading tables failed
+            db.lastError = db.createContent(true);
+        }
         return db;
     }
 
