@@ -125,11 +125,6 @@ public class ValStore {
                     dbInsert.add( split );
                 }
             }
-            if( db.length==2 ) {
-                db(db[0],db[1]);
-            }else{
-                Logger.error( id+" -> Failed to read db tag, must contain dbids:table, multiple dbids separated with ','");
-            }
         }else{
             Logger.info( id + " -> No database referenced.");
             dbInsert.clear();
