@@ -198,7 +198,7 @@ public abstract class AbstractForward implements Writable {
         this.store=store;
         if( !valid && store!=null){
             valid=true;
-            sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
+            sources.forEach( source -> dQueue.add( Datagram.system( source ).writable(this) ) );
         }
     }
 
