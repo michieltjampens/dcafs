@@ -11,6 +11,15 @@ Note: Version numbering: x.y.z
 
 ## 2.11.1 (wip)
 
+### Minor changes
+- Telnet, rtvals cmd now has alternating color for the val listing
+- MQTT, increased retry interval to 25s because less causes 'already in progress' error.
+- MQTT, ttl can be set broker wide and the status message gives more info.
+
+### Fixes
+- Mariadb doesn't like the use of ", replaced with `. Which also works for sqlite.
+- Localnow column wasn't local when send to sql server.
+
 ## 2.11.0 (29/06/2024)
 Earlier than planned because of a telnet issue. Should probably start working with branches...
 
@@ -35,6 +44,7 @@ couldn't connect.
 that match the topic (use wildcard!). Data received will determine data type: int,real or txt.
 - Breaking, removed the use of defaulttopic. Added more possible confusion than actual use.
 - Can use a group node in store node like global rtvals.
+- Added `mqtt:brokerid,stores` to get more info the the sub to val links.
 
 ### Valstore
 - db attribute now allows multiple tables and multiple id:table sets. Can be handy if a single store
