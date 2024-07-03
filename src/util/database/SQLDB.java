@@ -110,8 +110,13 @@ public class SQLDB extends Database implements TableInsert{
         if( insertErrors!=0)
             join.add( " errors:"+insertErrors);
 
-        if( !isValid(3))
-            join.add(" (NC)");
+        if( !isValid(3)) {
+            if( state == STATE.ACCESS_DENIED){
+                join.add(" (Access Denied)");
+            }else {
+                join.add(" (NC)");
+            }
+        }
         return  join.toString();
     }
 
@@ -173,7 +178,12 @@ public class SQLDB extends Database implements TableInsert{
             if( eol != -1 )
                 message = message.substring(0,eol);          
             Logger.error( id+"(db) -> Failed to make connection to database! "+message );
-            state = STATE.NEED_CON; // Failed to connect, set state to try again
+            if( !message.toLowerCase().contains("access denied") ) {
+                state = STATE.NEED_CON; // Failed to connect, set state to try again
+            }else{
+                state = STATE.ACCESS_DENIED;
+                Logger.error(id+"(dbm) -> Access denied, no use retrying.");
+            }
             return false;
         }       
     	return true;

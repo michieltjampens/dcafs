@@ -28,7 +28,7 @@ public abstract class Database{
     protected STATE state = STATE.IDLE; // current state of the database
 
     protected enum STATE {
-        IDLE, CON_BUSY, HAS_CON, NEED_CON, FLUSH_REQ, HAS_DUMP
+        IDLE, CON_BUSY, HAS_CON, NEED_CON, FLUSH_REQ, HAS_DUMP,ACCESS_DENIED
     }
 
     protected boolean tablesRetrieved = false;
