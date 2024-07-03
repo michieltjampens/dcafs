@@ -93,7 +93,7 @@ public abstract class AbstractCollector implements Writable {
      */
     public void withTimeOut(String timeoutPeriod, ScheduledExecutorService scheduler ){
         secondsTimeout = TimeTools.parsePeriodStringToSeconds(timeoutPeriod);
-        Logger.tag("TASK").info(id+" -> Collector started with timeout of "+secondsTimeout+"s");
+        Logger.tag("TASK").debug(id+" -> Collector started with timeout of "+secondsTimeout+"s");
         timeoutFuture = scheduler.schedule(new TimeOut(), secondsTimeout, TimeUnit.SECONDS );
     }
 

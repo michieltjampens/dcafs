@@ -111,7 +111,7 @@ public class ConfirmCollector extends AbstractCollector {
             if( !confirms.isEmpty() ){
                 confirms.get(0).doAttempt(false);
             }else{
-                Logger.tag("TASK").info(id+" -> All confirms received");
+                Logger.tag("TASK").debug(id+" -> All confirms received");
                 if( timeoutFuture!=null) {
                     timeoutFuture.cancel(true);
                 }else{
@@ -155,9 +155,9 @@ public class ConfirmCollector extends AbstractCollector {
     }
     private void logInfo( String message ){
         if( id.contains("_")) {
-            Logger.tag("TASK").info(id+" -> "+message);
+            Logger.tag("TASK").debug(id+" -> "+message);
         }else{
-            Logger.info(id+" -> "+message);
+            Logger.debug(id+" -> "+message);
         }
     }
     /* *********************** Override of Writable ************************************************/
@@ -183,7 +183,7 @@ public class ConfirmCollector extends AbstractCollector {
                 Logger.tag("TASK").info(id+ " -> All attempts done ("+attempts+" of "+maxAttempts+"), giving up.");
                 return false;
             }
-            Logger.tag("TASK").info(id+ " -> Sending '"+confirms.get(0).msg+"' to "+target.id()+" for attempt "+attempts);
+            Logger.tag("TASK").debug(id+ " -> Sending '"+confirms.get(0).msg+"' to "+target.id()+" for attempt "+attempts);
             target.writeLine(msg);
             if( (confirms.size()>1||!confirms.get(0).reply.isEmpty()) || !timeout)
                 withTimeOut(timeoutSeconds+"s",scheduler);

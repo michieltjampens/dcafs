@@ -1289,7 +1289,7 @@ public class TaskManager implements CollectorFuture {
 			// somehow cancel the taskset?
 			runFailure(tasksets.get(id.substring(0,id.indexOf("_"))),"confirmfailed");
 		}else{
-			Logger.tag(TINY_TAG).info("["+ this.id +"] Collector '"+id+"' finished fine");
+			Logger.tag(TINY_TAG).debug("["+ this.id +"] Collector '"+id+"' finished fine");
 			if( set.getRunType()==RUNTYPE.STEP)
 				startTask( set.getNextTask( set.getLastIndexRun() ));
 			// do the next step?
