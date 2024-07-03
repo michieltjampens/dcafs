@@ -75,6 +75,10 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * @return The added database
      */
     public SQLDB addSQLDB(String id, SQLDB db) {
+        if( db == null ){
+            Logger.error(id+"(dbm) -> No valid db object, aborting add.");
+            return null;
+        }
         if (lites.isEmpty() && sqls.isEmpty())
             scheduler.scheduleAtFixedRate(new CheckQueryAge(), 2L*CHECK_INTERVAL, CHECK_INTERVAL, TimeUnit.SECONDS);
         sqls.put(id, db);
