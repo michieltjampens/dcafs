@@ -221,7 +221,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			boolean old=false;
 			// Figure out how much time passed since last data or subscription
 			long passed = Instant.now().toEpochMilli()-Math.abs(subsRecStamp.get(a));
-			if( passed > ttl ) // If passed is longer than ttl, consider it old
+			if( ttl>0 && passed > ttl ) // If passed is longer than ttl, consider it old
 				old=true;
 
 			// Build the prefix, !! if data is old and alternating color lines
