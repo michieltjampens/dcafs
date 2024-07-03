@@ -99,7 +99,7 @@ public class SQLDB extends Database implements TableInsert{
         var age = getTimeSinceLastInsert();
         var time = TimeTools.convertPeriodtoString( age,TimeUnit.SECONDS);
         var join = new StringJoiner("");
-        if( age > maxInsertAge || getRecordsCount()>maxQueries || insertErrors!=0 )
+        if( age > maxInsertAge || getRecordsCount()>maxQueries || insertErrors!=0  || state == STATE.ACCESS_DENIED )
             join.add("!! ");
         join.add(id+" : ");
         join.add(type.toString().toLowerCase()+"@"+getTitle());
@@ -394,6 +394,7 @@ public class SQLDB extends Database implements TableInsert{
                             if( tables.get(tbl.getName())!=null && tbl.hasIfNotExists() ){
                                 Logger.warn(id+"(db) -> Already a table with the name "+tbl.getName()+" nothing done because 'IF NOT EXISTS'.");
                             }
+                            tbl.flagAsReadFromDB(); // Created on database, so flag as read
                         } catch (SQLException e) {
                             Logger.error(id+"(db) -> Failed to create table with: "+tbl.create() );
                             Logger.error(e.getMessage());
@@ -484,13 +485,17 @@ public class SQLDB extends Database implements TableInsert{
             Logger.warn(id+"(db) -> Mismatch between insert id and current db");
             return false;
         }
-        if (!hasRecords())
-            firstPrepStamp = Instant.now().toEpochMilli();
-
         if( getTable(dbInsert[1]).isEmpty() ){
             Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+">");
             return false;
         }
+        if( getTable(dbInsert[1]).map( table -> !table.isReadFromDB()).orElse(false) ){
+            Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+"> in the database.");
+            return false;
+        }
+
+        if (!hasRecords())
+            firstPrepStamp = Instant.now().toEpochMilli();
 
         if (getTable(dbInsert[1]).map(t -> t.insertStore("")).orElse(false)) {
             if(tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
@@ -509,7 +514,10 @@ public class SQLDB extends Database implements TableInsert{
             Logger.error(id+"(db) ->  No such table "+table);
             return false;
         }
-
+        if( getTable(table).map( t -> !t.isReadFromDB()).orElse(false) ){
+            Logger.error(id+"(db) ->  No such table <"+table+"> in the database.");
+            return false;
+        }
         if (getTable(table).map(t -> t.parsePrep("",data)).orElse(false)) {
             if(tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
                 flushPrepared();
@@ -547,7 +555,8 @@ public class SQLDB extends Database implements TableInsert{
                 temp.add(simpleQueries.remove(0));
             scheduler.submit( new DoSimple(temp) );
         }else{
-            connect(false);
+            if( state != STATE.ACCESS_DENIED ) // No use trying
+                connect(false);
         }
     }
 
@@ -560,7 +569,8 @@ public class SQLDB extends Database implements TableInsert{
                 busyPrepared=true; // Set Flag so we know the buffer is being flushed
                 scheduler.submit(new DoPrepared());
             }else{
-                connect(false);
+                if( state != STATE.ACCESS_DENIED ) // No use trying
+                    connect(false);
             }
         }
     }
@@ -761,6 +771,9 @@ public class SQLDB extends Database implements TableInsert{
                         Logger.info(id + " -> Got a connection, but don't need it anymore...");
                     }
                 }
+            }
+            case ACCESS_DENIED -> {
+
             }
             default -> Logger.warn(id + "(db) -> Unknown state: " + state);
         }
