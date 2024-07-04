@@ -178,9 +178,10 @@ public class CommandPool {
 		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
 			result = checkTaskManagers(split[0],split[1],wr,html); // Check if it matches the id of a TaskManager
 
-		if( result.equals(UNKNOWN_CMD)) // Check if any result so far
-			result = "! No such cmd group: |"+ split[0]+"|"; // No result, so probably bad cmd
-
+		if( result.equals(UNKNOWN_CMD)) { // Check if any result so far
+			result = "! No such cmd group: |" + split[0] + "|"; // No result, so probably bad cmd
+			Logger.error("No cmd found with " + split[0] + ":" + split[1] + (wr != null ? " requested by " + wr.id() + "." : "."));
+		}
 		if( result.startsWith("! No such cmd group") ){
 			if( result.contains("matrix")){
 				if( split[1].startsWith("add")) {
@@ -311,8 +312,6 @@ public class CommandPool {
 				return "! Something went wrong processing: "+question;
 			}
 			return result;
-		}else{
-			Logger.error("No cmd found with "+cmd+":"+question+ (wr!=null?" requested by "+wr.id()+".":"."));
 		}
 		return UNKNOWN_CMD;
 	}
