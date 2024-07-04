@@ -487,10 +487,14 @@ public class SQLDB extends Database implements TableInsert{
         }
         if( getTable(dbInsert[1]).isEmpty() ){
             Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+">");
+            lastError= "No such table <"+dbInsert[1]+"> in the database.";
+            insertErrors++;
             return false;
         }
         if( getTable(dbInsert[1]).map( table -> !table.isReadFromDB()).orElse(false) ){
             Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+"> in the database.");
+            lastError= "No such table <"+dbInsert[1]+"> in the database.";
+            insertErrors++;
             return false;
         }
 
