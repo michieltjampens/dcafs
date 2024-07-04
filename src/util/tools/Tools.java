@@ -4,8 +4,10 @@ import com.fazecast.jSerialComm.SerialPort;
 import org.tinylog.Logger;
 import util.gis.GisTools;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.*;
@@ -630,6 +632,25 @@ public class Tools {
             return difference.getSeconds();
         }catch( IOException e){
             return -1;
+        }
+    }
+    public static boolean hasRootRights(){
+        if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
+            Logger.warn("Not running linux, so no root");
+            return false;
+        }
+        try {
+            ProcessBuilder pb = new ProcessBuilder("id", "-u");
+            var process = pb.start();
+            process.getInputStream();
+            BufferedReader stdInput
+                    = new BufferedReader(new InputStreamReader(
+                    process.getInputStream()));
+            // If the result is 0, we have root rights
+            return stdInput.readLine().equalsIgnoreCase("0");
+        } catch (IOException e) {
+            Logger.error(e);
+            return false;
         }
     }
 }

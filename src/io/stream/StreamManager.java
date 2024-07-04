@@ -1061,9 +1061,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public void removeConfirm(String id){
 		if( confirmCollectors.values().removeIf( cc -> cc.id().equalsIgnoreCase(id)) ){
-			Logger.info("ConfirmCollector removed: "+id);
+			Logger.debug("ConfirmCollector removed: "+id);
 		}else{
-			Logger.info("ConfirmCollector not found: "+id);
+			Logger.warn("ConfirmCollector not found: "+id);
 		}
 	}
 

@@ -38,6 +38,7 @@ public class AdminCmds {
                         .add(gre + "admin:lt" + reg + " -> Show all threads")
                         .add(gre + "admin:reboot" + reg + " -> Reboot the computer (linux only)")
                         .add(gre + "admin:sleep,x" + reg + " -> Sleep for x time (linux only)")
+                        .add(gre + "admin:phypower,chip,interface,on/off" + reg + " -> Put the phy to sleep, chips: ksz,lan,rtl")
                         .add(gre + "admin:addstatuscheck" + reg + " -> Adds the statuscheck node");
                 return join.toString();
             }
@@ -98,38 +99,39 @@ public class AdminCmds {
                 return "Tried to execute GC";
             }
             case "phypower" -> {
-                if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
-                    return "! Only Linux supported for now.";
+                if( !Tools.hasRootRights() ){
+                    return "! Not linux or no root rights";
                 }
-                if( cmds.length<3)
-                    return "! Not enough arguments: admin:phypower,interface,on/off";
-                boolean power = Tools.parseBool(cmds[2],false);
-                try {
-                    String regVal = power?"0x3100":"0x3900";
-                    ProcessBuilder pb = new ProcessBuilder("bash", "-c", "phytool write "+cmds[1]+"/1/0 "+regVal);
-                    pb.inheritIO();
 
-                    Logger.error("Toggled Eth at " + TimeTools.formatLongUTCNow());
+                if( cmds.length<3)
+                    return "! Not enough arguments: admin:phypower,chip,interface,on/off";
+
+                boolean power = Tools.parseBool(cmds[3],false);
+                try {
+                    String regVal = "";
+                    if( cmds[1].startsWith("ksz") || cmds[1].startsWith("lan")){
+                        regVal = power?"0x3100":"0x3900";
+                    }else if(cmds[1].startsWith("rtl")){
+                        regVal = power?"0x1000":"0x1800";
+                    }else{
+                        return "Unknown chip, supported: kz,lan,rtl";
+                    }
+                    String bash = "phytool write "+cmds[2]+"/1/0 "+regVal;
+                    Logger.info("Executing "+bash);
+                    ProcessBuilder pb = new ProcessBuilder("bash", "-c", bash);
+                    pb.inheritIO(); // Needed?
                     pb.start();
+
+                    Logger.info("Toggled "+cmds[2]+" at " + TimeTools.formatLongUTCNow());
                 } catch (IOException e) {
                     Logger.error(e);
+                    return "! Failed to alter "+cmds[2];
                 }
-                return power?"Enabled phy":"Powered down phy";
+                return (power?"Enabled ":"Powered down ")+cmds[2];
             }
             case "reboot" -> {
-                if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
-                    return "! Only Linux supported for now.";
-                }
-                try {
-                    ProcessBuilder pb = new ProcessBuilder("bash", "-c", "shutdown -r +1");
-                    pb.inheritIO();
-
-                    Logger.error("Started restart attempt at " + TimeTools.formatLongUTCNow());
-                    pb.start();
-
-                    System.exit(0); // shutting down das
-                } catch (IOException e) {
-                    Logger.error(e);
+                if( !Tools.hasRootRights() ){
+                    return "! Not linux or no root rights";
                 }
                 try {
                     ProcessBuilder pb = new ProcessBuilder("sh", "-c", "reboot now");
