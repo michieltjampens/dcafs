@@ -74,7 +74,7 @@ public class PathCmds {
                 }
                 case "xml" -> {
                     if( cmds.length<3)
-                        return "To few arguments, expected pf:pathid,xml,src";
+                        return "! To few arguments, expected pf:pathid,xml,src";
                     var pathPath = settingsPath.getParent().resolve("paths");
                     try {
                         Files.createDirectories( pathPath );

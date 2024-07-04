@@ -77,7 +77,7 @@ public abstract class AbstractForward implements Writable {
     /**
      * Request the data from the source of this forward (asks the whole chain)
      */
-    private void requestSource(){
+    protected void requestSource(){
         valid=true;
         if( parent == null ) {
             sources.forEach(source -> dQueue.add(Datagram.system(source).writable(this)));
@@ -96,22 +96,19 @@ public abstract class AbstractForward implements Writable {
         }
         if( !targets.contains(target)){
             if( !valid ){
-                valid=true;
-                if( !inPath)
-                    sources.forEach( source -> dQueue.add( Datagram.system( source ).writable(this) ) );
+                requestSource();
             }
-            if( target.id().startsWith("telnet")) {
+            if( target.id().startsWith("telnet")) { // Can't remember why this is done
                 targets.add(0,target);
             }else{
                 targets.add(target);
             }
+            Logger.info("Added "+target.id()+" as target to "+id());
         }else{
-            Logger.info(id+" -> Trying to add duplicate target "+target.id());
+            Logger.warn(id+" -> Trying to add duplicate target "+target.id());
         }
     }
-    public boolean hasSrc(){
-        return !sources.isEmpty();
-    }
+
     public String getSrc(){
         return sources.isEmpty()?"":sources.get(0);
     }
@@ -257,6 +254,10 @@ public abstract class AbstractForward implements Writable {
 
     protected void addNextStep( AbstractForward fw, boolean askData ){
         if( fw != null ) {
+            if( nextSteps.stream().anyMatch( rs -> rs.getForward()==fw) ){
+                Logger.warn(id()+" -> Duplicate request for "+fw.id);
+                return;
+            }
             fw.setParent(this); // Let the next step know its parent
             nextSteps.add( new NextStep(fw, askData) ); // Add it to the list of steps
         }else{
@@ -299,6 +300,19 @@ public abstract class AbstractForward implements Writable {
         if( nextSteps.isEmpty())
             return this;
         return nextSteps.get(nextSteps.size()-1).getForward().getLastStep();
+    }
+    protected AbstractForward getStepById( String id){
+        for( var next : nextSteps ){
+            if(next.getForward().id.equalsIgnoreCase(id) ) {
+                return next.getForward();
+            }else{ // Check the sub?
+                var step = next.getForward().getStepById(id);
+                if( step!=null)
+                    return step;
+            }
+        }
+        Logger.warn("No step found with id "+id);
+        return null;
     }
     protected int steps(){
         return nextSteps.size();

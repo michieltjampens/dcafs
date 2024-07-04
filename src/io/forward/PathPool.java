@@ -239,7 +239,7 @@ public class PathPool implements Commandable {
                                 if (!paths.containsKey(cmds[0])) // Exists in xml but not in map
                                     paths.put(cmds[0], new PathForward(rtvals, dQueue, nettyGroup, qw));
                                 var rep = paths.get(cmds[0]).readFromXML(ele.get(), settingsPath.getParent());
-                                if (!rep.isEmpty())
+                                if (!rep.isEmpty() && !res.startsWith("path ")) // empty is good, starting means new so not full
                                     res = rep;
                             }
                         }

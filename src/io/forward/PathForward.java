@@ -149,6 +149,7 @@ public class PathForward {
         customs.trimToSize();
         stepsForward.trimToSize();
 
+        stepsForward.forEach(AbstractForward::requestSource);
         valid=true;
         error="";
 
@@ -159,6 +160,7 @@ public class PathForward {
     }
     private boolean addSteps( ArrayList<Element> steps, String delimiter, AbstractForward parent ){
         boolean reqData=false;
+        String prevTag = "";
 
         for( Element step : steps ){
             var dig = XMLdigger.goIn(step);
@@ -180,19 +182,28 @@ public class PathForward {
             }
             parent = switch( step.getTagName() ){
 
-                case "if" -> {
+                case "case" -> {
                     FilterForward ff = new FilterForward(step, dQueue);
                     // Now link to the source
-                    checkParent( parent,ff);
+                    checkParent( parent,ff,prevTag);
                     // Go deeper
                     var subs = new ArrayList<>(dig.currentSubs());
                     reqData |= addSteps( subs, delimiter, ff);
                     yield parent; // This doesn't alter the parent
                 }
-                case "filter" -> checkParent( parent,new FilterForward(step, dQueue) );
-                case "math" ->   checkParent( parent,new MathForward(step, dQueue, rtvals,defines) );
-                case "editor" -> checkParent( parent,new EditorForward(step, dQueue, rtvals) );
-                case "cmd" -> checkParent( parent,new CmdForward(step,dQueue,rtvals),true );
+                case "if" -> {
+                    FilterForward ff = new FilterForward(step, dQueue);
+                    // Now link to the source
+                    checkParent( parent,ff, prevTag);
+                    // Go deeper
+                    var subs = new ArrayList<>(dig.currentSubs());
+                    reqData |= addSteps( subs, delimiter, ff);
+                    yield ff; //
+                }
+                case "filter" -> checkParent( parent,new FilterForward(step, dQueue), prevTag );
+                case "math" ->   checkParent( parent,new MathForward(step, dQueue, rtvals,defines), prevTag );
+                case "editor" -> checkParent( parent,new EditorForward(step, dQueue, rtvals), prevTag );
+                case "cmd" -> checkParent( parent,new CmdForward(step,dQueue,rtvals),true, prevTag );
                 case "defines" -> {
                     for( var ele :dig.currentSubs()){
                         defines.put(ele.getTagName(),ele.getTextContent());
@@ -215,18 +226,24 @@ public class PathForward {
                 }
                 default -> parent;
             };
+            prevTag=step.getTagName();
         }
         return reqData;
     }
-    private AbstractForward checkParent( AbstractForward parent, AbstractForward child ){
-        return checkParent(parent,child,false);
+    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, String prevTag ){
+        return checkParent(parent,child,false, prevTag);
     }
-    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, boolean askData){
+    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, boolean askData, String prevTag){
         if (parent==null){ // No parent so root of the path, so get the source of the path and it's a step
             stepsForward.add(child);
             child.addSource(src); // It's in the root, so add the path source
         }else{ // Not the root, so add it to the parent
-            parent.addNextStep(child,askData);
+            if( prevTag.equalsIgnoreCase("if")){
+                var ff = (FilterForward)parent;
+                ff.addReverseTarget(child);
+            }else {
+                parent.addNextStep(child, true);
+            }
         }
         return child;
     }
@@ -312,43 +329,19 @@ public class PathForward {
         return targets;
     }
     public void addTarget(Writable wr){
-        addTarget(wr,stepsForward.get(stepsForward.size()-1));
+        var target = stepsForward.get(stepsForward.size()-1).getLastStep();
+        target.addTarget(wr);
     }
-    public void addTarget(Writable wr, String stepId) {
-        for( var step : stepsForward ){
-            if( step.id.equals(stepId) ) {
-                addTarget(wr,step);
+    public void addTarget(Writable wr, String id){
+        for( var step : stepsForward){
+            var fw = step.getStepById(id);
+            if( fw!=null) {
+                fw.addTarget(wr);
                 return;
             }
         }
-        Logger.error(id + "(tm) -> Couldnt find requested step: "+stepId);
+        Logger.warn("No matching step found for "+id);
     }
-    private void addTarget(Writable wr, AbstractForward target){
-        if( stepsForward == null )
-            return;
-
-        if( stepsForward.isEmpty() ){ // If no steps are present
-            if (!targets.contains(wr))
-                targets.add(wr);
-        }else{
-            // Go through the steps and make the connections?
-            for( int a=stepsForward.size()-1;a>0;a--){
-                var step = stepsForward.get(a);
-                for( var sib : stepsForward ){
-                    if( sib.id().equalsIgnoreCase(step.getSrc())) {
-                        sib.addTarget(step);
-                        break;
-                    }
-                }
-            }
-            // The path can receive the data but this isn't given to first step unless there's a request for the data
-            if (!targets.contains(stepsForward.get(0))) // Check if the first step is a target, if not
-                targets.add(stepsForward.get(0)); // add it
-            target.addTarget(wr); // Asking the path data is actually asking the last step
-        }
-        enableSource();
-    }
-
     private void enableSource(){
         if( targets.size()==1 ){
             if( customs.isEmpty()){
@@ -379,15 +372,16 @@ public class PathForward {
         }
     }
     private void disableSource(){
-        if( lastStep().map(AbstractForward::noTargets).orElse(true) ) { // if the final step has no more targets, stop the first step
+        /*if( lastStep().map(AbstractForward::noTargets).orElse(true) ) { // if the final step has no more targets, stop the first step
             if (customs.isEmpty()) {
                 if (src.startsWith("raw:") || src.startsWith("path:")) {
                     dQueue.add(Datagram.system(src.replace(":", ":!")).writable(stepsForward.get(0)));
+                    valid=false;
                 }
             } else {
                 customs.forEach(CustomSrc::stop);
             }
-        }
+        }*/
     }
     public void stop(){
         lastStep().ifPresent(AbstractForward::removeTargets);
