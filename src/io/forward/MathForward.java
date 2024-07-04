@@ -194,7 +194,7 @@ public class MathForward extends AbstractForward {
     protected boolean addData(String data) {
 
         // First check if the operations are actually valid
-        if( !valid ){
+        if( !parsedOk ){
             showError("Not processing data because the operations aren't valid");
             return true;
         }
