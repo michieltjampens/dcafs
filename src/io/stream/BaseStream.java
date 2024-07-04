@@ -168,7 +168,7 @@ public abstract class BaseStream {
         }
         if( targets.contains(writable)){
             Logger.info(id +" -> Already has "+writable.id()+" as target, not adding.");
-            return false;
+            return true;
         }
 
         if( writable.id().startsWith("telnet")) {
