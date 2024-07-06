@@ -13,12 +13,14 @@ Note: Version numbering: x.y.z
 
 ### Minor changes
 - Telnet, rtvals cmd now has alternating color for the val listing
-- MQTT, increased retry interval to 25s because less causes 'already in progress' error.
+- MQTT, increased retry interval to 25s because lower causes 'already in progress' error.
 - MQTT, ttl can be set broker wide and the status message gives more info.
+- admin:phypower now supports rtl chips and checks if root privilege first.
 
 ### Fixes
 - Mariadb doesn't like the use of ", replaced with `. Which also works for sqlite.
 - Localnow column wasn't local when send to sql server.
+- i2c:id,xml didn't reload if the script already exists
 
 ## 2.11.0 (29/06/2024)
 Earlier than planned because of a telnet issue. Should probably start working with branches...
