@@ -58,7 +58,11 @@ public class I2cDevice{
         this.bus=bus;
         this.dQueue=dQueue;
 
-        device = I2CDevice.builder(address).setController(bus.id()).build();
+        try {
+            device = I2CDevice.builder(address).setController(bus.id()).build();
+        }catch( DeviceAlreadyOpenedException e){
+            Logger.warn(id+"(i2c) -> Device already opened.");
+        }
     }
     public boolean connect(){
         Logger.info(id+"(i2c) -> Trying to connect to "+Integer.toHexString(address));
