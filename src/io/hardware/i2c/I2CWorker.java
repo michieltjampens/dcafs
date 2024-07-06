@@ -314,11 +314,11 @@ public class I2CWorker implements Commandable {
                             .attr("id", "setid").attr("info", "what this does")
                             .attr("bits","8")
                             .build();
-                    readFromXML();
+                    readFromXML(); // Reload to enable changes
                     return "Device added, created blank script at " + p;
                 }
+                readFromXML();  // Reload to enable changes
                 return "Device added, using existing script";
-
             }
             case "detect" -> {
                 if (cmds.length == 2) {

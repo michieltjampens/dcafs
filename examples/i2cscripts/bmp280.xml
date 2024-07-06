@@ -100,3 +100,8 @@
 	-> 110 = 10ms
 	-> 111 = 20ms
 -->
+<!--
+Stuff needed in settings.xml
+Added via cmd
+i2c:adddevice,bmp280,1,0x76,bmp280
+-->
