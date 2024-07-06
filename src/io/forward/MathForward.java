@@ -267,7 +267,7 @@ public class MathForward extends AbstractForward {
         }
 
         // Use multithreading so the writables don't have to wait for the whole process
-        nextSteps.parallelStream().filter( ns -> ns.enabled).forEach( ns -> ns.getForward().writeLine(id(),result));
+        nextSteps.parallelStream().forEach( ns -> ns.writeLine(id(),result));
         targets.parallelStream().forEach( wr -> wr.writeLine(id(),result));
 
         if( log )

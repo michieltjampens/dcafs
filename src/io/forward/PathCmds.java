@@ -282,9 +282,7 @@ public class PathCmds {
                     }
                 }
                 if( cmds.length < 4 )
-                    return "! Not enough arguments, need atleast 4: pf:pathid,store,cmd,value(s)";
-                // pf:id,store,addi,rolled,4
-
+                    return "! Not enough arguments, need at least 4: pf:pathid,store,cmd,value(s)";
                 return StoreCmds.replyToPathCmd(cmds[0]+","+cmds[2]+","+cmds[3]+(cmds.length>4?","+cmds[4]:""),settingsPath);
             }
         }

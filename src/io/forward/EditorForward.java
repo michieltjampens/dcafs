@@ -60,7 +60,7 @@ public class EditorForward extends AbstractForward{
         String finalData = data;
 
         // Use multithreading so the writables don't have to wait for the whole process
-        nextSteps.parallelStream().filter( ns -> ns.enabled).forEach( ns -> ns.getForward().writeLine(id(),finalData));
+        nextSteps.parallelStream().forEach( ns -> ns.writeLine(id(),finalData));
         targets.parallelStream().forEach( wr -> wr.writeLine(id(),finalData));
 
         if( log )

@@ -43,7 +43,7 @@ public abstract class AbstractForward implements Writable {
     protected String delimiter = ","; // Delimiter to use for splitting
 
     // Consecutive steps in a path
-    protected final ArrayList<NextStep> nextSteps = new ArrayList<>();       // To where the data needs to be send
+    protected final ArrayList<AbstractForward> nextSteps = new ArrayList<>();       // To where the data needs to be send
     protected AbstractForward parent;
 
     protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
@@ -122,7 +122,7 @@ public abstract class AbstractForward implements Writable {
         targets.clear();
     }
     public boolean noTargets(){
-        return targets.isEmpty() && store==null && !log && nextSteps.stream().noneMatch(ns->ns.enabled);
+        return targets.isEmpty() && store==null && !log && nextSteps.isEmpty();
     }
     public ArrayList<Writable> getTargets(){
         return targets;
@@ -225,7 +225,7 @@ public abstract class AbstractForward implements Writable {
     public void removeStoreVals(RealtimeValues rtv){
         if( store!=null)
             store.removeRealtimeValues(rtv);
-        nextSteps.forEach( x -> x.getForward().removeStoreVals(rtv));
+        nextSteps.forEach( x -> x.removeStoreVals(rtv));
     }
 
     /**
@@ -252,14 +252,14 @@ public abstract class AbstractForward implements Writable {
     public abstract boolean readFromXML( Element fwElement );
     protected abstract String getXmlChildTag();
 
-    protected void addNextStep( AbstractForward fw, boolean askData ){
+    protected void addNextStep( AbstractForward fw ){
         if( fw != null ) {
-            if( nextSteps.stream().anyMatch( rs -> rs.getForward()==fw) ){
+            if( nextSteps.stream().anyMatch( rs -> rs==fw) ){
                 Logger.warn(id()+" -> Duplicate request for "+fw.id);
                 return;
             }
             fw.setParent(this); // Let the next step know its parent
-            nextSteps.add( new NextStep(fw, askData) ); // Add it to the list of steps
+            nextSteps.add( fw ); // Add it to the list of steps
         }else{
             Logger.error(id()+" -> Tried to add step, but null.");
         }
@@ -273,25 +273,9 @@ public abstract class AbstractForward implements Writable {
     }
 
     protected void sendDataToStep( AbstractForward step ){
-        var matchOpt = nextSteps.stream().filter( ns -> ns.af==step).findFirst();
+        var matchOpt = nextSteps.stream().filter( ns -> ns==step).findFirst();
         if( matchOpt.isPresent()) {
-            var match = matchOpt.get();
-            if( !match.enabled ){ // No use asking twice
-                if( nextSteps.stream().noneMatch(ns -> ns.enabled) )  // If any other step is enabled, then source has been requested
-                    requestSource();
-                match.enabled = true;
-            }else{
-                Logger.info(id()+ "-> Already enabled "+step.id());
-            }
-        }else{
-            Logger.error( id()+" -> No match found for "+step.id() );
-        }
-    }
-    protected void stopDataToStep( AbstractForward step ){
-        var matchOpt = nextSteps.stream().filter( ns -> ns.af==step).findFirst();
-        if( matchOpt.isPresent()) {
-            var match = matchOpt.get();
-            match.enabled = false;
+            requestSource();
         }else{
             Logger.error( id()+" -> No match found for "+step.id() );
         }
@@ -299,14 +283,14 @@ public abstract class AbstractForward implements Writable {
     protected AbstractForward getLastStep(){
         if( nextSteps.isEmpty())
             return this;
-        return nextSteps.get(nextSteps.size()-1).getForward().getLastStep();
+        return nextSteps.get(nextSteps.size()-1).getLastStep();
     }
     protected AbstractForward getStepById( String id){
         for( var next : nextSteps ){
-            if(next.getForward().id.equalsIgnoreCase(id) ) {
-                return next.getForward();
+            if(next.id.equalsIgnoreCase(id) ) {
+                return next;
             }else{ // Check the sub?
-                var step = next.getForward().getStepById(id);
+                var step = next.getStepById(id);
                 if( step!=null)
                     return step;
             }
@@ -357,18 +341,5 @@ public abstract class AbstractForward implements Writable {
     @Override
     public Writable getWritable(){
         return this;
-    }
-    /* ********************** Storage class  ****************************/
-    protected static class NextStep{
-        AbstractForward af;
-        boolean enabled;
-
-        NextStep( AbstractForward af, boolean askData){
-            this.af=af;
-            this.enabled=askData;
-        }
-        public AbstractForward getForward(){
-            return af;
-        }
     }
 }

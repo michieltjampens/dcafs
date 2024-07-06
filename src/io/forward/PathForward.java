@@ -203,7 +203,7 @@ public class PathForward {
                 case "filter" -> checkParent( parent,new FilterForward(step, dQueue), prevTag );
                 case "math" ->   checkParent( parent,new MathForward(step, dQueue, rtvals,defines), prevTag );
                 case "editor" -> checkParent( parent,new EditorForward(step, dQueue, rtvals), prevTag );
-                case "cmd" -> checkParent( parent,new CmdForward(step,dQueue,rtvals),true, prevTag );
+                case "cmd" -> checkParent( parent,new CmdForward(step,dQueue,rtvals), prevTag );
                 case "defines" -> {
                     for( var ele :dig.currentSubs()){
                         defines.put(ele.getTagName(),ele.getTextContent());
@@ -230,10 +230,7 @@ public class PathForward {
         }
         return reqData;
     }
-    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, String prevTag ){
-        return checkParent(parent,child,false, prevTag);
-    }
-    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, boolean askData, String prevTag){
+    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, String prevTag){
         if (parent==null){ // No parent so root of the path, so get the source of the path and it's a step
             stepsForward.add(child);
             child.addSource(src); // It's in the root, so add the path source
@@ -242,7 +239,7 @@ public class PathForward {
                 var ff = (FilterForward)parent;
                 ff.addReverseTarget(child);
             }else {
-                parent.addNextStep(child, true);
+                parent.addNextStep(child);
             }
         }
         return child;

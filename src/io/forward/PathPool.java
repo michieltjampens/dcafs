@@ -199,7 +199,7 @@ public class PathPool implements Commandable {
                         if( cmds.length==2)
                             return pp.debugStep("*", wr);
                         if (cmds.length != 3)
-                            return "Incorrect number of arguments, needs to be pf:id,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
+                            return "! Incorrect number of arguments, needs to be pf:id,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
                         if (pp == null)
                             return or+"! No such path: " + cmds[0]+reg;
                         int nr = NumberUtils.toInt(cmds[2], -2);

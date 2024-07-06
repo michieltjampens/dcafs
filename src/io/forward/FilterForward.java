@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 public class FilterForward extends AbstractForward {
 
     protected ArrayList<Predicate<String>> rules = new ArrayList<>();// Rules that define the filters
-    private final ArrayList<NextStep> reversed = new ArrayList<>();
+    private final ArrayList<AbstractForward> reversed = new ArrayList<>();
     private boolean negate=false; // If the filter is negated or not
 
     private AbstractForward parent;
@@ -41,7 +41,7 @@ public class FilterForward extends AbstractForward {
 
         if( doFilter(data) ){
             // Use multithreading so the writables don't have to wait for the whole process
-            nextSteps.parallelStream().filter( ns -> ns.enabled).forEach( ns -> ns.getForward().writeLine(id(),data));
+            nextSteps.parallelStream().forEach( ns -> ns.writeLine(id(),data));
             targets.parallelStream().forEach( wr -> wr.writeLine(id(),data));
 
             if( log )
@@ -53,7 +53,7 @@ public class FilterForward extends AbstractForward {
                     tableInserters.forEach(ti -> ti.insertStore(dbInsert));
             }
         }else{
-            reversed.parallelStream().filter(ns -> ns.enabled).forEach( ns-> ns.getForward().writeLine(data) );
+            reversed.parallelStream().forEach( ns-> ns.writeLine(data) );
         }
         if( !cmds.isEmpty())
             cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
@@ -74,33 +74,26 @@ public class FilterForward extends AbstractForward {
             Logger.warn(id+"(filter) -> Null forward.");
             return;
         }
-        if( reversed.stream().anyMatch( rs -> rs.getForward()==wr) ){
+        if( reversed.stream().anyMatch( rs -> rs==wr) ){
             Logger.warn(id+"(filter) -> Duplicate request for "+wr.id);
             return;
         }
         // Add it to the list of reversed
-        reversed.add( new NextStep(wr,true));
-        getLastStep().addNextStep(wr,true); // and to the last step
+        reversed.add( wr);
+        getLastStep().addNextStep(wr); // and to the last step
         wr.setParent(this); // Finally, make this the parent
         Logger.info(id() + " -> Adding reverse target to " + wr.id());
     }
     @Override
     protected void sendDataToStep( AbstractForward step ){
         boolean reverse=false;
-        var matchOpt = nextSteps.stream().filter( ns -> ns.af==step).findFirst();
+        var matchOpt = nextSteps.stream().filter( ns -> ns==step).findFirst();
         if( matchOpt.isEmpty()) {
-            matchOpt = reversed.stream().filter(ns -> ns.af == step).findFirst();
+            matchOpt = reversed.stream().filter(ns -> ns == step).findFirst();
             reverse=true;
         }
         if( matchOpt.isPresent()) {
-            var match = matchOpt.get();
-            if( !match.enabled ){ // No use asking twice
-                if( nextSteps.stream().noneMatch(ns -> ns.enabled) )  // If any other step is enabled, then source has been requested
-                    requestSource();
-                match.enabled = true;
-            }else{
-                Logger.info(id()+ "-> Already enabled "+step.id());
-            }
+            requestSource();
             if(reverse){
                 getLastStep().sendDataToStep(step);
             }
@@ -120,7 +113,7 @@ public class FilterForward extends AbstractForward {
             join.add(ts.toString());
 
         StringJoiner ts2 = new StringJoiner(", ","    Rejected data target: ","" );
-        reversed.forEach( x -> ts2.add( x.getForward().id()));
+        reversed.forEach( x -> ts2.add( x.id() ));
         if( !reversed.isEmpty())
             join.add(ts2.toString());
 
