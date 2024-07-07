@@ -11,10 +11,7 @@ import util.tools.TimeTools;
 import worker.Datagram;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.concurrent.*;
 
 /**
@@ -333,10 +330,13 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			.add("\r\n");
 
 		//Body with alternating colored lines
-		for( var set : valReceived.entrySet() ){
-			join.add( (toggle?TelnetCodes.TEXT_DEFAULT:TelnetCodes.TEXT_YELLOW)+set.getKey())
-				.add( " ".repeat(topicLength-set.getKey().length())).add(set.getValue().id())
-				.add( " ".repeat(idLength-set.getValue().id().length())).add(set.getValue().toString())
+        var tops = new ArrayList<>(valReceived.keySet());
+		Collections.sort(tops);
+		for( var top : tops ){
+			var val = valReceived.get(top);
+			join.add( (toggle?TelnetCodes.TEXT_DEFAULT:TelnetCodes.TEXT_YELLOW)+top)
+				.add( " ".repeat(topicLength-top.length())).add(val.id())
+				.add( " ".repeat(idLength-val.id().length())).add(val.toString())
 				.add("\r\n");
 			toggle = !toggle;
 		}
