@@ -457,13 +457,20 @@ public class SqlTable{
         int offset=0;
         prep.enableLock();
         for( int index=0;index<updateCounts.length;index++){
-            if( updateCounts[index]==Statement.EXECUTE_FAILED){                
+            if( updateCounts[index]==Statement.EXECUTE_FAILED || updateCounts[index]==Statement.SUCCESS_NO_INFO){
+                Logger.error("Removed query: "+badQuery(prep,index-offset));
                 dd.remove(index-offset);
-                offset++;      
-            }  
+                offset++;
+            }
         }
         prep.disableLock();
         return offset;
+    }
+    private String badQuery( PrepStatement prep, int index ){
+        var join = new StringJoiner(", ",prep.statement+" -> Data: ","");
+        for( var o : prep.getData().get(index) )
+            join.add(String.valueOf(o));
+        return join.toString();
     }
     public void clearRecords(String id, int count ){
         PrepStatement prep = preps.get(id);
@@ -518,7 +525,7 @@ public class SqlTable{
                                     Logger.error(name +" -> Failed to parse the default of "+col.title+" to a real.");
                                 }
                             }else{
-                                Logger.error(name+" -> Couldn't find "+ref+" using AND no column default, abort store building");
+                                Logger.error(name+" -> Couldn't find "+ref+" AND no column default, abort store building");
                                 return;
                             }
                         }
