@@ -43,14 +43,13 @@ public class TaskManagerPool implements Commandable {
     }
     public void readFromXML() {
         Path xml = Path.of(workPath, "settings.xml");
-
+        // By default, taskmanagers are in their own node
         var dig = XMLdigger.goIn(xml,"dcafs","taskmanagers");
-        if( dig.isInvalid() ) {
+        if( dig.isInvalid() )  // alternatively they might be in the settings
             dig = XMLdigger.goIn(xml,"dcafs","settings");
-        }
-        if( dig.isInvalid() ) {
-            return;
-        }
+        if( dig.isInvalid() || !dig.hasPeek("taskmanager") )
+            dig = XMLdigger.goIn(xml,"dcafs"); // Or even just under dcafs
+
         dig.peekOut("taskmanager").forEach( tm -> {
             Logger.info("Found reference to TaskManager in xml.");
             var p = Path.of(tm.getTextContent());
