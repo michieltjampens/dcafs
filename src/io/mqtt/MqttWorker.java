@@ -58,6 +58,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private final BlockingQueue<Datagram> dQueue;
 	private String storeTopic="";
 	private long ttl=-1L;
+	private boolean debug=false;
 
 	public MqttWorker(String id, String address, String clientId, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
 		this.id=id;
@@ -91,6 +92,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			default -> "tcp://"+addr;
 		};
 	}
+	public void setDebug( boolean enabled){
+		this.debug=enabled;
+	}
+	public boolean isDebugging(){
+		return debug;
+	}
 	/* ************************************ Q U E U E ************************************************************* **/
 	/**
 	 * Give work to the worker, it will be placed in the queue
@@ -100,6 +107,9 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	public void addWork(MqttWork work) {
 		if( work.isInvalid() )
 			return;
+		if( debug ){
+			Logger.info(id+"(mqtt) -> Processing work: "+work);
+		}
 		mqttQueue.add(work);
 		if (!client.isConnected()) { // If not connected, try to connect
 			if (!connecting) {
@@ -338,7 +348,8 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	public void messageArrived(String topic, MqttMessage message) {
 
 		String load = new String(message.getPayload());	// Get the payload
-		Logger.info("Rec: "+topic+" load:"+load);
+		if(debug)
+			Logger.info("Rec: "+topic+" load:"+load);
 		Logger.tag("RAW").warn(id+"\t"+topic+"\t"+load);  // Store it like any other received data
 
 		// Update data timestamps taking wildcards in account
@@ -391,7 +402,6 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		}
 		if( !targets.isEmpty() )
 			targets.removeIf(dt -> !dt.writeLine( load ) );
-
 	}
 
 	/**

@@ -52,6 +52,9 @@ public class MqttWork {
 			valid=false;
 		}
 	}
+	public String toString(){
+		return "Topic: "+topic+" -> data:"+new String(data) +" -> qos: "+qos;
+	}
 	/*  SETTINGS */
 	/**
 	 * Change te QoS for this message

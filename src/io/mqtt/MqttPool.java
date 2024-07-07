@@ -7,6 +7,7 @@ import util.data.AbstractVal;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -305,6 +306,13 @@ public class MqttPool implements Commandable {
                     fab.addChild("topic",topic);
                     fab.build();
                     return "Store added";
+                }
+                case "debug" -> {
+                    if (cmds.length == 2)
+                        return "Debug enabled: "+worker.isDebugging();
+                    var deb = Tools.parseBool(cmds[2],false);
+                    worker.setDebug(deb);
+                    return "Changing debug to "+(deb?"enabled":"disabled");
                 }
                 default -> {
                     Logger.error("(mqtt) -> No such command "+ cmd + ": " + cmds[0]);
