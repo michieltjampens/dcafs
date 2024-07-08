@@ -944,11 +944,13 @@ public class RealtimeValues implements Commandable {
 				}
 				// Check lower limit
 				while( subs.get(index).min!=0 && total <= subs.get(index).min && index!=0){
-					total*=subs.get(index).div;
+					if( !subs.get(index).unit.equals(subs.get(index-1).unit))
+						total*=subs.get(index).div;
 					index--;
 				}
 				while( subs.get(index).max!=0 && total > subs.get(index).max && index!=subs.size()-1){
-					total/=subs.get(index).div;
+					if( !subs.get(index).unit.equals(subs.get(index+1).unit))
+						total/=subs.get(index).div;
 					index++;
 				}
 				if( subs.get(index).scale!=-1) // -1 scale is ignored by round double, but cleaner this way?
