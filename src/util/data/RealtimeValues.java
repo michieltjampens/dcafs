@@ -135,9 +135,10 @@ public class RealtimeValues implements Commandable {
 	private void processUnitElement(XMLdigger dig ){
 
 		var base = dig.attr("base",""); // Starting point
-		var unit = new DynamicUnit(base,dig.attr("scale",-1));
+		var unit = new DynamicUnit(base);
 		unit.setValRegex(dig.attr("nameregex",""));
 		var defDiv = dig.attr("div",1);
+		var defScale =  dig.attr("scale", dig.attr("digits",-1) );
 
 		if( dig.hasPeek("level")){
 			for( var lvl : dig.digOut("level")){ // Go through the levels
@@ -146,6 +147,7 @@ public class RealtimeValues implements Commandable {
 				var min = lvl.attr("min",0.0); // From which value the nex unit should be used
 				var max = lvl.attr("max",0.0); // From which value the nex unit should be used
 				var scale = lvl.attr("scale",-1);
+				scale = lvl.attr("digits",scale==-1?defScale:scale);
 				unit.addLevel(val,div,min,max,scale);
 			}
 		}else if(dig.hasPeek("step")){
@@ -887,9 +889,8 @@ public class RealtimeValues implements Commandable {
 		ArrayList<SubUnit> subs = new ArrayList<>();
 		enum TYPE {STEP,LEVEL};
 
-		public DynamicUnit( String base, int baseScale ){
+		public DynamicUnit( String base ){
 			this.base=base;
-			this.baseScale=baseScale;
 		}
 		public void setValRegex( String regex ){
 			this.valRegex=regex;
