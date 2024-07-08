@@ -137,13 +137,16 @@ public class RealtimeValues implements Commandable {
 		var base = dig.attr("base",""); // Starting point
 		var unit = new DynamicUnit(base,dig.attr("scale",-1));
 		unit.setValRegex(dig.attr("nameregex",""));
+		var defDiv = dig.attr("div",1);
 
 		if( dig.hasPeek("level")){
 			for( var lvl : dig.digOut("level")){ // Go through the levels
 				var val = lvl.value(""); // the unit
-				var div = lvl.attr("div",1); // the multiplier to go to next step
-				var from = lvl.attr("from",div); // From which value the nex unit should be used
-				unit.addLevel(val,div,from);
+				var div = lvl.attr("div",defDiv); // the multiplier to go to next step
+				var min = lvl.attr("min",0.0); // From which value the nex unit should be used
+				var max = lvl.attr("max",0.0); // From which value the nex unit should be used
+				var scale = lvl.attr("scale",-1);
+				unit.addLevel(val,div,min,max,scale);
 			}
 		}else if(dig.hasPeek("step")){
 			for( var step : dig.digOut("step")){ // Go through the steps
@@ -156,6 +159,7 @@ public class RealtimeValues implements Commandable {
 		}
 		units.put(base, unit);
 	}
+
 	public void removeVal( AbstractVal val ){
 		if( val == null)
 			return;
@@ -781,14 +785,23 @@ public class RealtimeValues implements Commandable {
 	public String applyUnit( NumericVal nv ){
 		if( units.isEmpty())
 			return nv.asValueString();
-		var unit = units.get(nv.unit());
+
+		DynamicUnit unit=null;
+		for( var set : units.entrySet() ){
+			if( nv.unit().endsWith(set.getKey())) {
+				unit = set.getValue();
+				break;
+			}
+		}
 		if( unit==null||unit.noSubs())
 			return nv.asValueString();
 		if( nv.getClass() == RealVal.class) {
 			var rv = (RealVal)nv;
-			return unit.apply(rv.raw(), rv.scale() );
+			if( Double.isNaN(rv.value()))
+				return nv.asValueString();
+			return unit.apply(rv.raw(), rv.unit, rv.scale() );
 		}
-		return unit.apply(nv.value(), 0);
+		return unit.apply(nv.value(), nv.unit(),0);
 	}
 	/**
 	 * Get the full listing of all reals,flags and text, so both grouped and ungrouped
@@ -892,13 +905,13 @@ public class RealtimeValues implements Commandable {
 		}
 		public void addStep( String unit, int cnt ){
 			type=TYPE.STEP;
-			subs.add( new SubUnit(unit,cnt,0));
+			subs.add( new SubUnit(unit,cnt,0,0,0));
 		}
-		public void addLevel( String unit, int mul, int from ){
+		public void addLevel( String unit, int mul, double min, double max, int scale ){
 			type=TYPE.LEVEL;
-			subs.add( new SubUnit(unit,mul,from));
+			subs.add( new SubUnit(unit,mul,min,max,scale));
 		}
-		public String apply( double total,int scale ){
+		public String apply( double total, String curUnit, int scale ){
 			StringBuilder result= new StringBuilder();
 			if( type==TYPE.STEP ){
 				var amount = (int)Math.rint(total);
@@ -919,29 +932,44 @@ public class RealtimeValues implements Commandable {
 					}
 				}
 			}else if( type==TYPE.LEVEL ){
-				String unit = base;
-                for (SubUnit sub : subs) {
-                    if (total > sub.from) { // If the amount is higher than the limit
-                        total = total / sub.div; // apply the division
-						unit = sub.unit; // Alter the unit
-                    }else{
+				int index;
+				for( index=0;index<subs.size();index++){
+					if( subs.get(index).unit.equalsIgnoreCase(curUnit))
 						break;
-					}
-                }
+				}
+				if( index == subs.size() ) {
+					Logger.warn("Couldn't find corresponding unit in list: "+curUnit);
+					return total + curUnit;
+				}
+				// Check lower limit
+				while( subs.get(index).min!=0 && total <= subs.get(index).min && index!=0){
+					total*=subs.get(index).div;
+					index--;
+				}
+				while( subs.get(index).max!=0 && total > subs.get(index).max && index!=subs.size()-1){
+					total/=subs.get(index).div;
+					index++;
+				}
+				if( subs.get(index).scale!=-1) // -1 scale is ignored by round double, but cleaner this way?
+					total = Tools.roundDouble(total,subs.get(index).scale);
 				if( scale>0) // Apply scaling if any
 					total = Tools.roundDouble(total,scale);
-				return total + unit;
+				return total + subs.get(index).unit;
 			}
 			return total+base;
 		}
 		public static class SubUnit{
 			String unit;
 			int div;
-			int from;
-			public SubUnit( String unit, int mul, int from ){
+			double min,max;
+			int scale;
+
+			public SubUnit( String unit, int mul, double min, double max, int scale ){
 				this.unit=unit;
 				this.div =mul;
-				this.from=from;
+				this.min=min;
+				this.max=max;
+				this.scale=scale;
 			}
 		}
 	}

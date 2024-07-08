@@ -6,21 +6,49 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
-- pf:reload doesn't seem to reload the db tag of a store? 
-- pf:reload seems to leave some instance alive, math forward still using old ops while pf:list shows new ones.
+- Writing to db stopped for some reason for a store in i2c without any error messages etc
 
-## 2.11.1 (wip)
+## 2.12.0
 
 ### Minor changes
 - Telnet, rtvals cmd now has alternating color for the val listing
-- MQTT, increased retry interval to 25s because lower causes 'already in progress' error.
-- MQTT, ttl can be set broker wide and the status message gives more info.
 - admin:phypower now supports rtl chips and checks if root privilege first.
+- Taskmanagers can now be under dcafs node instead of settings or taskmanagers
 
 ### Fixes
 - Mariadb doesn't like the use of ", replaced with `. Which also works for sqlite.
+- MariaDB returns a differnet error code on batch errors, now properly handled
 - Localnow column wasn't local when send to sql server.
 - i2c:id,xml didn't reload if the script already exists
+
+### MQTT
+- Increased retry interval to 25s because lower causes 'already in progress' error.
+- Ttl can be set broker wide and the status message gives more info.
+- Added `mqtt:brokerid,debug` and `mqtt:brokerid,debug,true/false` to read and set debugging. For now the only
+difference with enabled is log messages if data is received or send.
+- Result of `mqtt:brokerid,stores` is now sorted on topic.
+
+### Paths
+- Changed how 'if' nodes work to be more in line with regular programming. Successive nodes will be executing
+  instead of previous more like switch case.
+- Added 'case' node to mimic how if used to work.
+- Rewrote how the steps are interconnecting.
+
+### Rtvals
+- Improved dynamic units:
+  - Now allows for starting with any of the units instead of only base.
+  - Can now go up or down a unit instead of only up
+  - Replaced attribute 'from' with min/max, should be a bit clearer
+  - Can now have a scale for each individual unit
+  - Div is set globally or per unit
+```xml
+<unit base="Wh" div="1000">
+  <level           max="1000" scale="1" >mWh</level> <!-- Up to 1000mWh use this unit, with 1 digit -->
+  <level min="1"   max="1500" scale="2" >Wh</level>  <!-- For 1Wh till 1500Wh -->
+  <level min="1,5"            scale="3" >kWh</level>
+</unit>
+```
+
 
 ## 2.11.0 (29/06/2024)
 Earlier than planned because of a telnet issue. Should probably start working with branches...
