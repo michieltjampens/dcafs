@@ -1,7 +1,6 @@
 package io.stream;
 
 import das.Commandable;
-import das.IssuePool;
 import io.Writable;
 import io.collector.CollectorFuture;
 import io.collector.ConfirmCollector;
@@ -51,7 +50,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	private final EventLoopGroup eventLoopGroup;    // Event loop used by the netty stuff
 
-	private final IssuePool issues;            // Handles the issues/problems that arise
 	private int retryDelayMax = 30;            // The minimum time between reconnection attempts
 	private int retryDelayIncrement = 5;    // How much the delay increases between attempts
 
@@ -69,15 +67,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	private final ArrayList<StoreCollector> stores = new ArrayList<>();
 
-	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
+	public StreamManager(BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
 		this.dQueue = dQueue;
-		this.issues = issues;
 		this.eventLoopGroup = nettyGroup;
 		this.rtvals=rtvals;
 	}
 
-	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, RealtimeValues rtvals) {
-		this(dQueue,issues, new NioEventLoopGroup(), rtvals);
+	public StreamManager(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals) {
+		this(dQueue, new NioEventLoopGroup(), rtvals);
 	}
 
 	/**
@@ -586,9 +583,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if( delay > retryDelayMax )
 					delay = retryDelayMax;
 				Logger.error( "Failed to connect to "+base.id()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );
-				String device = base.id().replace(" ","").toLowerCase();
-				if( issues!=null )
-					issues.addIfNewAndStart(device+".conlost", "Connection lost to "+base.id());
 				base.reconnectFuture = scheduler.schedule( new DoConnection( base ), delay, TimeUnit.SECONDS );
 			} catch (Exception ex) {
 				Logger.error( "Connection thread interrupting while trying to connect to "+base.id());
@@ -1109,8 +1103,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	@Override
 	public boolean notifyActive(String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStop(device+".conidle", "TTL passed for "+id);
+
 		dQueue.add( Datagram.system("tm:restored,"+id));
 		getStream(id.toLowerCase()).ifPresent( s -> {
 			s.flagAsActive();
@@ -1121,10 +1114,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	@Override
 	public void notifyOpened( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStop(device+".conlost", "Connection lost to "+id);
 		dQueue.add( Datagram.system("tm:restored,"+id));
-
 		getStream(id.toLowerCase()).ifPresent( b -> {
 			b.applyTriggeredAction(BaseStream.TRIGGER.HELLO);
 			b.applyTriggeredAction(BaseStream.TRIGGER.OPEN);
@@ -1133,8 +1123,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	@Override
 	public void notifyClosed( String id ) {
-		String device = id.replace(" ", "").toLowerCase(); // Remove spaces
-		issues.addIfNewAndStart(device+".conlost", "Connection lost to "+id);
 		getStream(id.toLowerCase()).ifPresent( b -> b.applyTriggeredAction(BaseStream.TRIGGER.CLOSE));
 	}
 

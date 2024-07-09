@@ -95,21 +95,6 @@ public class ValTools {
                             return "";
                         }
                     }
-                    case "is" -> { // issues
-                        var i = rtvals.getIssuePool().getIssueAsNumerical(p[1]);
-                        if (i.isPresent()) {
-                            index = nums.indexOf(i.get());
-                            if (index == -1) {
-                                nums.add(i.get());
-                                index = nums.size() - 1;
-                            }
-                            index += offset;
-                            exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + index);
-                        } else {
-                            Logger.error("Couldn't find an Issue with id " + p[1]);
-                            return "";
-                        }
-                    }
                     default -> {
                         Logger.error("Operation containing unknown pair: " + p[0] + ":" + p[1]);
                         return "";

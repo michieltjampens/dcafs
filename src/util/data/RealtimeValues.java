@@ -1,7 +1,6 @@
 package util.data;
 
 import das.Commandable;
-import das.IssuePool;
 import io.Writable;
 import io.forward.AbstractForward;
 import io.telnet.TelnetCodes;
@@ -29,7 +28,6 @@ public class RealtimeValues implements Commandable {
 	private final ConcurrentHashMap<String, TextVal> textVals = new ConcurrentHashMap<>(); 		 // strings
 	private final ConcurrentHashMap<String, FlagVal> flagVals = new ConcurrentHashMap<>(); 		 // booleans
 	private final HashMap<String,DynamicUnit> units = new HashMap<>();
-	private final IssuePool issuePool;
 
 	/* General settings */
 	private final Path settingsPath;
@@ -42,8 +40,6 @@ public class RealtimeValues implements Commandable {
 		this.dQueue=dQueue;
 
 		readFromXML( XMLdigger.goIn(settingsPath,"dcafs","rtvals") );
-
-		issuePool = new IssuePool(dQueue, settingsPath,this);
 	}
 
 	/* ************************************ X M L ****************************************************************** */
@@ -865,22 +861,8 @@ public class RealtimeValues implements Commandable {
 		groups.remove("dcafs"); // This group contains system variables, don't show it.
 		return groups.stream().distinct().sorted().toList();
 	}
-	/* ******************************** I S S U E P O O L ********************************************************** */
-	/**
-	 * Get a list of the id's of the active issues
-	 * @return A list of the active issues id's
-	 */
-	public ArrayList<String> getActiveIssues(){
-		return issuePool.getActives();
-	}
+	/* ******************************** D Y N A M I C  U N I T **************************************************** */
 
-	/**
-	 * Get the IssuePool object
-	 * @return The IssuePool object
-	 */
-	public IssuePool getIssuePool(){
-		return issuePool;
-	}
 	public static class DynamicUnit{
 		String base;
 		int baseScale=-1;

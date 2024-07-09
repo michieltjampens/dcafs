@@ -168,7 +168,6 @@ public class DAS implements Commandable{
 
         /* RealtimeValues */
         rtvals = new RealtimeValues( settingsPath, dQueue );
-        addCommandable(rtvals.getIssuePool(),"issue","issues");
         addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text;flag");
         addCommandable(rtvals,"rtval","rtvals");
         addCommandable(rtvals,"stop");
@@ -339,7 +338,7 @@ public class DAS implements Commandable{
      */
     private void addStreamManager() {
 
-       streamManager = new StreamManager(dQueue, rtvals.getIssuePool(), nettyGroup,rtvals);
+       streamManager = new StreamManager(dQueue, nettyGroup,rtvals);
        addCommandable(streamManager,"ss","streams"); // general commands
        addCommandable(streamManager,"s_","h_");      // sending data to a stream
        addCommandable(streamManager,"raw","stream"); // getting data from a stream
