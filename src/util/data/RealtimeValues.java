@@ -144,11 +144,11 @@ public class RealtimeValues implements Commandable {
 			for( var lvl : dig.digOut("level")){ // Go through the levels
 				var val = lvl.value(""); // the unit
 				var div = lvl.attr("div",defDiv); // the multiplier to go to next step
-				var min = lvl.attr("min",0.0); // From which value the nex unit should be used
-				var max = lvl.attr("max",0.0); // From which value the nex unit should be used
+				var max = lvl.attr("till",lvl.attr("max",0.0)); // From which value the nex unit should be used
 				var scale = lvl.attr("scale",-1);
 				scale = lvl.attr("digits",scale==-1?defScale:scale);
-				unit.addLevel(val,div,min,max,scale);
+
+				unit.addLevel(val,div,max,scale);
 			}
 		}else if(dig.hasPeek("step")){
 			for( var step : dig.digOut("step")){ // Go through the steps
@@ -800,7 +800,7 @@ public class RealtimeValues implements Commandable {
 		if( nv.getClass() == RealVal.class) {
 			var rv = (RealVal)nv;
 			if( Double.isNaN(rv.value()))
-				return nv.asValueString();
+				return "NaN";
 			return unit.apply(rv.raw(), rv.unit, rv.scale() );
 		}
 		return unit.apply(nv.value(), nv.unit(),0);
@@ -908,8 +908,18 @@ public class RealtimeValues implements Commandable {
 			type=TYPE.STEP;
 			subs.add( new SubUnit(unit,cnt,0,0,0));
 		}
-		public void addLevel( String unit, int mul, double min, double max, int scale ){
+		public void addLevel( String unit, int mul, double max, int scale ){
 			type=TYPE.LEVEL;
+			double min = Double.NEGATIVE_INFINITY;
+			if( !subs.isEmpty() ){
+				var prev = subs.get(subs.size()-1);
+				if( prev.unit.equals(unit)){ // If the same unit, don't divide
+					min = prev.max;
+				}else{// If different one, do
+					min = prev.max/mul;
+				}
+			}
+
 			subs.add( new SubUnit(unit,mul,min,max,scale));
 		}
 		public String apply( double total, String curUnit, int scale ){
