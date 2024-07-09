@@ -38,7 +38,6 @@ public abstract class AbstractForward implements Writable {
     protected ValStore store;                   // A Store that holds links to rtvals used by the forward
     protected boolean readOk=false;
     public enum RESULT{ERROR,EXISTS,OK}
-    protected boolean inPath=true;
     protected boolean parsedOk=true;
     protected String delimiter = ","; // Delimiter to use for splitting
 

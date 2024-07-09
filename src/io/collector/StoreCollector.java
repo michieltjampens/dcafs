@@ -60,7 +60,7 @@ public class StoreCollector extends AbstractCollector {
                     ti.insertStore(db);
             });
         }else{
-            Logger.error(id+" -> Forward without a valid store...");
+            Logger.error(id+"(sc) -> Forward without a valid store...");
             return false;
         }
         return true;

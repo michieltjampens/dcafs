@@ -48,7 +48,6 @@ public class PathForward {
     String error=""; // Last error that occurred
     boolean valid=false; // Whether this path is valid (xml processing went ok)
     QueryWriting db;
-    AbstractForward root=null;
 
     public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, QueryWriting db){
         this.rtvals = rtvals;

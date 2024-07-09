@@ -16,12 +16,9 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Path;

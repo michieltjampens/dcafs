@@ -72,7 +72,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	/* ************************************** N E T T Y  O V E R R I D E S ********************************************/
 
     @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
 		Logger.info("Not implemented yet - user event triggered");
     }
     @Override
@@ -81,7 +81,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		channel = ctx.channel();			// Store the channel for future use
 		
 		if( channel.remoteAddress() != null){					// Incase the remote address is not null
-			remote = (InetSocketAddress)ctx.channel().remoteAddress();;	// Store this as remote address
+			remote = (InetSocketAddress)ctx.channel().remoteAddress();	// Store this as remote address
 			remoteIP = remote.getAddress().getHostAddress();
 			if( remote.getAddress() instanceof Inet4Address){
 				Logger.debug("IPv4: "+ remote.getAddress());
@@ -294,12 +294,9 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 					prefix = !prefix;
 					writeLine("Prefix " + (prefix ? "enabled" : "disabled"));
 				}
-				case "clearhistory","clrh" -> {
-					cli.clearHistory();
-				}
-				default -> {
-					writeLine("Unknown telnet command: " + d.getData());
-				}
+				case "clearhistory","clrh" -> cli.clearHistory();
+				default -> 	writeLine("Unknown telnet command: " + d.getData());
+
 			}
 			return;
 		}else{

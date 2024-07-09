@@ -108,7 +108,7 @@ public class AdminCmds {
 
                 boolean power = Tools.parseBool(cmds[3],false);
                 try {
-                    String regVal = "";
+                    String regVal;
                     if( cmds[1].startsWith("ksz") || cmds[1].startsWith("lan")){
                         regVal = power?"0x3100":"0x3900";
                     }else if(cmds[1].startsWith("rtl")){

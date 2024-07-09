@@ -35,7 +35,7 @@ public class MathForward extends AbstractForward {
     public enum OP_TYPE{COMPLEX, SCALE, LN, SALINITY, SVC,TRUEWINDSPEED,TRUEWINDDIR,UTM,GDC}
     private ArrayList<NumericVal> referencedNums = new ArrayList<>();
     private int highestI=-1;
-    private ArrayList<BigDecimal> temps = new ArrayList<>();
+    private final ArrayList<BigDecimal> temps = new ArrayList<>();
 
     public MathForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         super(id,source,dQueue,rtvals);
@@ -610,7 +610,10 @@ public class MathForward extends AbstractForward {
         String[] split = data.split(delimiter);
 
         BigDecimal[] bds = buildBDArray(split);
-
+        if( bds==null){
+            Logger.error(id+"(mf) -> Bd's null after buildarray");
+            return "";
+        }
         ops.forEach( op -> op.solve(bds) );
 
         StringJoiner join = new StringJoiner(delimiter); // prepare a joiner to rejoin the data

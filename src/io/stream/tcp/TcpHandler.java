@@ -54,9 +54,6 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     public void setTargets(List<Writable> targets){
         this.targets = targets;
     }
-    public void setValStore(ValStore store){
-        this.store=store;
-    }
     public long getTimestamp(){
         return timeStamp;
     }

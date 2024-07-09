@@ -78,9 +78,7 @@ public class MqttPool implements Commandable {
             var ttl = TimeTools.parsePeriodStringToMillis( broker.attr("ttl",broker.peekAt("ttl").value("")));
             worker.setTTL(ttl);
 
-            broker.peekOut("subscribe").forEach( sub -> {
-                worker.addSubscription(sub.getTextContent());
-            });
+            broker.peekOut("subscribe").forEach( sub -> worker.addSubscription(sub.getTextContent()) );
 
             if( broker.hasPeek( "store")){
                 broker.digDown("store");
@@ -181,9 +179,7 @@ public class MqttPool implements Commandable {
                     return "! Failed to reload settings.";
                 }
                 case "test" -> {
-                    mqttWorkers.values().forEach( w -> {
-                        w.addWork("dice/d20","10");
-                    });
+                    mqttWorkers.values().forEach( w -> w.addWork("dice/d20","10") );
                     return "Testing";
                 }
                 default -> {

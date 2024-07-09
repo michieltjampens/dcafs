@@ -1,6 +1,5 @@
 package io.forward;
 
-import io.Writable;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -25,8 +24,6 @@ public class FilterForward extends AbstractForward {
     protected ArrayList<Predicate<String>> rules = new ArrayList<>();// Rules that define the filters
     private final ArrayList<AbstractForward> reversed = new ArrayList<>();
     private boolean negate=false; // If the filter is negated or not
-
-    private AbstractForward parent;
 
     public FilterForward(String id, String source, BlockingQueue<Datagram> dQueue ){
         super(id,source,dQueue,null);
@@ -279,7 +276,7 @@ public class FilterForward extends AbstractForward {
 
     public void addNMEAcheck( boolean ok ){ rules.add( p -> (MathUtils.doNMEAChecksum(p))==ok ); }
     /* Complicated ones? */
-    public boolean addCheckBlock( String delimiter, String value){
+    public void addCheckBlock(String delimiter, String value){
 
         var is = Pattern.compile("[i][0-9]{1,2}")// Extract all the references
                 .matcher(value)
@@ -292,7 +289,7 @@ public class FilterForward extends AbstractForward {
 
         var block = CheckBlock.prepBlock(null,value);
         if( !block.build() )
-            return false;
+            return;
         rules.add( p -> {
             try {
                 String[] vals = p.split(delimiter);
@@ -308,7 +305,6 @@ public class FilterForward extends AbstractForward {
                 return false;
             }
         });
-        return true;
     }
 
     @Override

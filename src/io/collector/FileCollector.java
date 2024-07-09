@@ -55,7 +55,7 @@ public class FileCollector extends AbstractCollector{
     long firstData=-1;
 
     /* Triggers */
-    enum TRIGGERS {IDLE, ROLLOVER, MAXSIZE }
+    public enum TRIGGERS {IDLE, ROLLOVER, MAXSIZE }
 
     ArrayList<TriggeredCommand> trigCmds = new ArrayList<>();
 
@@ -599,7 +599,7 @@ public class FileCollector extends AbstractCollector{
             }
         }
     }
-    private static class TriggeredCommand {
+    public static class TriggeredCommand {
         TRIGGERS trigger;
         String cmd;
 

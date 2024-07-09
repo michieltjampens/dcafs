@@ -117,9 +117,6 @@ public abstract class BaseStream {
     public abstract boolean disconnect();
     public abstract boolean isConnectionValid();
     public abstract long getLastTimestamp();
-    public long getOpenedStamp(){
-        return openedStamp;
-    }
     public abstract String getInfo();
     protected abstract String getType();
 
@@ -180,9 +177,6 @@ public abstract class BaseStream {
 
         Logger.info("Added request from "+writable.id()+ " to "+id);
         return true;
-    }
-    public boolean removeTarget(String id ){
-        return targets.removeIf(entry -> entry.id().equalsIgnoreCase(id));
     }
     public boolean removeTarget(Writable wr ){
 		return targets.remove(wr);

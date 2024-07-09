@@ -17,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 
 
 public class HistoryCmds {
-    private static Integer MAX_ERRORS = 1000;
 
     public static String replyToCommand(String request, boolean html, Path workPath ) {
         var join = new StringJoiner("\r\n");
@@ -71,7 +70,7 @@ public class HistoryCmds {
                 };
             }
             case "error","errors" -> {
-                String day="";
+                String day;
                 String filter="";
                 workPath = workPath.resolve("logs");
 
@@ -103,7 +102,8 @@ public class HistoryCmds {
         };
     }
     private static String readLogs( String period, String filter, Path workPath,String filename ){
-        return readLogs(period,filter,workPath,filename,MAX_ERRORS);
+        int MAX_ERRORS = 1000;
+        return readLogs(period,filter,workPath,filename, MAX_ERRORS);
     }
     private static String readLogs( String period, String filter, Path workPath,String filename, int limit ){
         var join = new StringJoiner("\r\n");
@@ -126,7 +126,7 @@ public class HistoryCmds {
                 try ( var stream = Files.lines(p).filter(l->l.contains(filter))){
                     boolean ok=false;
                     for( var line : stream.toList() ){
-                        String tsPart = "";
+                        String tsPart;
                         if( line.startsWith("[")){ // new style
                             tsPart = line.substring(1,line.indexOf("]"));
                         }else{ // old one

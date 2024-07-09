@@ -7,7 +7,6 @@ import org.tinylog.Logger;
 
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.StringJoiner;
 
 public class CommandLineInterface {
     ByteBuf buffer = Unpooled.buffer(9,512);       // Buffer that holds the received data
@@ -237,15 +236,13 @@ public class CommandLineInterface {
     }
     /**
      * Write a single byte to the channel this CLI is using
+     *
      * @param data The byte of data to send
-     * @return True if the channel was active
      */
-    public synchronized boolean writeByte( byte data ){
+    public synchronized void writeByte(byte data ){
         if( channel != null && channel.isActive()){
             channel.writeAndFlush( new byte[]{data});
-            return true;
         }
-        return false;
     }
 
     /**

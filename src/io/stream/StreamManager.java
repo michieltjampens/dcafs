@@ -67,7 +67,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
 	static String[] NEWSTREAM={"addserial","addmodbus","addtcp","addudpclient","addlocal","addudpserver","addtcpserver"};
 
-	private ArrayList<StoreCollector> stores = new ArrayList<>();
+	private final ArrayList<StoreCollector> stores = new ArrayList<>();
 
 	public StreamManager(BlockingQueue<Datagram> dQueue, IssuePool issues, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
 		this.dQueue = dQueue;

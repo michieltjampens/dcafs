@@ -46,7 +46,7 @@ public class TelnetServer implements Commandable {
     private final Path settingsPath;
     private final ArrayList<String> messages=new ArrayList<>();
     private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
-    private HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
+    private final HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
     private long maxAge=3600;
     private Path tinylogPath;
 
