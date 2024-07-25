@@ -200,11 +200,14 @@ public class FilterForward extends AbstractForward {
         Logger.info(id+" -> Adding rule "+type+" > "+value);
 
         switch (StringUtils.removeEnd(type, "s")) {
-            case "items" -> addItemCount(delimiter, Tools.parseInt(values[0],-1),Tools.parseInt(values.length==1?values[0]:values[1],-1));
+            case "item" -> addItemCount(delimiter, Tools.parseInt(values[0],-1),Tools.parseInt(values.length==1?values[0]:values[1],-1));
+            case "maxitem" -> addItemMaxCount(delimiter, Tools.parseInt(value,-1));
+            case "minitem" -> addItemMinCount(delimiter, Tools.parseInt(value,-1));
             case "start" -> addStartsWith(value);
-            case "nostart" -> addStartsNotWith(value);
+            case "nostart","!start" -> addStartsNotWith(value);
             case "end" -> addEndsWith(value);
-            case "contain" -> addContains(value);
+            case "contain","include" -> addContains(value);
+            case "!contain" -> addContainsNot(value);
             case "c_start" -> addCharAt(Tools.parseInt(values[0], -1) - 1, value.charAt(value.indexOf(",") + 1));
             case "c_end" -> addCharFromEnd(Tools.parseInt(values[0], -1) - 1, value.charAt(value.indexOf(",") + 1));
             case "minlength" -> addMinimumLength(Tools.parseInt(value, -1));
@@ -245,6 +248,12 @@ public class FilterForward extends AbstractForward {
             return items.length >= min && items.length<= max;
         });
     }
+    public void addItemMinCount( String deli, int min ){
+        rules.add( p -> p.split(deli).length >= min );
+    }
+    public void addItemMaxCount( String deli, int max ){
+        rules.add( p -> p.split(deli).length <= max );
+    }
     public void addStartsWith( String with ){
         rules.add( p -> p.startsWith(with) );
     }
@@ -261,6 +270,9 @@ public class FilterForward extends AbstractForward {
     }
     public void addContains( String contains ){
         rules.add( p -> p.contains(contains) );
+    }
+    public void addContainsNot( String contains ){
+        rules.add( p -> !p.contains(contains) );
     }
     public void addEndsWith( String with ){
         rules.add( p -> p.endsWith(with) );
