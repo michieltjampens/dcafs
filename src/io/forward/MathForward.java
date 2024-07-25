@@ -211,8 +211,6 @@ public class MathForward extends AbstractForward {
         if( bds==null){
             return true;
         }
-        if( bds.length != split.length+referencedNums.size()+temps.size())
-            Logger.error(id+"(mf) -> Build dataset size doesn't meet expected size. Size:"+bds.length);
 
         // First do a global check, if none of the items is a number, no use to keep trying
         if( bds.length==0 ){
