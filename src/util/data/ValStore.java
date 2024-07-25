@@ -253,7 +253,7 @@ public class ValStore {
         }
     }
     public void removeRealtimeValues( RealtimeValues rtv){
-        rtvals.forEach(rtv::removeVal);
+        rtvals.forEach(rtv::removeStoreVal);
         valMap.values().forEach(rtv::removeVal);
         calVal.forEach(rtv::removeVal);
     }

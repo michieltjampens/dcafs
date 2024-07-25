@@ -171,6 +171,54 @@ public class RealtimeValues implements Commandable {
 			textVals.remove( val.id());
 		}
 	}
+
+	/**
+	 * Removes the given val from the collection if it's been declared in a store and not the general node
+	 * @param val The val to look for
+	 */
+	public void removeStoreVal( AbstractVal val ){
+		if( val == null)
+			return;
+		var dig = XMLdigger.goIn(settingsPath,"dcafs","rtvals");
+		if(dig.hasPeek("group","id",val.group()) ){ // this group is in the general pool
+			dig.usePeek();
+		}else{ // Group not in general node, safe to remove
+			removeVal(val);
+			return;
+		}
+
+		if( val instanceof RealVal ){
+			if( notInGeneralPool(dig,val,"real"))
+				realVals.remove(val.id());
+		}else if( val instanceof IntegerVal ){
+			if( notInGeneralPool(dig,val,"int"))
+				integerVals.remove(val.id());
+		}else if( val instanceof  FlagVal ){
+			if( notInGeneralPool(dig,val,"flag"))
+				flagVals.remove( val.id());
+		}else if( val instanceof  TextVal ){
+			if( notInGeneralPool(dig,val,"text"))
+				textVals.remove( val.id());
+		}
+	}
+
+	/**
+	 * Checks if the given val isn't declared in the general rtvals pool.
+	 * @param dig The digger pointing to the group
+	 * @param val The val to find
+	 * @param type The type of val (real,int,flag,text)
+	 * @return True if it's not found
+	 */
+	private boolean notInGeneralPool( XMLdigger dig, AbstractVal val, String type){
+		boolean attr= dig.hasPeek(type,"name",val.name()) || dig.hasPeek(type,"id",val.name());
+		if( attr ) // Meaning found it based on attributes
+			return false; // So it's in general pool
+		for( var d : dig.digOut(type) ){
+			if( d.value("").equals(val.name()))
+				return false;
+		}
+		return true;
+	}
 	/* ************************************ R E A L V A L ***************************************************** */
 	/**
 	 * Add a RealVal to the collection if it doesn't exist yet
