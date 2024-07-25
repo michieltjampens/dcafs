@@ -786,7 +786,7 @@ public class MathForward extends AbstractForward {
     }
     private String replaceTemps( String exp ){
         int index = highestI+1;
-        var ts = Pattern.compile("t[0-9]{1,2}")
+        var ts = Pattern.compile("\bt[0-9]+")
                 .matcher(exp)
                 .results()
                 .map(MatchResult::group)
