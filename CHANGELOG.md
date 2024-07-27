@@ -9,6 +9,8 @@ Note: Version numbering: x.y.z
 - Writing to db stopped for some reason for a store in i2c without any error messages etc
  - Might be caused by reloading store because this isn't propagated to db's.
 
+## 2.12.1 (wip)
+
 ## 2.12.0 (28/07/2024)
 
 ### Updated dependencies
