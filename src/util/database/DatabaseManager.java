@@ -359,8 +359,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 case "?" -> {
                     join.add(TelnetCodes.TEXT_MAGENTA + "The databasemanager connects to databases, handles queries and fetches table information.\r\n");
                     join.add(or + "Notes" + reg)
-                            .add("  rtval -> the rtval of a column is the id to look for in the rtvals instead of the default tablename_column")
-                            .add("  macro -> an at runtime determined value that can be used to define the rtval reference").add("");
+                            .add("  rtval -> the rtval of a column is the id to look for in the rtvals instead of the default tablename_column").add("");
                     join.add(cyan + "Connect to a database" + reg)
                             .add(green + "  dbm:addmssql,id,db name,ip:port,user:pass " + reg + "-> Adds a MSSQL server on given ip:port with user:pass")
                             .add(green + "  dbm:addmysql,id,db name,ip:port,user:pass " + reg + "-> Adds a MySQL server on given ip:port with user:pass")
@@ -379,23 +378,42 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             .add(green + "  dbm:id,addrollover,period,pattern " + reg + "-> Add rollover with the given period to a SQLite database (period should be a single unit")
                             .add(green + "  dbm:id,coltypes,table"+reg+" -> Get a list of the columntypes in the table, only used internally")
                             .add(green + "  dbm:id,reload " + reg + "-> (Re)loads the database with the given id fe. after changing the xml")
+                            .add(green + "  dbm:reloadall " + reg + "-> Reloads all databases")
                             .add(green + "  dbm:status " + reg + "-> Show the status of all managed database connections")
+                            .add(green + "  dbm:prep " + reg + "-> Get total amount of queries executed with prepared statements")
+                            .add(green + "  dbm:clearerrors " + reg + "-> Reset the error count.")
                             .add(green + "  st " + reg + "-> Show the current status of the databases (among other things)");
                     yield join.toString();
                 }
                 case "list", "status" -> getStatus();
                 case "prep" -> {
                     lites.values().forEach( x-> {
-                        join.add("SQLite: "+x.getID());
+                        join.add("SQLite: "+x.getID() + "( tablename : total queries executed )");
                         x.tables.forEach((i,val) -> join.add("  "+i+" : "+val.getPrepCount()));
                         join.add("");
                     });
                     sqls.values().forEach( x-> {
-                        join.add("SQL: "+x.getID());
+                        join.add("SQL: "+x.getID() + "( tablename : total queries executed )");
                         x.tables.forEach((i,val) -> join.add("  "+i+" : "+val.getPrepCount()));
                         join.add("");
                     });
                     yield join.toString();
+                }
+                case "reload","reloadall" -> {
+                    for( var lite : sqls.values() ) {
+                        var r = reloadDatabase(lite.id);
+                        if (r.isPresent()) {
+                            ((SQLDB) r.get()).buildStores(rtvals);
+                            var error = r.get().getLastError();
+                            if( error.isEmpty() )
+                                yield "! Reload of "+lite.id+" failed";
+                        }
+                    }
+                    yield "Reloading finished";
+                }
+                case "clearerrors" -> {
+                    sqls.values().forEach(SQLDB::clearErrors);
+                    yield "Reloading finished";
                 }
                 default -> "! No such command " + cmds[0];
             };
@@ -475,6 +493,15 @@ public class DatabaseManager implements QueryWriting, Commandable {
                             yield error.isEmpty() ? "Database reloaded" : error;
                         }
                         yield "! Reload failed";
+                    }
+                    case "reconnect" -> {
+                        if( db instanceof SQLiteDB sd ){
+                            db.connect(true);
+                            yield "Trying to reconnect to the sqlite database";
+                        }else{
+                            db.connect(true);
+                            yield "Trying to reconnect to the sql database";
+                        }
                     }
                     default -> "! No such command (or to few arguments)";
                 };

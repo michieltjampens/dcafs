@@ -141,6 +141,9 @@ public class SQLDB extends Database implements TableInsert{
     public boolean isMySQL(){
         return type==DBTYPE.MARIADB || type==DBTYPE.MYSQL;
     }
+    public void clearErrors(){
+        insertErrors=0;
+    }
     /* **************************************************************************************************/
     /**
      * Open the connection to the database
