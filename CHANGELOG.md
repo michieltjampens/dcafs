@@ -7,6 +7,7 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 - Writing to db stopped for some reason for a store in i2c without any error messages etc
+ - Might be caused by reloading store because this isn't propagated to db's.
 
 ## 2.12.0
 
@@ -14,11 +15,9 @@ Note: Version numbering: x.y.z
 - Telnet, rtvals cmd now has alternating color for the val listing
 - admin:phypower now supports rtl chips and checks if root privilege first.
 - Taskmanagers can now be under dcafs node instead of settings or taskmanagers
+- Removed IssuePool, wasn't used anyway.
 
 ### Fixes
-- Mariadb doesn't like the use of ", replaced with `. Which also works for sqlite.
-- MariaDB returns a differnet error code on batch errors, now properly handled
-- Localnow column wasn't local when send to sql server.
 - i2c:id,xml didn't reload if the script already exists
 
 ### MQTT
@@ -30,25 +29,49 @@ difference with enabled is log messages if data is received or send.
 
 ### Paths
 - Changed how 'if' nodes work to be more in line with regular programming. Successive nodes will be executing
-  instead of previous more like switch case.
+  instead of previously more like switch case.
 - Added 'case' node to mimic how if used to work.
 - Rewrote how the steps are interconnecting.
-
+- Added some filter/if options
+  - minitems : minimum amount of items after split
+  - maxitems : maximum amount of items after split
+  - !contains: doesn't contain the given data
+- Added aliases for some filters
+  - !start alias for notstart
+  - !contains alias for contains
+  - includes alias for contains
+  
 ### Rtvals
-- Improved dynamic units:
+- Improved dynamic units, but breaking change:
   - Now allows for starting with any of the units instead of only base.
-  - Can now go up or down a unit instead of only up
-  - Replaced attribute 'from' with min/max, should be a bit clearer
-  - Can now have a scale for each individual unit
-  - Div is set globally or per unit
+  - Can now go up or down a unit instead of only up.
+  - Replaced attribute 'from' with max/till, should be a bit clearer (this is the breaking part).
+  - Can now have a scale for each individual unit.
+  - It's possible to repeat units to add different scale settings.
+  - Div is set globally or per unit.
+  - Attribute digits and scale are the same thing, use according to preference.
 ```xml
-<unit base="Wh" div="1000">
-  <level           max="1000" scale="1" >mWh</level> <!-- Up to 1000mWh use this unit, with 1 digit -->
-  <level min="1"   max="1500" scale="2" >Wh</level>  <!-- For 1Wh till 1500Wh -->
-  <level min="1,5"            scale="3" >kWh</level>
+<unit base="Wh" div="1000"> <!-- default divider/multiplier is 1000 -->
+  <level max="100"  scale="2" >mWh</level> <!-- Up to 100mWh use two digits, no div done to next step -->
+  <level max="1000" digits="1" >mWh</level> <!-- From 100 till 1000mWh use one digit -->
+  <level max="1500" scale="2" >Wh</level>
+  <level            scale="3" >kWh</level>
 </unit>
 ```
+- Fixed, reloading a store first removed the rtvals defined in it from the general pool. However this was also done if
+that rtval was defined in the general node. Now those aren't removed anymore.
+- After a `rtvals:reload`, the paths and databases will also be reloaded.
 
+### DBM
+- When editing a sqlite db in another program, this causes the current connection to break (errorcode 8). Reconnecting resolves this, so
+now dcafs will try this. If this fails, query content is dumped to a file tablename_dump.csv in the same folder as the
+sqlite.
+- Fixed, Mariadb doesn't like the use of ", replaced with `. Which also works for sqlite.
+- Fixed, MariaDB returns a different error code on batch errors, now properly handled
+- Fixed, Localnow column wasn't local when send to sql server.
+- `dbm:prep` existed but wasn't documented. Gives total procesed queries count.
+- Added `dbm:reloadall` to reload all databases in one go
+- Added `dbm:clearerrors` to clear the error counters
 
 ## 2.11.0 (29/06/2024)
 Earlier than planned because of a telnet issue. Should probably start working with branches...
