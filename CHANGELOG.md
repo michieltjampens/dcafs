@@ -9,7 +9,12 @@ Note: Version numbering: x.y.z
 - Writing to db stopped for some reason for a store in i2c without any error messages etc
  - Might be caused by reloading store because this isn't propagated to db's.
 
-## 2.12.0
+## 2.12.0 (28/07/2024)
+
+### Updated dependencies
+- Netty 4.1.111->4.1.112
+- Ppache commons 3.14.0 -> 3.15.0
+- MSSQL 12.6.2.jre11 -> 12.6.3.jre11
 
 ### Minor changes
 - Telnet, rtvals cmd now has alternating color for the val listing
