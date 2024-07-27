@@ -702,11 +702,13 @@ public class RealtimeValues implements Commandable {
 				}
 				case "reload" -> {
 					readFromXML(XMLdigger.goIn(settingsPath, "dcafs", "rtvals"));
-					return "Reloaded rtvals";
+					dQueue.add(Datagram.system("pf:reload"));
+					dQueue.add(Datagram.system("dbm:reload"));
+					return "Reloaded rtvals and paths, databases (because might be affected).";
 				}
 				case "groups" -> {
 					String groups = String.join(html ? "<br>" : "\r\n", getGroups());
-					return groups.isEmpty() ? "No groups yet" : groups;
+					return groups.isEmpty() ? "! No groups yet" : groups;
 				}
 
 			}
