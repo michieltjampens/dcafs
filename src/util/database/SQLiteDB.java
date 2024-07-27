@@ -44,6 +44,7 @@ public class SQLiteDB extends SQLDB{
         this.id=id;
         var p = dbPath.toString();
         this.dbPath = Path.of( p.endsWith(".sqlite")?p:p+".sqlite");
+        workPath=dbPath.getParent();
 
         try {
             Files.createDirectories(Path.of(getPath()).getParent());

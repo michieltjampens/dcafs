@@ -7,6 +7,7 @@ import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
+import java.nio.file.Path;
 import java.sql.*;
 import java.time.Instant;
 import java.util.*;
@@ -34,7 +35,7 @@ public class SQLDB extends Database implements TableInsert{
     boolean busyPrepared =false; // Busy with executing the prepared statement queries
 
     ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1); // Scheduler for queries
-
+    Path workPath;
     /**
      * Prepare connection to one of the supported databases
      * @param type The type of database
@@ -80,6 +81,9 @@ public class SQLDB extends Database implements TableInsert{
         tableRequest="";
         columnRequest="";
         dbName="";
+    }
+    public void setWorkPath(Path p){
+        workPath=p;
     }
     /* ************************************************************************************************* */
     public static SQLDB asMSSQL( String address,String dbName, String user, String pass ){
@@ -941,6 +945,12 @@ public class SQLDB extends Database implements TableInsert{
                                         if( errors>10) {
                                             Logger.error(getID()+" -(db)> 10x SQL Error:"+e.getMessage() );
                                             Logger.error( "Errorcode:" +e.getErrorCode() );
+                                            if( e.getErrorCode()==8 && !t.server && errors<30 ){
+                                                connect(true);
+                                                Logger.warn(getID()+ "->Errorcode 8 detected for sqlite, trying to reconnect.");
+                                            }else{
+                                                t.dumpData(id, workPath );
+                                            }
                                             ok = false;
                                         }
                                     } catch (Exception e) {

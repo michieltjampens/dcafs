@@ -4,10 +4,13 @@ import util.data.*;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -439,6 +442,29 @@ public class SqlTable{
             } 
         }
         return count;
+    }
+    public boolean dumpData( String id, Path path ){
+        PrepStatement prep = preps.get(id);
+        if( prep==null )
+            return false;
+
+
+        int size = prep.getData().size();
+        var dumpPath = path.resolve(name+"_dump.csv");
+        if(Files.notExists(dumpPath)){
+            var join = new StringJoiner(";");
+            columns.forEach( c -> join.add(c.title));
+            FileTools.appendToTxtFile(dumpPath,join+ System.lineSeparator() );
+        }
+        Logger.warn("Something wrong dumping data to "+dumpPath.toAbsolutePath());
+        for (int a=0;a<size;a++) {
+            Object[] d = prep.getData().get(a);
+            var join = new StringJoiner(";");
+            Arrays.stream(d).forEach( dd -> join.add(String.valueOf(dd)));
+            FileTools.appendToTxtFile(path.resolve(name+"_dump.csv"),join+ System.lineSeparator() );
+        }
+        clearRecords(id,size);
+        return true;
     }
     public static Timestamp asTimestamp(OffsetDateTime offsetDateTime) {
         if (offsetDateTime != null) {
