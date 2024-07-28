@@ -181,6 +181,9 @@ public class ValStore {
                     return false;
                 }
                 final int pos=i; // need a final to use in lambda's
+                if( rtvals.get(i)!=null){
+                    Logger.warn(id+"(store) -> Already using index "+i+" overwriting previous content!");
+                }
                 switch (val.tagName("")) {
                     case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
                     case "int","integer" -> IntegerVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
