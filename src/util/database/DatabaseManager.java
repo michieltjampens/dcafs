@@ -629,8 +629,14 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 }
                 var db = dbOpt.get();
                 var tiOpt = db.getTableInsert(cmds[2]);
-                if( tiOpt.isEmpty())
-                    return "! No such table id "+cmds[2]+" in "+cmds[0];
+                if( tiOpt.isEmpty()) {
+                    var id="";
+                    if( payload instanceof AbstractForward af ){
+                        id = af.id();
+                    }
+                    Logger.error( "dbm payload -> No table '"+cmds[2]+"' in "+cmds[0]+ " requested by "+id);
+                    return "! No such table id " + cmds[2] + " in " + cmds[0];
+                }
                 if( payload.getClass() == MathForward.class ||  payload.getClass() == EditorForward.class
                         || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class ){
                     ((AbstractForward)payload).addTableInsert(tiOpt.get());
