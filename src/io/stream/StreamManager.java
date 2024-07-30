@@ -629,7 +629,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			default -> {
 				int a=1;
 				for( String id:streams.keySet() ){
-					if( id.equalsIgnoreCase(find)){
+					if( id.equalsIgnoreCase(cmd)){
 						yield doSorH("S"+a,args);
 					}
 					a++;
