@@ -327,6 +327,28 @@ public class I2CWorker implements Commandable {
                     return "! Incorrect number of arguments: i2c:detect,bus";
                 }
             }
+            case "businfo" ->{
+                var join = new StringJoiner("\r\n");
+                busses.forEach( b -> {
+                    if (b == null) {
+                        join.add("Null??");
+                    } else {
+                        join.add(b.getInfo());
+                    }
+                });
+                return join.toString();
+            }
+            case "busreset" -> {
+                if (cmds.length == 2) {
+                    var bus = busses.get(Integer.parseInt(cmds[1]));
+                    if( bus==null)
+                        return "! Bus not in use.";
+                    bus.reset();
+                    return "Bus "+cmds[1]+" object reset, this didn't do anything to the bus itself!";
+                } else {
+                    return "! Incorrect number of arguments: i2c:busreset,bus";
+                }
+            }
             case "" -> {
                 return removeWritable(wr)?"ok":"failed";
             }

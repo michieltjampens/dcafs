@@ -245,7 +245,7 @@ public class FilterForward extends AbstractForward {
     public void addItemCount( String deli, int min, int max ){
         rules.add( p -> {
             var items = p.split(deli);
-            return items.length >= min && items.length<= max;
+            return items.length >= min && items.length <= max;
         });
     }
     public void addItemMinCount( String deli, int min ){

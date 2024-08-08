@@ -50,4 +50,12 @@ public class I2cBus {
         }
         busy=false;
     }
+    public String getInfo(){
+        return bus+ " -> busy?"+busy+" requests:"+requests+ " waiting:"+slotWait.size();
+    }
+    public void reset(){
+        busy=false;
+        slotWait.clear();
+        requests=0;
+    }
 }

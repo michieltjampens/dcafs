@@ -130,7 +130,13 @@ public class I2COpSet {
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
 
         if( ops.get(index) instanceof I2COp op){
-            received.addAll( op.doOperation(device) );
+            try {
+                received.addAll(op.doOperation(device));
+            }catch( Exception e){
+                Logger.error(id+"(i2c) -> Op failed! "+ e);
+                index=0;
+                return -1;
+            }
         }else if( ops.get(index) instanceof MathForward mf){
             var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
             if( !lastOp ) {  // Not the last operation, replace the int arraylist with the calculated doubles

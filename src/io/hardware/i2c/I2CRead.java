@@ -32,11 +32,11 @@ public class I2CRead implements I2COp{
         var hexReg = digger.attr( "reg","");
 
         if( hexReg.isEmpty() ){
-            digger.goUp();
-            Logger.error("No reg defined for a read in "+digger.attr("id","?id?"));
-            return;
+          //  digger.goUp();
+            Logger.warn("No reg defined for a read in "+digger.attr("id","?id?"));
+        }else {
+            reg = NumberUtils.createInteger(hexReg);
         }
-        reg = NumberUtils.createInteger(hexReg);
 
         msbFirst = digger.attr("msbfirst", true);
         signed = digger.attr("signed",false);
@@ -63,6 +63,7 @@ public class I2CRead implements I2COp{
             return;
         }
         valid=true;
+        Logger.info("Read op ok");
     }
     @Override
     public long getDelay(){
@@ -195,6 +196,6 @@ public class I2CRead implements I2COp{
     }
     public String toString(  ){
         String info = delay==0?"":"Wait for "+TimeTools.convertPeriodtoString(delay, TimeUnit.MILLISECONDS)+". ";
-        return info+"Read "+(recBytes==1?"a single byte":recBytes+" bytes")+" starting at reg 0x"+(reg<16?"0":"")+Integer.toHexString(reg);
+        return info+"Read "+(recBytes==1?"a single byte":recBytes+" bytes")+(reg==-1?"":" starting at reg 0x"+(reg<16?"0":"")+Integer.toHexString(reg));
     }
 }
