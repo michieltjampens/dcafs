@@ -1120,7 +1120,7 @@ public class MathUtils {
      * @return The signed int
      */
     public static int toSigned8bit( int ori ){
-        if( ori>0x80 ){ //two's complement
+        if( ori>=0x80 ){ //two's complement
             ori = -1*((ori^0xFF) + 1);
         }
         return ori;
