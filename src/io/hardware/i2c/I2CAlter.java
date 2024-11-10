@@ -87,16 +87,17 @@ public class I2CAlter implements I2COp{
         device.getDevice().readBytes(rec);
         byte[] ori = ArrayUtils.clone(rec);
 
-        if (device.isDebug())
+        if (device.inDebug())
             Logger.info(device.id() + "(i2c) -> Read from " +Integer.toHexString(reg)+"h: " + Tools.fromBytesToHexString(rec));
-
-        Logger.info(device.id() + "(i2c) -> Before alter:" + Tools.fromBytesToHexString(rec));
+        if (device.inDebug())
+            Logger.info(device.id() + "(i2c) -> Before alter:" + Tools.fromBytesToHexString(rec));
         for( var op : ops) {
 
             op.doOp(rec);
 
         }
-        Logger.info(device.id() + "(i2c) -> After alter:" + Tools.fromBytesToHexString(rec));
+        if (device.inDebug())
+            Logger.info(device.id() + "(i2c) -> After alter:" + Tools.fromBytesToHexString(rec));
         boolean changed=false;
         for(int a=0;a<ori.length&&!changed;a++){
             changed = ori[a] != rec[a];

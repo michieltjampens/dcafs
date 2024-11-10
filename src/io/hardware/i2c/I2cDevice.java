@@ -120,7 +120,7 @@ public class I2cDevice{
     public void setDebug( boolean state){
         debug=state;
     }
-    public boolean isDebug(){
+    public boolean inDebug(){
         return debug;
     }
     // TODO: Remove the probeIt, might interfere with ongoing use of the bus

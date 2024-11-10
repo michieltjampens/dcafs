@@ -89,7 +89,7 @@ public class I2CRead implements I2COp{
         }else {
             device.getDevice().readNoStop((byte) reg, rec, false);
         }
-        if( device.isDebug())
+        if( device.inDebug())
             Logger.info(device.id()+"(i2c) -> Read: "+Tools.fromBytesToHexString(rec));
         if( bitsets!=null ){
             return convertNibblesToDouble(rec,bitsets,msbFirst);
