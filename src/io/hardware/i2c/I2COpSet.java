@@ -142,16 +142,10 @@ public class I2COpSet {
                 return -1;
             }
         }else if( ops.get(index) instanceof MathForward mf){
-            Logger.info("Running math with: "+received.size()+" items in received");
-            if(!received.isEmpty())
-                Logger.info("First item: "+received.get(0));
             var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
-            if(!res.isEmpty())
-                Logger.info("First item: "+res.get(0));
             if( !lastOp ) {  // Not the last operation, replace the int arraylist with the calculated doubles
                 received.clear();
                 received.addAll(res); // Refill with altered values
-                Logger.info("Replaced received with res");
             }
         }else if( ops.get(index) instanceof ValStore st){
             st.apply(received);
