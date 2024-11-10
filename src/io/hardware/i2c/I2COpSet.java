@@ -2,6 +2,7 @@ package io.hardware.i2c;
 
 import io.forward.MathForward;
 import io.netty.channel.EventLoopGroup;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.data.ValStore;
@@ -122,26 +123,35 @@ public class I2COpSet {
      * Execute the next step in the opset
      * @param device The device to run the set on
      */
-    public long runOp(I2cDevice device){
+    public long runOp(I2cDevice device, String param){
 
         if( index == 0 ){ // Running first op, so reset the received buffer
             received.clear();
+            if(NumberUtils.isParsable(param))
+                received.add( NumberUtils.toDouble(param) );
         }
+
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
 
         if( ops.get(index) instanceof I2COp op){
             try {
-                received.addAll(op.doOperation(device));
+                received.addAll(op.doOperation(device,received));
             }catch( Exception e){
                 Logger.error(id+"(i2c) -> Op failed! "+ e);
                 index=0;
                 return -1;
             }
         }else if( ops.get(index) instanceof MathForward mf){
+            Logger.info("Running math with: "+received.size()+" items in received");
+            if(!received.isEmpty())
+                Logger.info("First item: "+received.get(0));
             var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
+            if(!res.isEmpty())
+                Logger.info("First item: "+res.get(0));
             if( !lastOp ) {  // Not the last operation, replace the int arraylist with the calculated doubles
                 received.clear();
                 received.addAll(res); // Refill with altered values
+                Logger.info("Replaced received with res");
             }
         }else if( ops.get(index) instanceof ValStore st){
             st.apply(received);

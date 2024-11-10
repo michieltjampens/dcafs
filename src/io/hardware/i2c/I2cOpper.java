@@ -18,7 +18,7 @@ public class I2cOpper extends I2cDevice{
 
 	private String script;
 	private final HashMap<String,I2COpSet> ops = new HashMap<>();
-	private final ArrayList<String> queue = new ArrayList<>();
+	private final ArrayList<String[]> queue = new ArrayList<>();
 	/**
 	 * Extension of the @see I2CDevice class that adds the command functionality
 	 * @param dev The digger pointing to the xml node about this
@@ -78,13 +78,14 @@ public class I2cOpper extends I2cDevice{
 			return;
 		}
 
-		String setId = queue.get(0);
+		String[] setParams = queue.get(0);
+		var setId = setParams[0];
 		if (debug)
 			Logger.info(id() + "(i2c) Trying to do " + setId);
 
 		long res = 0;
 		while( res == 0 ) {
-			res = ops.get(setId).runOp(this);
+			res = ops.get(setId).runOp(this,setParams.length>=2?setParams[1]:"");
 		}
 		bus.doNext(); // Release the bus
 		if (res == -1) { // Means this was the last one in the set
@@ -97,13 +98,13 @@ public class I2cOpper extends I2cDevice{
 		}
 		updateTimestamp(); // Update last used timestamp, because we had comms
 	}
-	public boolean queueSet( String setId ){
-		setId=setId.split(",")[0];
-		if( !ops.containsKey(setId) ) {
-			Logger.error(id()+" (i2c) -> Tried to queue '"+setId+"' but no such op.");
+	public boolean queueSet( String setParam ){
+		var id=setParam.split(",")[0];
+		if( !ops.containsKey(id) ) {
+			Logger.error(id()+" (i2c) -> Tried to queue '"+id+"' but no such op.");
 			return false;
 		}
-		queue.add(setId);
+		queue.add(setParam.split(","));
 		bus.requestSlot(this);
 		return true;
 	}
