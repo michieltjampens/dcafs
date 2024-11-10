@@ -390,7 +390,7 @@ public class I2CWorker implements Commandable {
                         }
                     };
                 }
-                return queueWork(cmds[0], cmds.length>2?cmds[1].substring(args.indexOf(",")):cmds[1]);
+                return queueWork(cmds[0], cmds.length>2?args.substring(cmds[0].length()+1):cmds[1]);
             }
         }
     }
