@@ -217,6 +217,7 @@ public class Tools {
     public static byte[] fromHexStringToBytes(String line) {
 
         line = line.toLowerCase().replace("0x", "");
+        line = line.toLowerCase().replace("h", "");
 
         byte[] result = Tools.fromBaseToBytes(16, Tools.splitList(line));
         if (result.length == 0) {
