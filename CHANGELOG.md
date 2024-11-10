@@ -9,13 +9,55 @@ Note: Version numbering: x.y.z
 - Writing to db stopped for some reason for a store in i2c without any error messages etc
  - Might be caused by reloading store because this isn't propagated to db's.
 
-## 2.12.1 (wip)
+## 2.13.0 (wip)
+### Updated dependencies
+- Netty 4.1.112->4.1.114
+- Apache commons 3.15.0 -> 3.17.0
+- MSSQL 12.6.3.jre11 -> 12.8.1.jre11
+
+### Minor changes
+- Will now warn when a store uses an index twice.
+- Store, now error is logged if the table used by a store doesn't exists.
+
+### Minor fixes
+- Sending data to a stream that contains a digit in id doesn't work with id:data.
+
+### I2C
+- Improved the alter node:
+  - Can now work with multi-byte registers
+  - Can use both hex and binary values
+  - Can apply multiple operations in succession after a read
+  - Example to show all the new stuff in one go.
+```xml
+	<i2cop id="enable_it" info="Enable Vout0, internal Ref">
+		<alter reg="0x1F" bits="16"> <!-- We'll alter 0x1F that contains 16 bits -->
+			<and>1111 000 111111111</and> <!-- Apply an and with this value on the read register value -->
+            <!-- Note, you can add spaces wherever is better readable -->
+			 <or>0000 001 000000000</or> <!-- Apply or -->
+		</alter>
+	</i2cop>
+```
+- Improved the write node, so now you can pass arguments to a set
+```xml
+    <!-- Used with i2c:deviceid,vout,millivolts -->
+	<i2cop id="vout0" info="Output 0 to 0-3300mV (iRef), give millivolts as param">
+		<math>
+			<op scale="0">i0=i0*(4095/3636)-4</op><!-- minus 4 because of offset -->
+			<!-- Previous had scale = 0 so result is integer -->
+			<op>i0=i0*16</op> <!-- Need to fill 12bit from MSB -->
+		</math>
+		<write reg="0x1C" bits="16">i0</write> <!-- DAC-0-DATA, i0 needs to know it's 2bytes -->
+		<write reg="0x1F">0x12 0x01</write> <!-- Common config -->
+		<write reg="0x15">0x10 0x00</write>
+	</i2cop>
+```
+- Updated the manual with the new functionality
 
 ## 2.12.0 (28/07/2024)
 
 ### Updated dependencies
 - Netty 4.1.111->4.1.112
-- Ppache commons 3.14.0 -> 3.15.0
+- Apache commons 3.14.0 -> 3.15.0
 - MSSQL 12.6.2.jre11 -> 12.6.3.jre11
 
 ### Minor changes
