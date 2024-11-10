@@ -225,7 +225,27 @@ public class Tools {
         }
         return result;
     }
+    /**
+     * Converts a optionally space delimited string of binary nibbles to a byte array
+     *
+     * @param line The delimited line will split on space
+     * @return The resulting array
+     */
+    public static byte[] fromBinaryStringToBytes(String line) {
 
+        var ori=line;
+        line = line.replace(" ","");
+        // add a space after each byte?
+        if( line.length()%8!=0 ){
+            Logger.error("Tried to convert binary '"+ori+"' to bytes, but incorrect amount of characters.");
+            return new byte[0];
+        }
+        byte[] result = Tools.fromBaseToBytes(2, Tools.splitListOnLength(line,8));
+        if (result.length == 0) {
+            Logger.error("Failed to convert " + line);
+        }
+        return result;
+    }
     /**
      * Converts a delimited string of decimals to a byte array
      * 
@@ -321,7 +341,22 @@ public class Tools {
         }
         return eles;
     }
-
+    /**
+     * Splits a line trying multiple delimiters, first space, then semicolon and
+     * then comma and finally |
+     *
+     * @param line The string to split
+     * @return The resulting array
+     */
+    public static String[] splitListOnLength(String line,int chars) {
+        ArrayList<String> eles = new ArrayList<>();
+        int old=0;
+        while( old < line.length() ){
+            eles.add( line.substring(old,old+chars));
+            old+=chars;
+        }
+        return eles.toArray(new String[1]);
+    }
     /**
      * Parses an array with number in ascii format to a byte array
      * 
