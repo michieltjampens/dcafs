@@ -1,18 +1,20 @@
 package io.hardware.i2c;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import java.util.ArrayList;
 
 public class I2CAlter implements I2COp{
     long delay=0;
     byte reg=-1;
-    byte alter=0;
+    byte bits=8;
     OPERAND operand = OPERAND.NONE;
     enum OPERAND {OR,AND,NOT,XOR,NONE};
-
+    private ArrayList<Operation> ops = new ArrayList<>();
 
     public I2CAlter( XMLdigger dig ){
         readFromXML(dig);
@@ -20,6 +22,7 @@ public class I2CAlter implements I2COp{
     public void readFromXML( XMLdigger digger ){
         delay = TimeTools.parsePeriodStringToMillis(digger.attr("delay","0s"));
         var hexReg = digger.attr( "reg","");
+        bits = (byte) digger.attr( "bits",8);
 
         if( hexReg.isEmpty() ){
             digger.goUp();
@@ -28,14 +31,41 @@ public class I2CAlter implements I2COp{
         }
         reg = NumberUtils.createInteger(hexReg).byteValue();
 
-        alter = (byte)digger.value(0);
-
         switch( digger.attr("operand","") ){
             case "or" -> operand=OPERAND.OR;
             case "not" -> operand=OPERAND.NOT;
             case "and" -> operand=OPERAND.AND;
             case "xor" -> operand=OPERAND.XOR;
             default -> operand=OPERAND.NONE;
+        }
+
+        if( operand==OPERAND.NONE ){ // Meaning childnodes?
+            for( var d : digger.digOut("*")){
+                if( d.value("+").equalsIgnoreCase("+")){
+                    Logger.error("(i2c) -> No value given in alter op node, aborting");
+                    ops.clear();
+                    return;
+                }
+                switch (d.tagName("")) {
+                    case "or" -> ops.add( new Operation(OPERAND.OR, d.value("0x00")) );
+                    case "not" -> ops.add( new Operation(OPERAND.NOT, d.value("0x00")) );
+                    case "and" -> ops.add( new Operation(OPERAND.AND, d.value("0x00")) );
+                    case "xor" -> ops.add( new Operation(OPERAND.XOR, d.value("0x00")) );
+                    default -> {
+                        Logger.error("(i2c) -> Alter wasn't given correct tag name: '"+d.tagName("")+"'");
+                        operand = OPERAND.NONE;
+                        ops.clear();
+                        return;
+                    }
+                }
+                if( !ops.get(ops.size()-1).correctLength(bits/8)) {
+                    Logger.error("(i2c) -> Not enough bytes in alter op for "+Integer.toHexString(reg)+"h, aborting.");
+                    ops.clear();
+                    return;
+                }
+            }
+        }else{
+            ops.add(new Operation(operand, digger.value("0x00")));
         }
     }
     @Override
@@ -48,19 +78,69 @@ public class I2CAlter implements I2COp{
     }
     @Override
     public ArrayList<Double> doOperation(I2cDevice device) {
-        device.getDevice().writeByte(reg);
-        var rec = device.getDevice().readByte();
-        if( device.isDebug() )
-            Logger.info(device.id() +"(i2c) -> Read 0x"+Integer.toHexString(rec));
-        switch(operand){
-            case OR -> rec |= alter;
-            case AND -> rec &= alter;
-            case NOT ->  rec ^= 0xFF;
-            case XOR -> rec ^= alter;
+        if( ops.isEmpty()){
+            Logger.error("(i2c) -> Tried doing an alter on "+Integer.toHexString(reg)+"h without ops");
+            return new ArrayList<>();
         }
-        device.getDevice().writeByte( rec );
+        device.getDevice().writeByte(reg); // Register to alter
+        byte[] rec = new byte[bits/8];
+        device.getDevice().readBytes(rec);
+        byte[] ori = ArrayUtils.clone(rec);
+
+        if (device.isDebug())
+            Logger.info(device.id() + "(i2c) -> Read from " +Integer.toHexString(reg)+"h: " + Tools.fromBytesToHexString(rec));
+
+        Logger.info(device.id() + "(i2c) -> Before alter:" + Tools.fromBytesToHexString(rec));
+        for( var op : ops) {
+
+            op.doOp(rec);
+
+        }
+        Logger.info(device.id() + "(i2c) -> After alter:" + Tools.fromBytesToHexString(rec));
+        boolean changed=false;
+        for(int a=0;a<ori.length&&!changed;a++){
+            changed = ori[a] != rec[a];
+        }
+        if( changed ) {
+            rec = ArrayUtils.insert(0, rec, reg);   // Add the register at the front
+            device.getDevice().writeBytes(rec);
+        }else{
+            Logger.info("(i2c) -> Alter wouldn't have affect, so not applying.");
+        }
         return new ArrayList<>();
     }
 
+    private static class Operation{
+        OPERAND operand = OPERAND.NONE;
+        byte[] alter;
 
+        Operation(OPERAND op, String value ){
+
+            if( value.contains("0x")|| value.contains("h")){ // meaning hex
+                alter = Tools.fromHexStringToBytes( value );
+            }else{ // binary?
+                alter = Tools.fromBinaryStringToBytes( value );
+            }
+            Logger.info("Added op: "+op+" -> "+Tools.fromBytesToHexString(alter));
+            this.operand=op;
+        }
+        boolean correctLength(int length){
+            return alter.length==length;
+        }
+        byte[] doOp( byte[] ori ){
+            for (int a = 0; a < ori.length; a++) {
+                try {
+                    switch (operand) {
+                        case OR -> ori[a] |= alter[a];
+                        case AND -> ori[a] &= alter[a];
+                        case NOT -> ori[a] ^= (byte) 0xFF;
+                        case XOR -> ori[a] ^= alter[a];
+                    }
+                }catch( ArrayIndexOutOfBoundsException e){
+                    Logger.error("(i2c) -> Tried altering something that doesn't exist");
+                }
+            }
+            return ori;
+        }
+    }
 }

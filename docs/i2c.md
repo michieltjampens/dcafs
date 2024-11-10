@@ -50,6 +50,8 @@ To explain all the attributes:
 
 ### Read operation
 
+This operation is used to read data from a specific register.
+
 As an example, to read the status register from the aht20.
 ```xml
 <opset id="status" info="Read the status register" bits="8">
@@ -75,4 +77,46 @@ There's also another option for the bits/return, called 'bitsplit'.
 ```
 Now dcafs determines the 'return' based on the total amount of bits. Read bytes will be split to
 bitwise to match those numbers.
-The above will result in 7 bytes being read but 4 integers being given for following operations. 
+The above will result in 7 bytes being read but 4 integers being given for following operations.
+
+### Alter operation
+
+This operation reads the content of a register and then applies logic operations on the content before returning
+this altered content.
+
+**Supported operands**
+* `and` 0101 & 0011 = 0001 -> Bits remain the same if and with 1 or reset if 0.
+* `or`  0101 | 0011 = 0111 -> If either bit is 1, the result is 1.
+* `xor` 0101 | 0011 = 0110 -> If only one bit is 1, the result is 1.
+
+**Examples**
+Single operation can be by a single node without childnodes
+```xml
+	<i2cop id="enable_v0" info="Enable Vout0, internal Ref">
+        <!-- Read 16bits or two byte from 0x1F and apply an 'and' -->
+        <alter reg="0x1F" bits="16" operand="and">1111 000 111111111</alter>  
+	</i2cop>
+```
+
+If you want to do multiple operations on the same register content before writing, this is done with multiple childnodes.
+```xml
+	<i2cop id="enable_v0" info="Enable Vout0, internal Ref">
+		<alter reg="0x1F" bits="16"> <!-- Read 16 bits from 0x1F -->
+			<and>1111 000 111111111</and> <!-- Apply an and with this value on the read register value -->
+            <!-- Note, you can add spaces wherever is better readable -->
+			 <or>0000 001 000000000</or> <!-- Apply or -->
+		</alter>
+	</i2cop>
+```
+Or this does the same thing, if you prefer to work with hexes.
+```xml
+	<i2cop id="enable_v0" info="Enable Vout0, internal Ref">
+		<alter reg="0x1F" bits="16"> <!-- Read 16 bits from 0x1F -->
+			<and>0xF1 0xFF</and> <!-- Apply an and with this value on the read register value -->
+            <!-- Note, for now it needs to be split in bytes -->
+			 <or>02h 00h</or> <!-- Apply or -->
+            <!-- Note, both 0x?? and ??h are valid -->
+		</alter>
+	</i2cop>
+```
+> **Note:** If the content read from the register and the value after altering is the same, the writing won't be done.
