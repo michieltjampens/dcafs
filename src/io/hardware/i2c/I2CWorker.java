@@ -414,7 +414,7 @@ public class I2CWorker implements Commandable {
             return "! Invalid because unknown device '" + id + "'";
         }
         if ( dev instanceof I2cOpper opper) {
-            return opper.queueSet(setId)?"Set "+setId+" on "+opper.id() +" queued.":"! No such setId";
+            return opper.queueSet(setId)?"Set "+setId+" on "+opper.id() +" queued.":("! No such setId '"+setId+"'");
         }
         return "! Device is an uart, not running op sets.";
     }
