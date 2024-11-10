@@ -321,7 +321,7 @@ public class MathForward extends AbstractForward {
      */
     public ArrayList<Double> addData( ArrayList<Double> numbers ){
         // First check if the operations are actually valid
-        if( !valid ){
+        if( !readOk ){
             showError("Not processing data because the operations aren't valid");
             return new ArrayList<>();
         }
