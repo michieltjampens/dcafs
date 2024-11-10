@@ -77,7 +77,7 @@ public class I2CAlter implements I2COp{
         return delay;
     }
     @Override
-    public ArrayList<Double> doOperation(I2cDevice device) {
+    public ArrayList<Double> doOperation(I2cDevice device,ArrayList<Double> received) {
         if( ops.isEmpty()){
             Logger.error("(i2c) -> Tried doing an alter on "+Integer.toHexString(reg)+"h without ops");
             return new ArrayList<>();
