@@ -127,8 +127,10 @@ public class I2COpSet {
 
         if( index == 0 ){ // Running first op, so reset the received buffer
             received.clear();
-            if(NumberUtils.isParsable(param))
-                received.add( NumberUtils.toDouble(param) );
+            for( var par : param.split(",")) {
+                if (NumberUtils.isParsable(par))
+                    received.add(NumberUtils.toDouble(par));
+            }
         }
 
         var lastOp = index+1 == ops.size(); // Check if the op to execute is the last one
