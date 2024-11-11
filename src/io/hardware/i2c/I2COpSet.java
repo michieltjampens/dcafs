@@ -123,13 +123,18 @@ public class I2COpSet {
      * Execute the next step in the opset
      * @param device The device to run the set on
      */
-    public long runOp(I2cDevice device, String param){
+    public long runOp(I2cDevice device, String[] param){
 
         if( index == 0 ){ // Running first op, so reset the received buffer
             received.clear();
-            for( var par : param.split(",")) {
-                if (NumberUtils.isParsable(par))
+            for( var par : param ) {
+                if( par.endsWith("h")) // To cover the alternative notation for hex (fe. 12h instead of 0x12)
+                    par = "0x"+par.substring(0,par.length()-1);
+                if (NumberUtils.isParsable(par)) {
                     received.add(NumberUtils.toDouble(par));
+                }else if( NumberUtils.isCreatable(par)){// Meaning hex or binary?
+                    received.add( (double)Integer.decode(par) );
+                }
             }
         }
 

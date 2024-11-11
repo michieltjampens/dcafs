@@ -8,6 +8,7 @@ import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
 import das.Commandable;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
@@ -390,7 +391,7 @@ public class I2CWorker implements Commandable {
                         }
                     };
                 }
-                return queueWork(cmds[0], cmds.length>2?args.substring(cmds[0].length()+1):cmds[1]);
+                return queueWork(cmds[0], ArrayUtils.remove(cmds,0) );
             }
         }
     }
@@ -401,10 +402,10 @@ public class I2CWorker implements Commandable {
      * Add work to the worker
      *
      * @param id    The device that needs to execute an setId
-     * @param setId The setId the device needs to execute
+     * @param setIdParams The setId the device needs to execute and any parameters
      * @return Result
      */
-    private String queueWork(String id, String setId) {
+    private String queueWork(String id, String[] setIdParams) {
         if( devices.isEmpty())
             return "! No devices present yet.";
 
@@ -413,8 +414,9 @@ public class I2CWorker implements Commandable {
             Logger.error("(i2c) -> Invalid job received, unknown device '" + id + "'");
             return "! Invalid because unknown device '" + id + "'";
         }
+        var setId = setIdParams[0];
         if ( dev instanceof I2cOpper opper) {
-            return opper.queueSet(setId)?"Set "+setId+" on "+opper.id() +" queued.":("! No such setId '"+setId+"'");
+            return opper.queueSet(setIdParams)?"Set "+setId+" on "+opper.id() +" queued.":("! No such setId '"+setId+"'");
         }
         return "! Device is an uart, not running op sets.";
     }

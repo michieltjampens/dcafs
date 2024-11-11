@@ -2,6 +2,7 @@ package io.hardware.i2c;
 
 import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
+import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.xml.XMLdigger;
@@ -80,12 +81,13 @@ public class I2cOpper extends I2cDevice{
 
 		String[] setParams = queue.get(0);
 		var setId = setParams[0];
+		setParams = ArrayUtils.remove(setParams,0); // Remove the set id
 		if (debug)
 			Logger.info(id() + "(i2c) Trying to do " + setId);
 
 		long res = 0;
 		while( res == 0 ) {
-			res = ops.get(setId).runOp(this,setParams.length>=2?setParams[1]:"");
+			res = ops.get(setId).runOp(this,setParams );
 		}
 		bus.doNext(); // Release the bus
 		if (res == -1) { // Means this was the last one in the set
@@ -98,13 +100,13 @@ public class I2cOpper extends I2cDevice{
 		}
 		updateTimestamp(); // Update last used timestamp, because we had comms
 	}
-	public boolean queueSet( String setParam ){
-		var id=setParam.split(",")[0];
+	public boolean queueSet( String[] setIdParams ){
+		var id=setIdParams[0];
 		if( !ops.containsKey(id) ) {
 			Logger.error(id()+" (i2c) -> Tried to queue '"+id+"' but no such op.");
 			return false;
 		}
-		queue.add(setParam.split(","));
+		queue.add(setIdParams);
 		bus.requestSlot(this);
 		return true;
 	}
