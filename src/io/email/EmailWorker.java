@@ -5,6 +5,10 @@ import io.Writable;
 import io.collector.BufferCollector;
 import io.collector.CollectorFuture;
 import io.telnet.TelnetCodes;
+import jakarta.activation.*;
+import jakarta.mail.*;
+import jakarta.mail.internet.*;
+import jakarta.mail.search.FlagTerm;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.FileTools;
@@ -14,10 +18,6 @@ import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
-import javax.activation.*;
-import javax.mail.*;
-import javax.mail.internet.*;
-import javax.mail.search.FlagTerm;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -550,14 +550,14 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		try {
 			if (mailSession == null) {
 				if (outboxAuth) {
-					mailSession = Session.getInstance(props, new javax.mail.Authenticator() {
+					mailSession = Session.getInstance(props, new Authenticator() {
 						@Override
 						protected PasswordAuthentication getPasswordAuthentication() {
 							return new PasswordAuthentication(outbox.user, outbox.pass);
 						}
 					});
 				} else {
-					mailSession = javax.mail.Session.getInstance(props, null);
+					mailSession = Session.getInstance(props, null);
 				}
 				//mailSession.setDebug(true); 	// No need for extra feedback
 			}
@@ -780,7 +780,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		@Override
 		public void run() {
 			ClassLoader tcl = Thread.currentThread().getContextClassLoader();
-			Thread.currentThread().setContextClassLoader(javax.mail.Session.class.getClassLoader());
+			Thread.currentThread().setContextClassLoader(Session.class.getClassLoader());
 			boolean ok = false;
 
 			try( Store inboxStore = inboxSession.getStore("imaps")) {	// Store implements autoCloseable

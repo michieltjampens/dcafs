@@ -84,11 +84,11 @@
 		  <artifactId>json</artifactId>
 		  <version>20240303</version>
 	  </dependency>
-	<!-- https://mvnrepository.com/artifact/com.sun.mail/javax.mail -->
+	  <!-- https://mvnrepository.com/artifact/com.sun.mail/jakarta.mail -->
 	  <dependency>
 		  <groupId>com.sun.mail</groupId>
-		  <artifactId>javax.mail</artifactId>
-		  <version>1.6.2</version>
+		  <artifactId>jakarta.mail</artifactId>
+		  <version>2.0.1</version>
 	  </dependency>
 	  <!-- https://mvnrepository.com/artifact/jakarta.activation/jakarta.activation-api -->
 	  <dependency>
