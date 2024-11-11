@@ -14,6 +14,8 @@ Note: Version numbering: x.y.z
 - Netty 4.1.112->4.1.114
 - Apache commons 3.15.0 -> 3.17.0
 - MSSQL 12.6.3.jre11 -> 12.8.1.jre11
+- diozero 1.4.0 -> 1.4.1
+- mail to jakarta mail 2.0.1
 
 ### Minor changes
 - Will now warn when a store uses an index twice.
@@ -37,16 +39,17 @@ Note: Version numbering: x.y.z
 		</alter>
 	</i2cop>
 ```
-- Improved the write node, so now you can pass arguments to a set
+- Improved the write node, so now you can pass arguments to a set which can be hex.
 ```xml
-    <!-- Used with i2c:deviceid,vout,millivolts -->
+    <!-- Used with i2c:deviceid,vout,millivolts,register -->
+    <!-- Example: i2c:dac,vout,2200,0x1C-->
 	<i2cop id="vout0" info="Output 0 to 0-3300mV (iRef), give millivolts as param">
 		<math>
 			<op scale="0">i0=i0*(4095/3636)-4</op><!-- minus 4 because of offset -->
 			<!-- Previous had scale = 0 so result is integer -->
 			<op>i0=i0*16</op> <!-- Need to fill 12bit from MSB -->
 		</math>
-		<write reg="0x1C" bits="16">i0</write> <!-- DAC-0-DATA, i0 needs to know it's 2bytes -->
+		<write reg="i1" bits="16">i0</write> <!-- DAC-0-DATA, i0 needs to know it's 2bytes -->
 		<write reg="0x1F">0x12 0x01</write> <!-- Common config -->
 		<write reg="0x15">0x10 0x00</write>
 	</i2cop>

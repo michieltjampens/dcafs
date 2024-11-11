@@ -120,3 +120,23 @@ Or this does the same thing, if you prefer to work with hexes.
 	</i2cop>
 ```
 > **Note:** If the content read from the register and the value after altering is the same, the writing won't be done.
+
+### Write operation
+
+This operation writes to a register.
+
+```xml
+    <!-- Used with i2c:deviceid,vout,millivolts,register -->
+    <!-- Example: i2c:dac,vout0,2200,0x1C or i2c:dac,vout0,2200,28-->
+	<i2cop id="vout0" info="Output 0 to 0-3300mV (iRef), give millivolts and register as param">
+		<math>
+			<op scale="0">i0=i0*(4095/3636)-4</op><!-- minus 4 because of offset -->
+			<!-- Previous had scale = 0 so result is integer -->
+			<op>i0=i0*16</op> <!-- Need to fill 12bit from MSB -->
+		</math>
+        <!-- i1 is assumed to be one byte -->
+		<write reg="i1" bits="16">i0</write> <!-- DAC-0-DATA, i0 needs to know it's 2bytes -->
+		<write reg="0x1F">0x12 0x01</write> <!-- Common config -->
+		<write reg="0x15">0x10 0x00</write>
+	</i2cop>
+```
