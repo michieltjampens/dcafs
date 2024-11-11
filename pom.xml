@@ -144,7 +144,7 @@
 	  <dependency>
 		  <groupId>com.diozero</groupId>
 		  <artifactId>diozero-core</artifactId>
-		  <version>1.4.0</version>
+		  <version>1.4.1</version>
 	  </dependency>
 	<!-- https://mvnrepository.com/artifact/org.tinylog/tinylog-api -->
 	<dependency>
@@ -175,7 +175,7 @@
 	  <dependency>
 		  <groupId>org.postgresql</groupId>
 		  <artifactId>postgresql</artifactId>
-		  <version>42.7.3</version>
+		  <version>42.7.4</version>
 	  </dependency>
   </dependencies>
 </project>
