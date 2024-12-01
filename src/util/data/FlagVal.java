@@ -131,14 +131,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
         return this;
     }
     public FlagVal value(String state ){
-        if( state.equalsIgnoreCase("true")
-                || state.equalsIgnoreCase("1")
-                || state.equalsIgnoreCase("on")) {
-            value(true);
-        }else if( state.equalsIgnoreCase("false")|| state.equalsIgnoreCase("0")
-                || state.equalsIgnoreCase("off")) {
-            value(false);
-        }
+        parseValue(state);
         return this;
     }
     /**
