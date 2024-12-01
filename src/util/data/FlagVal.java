@@ -286,7 +286,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
         trueRegex=null;
         falseRegex=null;
         FALSE.clear();
-        FALSE.addAll(Arrays.asList("false","1","off","low"));
+        FALSE.addAll(Arrays.asList("false","0","off","low"));
         TRUE.clear();
         TRUE.addAll(Arrays.asList("true","1","on","high"));
         super.reset(); // This resets common options like keep time
