@@ -11,7 +11,7 @@ Note: Version numbering: x.y.z
 
 ## 2.13.0 (wip)
 ### Updated dependencies
-- Netty 4.1.112->4.1.114
+- Netty 4.1.112->4.1.115
 - Apache commons 3.15.0 -> 3.17.0
 - MSSQL 12.6.3.jre11 -> 12.8.1.jre11
 - diozero 1.4.0 -> 1.4.1
@@ -20,9 +20,13 @@ Note: Version numbering: x.y.z
 ### Minor changes
 - Will now warn when a store uses an index twice.
 - Store, now error is logged if the table used by a store doesn't exists.
+- Parsing to a boolean now considers all values except 0 as true.
 
 ### Minor fixes
 - Sending data to a stream that contains a digit in id doesn't work with id:data.
+- Priority was given to database info from database over xml, does make sense but this
+means rtval info isn't used because it doesn't merge info (yet).
+- Default alse options for flag contained 1 instead of 0.
 
 ### I2C
 - Improved the alter node:
