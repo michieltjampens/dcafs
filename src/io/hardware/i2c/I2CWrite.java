@@ -98,7 +98,6 @@ public class I2CWrite implements I2COp{
                 data = fromDoubleToIntegerBytes(received.get(index),bytes);
             }
             Byte regData = reg.getRegister(received);
-            Logger.info("Received register: "+regData);
             if ( regData  != null)
                 return ArrayUtils.insert(0, data, regData);
             return data;
@@ -116,7 +115,6 @@ public class I2CWrite implements I2COp{
             }
         }
         public Byte getRegister( ArrayList<Double> received ){
-            Logger.info("Requesting register: "+index+" <-> "+reg);
             if( index==-1)
                 return reg;
             Logger.info(index +" <-> "+received.size());
@@ -143,7 +141,6 @@ public class I2CWrite implements I2COp{
             while( data.length != size ){ // To few bytes, add leading
                 data=ArrayUtils.insert(0,data,(byte)0);
             }
-            Logger.info("(i2c) -> Converted "+var+" tot "+Tools.fromBytesToHexString(data));
             return data;
         }catch( ArrayIndexOutOfBoundsException e){
             Logger.error("(i2c) -> Array of out bounds when retrieving value to write");
