@@ -1,6 +1,7 @@
 package util.tools;
 
 import com.fazecast.jSerialComm.SerialPort;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.gis.GisTools;
 
@@ -116,6 +117,9 @@ public class Tools {
             return true;
         if( value.equals("no")||value.equals("false")||value.equals("0")||value.equals("off")||value.equals("low"))
             return false;
+        if( NumberUtils.isParsable(value) ){
+            return NumberUtils.toInt(value)!=0;
+        }
         if( !value.isEmpty())
             Logger.warn("No valid value received to convert to bool: "+value);
         return error;
