@@ -232,16 +232,16 @@ To use this:
       <step cnt="60">m</step> <!-- the next step up 60s  to 1m -->
       <step cnt="60">h</step> <!-- the next step up 60m to 1h -->
     </unit>
-    <unit base="Hz">
-      <level div="1000" from="1500">kHz</level> <!-- Use A if the value is higher than 1500 and use 1000 as divider -->
-      <level div="1000">MHz</level> <!-- No 'from' so same as div, so kHz -->
-      <level div="1000">GHz</level>
+    <unit base="Hz" div="1000"><!-- div can be global or per level -->
+      <level from="1500">kHz</level> <!-- Use kHz if the value is higher than 1500 and use 1000 as divider -->
+      <level scale="3">MHz</level> <!-- No 'from' so same as div, so kHz -->
+      <level>GHz</level>
     </unit>
 </rtvals>
 <!--
 So an input of 3962s will result in 1h6m2s shown instead.
 Or an input of 1400Hz will result in 1400Hz 
     but 1840Hz will become 1.840kHz
-    and 1245358Hz will become 1.245MHz, scale is taken from the realval 
+    and 1245358Hz will become 1.245MHz
 -->
 ```

@@ -13,8 +13,20 @@ for those that have used paths before...
 of the bus the device is supposed to be on.
 2. If found, use `i2c:adddevice,id,bus,address,scriptid` to add it to the settings.xml. Address is
 in hex and 7bit. Script is the name of the xml script that holds the operations. So for example,
-for the aht20, this could be `i2c:adddevice,aht10,1,0x38,aht20`. If there's no script yet with that
+for the aht20, this could be `i2c:adddevice,aht20,1,0x38,aht20`. If there's no script yet with that
 name, a starting one will be generated inside the i2cscripts subfolder.
+
+The result should look like this
+```xml
+  <i2c>
+    <bus controller="1">
+      <device id="aht10">
+        <address>0x38</address>
+        <script>aht20</script>
+      </device>
+    </bus>
+  </i2c>
+```
 
 ## Building a script
 
@@ -139,4 +151,34 @@ This operation writes to a register.
 		<write reg="0x1F">0x12 0x01</write> <!-- Common config -->
 		<write reg="0x15">0x10 0x00</write>
 	</i2cop>
+```
+
+## I2C Uart
+- Basic implementation to test https://github.com/michieltjampens/i2c_uart_stm32
+- For now, only sending and receiving data works.
+```xml
+<dcafs> 
+  <gpios chiplines="32">
+    <!-- defining a gpio board is known -->
+    <gpio name="GPIO2_B5"> <!-- name needs to match -->
+        <interrupt edge="rising"/>
+    </gpio>
+  </gpios>
+  <i2c>
+    <bus controller="1">
+      <uart id="uart1">        
+        <address>0x1b</address>
+		<eol>crlf</eol>
+		<irq>GPIO2_A3</irq>
+		<serialsettings>38400,8,1,none</serialsettings> <!-- baudrate ok, rest non-functional -->
+      </uart>
+	  <uart id="uart2">        
+        <address>0x2b</address>
+		<eol>crlf</eol>
+		<irq>GPIO2_A3</irq>
+		<serialsettings>38400,8,1,none</serialsettings> <!-- baudrate ok, rest non-functional -->
+      </uart>
+    </bus>
+  </i2c>
+</dcafs>
 ```
