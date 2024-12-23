@@ -122,9 +122,12 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
                     Logger.warn(id+"(uart) -> Status requested but no valid writable to write to");
                 }
             }
-        }else if( writeBuffer.readableBytes() != 0 ){
-            device.writeBytes( getData() );
-            Logger.info(id+"(uart) -> Data send: "+ TimeTools.formatNow("HH:mm:ss.SSS"));
+        }else if( !writeData.isEmpty() ){
+            while( !writeData.isEmpty()) {
+                device.writeBytes(getData());
+                if (debug)
+                    Logger.info(id + "(uart) -> Data send: " + TimeTools.formatNow("HH:mm:ss.SSS"));
+            }
         }else if( baudrateChanged ){
             byte[] d = {0x04,(byte) (baudrate/2400)};
             device.writeBytes( d );
