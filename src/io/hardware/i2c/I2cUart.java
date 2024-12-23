@@ -7,6 +7,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -27,8 +28,11 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     private boolean irqTriggered=false;
     private int eolFound = 0;
     private Writable tempTarget;
-    private enum WAITING_FOR {IDLE,STATUS,UNKNOWN};
+    private enum WAITING_FOR {IDLE,STATUS,CONF,UNKNOWN};
     private WAITING_FOR requested = WAITING_FOR.IDLE;
+
+    private int baudrate=38400;
+    private boolean baudrateChanged=false;
 
     public I2cUart( XMLdigger dig, I2cBus bus, BlockingQueue<Datagram>  dQueue){
         super(dig,bus,dQueue);
@@ -41,7 +45,16 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
             Logger.info( id+"(i2c) -> Found irq node with "+irq+" requesting watch");
             dQueue.add(Datagram.system("isr:watch," + irq).payload(this));
         }
-        connect();
+        var serialSettings = dig.peekAt("serialsettings").value("");
+        var bd = NumberUtils.toInt(serialSettings.split(",")[0]);
+        if( bd != baudrate){
+            baudrate=bd;
+            baudrateChanged=true;
+        }
+        //connect();
+
+        if(baudrateChanged)
+            bus.requestSlot(this );
     }
     public void requestStatus(Writable wr){
         if( device == null){
@@ -57,6 +70,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     public void useBus(EventLoopGroup scheduler){
         // Write data to the device
         byte[] data=null;
+        Logger.info(id+" (uart) -> Using bus");
         if( device==null){
             Logger.error(id+"(uart) -> Device still null, can't do anything.");
         }
@@ -102,6 +116,11 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
             device.writeBytes( getData() );
             bus.doNext(); // Release the bus
             Logger.info(id+"(uart) -> Data send: "+ TimeTools.formatNow("HH:mm:ss.SSS"));
+        }else if( baudrateChanged ){
+            byte[] d = {0x04,(byte) (baudrate/2400)};
+            device.writeBytes( d );
+            baudrateChanged=false;
+            bus.doNext(); // Release the bus
         }
     }
     private void processRead( byte[] data ){
