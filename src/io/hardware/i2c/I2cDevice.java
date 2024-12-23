@@ -49,8 +49,14 @@ public class I2cDevice{
         }else{
             Logger.info("(i2c) -> Created "+id+" ("+Integer.toHexString(address)+") for controller "+bus.id());
         }
-        if( valid )
+        if( valid ) {
             device = I2CDevice.builder(address).setController(bus.id()).build();
+            if( device!=null ) {
+                Logger.info("(i2c) -> Build device for " + id);
+            }else{
+                Logger.error("(i2c) -> Failed to build device for "+id);
+            }
+        }
     }
     public I2cDevice( String id, int address, I2cBus bus, BlockingQueue<Datagram> dQueue){
         this.id=id;
@@ -65,19 +71,20 @@ public class I2cDevice{
         }
     }
     public boolean connect(){
-        Logger.info(id+"(i2c) -> Trying to connect to "+Integer.toHexString(address));
+        Logger.info( id+"(i2c) -> Trying to connect to 0x"+Integer.toHexString(address).toUpperCase() );
         if( !valid ) {
-            Logger.warn(id+" (i2c) -> Not connecting because invalid");
+            Logger.warn( id+" (i2c) -> Not connecting because invalid" );
             return false;
         }
         if( device != null)
             device.close();
         device = I2CDevice.builder(address).setController(bus.id()).build();
-        if( !probeIt() ) {
-            Logger.error(id+"(i2c) -> Probe of "+Integer.toHexString(address)+" failed.");
+        if( !probeIt() ){
+            Logger.error( id + "(i2c) -> Probe of 0x"+Integer.toHexString(address).toUpperCase()+" failed." );
             device = null;
+        }else{
+            Logger.info( id + "(i2c) -> Connected to 0x" + Integer.toHexString(address).toUpperCase() + " and probed." );
         }
-        Logger.info(id+"(i2c) -> Connected to "+Integer.toHexString(address)+" and probed.");
         return device != null;
     }
     public String id(){

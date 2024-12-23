@@ -81,7 +81,8 @@ public class I2CWorker implements Commandable {
             }
             if( devices.size()==cnt)
                 return "Found all devices";
-            devices.values().forEach(dev->dev.setDebug(debug));
+
+            setDebug(debug);
         }
         return "Found "+devices+" on checked busses, while looking for "+cnt+" devices";
     }
@@ -167,6 +168,7 @@ public class I2CWorker implements Commandable {
      */
     public void setDebug(boolean debug ){
         devices.values().forEach( device -> device.setDebug(debug));
+        busses.forEach(x->x.setDebug(debug));
     }
 
     /**

@@ -10,7 +10,7 @@ public class I2cBus {
     boolean busy = false;
     int bus;
     int requests=0;
-
+    boolean debug=false;
     ArrayList<I2cDevice> slotWait = new ArrayList<>();
 
     public I2cBus(int bus, EventLoopGroup eventLoopGroup ){
@@ -26,29 +26,37 @@ public class I2cBus {
     public int queuedSize(){
         return slotWait.size();
     }
+    public void setDebug( boolean debug ){
+        this.debug=debug;
+    }
     /* ****************************** R E A D I N G ******************************************* */
     public synchronized void requestSlot(I2cDevice dev){
         requests++;
         if( busy ){
-
             if( !slotWait.contains(dev)) { // No need to add it twice
                 slotWait.add(dev);
-                Logger.info("Request from "+dev.id()+" queued.");
+                if(debug)
+                    Logger.info("Request from "+dev.id()+" queued. (size: "+slotWait.size()+")");
             }else{
-                Logger.debug("Request from "+dev.id()+" denied, duplicate.");
+                if( debug )
+                    Logger.warn("Request from "+dev.id()+" denied, duplicate.");
             }
         }else{
             busy=true;
-            Logger.info("Request from "+dev.id()+" approved.");
+            if( debug )
+                Logger.info("Request from "+dev.id()+" approved.");
             eventloop.submit( ()->dev.useBus(eventloop) );
         }
     }
     /* *************************************************************************************** */
     public void doNext(){
         if( !slotWait.isEmpty() ){
+            if( debug )
+                Logger.info("(i2c) -> Request from "+slotWait.get(0).id()+" granted.");
             eventloop.submit( () -> slotWait.remove(0).useBus(eventloop));
+        }else {
+            busy = false;
         }
-        busy=false;
     }
     public String getInfo(){
         return bus+ " -> busy?"+busy+" requests:"+requests+ " waiting:"+slotWait.size();
