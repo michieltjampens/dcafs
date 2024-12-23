@@ -168,7 +168,10 @@ public class I2CWorker implements Commandable {
      */
     public void setDebug(boolean debug ){
         devices.values().forEach( device -> device.setDebug(debug));
-        busses.forEach(x->x.setDebug(debug));
+        busses.forEach(x->{
+            if(x!=null)
+                x.setDebug(debug);
+        });
     }
 
     /**
