@@ -15,6 +15,7 @@ import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 
 public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<DigitalInputEvent> {
@@ -22,7 +23,6 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     protected ArrayList<Writable> targets = new ArrayList<>();
     private String eol="\r\n";
     private byte[] eolBytes;
-    private final ByteBuf writeBuffer = Unpooled.buffer(256,1024);
     private final ByteBuf readBuffer = Unpooled.buffer(256,1024);
 
     private boolean irqTriggered=false;
@@ -33,6 +33,9 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
 
     private int baudrate=38400;
     private boolean baudrateChanged=false;
+
+    private ArrayList<byte[]> writeData=new ArrayList<>();
+    private boolean debug=false;
 
     public I2cUart( XMLdigger dig, I2cBus bus, BlockingQueue<Datagram>  dQueue){
         super(dig,bus,dQueue);
@@ -56,6 +59,9 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
         if(baudrateChanged)
             bus.requestSlot(this );
     }
+    public void setDebug( boolean debug ){
+        this.debug=debug;
+    }
     public void requestStatus(Writable wr){
         if( device == null){
             wr.writeLine("! Device not connected, can't request status");
@@ -70,13 +76,15 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     public void useBus(EventLoopGroup scheduler){
         // Write data to the device
         byte[] data=null;
-        Logger.info(id+" (uart) -> Using bus");
+        if( debug )
+            Logger.info(id+" (uart) -> Using bus");
         if( device==null){
             Logger.error(id+"(uart) -> Device still null, can't do anything.");
         }
         // Read data from it.
         if( irqTriggered ) {
-            Logger.info( id+"(uart) -> Trying to read from reg 1" );
+            if( debug )
+                Logger.info( id+"(uart) -> Trying to read from reg 1" );
             irqTriggered = false;
 
             var status = (int)device.readWordData(1); // Read status 4bits of status followed 12 bits buffer use
@@ -84,7 +92,8 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
 
             // split it
             int size = status % 8192;  // Next 12 bits are buffer used size
-            Logger.info("Status: "+status);
+            if( debug )
+                Logger.info("Status: "+status);
             if( requested == WAITING_FOR.UNKNOWN ){
                 if (size != 0) {
                     try {
@@ -99,7 +108,8 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
             bus.doNext(); // Release the bus
 
             if( data!=null ) { // If no data read, no need tor process
-                Logger.info(id + "(uart) -> Read " + size + " bytes for uart.");
+                if( debug )
+                    Logger.info(id + "(uart) -> Read " + size + " bytes for uart.");
                 updateTimestamp();
                 processRead(data);
             }else if( requested == WAITING_FOR.STATUS){
@@ -143,12 +153,8 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
         }
     }
     public byte[] getData(){
-        var size = writeBuffer.readableBytes();
-        if( size > 255 )
-            size=255;
-        var data = new byte[size];
-        writeBuffer.readBytes(size).readBytes(data);
-        return ArrayUtils.insert(0,data,(byte)2,(byte)size);
+        var size = writeData.get(0).length;
+        return ArrayUtils.insert(0,writeData.remove(0),(byte)2,(byte)size);
     }
     @Override
     public boolean writeString(String data) {
@@ -167,9 +173,18 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
 
     @Override
     public boolean writeBytes(byte[] data) {
-        writeBuffer.writeBytes(data);
+        if( writeData.size()<100) {
+            if( data.length<255){
+                writeData.add(data);
+            }else{
+                writeData.add( Arrays.copyOfRange(data,0,255) );
+                writeData.add( Arrays.copyOfRange(data,255,data.length) );
+            }
+            Logger.info("Added to buffer: "+data.length+" bytes for total now "+writeData.size()+ " slots.");
+        }else{
+            Logger.error(id+"(uart) -> WriteBuffer overflow");
+        }
         bus.requestSlot(this );
-        Logger.info("Added to buffer: "+Tools.fromBytesToHexString(data));
         return true;
     }
 
