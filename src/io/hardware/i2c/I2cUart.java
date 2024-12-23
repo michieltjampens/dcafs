@@ -114,14 +114,14 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
             }
         }else if( writeBuffer.readableBytes() != 0 ){
             device.writeBytes( getData() );
-            bus.doNext(); // Release the bus
             Logger.info(id+"(uart) -> Data send: "+ TimeTools.formatNow("HH:mm:ss.SSS"));
         }else if( baudrateChanged ){
             byte[] d = {0x04,(byte) (baudrate/2400)};
             device.writeBytes( d );
             baudrateChanged=false;
-            bus.doNext(); // Release the bus
+            Logger.info(id+"(uart) -> Baudrate change requested.");
         }
+        bus.doNext(); // Release the bus
     }
     private void processRead( byte[] data ){
         for ( byte datum : data) {
