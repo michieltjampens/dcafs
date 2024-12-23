@@ -24,9 +24,7 @@ Note: Version numbering: x.y.z
 
 ### Minor fixes
 - Sending data to a stream that contains a digit in id doesn't work with id:data.
-- Priority was given to database info from database over xml, does make sense but this
-means rtval info isn't used because it doesn't merge info (yet).
-- Default alse options for flag contained 1 instead of 0.
+- Default false options for flag contained 1 instead of 0.
 
 ### I2C
 - Improved the alter node:
@@ -59,6 +57,7 @@ means rtval info isn't used because it doesn't merge info (yet).
 	</i2cop>
 ```
 - Updated the manual with the new functionality
+- I2cUart can now alter the baudrate
 
 ## 2.12.0 (28/07/2024)
 
