@@ -22,7 +22,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
 
     protected ArrayList<Writable> targets = new ArrayList<>();
     private String eol="\r\n";
-    private byte[] eolBytes;
+    private final byte[] eolBytes;
     private final ByteBuf readBuffer = Unpooled.buffer(256,1024);
 
     private boolean irqTriggered=false;
@@ -34,7 +34,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     private int baudrate=38400;
     private boolean baudrateChanged=false;
 
-    private ArrayList<byte[]> writeData=new ArrayList<>();
+    private final ArrayList<byte[]> writeData=new ArrayList<>();
     private boolean debug=false;
 
     public I2cUart( XMLdigger dig, I2cBus bus, BlockingQueue<Datagram>  dQueue){
@@ -122,6 +122,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
                     Logger.warn(id+"(uart) -> Status requested but no valid writable to write to");
                 }
             }
+            return;
         }else if( !writeData.isEmpty() ){
             while( !writeData.isEmpty()) {
                 device.writeBytes(getData());
