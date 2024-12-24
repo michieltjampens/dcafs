@@ -55,6 +55,7 @@ public class I2cDevice{
                 Logger.info("(i2c) -> Build device for " + id);
             }else{
                 Logger.error("(i2c) -> Failed to build device for "+id);
+                valid=false;
             }
         }
     }
@@ -120,6 +121,7 @@ public class I2cDevice{
             Logger.info(id+"(i2c) -> Device already opened at "+getAddr() );
         } catch( RuntimeIOException e ){
             Logger.warn(id+"(i2c) -> Runtime error during probe at "+getAddr() );
+            valid=false;
             return false;
         }
         return true;
@@ -130,10 +132,10 @@ public class I2cDevice{
     public boolean inDebug(){
         return debug;
     }
-    // TODO: Remove the probeIt, might interfere with ongoing use of the bus
+
     public String getStatus(){
         String age = getAge()==-1?"Not used yet": TimeTools.convertPeriodtoString(getAge(), TimeUnit.SECONDS);
-        return (probeIt()?"":"!!")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
+        return (valid?"":"!!")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
     }
     /**
      * Add a @Writable to which data received from this device is sent
