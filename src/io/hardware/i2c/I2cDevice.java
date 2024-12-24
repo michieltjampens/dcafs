@@ -74,17 +74,17 @@ public class I2cDevice{
     public boolean connect(){
         Logger.info( id+"(i2c) -> Trying to connect to 0x"+Integer.toHexString(address).toUpperCase() );
         if( !valid ) {
-            Logger.warn( id+" (i2c) -> Not connecting because invalid" );
+            Logger.warn( id+" (i2c) -> Not connecting because invalid." );
             return false;
         }
         if( device != null)
             device.close();
         device = I2CDevice.builder(address).setController(bus.id()).build();
-        if( !probeIt() ){
+        if( probeIt() ) {
+            Logger.info( id + "(i2c) -> Connected to 0x" + Integer.toHexString(address).toUpperCase() + " and probed." );
+        }else{
             Logger.error( id + "(i2c) -> Probe of 0x"+Integer.toHexString(address).toUpperCase()+" failed." );
             device = null;
-        }else{
-            Logger.info( id + "(i2c) -> Connected to 0x" + Integer.toHexString(address).toUpperCase() + " and probed." );
         }
         return device != null;
     }
@@ -95,14 +95,14 @@ public class I2cDevice{
         return "0x"+String.format("%02x", address)+"@"+bus.id();
     }
     public void useBus(EventLoopGroup scheduler){
-        Logger.warn("Not implemented!");
+        Logger.warn(id+" (i2c) Not implemented!");
     }
     public I2CDevice getDevice(){
         return device;
     }
     public boolean probeIt(){
         if( !valid || device==null) {
-            Logger.warn(id + " (i2c) -> Probe failed because invalid or device null");
+            Logger.warn(id + " (i2c) -> Probe failed because invalid or device null.");
             return false;
         }
         try{
