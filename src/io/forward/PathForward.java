@@ -360,25 +360,9 @@ public class PathForward {
                 step.removeTarget(wr);
 
             lastStep().ifPresent( ls -> ls.removeTarget(wr));
-
-            if( lastStep().isEmpty() )
-                return;
-
-            disableSource();
         }
     }
-    private void disableSource(){
-        /*if( lastStep().map(AbstractForward::noTargets).orElse(true) ) { // if the final step has no more targets, stop the first step
-            if (customs.isEmpty()) {
-                if (src.startsWith("raw:") || src.startsWith("path:")) {
-                    dQueue.add(Datagram.system(src.replace(":", ":!")).writable(stepsForward.get(0)));
-                    valid=false;
-                }
-            } else {
-                customs.forEach(CustomSrc::stop);
-            }
-        }*/
-    }
+
     public void stop(){
         lastStep().ifPresent(AbstractForward::removeTargets);
         targets.clear();
@@ -461,7 +445,7 @@ public class PathForward {
                     srcType = SRCTYPE.INVALID;
                     Logger.error(id + "(pf) -> no valid srctype '" + sub.getTagName() + "'");
                 }
-            };
+            }
         }
         public void start(){
             if( future==null || future.isDone())

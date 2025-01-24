@@ -222,7 +222,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		XMLdigger xml = XMLdigger.goIn(perms).digDown("*");
 
 		while( xml.iterate() ){ // Go through the denies
-			boolean denies = xml.tagName("").equals("denies");;
+			boolean denies = xml.tagName("").equals("denies");
 			var ref = xml.attr("ref","");
 			String val = xml.value("");
 
@@ -930,7 +930,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				if( slowCheck == null || slowCheck.isCancelled() || slowCheck.isDone() )
 					slowCheck = scheduler.schedule( new Check(), 60, TimeUnit.SECONDS);
 			}else if( maxQuickChecks > 0){
-				// If an email was received, schedule an earlier check. This way follow ups are responded to quicker
+				// If an email was received, schedule an earlier check. This way follow-ups are responded to quicker
 				maxQuickChecks--;
 				Logger.info("Still got "+maxQuickChecks+" to go...");
 				if( fastCheck == null || fastCheck.isCancelled() || fastCheck.isDone() )

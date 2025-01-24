@@ -65,7 +65,7 @@ public class DAS implements Commandable{
     /* Managers & Pools */
     private DatabaseManager dbManager; // Manager for the database interaction
     private MqttPool mqttPool; // Pool for the mqtt connections
-    private TaskManagerPool taskManagerPool; // Pool that holds the tasksmanagers
+    private TaskManagerPool taskManagerPool; // Pool that holds the taskmanagers
     private CollectorPool collectorPool; // Pool of the collector objects (mainly filecollectors)
     private CommandPool commandPool; // Pool that holds the references to all the commandables
     private boolean bootOK = false; // Flag to show if booting went ok

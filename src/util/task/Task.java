@@ -67,7 +67,7 @@ public class Task implements Comparable<Task>{
 	boolean utc = false;											// If the time is in UTC or not
 
 	/* Output */
-	enum OUTPUT { SYSTEM, MANAGER, LOG, FILE, EMAIL, SMS, STREAM, MQTT, I2C, TELNET, MATRIX }    // The different options for the output, see manual for further explanation
+	enum OUTPUT { SYSTEM, MANAGER, LOG, FILE, EMAIL, STREAM, MQTT, I2C, TELNET, MATRIX }    // The different options for the output, see manual for further explanation
 	OUTPUT out = OUTPUT.SYSTEM;											// The output of the task, default is system
 	String outputRef="";												// The actual output fe. channel, email address, filename, sms number etc
 
@@ -395,7 +395,6 @@ public class Task implements Comparable<Task>{
 					outputFile = Path.of(o[1]);
 				}
 				case "email" -> out = OUTPUT.EMAIL;
-				case "sms" -> out = OUTPUT.SMS;
 				case "channel", "stream" -> {
 					out = OUTPUT.STREAM;
 					stream = o[1].toLowerCase();
@@ -528,7 +527,6 @@ public class Task implements Comparable<Task>{
 			case STREAM -> "Sending '" + value.replace("\r", "").replace("\n", "") + "' to " + stream + suffix;
 			case EMAIL -> "Emailing '" + value + "' to " + outputRef + suffix;
 			case FILE -> "Writing '" + value + "' in " + outputFile + suffix;
-			case SMS -> "SMS " + value + " to " + outputRef + suffix;
 			case LOG -> "Logging: '" + value + "' to " + outputRef + suffix;
 			case MANAGER -> "Executing manager command: '" + value + "'  " + suffix;
 			case MQTT -> "Executing mqtt command: '" + value + "'  " + suffix;

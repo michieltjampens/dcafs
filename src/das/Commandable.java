@@ -28,7 +28,8 @@ public interface Commandable {
      * @return The result of trying to remove, true means ok.
      */
     boolean removeWritable( Writable wr);
-    /** Implementation info
+    /*
+     * Implementation info
      * -> If the amount of args are wrong return: "! Wrong amount of arguments -> <proper cmd>"
      * -> If the args don't match a subcommand: "! No such subcommand in ... : "+args;
      */

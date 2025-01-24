@@ -652,10 +652,10 @@ public class MatrixClient implements Writable, Commandable {
         }
     }
     private Optional<JSONObject> getJSONSubObject(JSONObject obj, String... keys){
-        for( int a=0;a<keys.length;a++){
-            if( !obj.has(keys[a]))
+        for (String key : keys) {
+            if (!obj.has(key))
                 return Optional.empty();
-            obj=obj.getJSONObject(keys[a]);
+            obj = obj.getJSONObject(key);
         }
         return Optional.of(obj);
     }

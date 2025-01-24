@@ -665,9 +665,7 @@ public class MathForward extends AbstractForward {
     private BigDecimal[] buildBDArray(String[] data ){
         if( (referencedNums!=null && !referencedNums.isEmpty()) || !temps.isEmpty() ){
             var ref = buildRefBdArray();
-            if( ref.isPresent())
-                return ArrayUtils.addAll(MathUtils.toBigDecimals(data,highestI==-1?0:highestI), ref.get());
-            return null;
+            return ref.map(bigDecimals -> ArrayUtils.addAll(MathUtils.toBigDecimals(data, highestI == -1 ? 0 : highestI), bigDecimals)).orElse(null);
         }else{
             return MathUtils.toBigDecimals(data,highestI==-1?0:highestI); // Split the data and convert to big decimals
         }

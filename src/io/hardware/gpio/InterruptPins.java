@@ -232,7 +232,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             if( stamps.size()==samples ){ // Wait till enough samples collected
                 counter ++; // Increment counter that determines update rate of the realval
                 if( counter == updateRate ) { // If the counter matches the requested rate, actually calculate frequency
-                    var res = (double)1000000000/((event.getNanoTime()-stamps.remove(0) )/(samples-1));
+                    var res = (double)1000000000/((double) (event.getNanoTime() - stamps.remove(0)) /(samples-1));
                     frequency.updateValue( res );
                     Logger.debug("Frequency: " + frequency.asValueString());
                     counter=0;
