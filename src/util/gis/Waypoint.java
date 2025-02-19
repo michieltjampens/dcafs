@@ -6,6 +6,8 @@ import org.tinylog.Logger;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
+import util.xml.XMLfab;
 
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
@@ -21,44 +23,46 @@ public class Waypoint implements Comparable<Waypoint>{
 	public enum STATE{INSIDE,OUTSIDE,ENTER,LEAVE,UNKNOWN}
 
 	static DateTimeFormatter sqlFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-	double lat;
-	double lon;
-	double range;
-	double lastDist=-1;
-	String name;
-	int id;
-	STATE state=STATE.UNKNOWN;
-	boolean temp=false;
-	
-	double bearing=0;
+	private final Coordinate coord=new Coordinate();
+	private double range;
+	private double lastDist=-1;
+
+	private STATE state=STATE.UNKNOWN;
+	private boolean temp=false;
+	private final String id;
+	private double bearing=0;
 
 	/* Stuff to determine enter and leave time if entered and left multiple times in succession */
-	boolean active = false;
-	boolean movementReady=false;
-	OffsetDateTime enterTime;
-	OffsetDateTime leaveTime;
-	double leaveDistance=0;
+	private boolean active = false;
+	private boolean movementReady=false;
+	private OffsetDateTime enterTime;
+	private OffsetDateTime leaveTime;
+	private double leaveDistance=0;
 		
 	/* Specific movements */
-	ArrayList<Travel> travels = new ArrayList<>();
+	private final ArrayList<Travel> travels = new ArrayList<>();
 
-	public Waypoint( String name ){
-		this.name=name.trim();
+	public Waypoint( String id ){
+		this.id=id;
 	}
 
-	public static Waypoint build( String name){
-		return new Waypoint(name);
+	public static Waypoint build( String id){
+		return new Waypoint(id);
 	}
 	public Waypoint lat( double lat){
-		this.lat=lat;
+		coord.lat(lat);
 		return this;
 	}
 	public Waypoint lon( double lon){
-		this.lon=lon;
+		coord.lon(lon);
 		return this;
 	}
 	public Waypoint range( double range){
 		this.range=range;
+		return this;
+	}
+	public Waypoint coord( double lat, double lon){
+		coord.lon(lon).lat(lat);
 		return this;
 	}
 	public boolean hasTravelCmd(){
@@ -67,9 +71,55 @@ public class Waypoint implements Comparable<Waypoint>{
 				return true;
 		return false;
 	}
+	public static Optional<Waypoint> readFromXML( XMLdigger wpDig ){
+		String id = wpDig.attr("id",""); // Get the id
+		double lat = GisTools.convertStringToDegrees(wpDig.attr("lat","")); // Get the latitude
+		double lon = GisTools.convertStringToDegrees(wpDig.attr("lon","")); // Get the longitude
+		double range = wpDig.attr("range", -999.0); // Range that determines inside or outside
+
+		if( id.isEmpty()){
+			Logger.error("Waypoint without id not allowed, check settings.xml!");
+			return Optional.empty();
+		}
+
+		var wp = Waypoint.build(id).lat(lat).lon(lon).range(range);// Create it
+
+		Logger.debug("Checking for travel...");
+
+		for( var travelDig : wpDig.digOut("travel")){
+			String travelId = travelDig.attr("id",""); // The id of the travel
+			String dir = travelDig.attr("dir",""); // The direction (going in, going out)
+			String bearing = travelDig.attr("bearing","0 -> 360");// Which bearing used
+
+			wp.addTravel(travelId,dir,bearing).ifPresent( // meaning travel parsed fine
+					t -> {
+						for (var cmd : travelDig.digDown("cmd").currentSubs()) {
+							t.addCmd(cmd.getTextContent());
+						}
+					}
+			);
+		}
+		return Optional.of(wp);
+	}
+	public void storeInXml( XMLfab fab ){
+		fab.addParentToRoot("waypoint")
+				.attr("id",id)
+				.attr("lat", coord.lat())
+				.attr("lon", coord.lon())
+				.attr("range",range);
+
+		for( Travel tr : getTravels() ){
+			fab.addChild("travel")
+					.attr("id", tr.id())
+					.attr("dir", tr.getDirection() )
+					.attr("bearing", tr.getBearingString() )
+					.down();
+			tr.cmds.forEach( travel -> fab.addChild("cmd",travel));
+		}
+	}
 	public STATE currentState( OffsetDateTime when, double lat, double lon ){
-		lastDist = GisTools.roughDistanceBetween(lon, lat, this.lon, this.lat, 3)*1000;// From km to m				
-		bearing = GisTools.calcBearing( lon, lat, this.lon, this.lat, 2 );
+		lastDist = coord.roughDistanceTo(lat,lon)*1000;// From km to m
+		bearing = coord.bearingTo(lat,lon,2);
 
 		switch (state) {
 			case INSIDE -> {
@@ -121,22 +171,22 @@ public class Waypoint implements Comparable<Waypoint>{
 	public String getLastMovement(){		
 		if( movementReady ){
 			movementReady=false;
-			return "Arrived at "+name+" on "+enterTime.format(sqlFormat) + " and left on " + leaveTime.format(sqlFormat);
+			return "Arrived at "+id+" on "+enterTime.format(sqlFormat) + " and left on " + leaveTime.format(sqlFormat);
 		}		
 		return "";
 	}
 	public boolean isTemp(){
 		return temp;
 	}
-	public String getName(){
-		return name;
+	public String id(){
+		return id;
 	}
 	public String toString(){
 		return toString( false, false, 0.0 );
 	}
-	public String toString(boolean coord, boolean simple, double sog){
+	public String toString(boolean coordinate, boolean simple, double sog){
 		String m = "away";
-		String nm=name;
+		String nm=id;
 
 		if(state==null)
 			return "Unknown state";
@@ -151,8 +201,8 @@ public class Waypoint implements Comparable<Waypoint>{
 		}
 		if( lastDist != -1)
 			m= Tools.metersToKm(lastDist,2);
-		if( coord ) {
-			nm += " ["+GisTools.fromDegrToDegrMin(lat,4,"°")+";"+GisTools.fromDegrToDegrMin(lon,4,"°")+"]";
+		if( coordinate ) {
+			nm += " ["+coord.getDegrMin(4,"°",";")+"]";
 		}
 		if( simple ){
 			return switch (state) {
@@ -168,19 +218,19 @@ public class Waypoint implements Comparable<Waypoint>{
 				case INSIDE -> "Inside ";
 				case LEAVE -> "Left ";
 				case OUTSIDE -> "Outside ";
-				default -> "Unknown state of " + name + ".";
+				default -> "Unknown state of " + id + ".";
 			};
-			return mess + name+" at " +TimeTools.formatLongUTCNow()+ " and "+m+" from center, bearing "+bearing+"° "+suffix;
+			return mess + id+" at " +TimeTools.formatLongUTCNow()+ " and "+m+" from center, bearing "+bearing+"° "+suffix;
 		}
 	}
 	public String getInfo(String newline){
 		String prefix;
 		if( !newline.startsWith("<")) {
-			prefix = TelnetCodes.TEXT_GREEN + name + TelnetCodes.TEXT_YELLOW;
+			prefix = TelnetCodes.TEXT_GREEN + id + TelnetCodes.TEXT_YELLOW;
 		}else{
-			prefix = name;
+			prefix = id;
 		}
-		prefix += " ["+GisTools.fromDegrToDegrMin(lat,4,"°")+";"+GisTools.fromDegrToDegrMin(lon,4,"°")+"]\tRange:"+range+"m";
+		prefix += " ["+coord.getDegrMin(4,"°",";")+"]\tRange:"+range+"m";
 
 		StringJoiner join = new StringJoiner(newline,
 					prefix,"");
@@ -194,40 +244,30 @@ public class Waypoint implements Comparable<Waypoint>{
 		}
 		return join.toString();
 	}
-	public double getLat(){
-		return lat;
-	}
-	public double getLon(){
-		return lon;
-	}
-	public double getRange(){
+	public double range(){
 		return range;
 	}
 	public void updatePosition( double lat, double lon ){
-		this.lat=lat;
-		this.lon=lon;
-	}
-	public void setName( String name ){
-		this.name=name;
+		coord.lat(lat).lon(lon);
 	}
 
 	/* ******************************************************************************** **/
 	/**
 	 * Adds a travel to the waypoint
 	 * 
-	 * @param name The name of the travel
+	 * @param id The name of the travel
 	 * @param dir The direction either in(or enter) or out( or leave)
 	 * @param bearing Range of bearing in readable english, fe. from 100 to 150
 	 * @return An optional Travel, which is empty if the bearing parsing failed
 	 */
-	public Optional<Travel> addTravel( String name, String dir, String bearing ){
-		var travel = new Travel(name, dir, bearing);
+	public Optional<Travel> addTravel( String id, String dir, String bearing ){
+		var travel = new Travel(id, dir, bearing);
 		if( travel.isValid()) {
 			travels.add(travel);
-			Logger.info("Added travel named "+name+" to waypoint "+this.name);
+			Logger.info(this.id+" (wp)-> Added travel with id "+id);
 			return Optional.of(travel);
 		}else{
-			Logger.error( id+" (wp)-> Failed to add travel, parsing bearing failed: "+bearing);
+			Logger.error( this.id+" (wp)-> Failed to add travel("+id+"), parsing bearing failed: "+bearing);
 			return Optional.empty();
 		}
 	}
@@ -238,7 +278,7 @@ public class Waypoint implements Comparable<Waypoint>{
 	public Optional<Travel> checkTravel(){
 		for( Travel t : travels ){
 			if( t.check(state,bearing) ){
-				Logger.info("Travel occurred "+t.name);
+				Logger.info(id+" (wp)-> Travel occurred "+t.id);
 				return Optional.of(t);
 			}
 		}
@@ -248,36 +288,36 @@ public class Waypoint implements Comparable<Waypoint>{
 		return this.travels;
 	}
 	@Override
-	public int compareTo(Waypoint arg0) {
-		return Double.compare(lastDist, arg0.lastDist);
+	public int compareTo(Waypoint wp) {
+		return Double.compare(lastDist, wp.lastDist);
 	}
 
 	public double distanceTo( double lat, double lon){
-		lastDist = GisTools.roughDistanceBetween(lon, lat, this.lon, this.lat, 3)*1000;// From km to m						
+		lastDist = coord.roughDistanceTo( lon,lat )*1000;// From km to m
 		return lastDist;
 	}
 	public class Travel{
-		String name="";
+		String id;
 		double maxBearing=360.0,minBearing=0.0;
 		STATE direction;
 
 		ArrayList<String> cmds=new ArrayList<>();
 		boolean valid = true;
 
-		public Travel( String name, String dir, String bearing ){
-			this.name=name;
+		public Travel( String id, String dir, String bearing ){
+			this.id=id;
 			direction = switch( dir ){
 				case "in","enter" -> STATE.ENTER;
 				case "out","leave" -> STATE.LEAVE;
 				default -> STATE.UNKNOWN;
 			};
 			if( !bearing.contains("->")){
-				Logger.error("Incorrect bearing for "+name+" must be of format 0->360 or 0 -> 360");
+				Logger.error(id+" (wp)-> Incorrect bearing for "+id+" must be of format 0->360 or 0 -> 360");
 				valid=false;
 			}else{
 				var br = bearing.replace(" ","").split("->");
 				if( br.length!=2){
-					Logger.error("Incorrect bearing for "+name+" must be of format 0->360 or 0 -> 360");
+					Logger.error(id+" (wp)-> Incorrect bearing for "+id+" must be of format 0->360 or 0 -> 360");
 					valid=false;
 				}else {
 					minBearing = NumberUtils.createDouble(br[0]);
@@ -285,6 +325,7 @@ public class Waypoint implements Comparable<Waypoint>{
 				}
 			}
 		}
+		public String id(){ return id; }
 		public boolean isValid(){
 			return valid;
 		}
@@ -300,7 +341,7 @@ public class Waypoint implements Comparable<Waypoint>{
 			return direction==STATE.LEAVE?"out":"in";
 		}
 		public String toString(){
-			String info = name +" = "+(direction==STATE.ENTER?" coming closer than "+range+"m":" going further away than "+range+"m");
+			String info = id +" = "+(direction==STATE.ENTER?" coming closer than "+range+"m":" going further away than "+range+"m");
 			return info+" with a bearing from "+minBearing+ " to "+maxBearing+"°";
 		}
 		public String getBearingString(){
@@ -308,7 +349,7 @@ public class Waypoint implements Comparable<Waypoint>{
 		}
 		public void addCmd(String cmd ){
 			if( cmd==null) {
-				Logger.error(name+" -> Invalid cmd given");
+				Logger.error(id+" -> Invalid cmd given");
 				return;
 			}
 			if( cmds==null)

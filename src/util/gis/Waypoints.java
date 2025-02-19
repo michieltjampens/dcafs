@@ -6,7 +6,6 @@ import util.data.RealVal;
 import io.Writable;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
-import util.gis.Waypoint.Travel;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -24,12 +23,13 @@ import java.util.concurrent.TimeUnit;
 public class Waypoints implements Commandable {
 
     HashMap<String,Waypoint> wps = new HashMap<>();
+    HashMap<String,GeoQuad> quads = new HashMap<>();
 
     Path settingsPath;
 
     static final String XML_TAG = "waypoints";
     static final String XML_TRAVEL = "travel";
-    static final String XML_CHILD_TAG = "waypoint";
+
 
     RealVal latitude;
     RealVal longitude;
@@ -51,7 +51,7 @@ public class Waypoints implements Commandable {
         readFromXML(rtvals);
 
         if( hasTravel() ){
-            Logger.info("Waypoints with travel found, enable hourly check thread");
+            Logger.info("(wpts) -> Waypoints with travel found, enable hourly check thread");
             checkThread = scheduler.scheduleAtFixedRate(this::checkThread,1, 1, TimeUnit.HOURS);
         }
     }
@@ -61,19 +61,17 @@ public class Waypoints implements Commandable {
      *
      * @param wp The waypoint to add
      */
-    public void addWaypoint(String id, Waypoint wp ) {
-        if( checkTravel!=null) {
-            if( checkTravel.isDone()||checkTravel.isCancelled() )
-                Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone());
-        }
-        if(wp.hasTravelCmd() && (checkTravel==null || (checkTravel.isDone()||checkTravel.isCancelled())))
-            checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
-        Logger.info("Adding waypoint: "+id);
-    	wps.put(id,wp);
+    public void addWaypoint( Waypoint wp ) {
+        checkTravelThread( wp.hasTravelCmd() );
+        Logger.info( "(wpts) -> Adding waypoint: "+wp );
+    	wps.put(wp.id(),wp);
     }
-    public void addWaypoint( String id, double lat, double lon, double range) {
-        wps.put( id, Waypoint.build(id).lat(lat).lon(lon).range(range) );
+    public void addGeoQuad( GeoQuad quad ){
+        checkTravelThread(quad.hasCmds());
+        Logger.info( "(wpts) -> Adding geoQuad: "+quad );
+        quads.put(quad.id(),quad);
     }
+    /* ****************************** X M L  *************************************** */
     public Collection<Waypoint> items(){
         return wps.values();
     }
@@ -83,7 +81,7 @@ public class Waypoints implements Commandable {
     public boolean readFromXML( RealtimeValues rtvals, boolean clear ){
         
         if( settingsPath == null){
-            Logger.warn("Reading Waypoints failed because invalid XML.");
+            Logger.warn("(wpts) -> Reading Waypoints failed because invalid XML.");
             return false;
         }
         if( clear ){
@@ -96,13 +94,13 @@ public class Waypoints implements Commandable {
             return false;
 
         if( rtvals!=null) { // if RealtimeValues exist
-            Logger.info("Looking for lat, lon, sog");
+            Logger.info("(wpts) -> Looking for lat, lon, sog");
             var latOpt = rtvals.getRealVal( dig.attr("latval","") );
             var longOpt = rtvals.getRealVal( dig.attr("lonval","") );
             var sogOpt = rtvals.getRealVal( dig.attr("sogval","") );
 
             if( latOpt.isEmpty() || longOpt.isEmpty() || sogOpt.isEmpty() ){
-                Logger.error( "No corresponding lat/lon/sog realVals found for waypoints");
+                Logger.error( "(wpts) -> No corresponding lat/lon/sog realVals found for waypoints");
                 return false;
             }
 
@@ -110,41 +108,17 @@ public class Waypoints implements Commandable {
             longitude = longOpt.get();
             sog = sogOpt.get();
         }else{
-            Logger.error("Couldn't process waypoints because of missing rtvals");
+            Logger.error("(wpts) -> Couldn't process waypoints because of missing rtvals");
             return false;
         }
 
-        Logger.info("Reading Waypoints");
+        Logger.info("Reading Waypoints...");
         for( var wpDig : dig.digOut("waypoint")){ // Get the individual waypoints
-
-        		String id = wpDig.attr("id",""); // Get the id
-        	    double lat = GisTools.convertStringToDegrees(wpDig.attr("lat","")); // Get the latitude
-        		double lon = GisTools.convertStringToDegrees(wpDig.attr("lon","")); // Get the longitude
-                double range = wpDig.attr("range", -999.0); // Range that determines inside or outside
-
-                if( id.isEmpty()){
-                    Logger.error("Waypoint without id not allowed, check settings.xml!");
-                    continue;
-                }
-
-                var wp = Waypoint.build(id).lat(lat).lon(lon).range(range);// Create it
-
-                Logger.debug("Checking for travel...");
-
-                for( var travelDig : wpDig.digOut("travel")){
-                    String idTravel = travelDig.attr("id",""); // The id of the travel
-                    String dir = travelDig.attr("dir",""); // The direction (going in, going out)
-                    String bearing = travelDig.attr("bearing","0 -> 360");// Which bearing used
-
-                    wp.addTravel(idTravel,dir,bearing).ifPresent( // meaning travel parsed fine
-                            t -> {
-                                for (var cmd : travelDig.digDown("cmd").currentSubs()) {
-                                    t.addCmd(cmd.getTextContent());
-                                }
-                            }
-                    );
-                }
-                addWaypoint( id, wp );// Add it
+            Waypoint.readFromXML(wpDig).ifPresent(this::addWaypoint);
+        }
+        Logger.info("Reading GeoQuads...");
+        for( var gqDig : dig.digOut("geoquad")){ // Get the individual waypoints
+            GeoQuad.readFromXML(gqDig).ifPresent(this::addGeoQuad);
         }
         return true;
     }
@@ -155,7 +129,7 @@ public class Waypoints implements Commandable {
      */
     public boolean storeInXML( boolean includeTemp ){
         if( settingsPath==null){
-            Logger.error("XML not defined yet.");
+            Logger.error("(wpts) -> XML not defined yet.");
             return false;
         }
         var fab = XMLfab.withRoot(settingsPath,"dcafs","waypoints");
@@ -163,27 +137,17 @@ public class Waypoints implements Commandable {
 
         int cnt=0;
 
-        //Adding the clients
+        //Adding the waypoints and geoquads
         for( Waypoint wp : wps.values() ){
             if( !wp.isTemp() || includeTemp){
                 cnt++;
-                fab.addParentToRoot(XML_CHILD_TAG)
-                        .attr("lat",wp.getLat())
-                        .attr("lon",wp.getLon())
-                        .attr("range",wp.getRange());
-                
-                for( Travel tr : wp.getTravels() ){
-                    fab.addChild(XML_TRAVEL)
-                            .attr("dir", tr.getDirection() )
-                            .attr("bearing", tr.getBearingString() )
-                            .attr(XML_CHILD_TAG, wp.getName())
-                            .down();
-                    tr.cmds.forEach( travel -> fab.addChild("cmd",travel));
-                }
+                wp.storeInXml(fab);
             }
         }
-        Logger.info("Stored "+cnt+" waypoints.");
-
+        Logger.info("(wpts) -> Stored "+cnt+" waypoints.");
+        for( GeoQuad quad : quads.values() ){
+            quad.storeInXml( fab );
+        }
         return fab.build();//overwrite the file
         
     }
@@ -197,6 +161,9 @@ public class Waypoints implements Commandable {
     public boolean removeWaypoint( String id ) {
     	return wps.remove(id)!=null;
     }
+    public boolean removeGeoQuad( String id ){
+        return quads.remove(id)!=null;
+    }
     /**
      * Remove all the waypoints that are temporary
      */
@@ -209,28 +176,15 @@ public class Waypoints implements Commandable {
      * @return The size of the list containing the waypoints
      */
     public int size() {
-    	return wps.size();
+    	return wps.size()+quads.size();
     }
     /**
      * Check if a waypoint with the given name exists
      * @param id The id to look for
      * @return True if the id was found
      */
-    public boolean isExisting( String id ){
+    public boolean wpExists(String id ){
         return wps.get(id) != null;
-    }
-    public boolean checkThread(){
-        lastThreadCheck=Instant.now();
-        if( checkTravel!=null) {
-            if( checkTravel.isDone()||checkTravel.isCancelled() ) {
-                Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone());
-                checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
-                return false;
-            }else{
-                Logger.info("Waypoints travel checks still ok.");
-            }
-        }
-        return true;
     }
     public boolean hasTravel(){
         return wps.values().stream().anyMatch(Waypoint::hasTravelCmd);
@@ -283,7 +237,7 @@ public class Waypoints implements Commandable {
 			double d = wp.distanceTo( lat, lon );
 			if( d < dist ) {
 				dist = d;
-				wayp = wp.getName();
+				wayp = wp.id();
 			}
 		}
 		return wayp;
@@ -297,26 +251,6 @@ public class Waypoints implements Commandable {
         return getClosestWaypoint( latitude.value(),longitude.value());
     }
     /**
-     * Check the waypoints to see if any travel occurred, if so execute the commands associated with it
-     */
-    private void checkWaypoints(){
-        lastCheck = OffsetDateTime.now(ZoneOffset.UTC);
-        try {
-            wps.values().forEach(wp -> {
-                if (wp == null) {
-                    Logger.error("Invalid waypoint in the list!");
-                } else {
-                    wp.checkIt(lastCheck, latitude.value(), longitude.value()).ifPresent(
-                            travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
-                    );
-                }
-            });
-        }catch( Throwable trow){
-            Logger.error(trow);
-        }
-    }
-
-    /**
      * Get the distance to a certain waypoint in meters
      * @param id The id of the waypoint
      * @return The distance in meters
@@ -326,6 +260,48 @@ public class Waypoints implements Commandable {
         if( wp == null || longitude==null || latitude==null)
             return -1;
         return wp.distanceTo(latitude.value(), longitude.value());
+    }
+    /* ********************************* T H R E A D ***************************************** */
+    private void checkTravelThread( boolean hasTravel ){
+        if( checkTravel!=null && (checkTravel.isDone()||checkTravel.isCancelled()) )
+            Logger.error("(wpts) -> Checktravel cancelled? " + checkTravel.isCancelled()
+                                + " or done: " + checkTravel.isDone());
+
+        // Check if the hastravel is true and the thread hasn't been created or stopped for some reason
+        if(hasTravel && (checkTravel==null || (checkTravel.isDone()||checkTravel.isCancelled())))
+            checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
+    }
+    public boolean checkThread(){
+        lastThreadCheck=Instant.now();
+        if( checkTravel!=null) {
+            if( checkTravel.isDone()||checkTravel.isCancelled() ) {
+                Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone());
+                checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
+                return false;
+            }else{
+                Logger.info("(wpts) -> Waypoints travel checks still ok.");
+            }
+        }
+        return true;
+    }
+    /**
+     * Check the waypoints to see if any travel occurred, if so execute the commands associated with it
+     */
+    private void checkWaypoints(){
+        lastCheck = OffsetDateTime.now(ZoneOffset.UTC);
+        try {
+            wps.values().forEach(wp -> {
+                if (wp == null) {
+                    Logger.error("(wpts) -> Invalid waypoint in the list!");
+                } else {
+                    wp.checkIt(lastCheck, latitude.value(), longitude.value()).ifPresent(
+                            travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
+                    );
+                }
+            });
+        }catch( Throwable trow){
+            Logger.error(trow);
+        }
     }
     /* ****************************************************************************************************/
     /**
@@ -365,7 +341,7 @@ public class Waypoints implements Commandable {
                 return getWaypointList(html ? "<br>" : "\r\n");
             }
             case "exists" -> {
-                return isExisting(cmds[1]) ? "Waypoint exists" : "No such waypoint";
+                return wpExists(cmds[1]) ? "Waypoint exists" : "No such waypoint";
             }
             case "cleartemps" -> {
                 clearTempWaypoints();
@@ -373,10 +349,10 @@ public class Waypoints implements Commandable {
             }
             case "distanceto" -> {
                 if (cmds.length == 1)
-                    return "No id given, must be wpts:distanceto,id";
+                    return "! No id given, must be wpts:distanceto,id";
                 var d = distanceTo(cmds[1]);
                 if (d == -1)
-                    return "No such waypoint";
+                    return "! No such waypoint";
                 return "Distance to " + cmds[1] + " is " + d + "m";
             }
             case "nearest" -> {
@@ -384,30 +360,30 @@ public class Waypoints implements Commandable {
             }
             case "states" -> {
                 if (sog == null)
-                    return "Can't determine state, no sog defined";
+                    return "! Can't determine state, no sog defined";
                 return getCurrentStates(false, sog.value());
             }
             case "store" -> {
                 if (this.storeInXML(false)) {
-                    return "Storing waypoints succesful";
+                    return "Storing waypoints successful";
                 } else {
-                    return "Storing waypoints failed";
+                    return "! Storing waypoints failed";
                 }
             }
             case "reload" -> {
                 if (readFromXML(null)) {
                     return "Reloaded stored waypoints";
                 } else {
-                    return "Failed to reload waypoints";
+                    return "! Failed to reload waypoints";
                 }
             }
             case "addblank" -> {
                 XMLfab.withRoot(settingsPath, "dcafs", "settings")
-                        .addParentToRoot(XML_TAG, "Waypoints are listed here")
+                        .addParentToRoot("waypoints", "Waypoints are listed here")
                         .attr("lat", "lat_rtval")
                         .attr("lon", "lon_rtval")
                         .attr("sog", "sog_rtval")
-                        .addChild(XML_CHILD_TAG)
+                        .addChild("waypoint")
                         .attr("lat", 1)
                         .attr("lon", 1)
                         .attr("range", 50)
@@ -417,9 +393,9 @@ public class Waypoints implements Commandable {
             }
             case "add" -> { //wpts:new,51.1253,2.2354,wrak
                 if (cmds.length < 4)
-                    return "Not enough parameters given";
+                    return "! Not enough parameters given";
                 if (cmds.length > 5)
-                    return "To many parameters given (fe. 51.1 not 51,1)";
+                    return "! To many parameters given (fe. 51.1 not 51,1)";
                 double lat = GisTools.convertStringToDegrees(cmds[1]);
                 double lon = GisTools.convertStringToDegrees(cmds[2]);
                 String id = cmds[3];
@@ -428,38 +404,38 @@ public class Waypoints implements Commandable {
                     id = cmds[4];
                     range = Tools.parseDouble(cmds[3], 50);
                 }
-                addWaypoint(id, lat, lon, range);
-                return "Added waypoint called " + cmds[3] + " lat:" + lat + "°\tlon:" + lon + "°\tRange:" + range + "m";
+                addWaypoint( Waypoint.build(id).coord(lat,lon).range(range) );
+                return "Added waypoint with id " + cmds[3] + " lat:" + lat + "°\tlon:" + lon + "°\tRange:" + range + "m";
             }
             case "update" -> {
                 if (cmds.length < 4)
-                    return "Not enough parameters given wpts:update,id,lat,lon";
+                    return "! Not enough parameters given wpts:update,id,lat,lon";
                 var wpOpt = wps.get(cmds[1]);
                 if (wpOpt != null) {
                     wpOpt.updatePosition(Tools.parseDouble(cmds[2], -999), Tools.parseDouble(cmds[3], -999));
                     return "Updated " + cmds[1];
                 }
-                return "No such waypoint";
+                return "! No such waypoint";
             }
             case "remove" -> {
                 if (removeWaypoint(cmds[1])) {
                     return "Waypoint removed";
                 } else {
-                    return "No waypoint found with the name.";
+                    return "! No waypoint found with the name.";
                 }
             }
             case "addtravel" -> {
                 Waypoint way = wps.get(cmds[1]);
                 if (way == null) {
-                    return "No such waypoint: " + cmds[1];
+                    return "! No such waypoint: " + cmds[1];
                 }
                 if (cmds.length != 6)
-                    return "Incorrect amount of parameters";
+                    return "! Incorrect amount of parameters";
                 way.addTravel(cmds[5], cmds[4], cmds[2]);
                 return "Added travel " + cmds[5] + " to " + cmds[1];
             }
             case "checktread" -> {
-                return checkThread() ? "Thread is fine" : "Thread needed restart";
+                return checkThread() ? "Thread is fine" : "! Thread needed restart";
             }
             default -> {
                 return "! No such subcommand in " + cmd + ": " + cmds[0];
