@@ -26,7 +26,11 @@ public class CheckBlock extends AbstractBlock{
         this.ori=set;
     }
     public static CheckBlock prepBlock(RealtimeValues rtvals, String set){
-        return new CheckBlock(rtvals,set);
+        if( set.isEmpty() )
+            return null;
+        var block = new CheckBlock(rtvals,set);
+        block.build();
+        return block;
     }
     public void setNegate(boolean neg){
         negate=neg;

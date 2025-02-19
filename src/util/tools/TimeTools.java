@@ -2,6 +2,7 @@ package util.tools;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.tinylog.Logger;
+import util.task.Task;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -456,6 +457,25 @@ public class TimeTools {
         }
         Logger.debug(" -> Next rollover date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
         return rolloverTimestamp;
+    }
+
+    /**
+     * Calculate the seconds till the occurrence of the time
+     * @param timeAsString The time to calculate the seconds for
+     * @return The time in seconds till the next execution
+     */
+    private static int calculateSecondsTillTime( String timeAsString ){
+
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        var time = LocalTime.parse(timeAsString, DateTimeFormatter.ISO_LOCAL_TIME);
+
+        LocalDateTime tillTime = now.with(time); // Use the time of the task
+        tillTime=tillTime.plusNanos(now.getNano());
+
+        if( tillTime.isBefore(now.plusNanos(100000)) ) // If already happened today
+            tillTime=tillTime.plusDays(1);
+
+        return (int) Duration.between( now, tillTime ).getSeconds()+1;
     }
 
     /**
