@@ -22,26 +22,23 @@ import java.util.concurrent.TimeUnit;
 
 public class Waypoints implements Commandable {
 
-    HashMap<String,Waypoint> wps = new HashMap<>();
-    HashMap<String,GeoQuad> quads = new HashMap<>();
+    private HashMap<String,Waypoint> wps = new HashMap<>();
+    private HashMap<String,GeoQuad> quads = new HashMap<>();
 
-    Path settingsPath;
+    private Path settingsPath;
 
-    static final String XML_TAG = "waypoints";
-    static final String XML_TRAVEL = "travel";
+    private RealVal latitude;
+    private RealVal longitude;
+    private RealVal sog;
 
-
-    RealVal latitude;
-    RealVal longitude;
-    RealVal sog;
-
-    ScheduledExecutorService scheduler;
+    private ScheduledExecutorService scheduler;
     final static int CHECK_INTERVAL = 20;
-    BlockingQueue<Datagram> dQueue;
-    ScheduledFuture<?> checkTravel;
-    ScheduledFuture<?> checkThread;
-    OffsetDateTime lastCheck;
-    Instant lastThreadCheck;
+    private BlockingQueue<Datagram> dQueue;
+    private ScheduledFuture<?> checkTravel;
+    private ScheduledFuture<?> checkThread=null;
+    private OffsetDateTime lastCheck;
+    private Instant lastThreadCheck;
+
     /* *************************** C O N S T R U C T O R *********************************/
     public Waypoints(Path settingsPath, ScheduledExecutorService scheduler, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
         this.settingsPath=settingsPath;
@@ -49,16 +46,10 @@ public class Waypoints implements Commandable {
         this.dQueue=dQueue;
 
         readFromXML(rtvals);
-
-        if( hasTravel() ){
-            Logger.info("(wpts) -> Waypoints with travel found, enable hourly check thread");
-            checkThread = scheduler.scheduleAtFixedRate(this::checkThread,1, 1, TimeUnit.HOURS);
-        }
     }
     /* ****************************** A D D I N G ****************************************/
     /**
      * Adding a waypoint to the list
-     *
      * @param wp The waypoint to add
      */
     public void addWaypoint( Waypoint wp ) {
@@ -69,30 +60,29 @@ public class Waypoints implements Commandable {
 
     	wps.put(wp.id(),wp);
     }
+
+    /**
+     * Add a GeoQuad to the pool
+     * @param quad The GeoQuad to add
+     */
     public void addGeoQuad( GeoQuad quad ){
         if( quad==null)
             return;
         checkTravelThread(quad.hasCmds());
-        Logger.info( "(wpts) -> Adding geoQuad: "+quad );
+        Logger.info( "(wpts) -> Adding GeoQuad: "+quad );
 
         quads.put(quad.id(),quad);
     }
     /* ****************************** X M L  *************************************** */
-    public Collection<Waypoint> items(){
-        return wps.values();
-    }
-    public boolean readFromXML( RealtimeValues rtvals ){
-        return readFromXML(rtvals,true);
-    }
-    public boolean readFromXML( RealtimeValues rtvals, boolean clear ){
-        
+    private boolean readFromXML( RealtimeValues rtvals ){
+
         if( settingsPath == null){
             Logger.warn("(wpts) -> Reading Waypoints failed because invalid XML.");
             return false;
         }
-        if( clear ){
-            wps.clear();
-        }
+        wps.clear();
+        quads.clear();
+
         // Get the waypoints node
         var dig = XMLdigger.goIn(settingsPath,"dcafs","waypoints");
 
@@ -126,14 +116,18 @@ public class Waypoints implements Commandable {
         for( var gqDig : dig.digOut("geoquad")){ // Get the individual waypoints
             GeoQuad.readFromXML(gqDig).ifPresent(this::addGeoQuad);
         }
+
+        if( checkThread==null) {
+            Logger.info("(wpts) -> Enable hourly check thread");
+            checkThread = scheduler.scheduleAtFixedRate(this::checkThread, 1, 1, TimeUnit.HOURS);
+        }
         return true;
     }
     /**
-     * Write the waypoint data to the file it was read fom originally
-     * @param includeTemp Whether to also include the temp waypoints
+     * Write the waypoint and GeoQuad data to the file it was read fom originally
      * @return True if successful
      */
-    public boolean storeInXML( boolean includeTemp ){
+    private boolean storeInXML( ){
         if( settingsPath==null){
             Logger.error("(wpts) -> XML not defined yet.");
             return false;
@@ -141,11 +135,10 @@ public class Waypoints implements Commandable {
         var fab = XMLfab.withRoot(settingsPath,"dcafs","waypoints");
         fab.clearChildren();
 
-        int cnt=0;
-
         //Adding the waypoints and geoquads
+        int cnt=0;
         for( Waypoint wp : wps.values() ){
-            if( !wp.isTemp() || includeTemp){
+            if( !wp.isTemp() ){
                 cnt++;
                 wp.storeInXml(fab);
             }
@@ -155,10 +148,8 @@ public class Waypoints implements Commandable {
             quad.storeInXml( fab );
         }
         return fab.build();//overwrite the file
-        
     }
     /* ****************************** R E M O V E ****************************************/
-
     /**
      * Remove the waypoint with the given name
      * @param id The name of the waypoint to remove
@@ -167,14 +158,19 @@ public class Waypoints implements Commandable {
     public boolean removeWaypoint( String id ) {
     	return wps.remove(id)!=null;
     }
-    public boolean removeGeoQuad( String id ){
-        return quads.remove(id)!=null;
-    }
     /**
      * Remove all the waypoints that are temporary
      */
     public void clearTempWaypoints(){
         wps.values().removeIf( Waypoint::isTemp );
+    }
+    /**
+     * Remove the GeoQuad with the given name
+     * @param id The name of the GeoQuad to remove
+     * @return True if it was removed
+     */
+    public boolean removeGeoQuad( String id ){
+        return quads.remove(id)!=null;
     }
     /* ******************************** I N F O ******************************************/
     /**
@@ -191,9 +187,6 @@ public class Waypoints implements Commandable {
      */
     public boolean wpExists(String id ){
         return wps.get(id) != null;
-    }
-    public boolean hasTravel(){
-        return wps.values().stream().anyMatch(Waypoint::hasTravelCmd);
     }
     /**
      * Get an overview off all the available waypoints
@@ -370,18 +363,14 @@ public class Waypoints implements Commandable {
                 return getCurrentStates(false, sog.value());
             }
             case "store" -> {
-                if (this.storeInXML(false)) {
+                if (this.storeInXML())
                     return "Storing waypoints successful";
-                } else {
-                    return "! Storing waypoints failed";
-                }
+                return "! Storing waypoints failed";
             }
             case "reload" -> {
-                if (readFromXML(null)) {
+                if (readFromXML(null))
                     return "Reloaded stored waypoints";
-                } else {
-                    return "! Failed to reload waypoints";
-                }
+                return "! Failed to reload waypoints";
             }
             case "addblank" -> {
                 XMLfab.withRoot(settingsPath, "dcafs", "settings")
@@ -424,17 +413,15 @@ public class Waypoints implements Commandable {
                 return "! No such waypoint";
             }
             case "remove" -> {
-                if (removeWaypoint(cmds[1])) {
+                if (removeWaypoint(cmds[1]))
                     return "Waypoint removed";
-                } else {
-                    return "! No waypoint found with the name.";
-                }
+                return "! No waypoint found with the name.";
             }
             case "addtravel" -> {
                 Waypoint way = wps.get(cmds[1]);
-                if (way == null) {
+                if (way == null)
                     return "! No such waypoint: " + cmds[1];
-                }
+
                 if (cmds.length != 6)
                     return "! Incorrect amount of parameters";
                 way.addTravel(cmds[5], cmds[4], cmds[2]);
