@@ -9,9 +9,9 @@ Note: Version numbering: x.y.z
 - Writing to db stopped for some reason for a store in i2c without any error messages etc
  - Might be caused by reloading store because this isn't propagated to db's.
 
-## 2.13.0 (wip)
+## 2.13.0 (20/02/2025)
 ### Updated dependencies
-- Netty 4.1.112->4.1.115
+- Netty 4.1.112->4.1.118
 - Apache commons 3.15.0 -> 3.17.0
 - MSSQL 12.6.3.jre11 -> 12.8.1.jre11
 - diozero 1.4.0 -> 1.4.1
@@ -25,6 +25,9 @@ Note: Version numbering: x.y.z
 ### Minor fixes
 - Sending data to a stream that contains a digit in id doesn't work with id:data.
 - Default false options for flag contained 1 instead of 0.
+
+### GIS
+- Added GeoQuads, way to monitor rectangular areas and trigger cmds on entering or leaving it.
 
 ### I2C
 - Improved the alter node:
