@@ -11,6 +11,7 @@ import util.xml.XMLfab;
 
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -149,11 +150,10 @@ public class Waypoint implements Comparable<Waypoint>{
 	public double getLastDistance( ) {
 		return lastDist;
 	}
-	public Optional<Travel> checkIt(OffsetDateTime when, double lat, double lon ){
-
-		switch (currentState(when, lat, lon)) {
+	public Optional<Travel> checkIt( double lat, double lon ){
+		switch (currentState(OffsetDateTime.now(ZoneOffset.UTC), lat, lon)) {
 			case ENTER, LEAVE -> {
-				if (getLastDistance() < 500 && getLastDistance() > 1) // Ignore abnormal movements
+				if (getLastDistance() < 800 && getLastDistance() > 1) // Ignore abnormal movements
 					return checkTravel();
 			}
 			case OUTSIDE -> {

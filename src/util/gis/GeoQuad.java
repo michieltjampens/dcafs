@@ -4,6 +4,7 @@ import org.tinylog.Logger;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -20,6 +21,8 @@ public class GeoQuad {
 
     ArrayList<String> enterCmds = new ArrayList<>();
     ArrayList<String> leaveCmds = new ArrayList<>();
+
+    private boolean inside=false;
 
     public GeoQuad( String id ){
         this.id=id;
@@ -156,5 +159,18 @@ public class GeoQuad {
     }
     public String toString(){
         return "GeoQuad("+id+"):"+c1 + ";" + c2 + ";" + c3 + ";" + c4;
+    }
+
+    public ArrayList<String> checkIt(double lat, double lon) {
+        boolean nowInside = isInside( Coordinate.at(lon,lat));
+        if( inside == nowInside ) // Stayed the same
+            return new ArrayList<>();
+        if( inside && !nowInside ) { // was inside is now outside
+            inside=false;
+            return leaveCmds;
+        }
+        // Oterwise Was outside and now inside
+        inside=true;
+        return enterCmds;
     }
 }

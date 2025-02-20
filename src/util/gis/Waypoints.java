@@ -62,13 +62,19 @@ public class Waypoints implements Commandable {
      * @param wp The waypoint to add
      */
     public void addWaypoint( Waypoint wp ) {
+        if( wp==null )
+            return;
         checkTravelThread( wp.hasTravelCmd() );
         Logger.info( "(wpts) -> Adding waypoint: "+wp );
+
     	wps.put(wp.id(),wp);
     }
     public void addGeoQuad( GeoQuad quad ){
+        if( quad==null)
+            return;
         checkTravelThread(quad.hasCmds());
         Logger.info( "(wpts) -> Adding geoQuad: "+quad );
+
         quads.put(quad.id(),quad);
     }
     /* ****************************** X M L  *************************************** */
@@ -269,14 +275,14 @@ public class Waypoints implements Commandable {
 
         // Check if the hastravel is true and the thread hasn't been created or stopped for some reason
         if(hasTravel && (checkTravel==null || (checkTravel.isDone()||checkTravel.isCancelled())))
-            checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
+            checkTravel = scheduler.scheduleAtFixedRate(this::checkWpAndGQuads,5, CHECK_INTERVAL, TimeUnit.SECONDS);
     }
     public boolean checkThread(){
         lastThreadCheck=Instant.now();
         if( checkTravel!=null) {
             if( checkTravel.isDone()||checkTravel.isCancelled() ) {
                 Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone());
-                checkTravel = scheduler.scheduleAtFixedRate(this::checkWaypoints,5, CHECK_INTERVAL, TimeUnit.SECONDS);
+                checkTravel = scheduler.scheduleAtFixedRate(this::checkWpAndGQuads,5, CHECK_INTERVAL, TimeUnit.SECONDS);
                 return false;
             }else{
                 Logger.info("(wpts) -> Waypoints travel checks still ok.");
@@ -287,17 +293,17 @@ public class Waypoints implements Commandable {
     /**
      * Check the waypoints to see if any travel occurred, if so execute the commands associated with it
      */
-    private void checkWaypoints(){
+    private void checkWpAndGQuads(){
         lastCheck = OffsetDateTime.now(ZoneOffset.UTC);
         try {
             wps.values().forEach(wp -> {
-                if (wp == null) {
-                    Logger.error("(wpts) -> Invalid waypoint in the list!");
-                } else {
-                    wp.checkIt(lastCheck, latitude.value(), longitude.value()).ifPresent(
-                            travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
-                    );
-                }
+                wp.checkIt( latitude.value(), longitude.value()).ifPresent(
+                        travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
+                );
+            });
+            quads.values().forEach( gq -> {
+                gq.checkIt(latitude.value(), longitude.value())
+                        .forEach( cmd -> dQueue.add(Datagram.system(cmd)));
             });
         }catch( Throwable trow){
             Logger.error(trow);
