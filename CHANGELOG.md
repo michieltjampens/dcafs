@@ -23,7 +23,7 @@ Note: Version numbering: x.y.z
 - Parsing to a boolean now considers all values except 0 as true.
 
 ### Minor fixes
-- Sending data to a stream that contains a digit in id doesn't work with id:data.
+- Sending data to a stream that contains a digit in id didn't work with id:data.
 - Default false options for flag contained 1 instead of 0.
 
 ### GIS
