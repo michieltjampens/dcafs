@@ -55,6 +55,11 @@ public class Waypoints implements Commandable {
     public void addWaypoint( Waypoint wp ) {
         if( wp==null )
             return;
+
+        if( wps.containsKey(wp.id()) ) {
+            Logger.error("(wpts) -> Tried to add waypoint with used id (" + wp.id() + ")");
+            return;
+        }
         checkTravelThread( wp.hasTravelCmd() );
         Logger.info( "(wpts) -> Adding waypoint: "+wp );
 
@@ -68,6 +73,10 @@ public class Waypoints implements Commandable {
     public void addGeoQuad( GeoQuad quad ){
         if( quad==null)
             return;
+        if( quads.containsKey(quad.id()) ) {
+            Logger.error("(wpts) -> Tried to add GeoQuad with used id (" + quad.id() + ")");
+            return;
+        }
         checkTravelThread(quad.hasCmds());
         Logger.info( "(wpts) -> Adding GeoQuad: "+quad );
 
