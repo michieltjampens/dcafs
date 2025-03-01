@@ -6,8 +6,7 @@ SCRIPT_PATH="$(dirname "$SCRIPT")"
 SERVICE_PATH="/lib/systemd/system"
 SERVICE_FILE=$SERVICE_PATH/$SERVICE_NAME
 
-sudo cat > $SERVICE_FILE << EOF
-[Unit]
+echo "[Unit]
 Description=Dcafs Data Acquisition System Service
 After=multi-user.target
 [Service]
@@ -16,8 +15,7 @@ ExecStart=/bin/sh -c 'java -jar $SCRIPT_PATH/dcafs-*.jar'
 Restart=on-failure
 RestartSec=3s
 [Install]
-WantedBy=multi-user.target
-EOF
+WantedBy=multi-user.target" | sudo tee $SERVICE_FILE > /dev/null
 
 chmod 644 $SERVICE_FILE
 
