@@ -231,7 +231,7 @@ public class XMLdigger {
         last = root;
         peeked=false;
 
-        if( last == firstRoot) // Meaning the parent is the top root
+        if( last.equals(firstRoot)) // Meaning the parent is the top root
             return;
 
         var parent = (Element) root.getParentNode();

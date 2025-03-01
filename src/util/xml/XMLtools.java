@@ -276,7 +276,7 @@ public class XMLtools {
 			for (int a = 0; a < list.getLength(); a++){
 				if (list.item(a).getNodeType() == Node.ELEMENT_NODE ) {
 				 	Element add = (Element)list.item(a);
-					 if( add.getParentNode() == element)
+					 if( add.getParentNode().equals(element) )
 						eles.add((Element) list.item(a));
 				}
 			}
