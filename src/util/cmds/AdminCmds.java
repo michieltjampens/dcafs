@@ -114,8 +114,15 @@ public class AdminCmds {
                     }else if(cmds[1].startsWith("rtl")){
                         regVal = power?"0x1000":"0x1800";
                     }else{
-                        return "Unknown chip, supported: kz,lan,rtl";
+                        return "! Unknown chip, supported: kz,lan,rtl";
                     }
+
+                    // Validate that the interface name matches the expected format (e.g., eth0, eth1, etc.)
+                    String iface = cmds[2];
+                    if (!iface.matches("eth\\d+")&&!iface.matches("end\\d+")) {
+                        return "! Invalid interface name. Expected format: eth0, eth1, etc.";
+                    }
+
                     String bash = "phytool write "+cmds[2]+"/1/0 "+regVal;
                     Logger.info("Executing "+bash);
                     ProcessBuilder pb = new ProcessBuilder("bash", "-c", bash);
@@ -177,7 +184,7 @@ public class AdminCmds {
         // Validate and sanitize user input (cmds[1] and cmds[2])
         String rtcId = cmds[1];
         if (!rtcId.matches("\\d+")) {  // Ensure rtcId is a numeric value
-            return "Invalid RTC ID.";
+            return "! Invalid RTC ID.";
         }
 
         int seconds = (int) TimeTools.parsePeriodStringToSeconds(cmds[2]);
