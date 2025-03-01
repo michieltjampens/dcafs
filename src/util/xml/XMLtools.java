@@ -95,21 +95,6 @@ public class XMLtools {
 			return Optional.empty();
 		}
 	}
-	private static Optional<DocumentBuilderFactory> createDocFactory(){
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-
-		try {
-			dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-			dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-			dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-		} catch (ParserConfigurationException e) {
-			Logger.error("xml -> Failed to parse");
-			return Optional.empty();
-		}
-		return Optional.of(dbf);
-	}
 	/**
 	 * Does the same as readXML except it returns the error that occurred
 	 * @param xml Path to the xml
@@ -122,9 +107,10 @@ public class XMLtools {
 			return "No such file: "+xml;
 		}
 
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+		var dbfOpt = createDocFactory();
+		if( dbfOpt.isEmpty())
+			return "Failed to create factory";
+		var dbf = dbfOpt.get();
 
 		try {
 			Document doc = dbf.newDocumentBuilder().parse(xml.toFile());
@@ -142,6 +128,26 @@ public class XMLtools {
 			return error;
 		}
 		return "";
+	}
+
+	/**
+	 * Create a document factory to make/read the xml file
+	 * @return The factory if nothing bad happened
+	 */
+	private static Optional<DocumentBuilderFactory> createDocFactory(){
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+
+		try {
+			dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+			dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+			dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+		} catch (ParserConfigurationException e) {
+			Logger.error("xml -> Failed to parse");
+			return Optional.empty();
+		}
+		return Optional.of(dbf);
 	}
 	/**
 	 * Write the content of a Document to an xml file
@@ -175,18 +181,6 @@ public class XMLtools {
 			Logger.error("Failed writing XML: "+xmlFile);
 			Logger.error(e);
 		}
-		// Change it so everyone can alter the files
-		/*if( SystemUtils.IS_OS_LINUX && isNew ) {
-			try {
-				Set<PosixFilePermission> perms = Files.readAttributes(xmlFile, PosixFileAttributes.class).permissions();
-				Logger.info("Permissions before:"+  PosixFilePermissions.toString(perms));
-				perms.add(PosixFilePermission.OTHERS_WRITE);
-				Logger.info("Permissions after: "+  PosixFilePermissions.toString(perms));
-				Files.setPosixFilePermissions(xmlFile, perms);
-			}catch( Exception e){
-				Logger.error(e);
-			}
-		}*/
 	}
 	/**
 	 * Write the xmldoc to the file it was read from
