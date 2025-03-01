@@ -52,9 +52,9 @@ public class XMLtools {
 			return Optional.empty();
 		}
 
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+		var dbf = createDocFactory().orElse(null);
+		if( dbf==null)
+			return Optional.empty();
 
 		try {
 			Document doc = dbf.newDocumentBuilder().parse(xml.toFile());
@@ -75,9 +75,10 @@ public class XMLtools {
 	 */
 	public static Optional<Document> createXML(Path xmlFile, boolean write) {
 
-		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+		var dbfOpt = createDocFactory();
+		if( dbfOpt.isEmpty())
+			return Optional.empty();
+		var dbf = dbfOpt.get();
 
 		try {
 			Document doc = dbf.newDocumentBuilder().newDocument();
@@ -93,6 +94,21 @@ public class XMLtools {
 			Logger.error(e);
 			return Optional.empty();
 		}
+	}
+	private static Optional<DocumentBuilderFactory> createDocFactory(){
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+		dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+
+		try {
+			dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+			dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+			dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+		} catch (ParserConfigurationException e) {
+			Logger.error("xml -> Failed to parse");
+			return Optional.empty();
+		}
+		return Optional.of(dbf);
 	}
 	/**
 	 * Does the same as readXML except it returns the error that occurred
