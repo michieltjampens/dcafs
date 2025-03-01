@@ -457,7 +457,7 @@ public class Tools {
                     return mac;
             }
         } catch (SocketException e) {
-            throw new RuntimeException(e);
+            System.err.println("Socket error while getting MAC");
         }
         return "";
     }
@@ -598,10 +598,14 @@ public class Tools {
     public static String listThreads( boolean html ){
         StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
         ThreadGroup currentGroup = Thread.currentThread().getThreadGroup();
-        Thread[] lstThreads = new Thread[currentGroup.activeCount()];
-        currentGroup.enumerate(lstThreads);
+        int estimatedThreadCount = currentGroup.activeCount();
+        Thread[] lstThreads = new Thread[estimatedThreadCount];
 
-        Arrays.stream(lstThreads).forEach( lt -> join.add("Thread ID:"+lt.getId()+" = "+lt.getName()) );
+        // Use enumerate() safely by synchronizing the group
+        int actualThreadCount = currentGroup.enumerate(lstThreads);
+
+        Arrays.stream(Arrays.copyOf(lstThreads, actualThreadCount))
+                .forEach(lt -> join.add("Thread ID:" + lt.getId() + " = " + lt.getName()));
         return join.toString();
     }
 
