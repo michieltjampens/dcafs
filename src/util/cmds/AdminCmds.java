@@ -174,12 +174,18 @@ public class AdminCmds {
             return "! Only Linux supported for now.";
         }
 
+        // Validate and sanitize user input (cmds[1] and cmds[2])
+        String rtcId = cmds[1];
+        if (!rtcId.matches("\\d+")) {  // Ensure rtcId is a numeric value
+            return "Invalid RTC ID.";
+        }
+
         int seconds = (int) TimeTools.parsePeriodStringToSeconds(cmds[2]);
 
         try {
             StringJoiner tempScript = new StringJoiner( "; ");
-            tempScript.add("echo 0 > /sys/class/rtc/rtc"+cmds[1]+"/wakealarm");
-            tempScript.add("echo +"+seconds+" > /sys/class/rtc/rtc"+cmds[1]+"/wakealarm");
+            tempScript.add("echo 0 > /sys/class/rtc/rtc"+rtcId+"/wakealarm");
+            tempScript.add("echo +"+seconds+" > /sys/class/rtc/rtc"+rtcId+"/wakealarm");
             tempScript.add("echo mem > /sys/power/state");
 
             ProcessBuilder pb = new ProcessBuilder("bash","-c", tempScript.toString());
