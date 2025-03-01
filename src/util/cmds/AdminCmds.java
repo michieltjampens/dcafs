@@ -123,7 +123,7 @@ public class AdminCmds {
                         return "! Invalid interface name. Expected format: eth0, eth1, etc.";
                     }
 
-                    String bash = "phytool write "+cmds[2]+"/1/0 "+regVal;
+                    String bash = "phytool write "+iface+"/1/0 "+regVal;
                     Logger.info("Executing "+bash);
                     ProcessBuilder pb = new ProcessBuilder("bash", "-c", bash);
                     pb.inheritIO(); // Needed?
