@@ -60,8 +60,6 @@ public class DAS implements Commandable{
 
     private RealtimeValues rtvals; // Pool of all the vals (realval,flagval,textval,intval) that hold realtime data
 
-    private Waypoints waypoints; // Pool of waypoints
-
     /* Managers & Pools */
     private DatabaseManager dbManager; // Manager for the database interaction
     private MqttPool mqttPool; // Pool for the mqtt connections
@@ -74,9 +72,7 @@ public class DAS implements Commandable{
     private final BlockingQueue<Datagram> dQueue = new LinkedBlockingQueue<>(); // Queue for datagrams for the labelworker
     boolean rebootOnShutDown = false; // Flag to set to know if the device should be rebooted on dcafs shutdown (linux only)
     private InterruptPins isrs; // Manager for working with IO pins
-    private PathPool pathPool;
     private MatrixClient matrixClient; // Client for working with matrix connections
-    private FileMonitor fileMonitor; // Monitor files for changes
 
     private Instant lastCheck; // Timestamp of the last clock check, to know if the clock was changed after das booted
     private long maxRawAge=3600; // 1 hour default for the age of raw data writes status to turn red
@@ -195,12 +191,12 @@ public class DAS implements Commandable{
         addI2CWorker();
 
         /* Forwards */
-        pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
+        var pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
         addCommandable(pathPool,"paths","path","pf","paths");
         addCommandable(pathPool, ""); // empty cmd is used to stop data requests
 
         /* Waypoints */
-        waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
+        var waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
         addCommandable(waypoints,"wpts");
 
         /* Collectors */
@@ -220,7 +216,8 @@ public class DAS implements Commandable{
         }
         /* File monitor */
         if( digger.hasPeek("monitor") ) {
-            fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
+            // Monitor files for changes
+            FileMonitor fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
             addCommandable(fileMonitor,"fm","fms");
         }
         /* Matrix */

@@ -20,7 +20,6 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
     private Channel channel;
     BlockingQueue<Datagram> dQueue;
     private String id;
-    private int priority=1;
     private final ByteBuf buf = Unpooled.buffer(128);
     private ByteBuf delim =  Unpooled.copiedBuffer(new byte[]{13,10});
     private boolean debug = false;
@@ -30,9 +29,8 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
     private boolean readerIdle=false;
 
     /* Constructor */
-    public UDPhandler( BlockingQueue<Datagram> dQueue, int priority ){
+    public UDPhandler( BlockingQueue<Datagram> dQueue ){
         this.dQueue = dQueue;
-        this.priority = priority;
     }
     public void setDebug( boolean debug ){
         this.debug = debug;
@@ -69,7 +67,7 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
             l--;
         int pos = indexOf(l,buf,delim);         // Check the buffer for the delimiter
 
-        while(  pos != -1 ){                    // Delimiter found
+        while( pos != -1 ){                    // Delimiter found
             ByteBuf process = Unpooled.buffer(buf.readableBytes()); // Create a buffer to contain that part
             buf.readBytes( process, pos);                           // Read the bytes till the delimiter
             buf.setIndex(buf.readerIndex()+delim.capacity(), buf.writerIndex() );   // Alter the readerindex to clear delimiter
@@ -77,20 +75,22 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
             
             String chunk = process.toString(CharsetUtil.UTF_8);     // Convert the binary data to readable ascii
 
-            // Targets
+            // Early return if chunk is blank
+            if (chunk.isBlank()) break;
+
+            // Handle targets if there actually are any
             if( !targets.isEmpty() ){
                 targets.forEach( dt -> dt.writeLine(chunk) );
                 targets.removeIf( wr -> !wr.isConnectionValid() ); // Clear inactive
             }
 
             if(debug)
-                Logger.info( id+" -> " + chunk);
+                Logger.info( id + " -> " + chunk);
                
-            // Log anything and everything (except empty strings)
-            if( !chunk.isBlank())
-                Logger.tag("RAW").warn( id + "\t" + chunk );
+            // Log anything and everything
+            Logger.tag("RAW").warn( id + "\t" + chunk );
                 
-            pos = indexOf(l,buf,delim); // Get the position of the delimiter, incase there are multiple
+            pos = indexOf(l,buf,delim); // Get the position of the delimiter, if there are multiple
         }
         if( channel == null )           // If the channel is still null, 
             channel = ctx.channel();    // Get the channel from the latest data (to send a reply if needed etc)

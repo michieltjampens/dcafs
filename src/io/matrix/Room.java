@@ -11,12 +11,10 @@ public class Room implements Writable {
     private ArrayList<Writable> targets;
     private String hello="";
     private String welcome="";
-    private String bye="";
 
-    private String alias="";
     private boolean connected=false;
-    private Writable client;
-    private ArrayList<String> cmds=new ArrayList<>();
+    private final Writable client;
+    private final ArrayList<String> cmds=new ArrayList<>();
 
     public Room(String localId, Writable client){
         this.client=client;
@@ -51,11 +49,7 @@ public class Room implements Writable {
         return this;
     }
     public String entering(){
-        return hello;
-    }
-    public Room leaving(String bye){
-        this.bye=bye;
-        return this;
+        return hello+" "+welcome;
     }
     public void addTarget( Writable wr){
         if( targets==null)

@@ -123,7 +123,6 @@ public class MatrixClient implements Writable, Commandable {
             var rs = Room.withID( rm.attr("id",""),this )
                     .url( dig.peekAt("url").value("") )
                     .entering( dig.peekAt("entering").value(""))
-                    .leaving( dig.peekAt("leaving").value(""))
                     .welcome( dig.peekAt("greet").value(""));
             for( Element cmd : dig.peekOut("cmd") ){
                 rs.addTriggeredCmd(cmd.getTextContent());
