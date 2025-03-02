@@ -86,6 +86,12 @@ public class DAS implements Commandable{
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
 
+    /* Formatting */
+    final String ERROR_COLOR = TelnetCodes.TEXT_RED;
+    final String INFO_COLOR = TelnetCodes.TEXT_GREEN;
+    final String WARN_COLOR = TelnetCodes.TEXT_ORANGE;
+
+
     public DAS() {
 
         figureOutPaths();   // This needs to be done before tinylog is used because it sets the paths
@@ -665,13 +671,9 @@ public class DAS implements Commandable{
      * @param html Whether to use html formatting or not and thus telnet
      */
     private void addDcafsStatus( StringBuilder report, boolean html ){
-        final String TEXT_GREEN = html?"":TelnetCodes.TEXT_GREEN;
-        final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
-        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
-        final String TEXT_WARN = html?"":TelnetCodes.TEXT_ORANGE;
 
-        String eol = html? "<br>" : "\r\n";
+        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
+        final String TEXT_WARN = html?"":WARN_COLOR;
 
         report.append( formatStatusTitle( "DCAFS Status at "+TimeTools.formatNow("HH:mm:ss"),html) );
         formatSplitStatusText( "DCAFS Version: "+version+" (jvm:"+System.getProperty("java.version")+")", report, html );
@@ -679,21 +681,21 @@ public class DAS implements Commandable{
         addMemoryInfo( report, html );
         formatSplitStatusText( "IP: "+Tools.getLocalIP(), report, html);
 
-        long age = Tools.getLastRawAge(Path.of(tinylogPath));
+        if( streamManager.getStreamCount()==0 ) { // No streams so no raw data
+            report.append(TEXT_DEFAULT).append("Raw Age: ").append(TEXT_WARN).append("No streams yet.");
+            return;
+        }
+        // Streams exist so there should be raw data?
+        long age = Tools.getLastRawAge( Path.of(tinylogPath) );
+        String rawAge;
         if( age == -1 ){
-            formatSplitStatusText( "!! Raw Age: No file yet!", report, html );
+            rawAge = "!! Raw Age: No file yet!";
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
             var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
-
-            if( age > maxRawAge && streamManager.getStreamCount()==0){
-                report.append(TEXT_DEFAULT).append("Raw Age: ").append(TEXT_WARN).append("No streams yet.");
-            }else{
-                report.append(TEXT_DEFAULT).append( (age>maxRawAge?"!! ":"")).append("Raw Age: ");
-                report.append((age > maxRawAge ? TEXT_ERROR : TEXT_GREEN)).append(convert).append(" [").append(max).append("]");
-            }
+            rawAge = (age>maxRawAge?"!! ":"") + "Raw Age: "+convert+"["+max+"]";
         }
-        report.append(UNDERLINE_OFF).append(eol);
+        formatSplitStatusText( rawAge, report, html );
     }
     private void addMemoryInfo( StringBuilder report, boolean html ){
         double totalMem = (double)Runtime.getRuntime().totalMemory();
@@ -717,22 +719,8 @@ public class DAS implements Commandable{
             return;
         }
 
-        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
-        final String TEXT_WARN = html?"":TelnetCodes.TEXT_ORANGE;
-
         for( String line : dbManager.getStatus().split("\r\n") ){
-            var color = TEXT_DEFAULT; // No issue means default color
-            if( line.startsWith( "!! ")) { // Signifies and error so change color
-                color = TEXT_ERROR;
-            }else if( line.startsWith( "(NC)")) { // Not an error but might not be good,so warn
-                color = TEXT_WARN;
-            }
-            var before = line.substring(2, line.indexOf("->")+2);
-            var after = line.substring(line.indexOf("->")+2);
-            line = color+"!!"+TEXT_DEFAULT+before+color+after+TEXT_DEFAULT;
-
-            report.append( line.replace(workPath+File.separator,"") ).append(html ? "<br>" : "\r\n");
+            formatSplitStatusText( line.replace(workPath+File.separator,""),report,"->", html );
         }
     }
     /**
@@ -756,16 +744,17 @@ public class DAS implements Commandable{
      * @param html Whether formatting is html or not
      */
     private void formatStatusText(String lines , StringBuilder report, boolean html ){
-        final String TEXT_INFO = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
-        final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
+        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
+        final String TEXT_ERROR = html?"":ERROR_COLOR;
+        final String TEXT_WARN = html?"":WARN_COLOR;
 
         for (String line : lines.split("\r\n") ) {
             if (line.startsWith("!!")) {
-                report.append(TEXT_ERROR).append(line).append(TEXT_INFO).append(UNDERLINE_OFF);
-            } else {
-                report.append(line);
+                report.append(TEXT_ERROR);
+            }else if (line.startsWith("(NC)")) {
+                report.append(TEXT_WARN);
             }
+            report.append(line).append(TEXT_DEFAULT);
             report.append(html ? "<br>" : "\r\n");
         }
     }
@@ -776,17 +765,37 @@ public class DAS implements Commandable{
      * @param report The builder to write it to
      * @param html Whether formatting is html
      */
-    private void formatSplitStatusText( String line, StringBuilder report, boolean html ){
+    private void formatSplitStatusText( String line, StringBuilder report, String delimit, boolean html ){
         final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
-        final String TEXT_INFO = html?"":TelnetCodes.TEXT_GREEN;
+        final String TEXT_ERROR = html?"":ERROR_COLOR;
+        final String TEXT_INFO = html?"":INFO_COLOR;
+        final String TEXT_WARN = html?"":WARN_COLOR;
 
-        var before = line.substring( 0,line.indexOf(":")+1);
-        var after = line.substring(line.indexOf(":")+1);
+        int index = line.indexOf(delimit)+delimit.length();
+        var before = line.substring( 0, index );
+        var after = line.substring( index );
 
         report.append(TEXT_DEFAULT).append(before);
-        report.append( line.startsWith("!!")?TEXT_ERROR:TEXT_INFO).append(after);
+
+        if (line.startsWith("!!")) {
+            report.append(TEXT_ERROR);
+        }else if (line.startsWith("(NC)")) {
+            report.append(TEXT_WARN);
+        }else{
+            report.append(TEXT_INFO);
+        }
+        report.append(after).append(TEXT_DEFAULT);
         report.append(html ? "<br>" : "\r\n");
+    }
+
+    /**
+     * Format a split status text that uses a ':' for splitting
+     * @param line The line with the data
+     * @param report The rest of the report
+     * @param html Whether to use html formating or not (and thus telnet)
+     */
+    private void formatSplitStatusText( String line, StringBuilder report, boolean html ){
+        formatSplitStatusText(line,report,":",html);
     }
     /**
      * Get a status update of the various queues, mostly to verify that they are
