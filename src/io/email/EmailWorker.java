@@ -20,6 +20,7 @@ import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -634,9 +635,13 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		if (email.subject.endsWith(" at.")) { //macro to get the local time added
 			subject = email.subject.replace(" at.", " at " + TimeTools.formatNow("HH:mm") + ".");
 		}
-		message.setSubject(subject);
+        try {
+            message.setSubject( MimeUtility.encodeText(subject, "UTF-8", "B") );
+        } catch (UnsupportedEncodingException e) {
+            Logger.error("Failed to encode subject.");
+        }
 
-		if (!email.hasAttachment())  // If there's no attachment, this changes the content type
+        if (!email.hasAttachment())  // If there's no attachment, this changes the content type
 			message.setContent(email.content, "text/html");
 
 		String from = email.from.isEmpty()?(outbox.getFromStart()+"<" + outbox.from + ">"):email.from;
