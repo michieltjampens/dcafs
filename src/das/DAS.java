@@ -469,8 +469,10 @@ public class DAS implements Commandable{
             @Override
             public void run() {
                 Logger.info("Dcafs shutting down!");
+                // Inform in all active telnet sessions that a shutdown is in progress
                 telnet.replyToCommand( "telnet","broadcast,error,Dcafs shutting down!",null,false);
 
+                // Inform in the matrix rooms that it's shutting down
                 if( matrixClient!=null)
                     matrixClient.broadcast("Shutting down!");
 
@@ -486,12 +488,8 @@ public class DAS implements Commandable{
                     collectorPool.flushAll();
 
                 // Try to send email...
-                if (emailWorker != null) {
-                    Logger.info("Informing admin");
-                    String r = commandPool.getShutdownReason();
-                    sdReason = r.isEmpty()?sdReason:r;
-                    emailWorker.sendEmail( Email.toAdminAbout(telnet.getTitle() + " shutting down.").content("Reason: " + sdReason) );
-                }
+                sendShutdownEmails();
+
                 try {
                     Logger.info("Giving things two seconds to finish up.");
                     sleep(2000);
@@ -505,30 +503,50 @@ public class DAS implements Commandable{
                     streamManager.disconnectAll();
 
                 Logger.info("All processes terminated!");
-                try {
-                    ProviderRegistry.getLoggingProvider().shutdown(); // Shutdown tinylog
-                } catch (InterruptedException e) {
-                    Logger.error(e);
-                    Thread.currentThread().interrupt();
-                }
+                shutdownTinylog();
+
                 // On linux it's possible to have the device reboot if das is shutdown for some reason
-                if (rebootOnShutDown) {
-                    try {
-                        Runtime rt = Runtime.getRuntime();
-                        if (SystemUtils.IS_OS_LINUX) { // if linux
-                            rt.exec("reboot now");
-                        } else if (SystemUtils.IS_OS_WINDOWS) {
-                            Logger.warn("Windows not supported yet for reboot");
-                        }
-                    } catch (java.io.IOException err) {
-                        Logger.error(err);
-                    }
-                }
+                if (rebootOnShutDown)
+                    rebootSystem();
             }
         });
         Logger.info("Shut Down Hook Attached.");
     }
 
+    /**
+     * Reboots the computer if running on linux
+     */
+    private void rebootSystem(){
+        try {
+            Runtime rt = Runtime.getRuntime();
+            if (SystemUtils.IS_OS_LINUX) { // if linux
+                rt.exec("reboot now");
+            } else if (SystemUtils.IS_OS_WINDOWS) {
+                Logger.warn("Windows not supported yet for reboot");
+            }
+        } catch (java.io.IOException err) {
+            Logger.error(err);
+        }
+    }
+    private void sendShutdownEmails(){
+        if (emailWorker != null) {
+            Logger.info("Informing admin");
+            String r = commandPool.getShutdownReason();
+            sdReason = r.isEmpty()?sdReason:r;
+            emailWorker.sendEmail( Email.toAdminAbout(telnet.getTitle() + " shutting down.").content("Reason: " + sdReason) );
+        }
+    }
+    /**
+     * Shuts down the tiny log framework, makes it flush buffers etc
+     */
+    private void shutdownTinylog(){
+        try {
+            ProviderRegistry.getLoggingProvider().shutdown(); // Shutdown tinylog
+        } catch (InterruptedException e) {
+            Logger.error(e);
+            Thread.currentThread().interrupt();
+        }
+    }
     /* ******************************* T H R E A D I N G *****************************************/
     /**
      * Start all the threads
@@ -553,22 +571,25 @@ public class DAS implements Commandable{
         if (taskManagerPool != null) {
             Logger.info( "Parsing TaskManager scripts");
             String errors = taskManagerPool.reloadAll();
-            if( !errors.isEmpty()){
+            if( !errors.isEmpty())
                 telnet.addMessage("Errors during TaskManager parsing:\r\n"+errors);
-            }
         }
         // Matrix
         if( matrixClient != null ){
             Logger.info("Trying to login to matrix");
             matrixClient.login();
         }
-        // Start the checks?
+        // Start the status checks if any of the possible outputs is actually usable
         if( (!statusMatrixRoom.isEmpty()||(emailWorker != null && !statusEmail.isEmpty())) && statusCheckInterval >0) // No use checking if we can't report on it or if it's disabled
-            nettyGroup.schedule(this::checkStatus,20,TimeUnit.MINUTES); // First check, half hour after startup
+            nettyGroup.schedule(this::checkStatus,20,TimeUnit.MINUTES); // First check, twenty minutes after startup
 
         Logger.info("Finished startAll");
     }
     /* **************************** * S T A T U S S T U F F *********************************************************/
+    /**
+     * Requests the status message and checks if an error is reported in it (!!) if so, email about it or send it to
+     * an attached matrix room..
+     */
     private void checkStatus(){
         var status = getStatus(true);
 
@@ -577,14 +598,11 @@ public class DAS implements Commandable{
                 if( !statusEmail.isEmpty() ) // if the recipient of the status email is filled in
                     emailWorker.sendEmail( Email.to(statusEmail).subject("[Issue] Status report").content(status));
                 if( !statusMatrixRoom.isEmpty() ){ // If the status needs to be reported in a matrix room
-                    var header = "<b>Issue found!</b><br>";
-                    for( var line : status.split("<br>")){ // Go through the status info
-                        if( line.startsWith( "!!") ) { // Only include the lines starting with !!
-                            dQueue.add(Datagram.system("matrix:" + statusMatrixRoom + ",txt," + header + line));
-                            header=""; // Only add header once
-                        }
-                    }
+                    var prefix = "matrix:" + statusMatrixRoom + ",txt,";
+                    dQueue.add(Datagram.system( prefix + "<b>Issue(s) found!</b><br>" )); // send the header
 
+                    Arrays.stream(status.split("<br>")).filter( l -> l.startsWith("!!"))
+                            .forEach( line -> dQueue.add(Datagram.system(prefix + line)));
                 }
             }
             nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // Reschedule, but earlier
@@ -600,7 +618,7 @@ public class DAS implements Commandable{
                 dQueue.add(Datagram.system("matrix:" + statusMatrixRoom + ",txt,Issues resolved"));
             }
         }
-        nettyGroup.schedule(this::checkStatus, statusCheckInterval,TimeUnit.SECONDS);
+        nettyGroup.schedule(this::checkStatus, statusCheckInterval,TimeUnit.SECONDS); // every hour by default
     }
     /**
      * Request a status message regarding the streams, databases, buffers etc
@@ -640,6 +658,12 @@ public class DAS implements Commandable{
         // Finally color the word false in red
         return report.toString().replace("false", (html?"":TelnetCodes.TEXT_RED) + "false" + (html?"":TelnetCodes.TEXT_GREEN) );
     }
+
+    /**
+     * Add the general status info on das (memory,ip,uptime etc.) for the report
+     * @param report The rest of the report data
+     * @param html Whether to use html formatting or not and thus telnet
+     */
     private void addDcafsStatus( StringBuilder report, boolean html ){
         final String TEXT_GREEN = html?"":TelnetCodes.TEXT_GREEN;
         final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
@@ -649,27 +673,15 @@ public class DAS implements Commandable{
 
         String eol = html? "<br>" : "\r\n";
 
-        double totalMem = (double)Runtime.getRuntime().totalMemory();
-        double usedMem = totalMem-Runtime.getRuntime().freeMemory();
-
-        totalMem = Tools.roundDouble(totalMem/(1024.0*1024.0),1);
-        usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
-
-        if (html) {
-            report.append("<b><u>DCAFS Status at ").append(TimeTools.formatNow("HH:mm:ss")).append(".</u></b><br><br>");
-        } else {
-            report.append(TEXT_GREEN).append("DCAFS Status at ").append(TimeTools.formatNow("HH:mm:ss")).append(eol).append(eol)
-                    .append(UNDERLINE_OFF);
-        }
-        report.append(TEXT_DEFAULT).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")").append(eol);
-        report.append(TEXT_DEFAULT).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append(eol);
-        report.append(TEXT_DEFAULT).append(usedMem>70?"!! ":"").append("Memory: ")
-                .append(usedMem>70?TEXT_ERROR:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB").append(eol);
-        report.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP()).append(eol);
+        report.append( formatStatusTitle( "DCAFS Status at "+TimeTools.formatNow("HH:mm:ss"),html) );
+        formatSplitStatusText( "DCAFS Version: "+version+" (jvm:"+System.getProperty("java.version")+")", report, html );
+        formatSplitStatusText( "Uptime: "+getUptime(), report, html );
+        addMemoryInfo( report, html );
+        formatSplitStatusText( "IP: "+Tools.getLocalIP(), report, html);
 
         long age = Tools.getLastRawAge(Path.of(tinylogPath));
         if( age == -1 ){
-            report.append(TEXT_DEFAULT).append("!! Raw Age: ").append(TEXT_ERROR).append("No file yet!");
+            formatSplitStatusText( "!! Raw Age: No file yet!", report, html );
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
             var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
@@ -683,7 +695,16 @@ public class DAS implements Commandable{
         }
         report.append(UNDERLINE_OFF).append(eol);
     }
+    private void addMemoryInfo( StringBuilder report, boolean html ){
+        double totalMem = (double)Runtime.getRuntime().totalMemory();
+        double usedMem = totalMem-Runtime.getRuntime().freeMemory();
 
+        totalMem = Tools.roundDouble(totalMem/(1024.0*1024.0),1);
+        usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
+
+        var memStatus = (usedMem>70?"!! ":"") + "Memory: " + usedMem + "/" + totalMem;
+        formatStatusText(memStatus,report,html);
+    }
     /**
      * Prepare the status information about the Database Manager
      * @param report This holds all other info
@@ -691,26 +712,27 @@ public class DAS implements Commandable{
      */
     private void addDBMstatus(StringBuilder report, boolean html){
         report.append( formatStatusTitle("Databases",html) );
-        if (dbManager.hasDatabases()) {
-            final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-            final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
-            final String TEXT_WARN = html?"":TelnetCodes.TEXT_ORANGE;
+        if ( !dbManager.hasDatabases()){
+            report.append("None yet").append( html ? "<br>" : "\r\n" );
+            return;
+        }
 
-            for( String line : dbManager.getStatus().split("\r\n") ){
-                if( line.startsWith( "!! ")){
-                    var before = line.substring(2, line.indexOf("->")+2);
-                    var after = line.substring(line.indexOf("->")+2);
-                    line = TEXT_ERROR+"!!"+TEXT_DEFAULT
-                            +before+TEXT_ERROR+after+TEXT_DEFAULT;
-                }else if( line.contains("(NC)")){
-                    var before = line.substring(0, line.indexOf("->")+2);
-                    var after = line.substring(line.indexOf("->")+2);
-                    line = before+TEXT_WARN+after+TEXT_DEFAULT;
-                }
-                report.append(line.replace(workPath+File.separator,"")).append(html ? "<br>" : "\r\n");
+        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
+        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
+        final String TEXT_WARN = html?"":TelnetCodes.TEXT_ORANGE;
+
+        for( String line : dbManager.getStatus().split("\r\n") ){
+            var color = TEXT_DEFAULT; // No issue means default color
+            if( line.startsWith( "!! ")) { // Signifies and error so change color
+                color = TEXT_ERROR;
+            }else if( line.startsWith( "(NC)")) { // Not an error but might not be good,so warn
+                color = TEXT_WARN;
             }
-        }else{
-            report.append("None yet").append(html ? "<br>" : "\r\n");
+            var before = line.substring(2, line.indexOf("->")+2);
+            var after = line.substring(line.indexOf("->")+2);
+            line = color+"!!"+TEXT_DEFAULT+before+color+after+TEXT_DEFAULT;
+
+            report.append( line.replace(workPath+File.separator,"") ).append(html ? "<br>" : "\r\n");
         }
     }
     /**
@@ -746,6 +768,25 @@ public class DAS implements Commandable{
             }
             report.append(html ? "<br>" : "\r\n");
         }
+    }
+
+    /**
+     * Formats a line that contains the sequence subject:value
+     * @param line The line to format
+     * @param report The builder to write it to
+     * @param html Whether formatting is html
+     */
+    private void formatSplitStatusText( String line, StringBuilder report, boolean html ){
+        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
+        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
+        final String TEXT_INFO = html?"":TelnetCodes.TEXT_GREEN;
+
+        var before = line.substring( 0,line.indexOf(":")+1);
+        var after = line.substring(line.indexOf(":")+1);
+
+        report.append(TEXT_DEFAULT).append(before);
+        report.append( line.startsWith("!!")?TEXT_ERROR:TEXT_INFO).append(after);
+        report.append(html ? "<br>" : "\r\n");
     }
     /**
      * Get a status update of the various queues, mostly to verify that they are
