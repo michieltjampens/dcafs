@@ -3,9 +3,9 @@ package io.collector;
 import das.Commandable;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
-import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.tools.FileTools;
 import util.tools.TimeTools;
@@ -111,158 +111,175 @@ public class CollectorPool implements Commandable, CollectorFuture {
     }
     private String doFileCollectorCmd( String args, boolean html ) {
         String[] cmds = args.split(",");
-        StringJoiner join = new StringJoiner(html?"<br":"\r\n");
-
-        String cyan = html?"":TelnetCodes.TEXT_CYAN;
-        String green=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-
-        var settingsPath = workPath.resolve("settings.xml");
 
         if( cmds.length==1){
-            switch (cmds[0]) {
-                case "?" -> {
-                    join.add(TelnetCodes.TEXT_MAGENTA + "The FileCollectors store data from sources in files with custom headers and optional rollover");
-                    join.add(cyan + "Create/Reload the FileCollector" + reg)
-                            .add(green + "   fc:addnew,id,src,filepath" + reg + " -> Create a blank filecollector with given id, source and filepath")
-                            .add(green + "   fc:reload " + reg + " -> Reload the file collectors")
-                            .add(green + "   fc:id,reload " + reg + " -> Reload the given file collector");
-                    join.add(cyan + "Add optional parts" + reg)
-                            .add(green + "   fc:id,addrollover,period,format,zip? " + reg + " -> Add rollover (period unit options:min,hour,day,week,month,year")
-                            .add(green + "   fc:id,addcmd,trigger:cmd " + reg + " -> Add a triggered command, triggers: maxsize,idle,rollover")
-                            .add(green + "   fc:id,addheader,headerline " + reg + " -> Adds the header to the given fc")
-                            .add(green + "   fc:id,addsizelimit,size,zip? " + reg + " -> Adds a limit of the given size with optional zipping");
-                    join.add(cyan + "Alter attributes" + reg)
-                            .add( green + "  fc:id,filepath,newpath"+reg+" -> Change the filepath")
-                            .add( green + "  fc:id,sizelimit,newlimit"+reg+" -> Change the file sizelimit")
-                            .add( green + "  fc:id,eol,neweol"+reg+" -> Change the eol sequence")
-                            .add( green + "  fc:id,charset,newcharset"+reg+" -> Change the charset used")
-                            .add( green + "  fc:id,src,newsrc"+reg+" -> Change the src");
-                    join.add(cyan + "Get info" + reg)
-                            .add(green + "   fc:list " + reg + " -> Get a list of all active File Collectors")
-                            .add(green + "   fc:? " + reg + " -> Show this message");
-                    return join.toString();
-                }
-                case "reload" -> {
-                    loadFileCollectors();
-                    return "Reloaded all filecollectors";
-                }
-                case "list" -> {
-                    return getFileCollectorsList(html ? "<br" : "\r\n");
-                }
-                default -> {
-                    return "! No such subcommand in fc : "+args;
-                }
-            }
-        }else if(cmds[0].equalsIgnoreCase("addnew")||cmds[0].equalsIgnoreCase("add")){
-            if (cmds.length < 4)
-                return "! Not enough arguments given: fc:addnew,id,src,path";
-            FileCollector.addBlankToXML(XMLfab.withRoot(workPath.resolve("settings.xml"), "dcafs"), cmds[1], cmds[2], cmds[3]);
-            var fc = createFileCollector(cmds[1]);
-            fc.addSource(cmds[2]);
-            if (Path.of(cmds[3]).isAbsolute()) {
-                fc.setPath(Path.of(cmds[3]));
-            } else {
-                fc.setPath(Path.of(settingsPath.getParent().toString()).resolve(cmds[3]));
-            }
-            return "FileCollector " + cmds[1] + " created and added to xml.";
+            return singleArgCommands(cmds[0],html);
+        }else if( cmds[0].equalsIgnoreCase("addnew")||cmds[0].equalsIgnoreCase("add") ){
+           return addNewCommand(cmds);
         }else{
             var fco = fileCollectors.get(cmds[0]);
             if( fco == null )
                 return "! Invalid id given: "+cmds[0];
-            var id = cmds[0];
-
-            var fab = XMLfab.withRoot(settingsPath, "dcafs", "collectors")
-                            .selectOrAddChildAsParent("file", "id", id);
-
-            switch (cmds[1]) {
-                case "addrollover" -> {
-                    if (cmds.length < 6)
-                        return "! Wrong amount of arguments -> fc:id,addrollover,period,format,zip?";
-                    var rollCount = NumberUtils.toInt(cmds[2].replaceAll("\\D",""));
-                    var unit = TimeTools.parseToChronoUnit( cmds[2].replaceAll("[^a-z]","") );
-                    if (fco.setRollOver(cmds[4], rollCount,unit, Tools.parseBool(cmds[5], false))) {
-                        XMLfab.withRoot(settingsPath, "dcafs", "collectors")
-                                .selectOrAddChildAsParent("file", "id", id)
-                                .alterChild("rollover", cmds[4]).attr("count", cmds[2]).attr("unit", cmds[3]).attr("zip", cmds[5]).build();
-                        return "Rollover added to " + id;
-                    }
-                    return "! Failed to add rollover";
-                }
-                case "addheader" -> {
-                    if (cmds.length < 3)
-                        return "! Wrong amount of arguments -> fc:addheader,id,header";
-                    fco.flushNow();
-                    fco.addHeaderLine(cmds[2]);
-                    fab.addChild("header", cmds[2]).build();
-                    return "Header line added to " + id;
-                }
-                case "addcmd" -> {
-                    if (cmds.length < 3)
-                        return "! Wrong amount of arguments -> fc:id,adcmd,trigger:cmd";
-                    if (!cmds[2].contains(":"))
-                        return "! No valid trigger:cmd pair in: " + cmds[2];
-
-                    String[] sub = {"", ""};
-                    sub[0] = cmds[2].substring(0, cmds[2].indexOf(":"));
-                    sub[1] = cmds[2].substring(sub[0].length() + 1);
-
-                    if (fco.addTriggerCommand(sub[0], sub[1])) {
-                        fab.addChild("cmd", sub[1]).attr("trigger", sub[0]).build();
-                        return "Triggered command added to " + id;
-                    }
-                    return "Failed to add command, unknown trigger?";
-                }
-                case "addsizelimit" -> {
-                    if (cmds.length != 4)
-                        return "! Wrong amount of arguments -> fc:id,addsizelimit,size,zip?";
-                    fco.setMaxFileSize(cmds[2], Tools.parseBool(cmds[3], false));
-                    fab.addChild("sizelimit", cmds[2]).attr("zip", cmds[3]).build();
-                    return "Size limit added to " + id;
-                }
-                case "path" -> {
-                    fco.setPath(Path.of(cmds[2]), workPath.toString());
-                    fab.alterChild("path", cmds[2]).build();
-                    return "Altered the path";
-                }
-                case "sizelimit" -> {
-                    fco.setMaxFileSize(cmds[2]);
-                    fab.alterChild("sizelimit", cmds[2]).build();
-                    return "Altered the size limit to " + cmds[2];
-                }
-                case "eol" -> {
-                    fco.setLineSeparator(Tools.fromEscapedStringToBytes(cmds[2]));
-                    fab.attr("eol", cmds[2]).build();
-                    return "Altered the eol string to " + cmds[2];
-                }
-                case "charset" -> {
-                    fab.attr("charset", cmds[2]).build();
-                    return "Altered the charset to " + cmds[2];
-                }
-                case "src" -> {
-                    fco.addSource(cmds[2]);
-                    fab.attr("src", cmds[2]).build();
-                    return "Source altered to " + cmds[2];
-                }
-                case "reload" -> {
-                    var opt = XMLfab.withRoot(settingsPath, "dcafs", "collectors")
-                            .getChild("file", "id", cmds[1]);
-                    if (opt.isPresent()) {
-                        fco.flushNow();
-                        fco.readFromXML(XMLdigger.goIn(opt.get()), workPath.toString());
-                    }
-                    return "Reloaded";
-                }
-                case "perms" -> {
-                    fileCollectors.values().forEach(f -> FileTools.setAllPermissions(f.getPath().getParent()));
-                    return "Tried to alter permissions";
-                }
-                default -> {
-                    return "! No such subcommand for fc:id : " + cmds[1];
-                }
-            }
+            return doGeneralCommands( cmds, fco );
         }
     }
+    private String singleArgCommands(String cmd, boolean html){
+        return switch (cmd) {
+            case "?" -> getHelp(html);
+            case "reload" -> {
+                loadFileCollectors();
+                yield "Reloaded all filecollectors";
+            }
+            case "list" -> getFileCollectorsList(html ? "<br" : "\r\n");
+            default -> "! No such subcommand in fc : "+cmd;
+        };
+    }
+
+    /**
+     * The help of the fc global command that lists all the options
+     * @param html Whether to format it in html or not (and thus telnet)
+     * @return The formatted help info
+     */
+    private String getHelp(boolean html){
+        StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
+        join.add( "The FileCollectors store data from sources in files with custom headers and optional rollover.");
+        join.add( "Create/Reload the FileCollector" )
+                .add( "fc:addnew,id,src,filepath -> Create a blank filecollector with given id, source and filepath")
+                .add( "fc:reload  -> Reload the file collectors")
+                .add( "fc:id,reload  -> Reload the given file collector");
+        join.add( "Add optional parts" )
+                .add( "fc:id,addrollover,period,format,zip?  -> Add rollover (period unit options:min,hour,day,week,month,year")
+                .add( "fc:id,addcmd,trigger:cmd  -> Add a triggered command, triggers: maxsize,idle,rollover")
+                .add( "fc:id,addheader,headerline  -> Adds the header to the given fc")
+                .add( "fc:id,addsizelimit,size,zip?  -> Adds a limit of the given size with optional zipping");
+        join.add( "Alter attributes" )
+                .add(  "fc:id,filepath,newpath -> Change the filepath")
+                .add(  "fc:id,sizelimit,newlimit -> Change the file sizelimit")
+                .add(  "fc:id,eol,neweol -> Change the eol sequence")
+                .add(  "fc:id,charset,newcharset -> Change the charset used")
+                .add(  "fc:id,src,newsrc -> Change the src");
+        join.add( "Get info" )
+                .add( "fc:list  -> Get a list of all active File Collectors")
+                .add( "fc:?  -> Show this message");
+        return LookAndFeel.formatCmdHelp(join.toString(),html);
+    }
+
+    /**
+     * Process the add or addnew command
+     * @param cmds The full cmd
+     * @return The result
+     */
+    private String addNewCommand( String[] cmds ){
+        if (cmds.length < 4)
+            return "! Not enough arguments given: fc:addnew,id,src,path";
+
+        FileCollector.addBlankToXML(XMLfab.withRoot(workPath.resolve("settings.xml"), "dcafs"), cmds[1], cmds[2], cmds[3]);
+        var fc = createFileCollector(cmds[1]);
+        fc.addSource(cmds[2]);
+        if (Path.of(cmds[3]).isAbsolute()) {
+            fc.setPath(Path.of(cmds[3]));
+        } else {
+            fc.setPath(Path.of(workPath.toString()).resolve(cmds[3]));
+        }
+        return "FileCollector " + cmds[1] + " created and added to xml.";
+    }
+    /* ********************************** G E N E R A L  C O M M A N D S ******************************************* */
+    private String doGeneralCommands( String[] cmds, FileCollector fco ){
+        var settingsPath = workPath.resolve("settings.xml");
+
+        var fab = XMLfab.withRoot(settingsPath, "dcafs", "collectors")
+                .selectOrAddChildAsParent("file", "id", fco.id());
+
+        return switch (cmds[1]) {
+            case "addrollover" ->  doRollOverCmd( fco,cmds,settingsPath );
+            case "addheader" -> {
+                if (cmds.length < 3)
+                    yield "! Wrong amount of arguments -> fc:addheader,id,header";
+                fco.flushNow();
+                fco.addHeaderLine(cmds[2]);
+                fab.addChild("header", cmds[2]).build();
+                yield "Header line added to " + fco.id();
+            }
+            case "addcmd" -> doAddcmdCmd( fco, cmds, fab );
+            case "addsizelimit" -> {
+                if (cmds.length != 4)
+                    yield "! Wrong amount of arguments -> fc:id,addsizelimit,size,zip?";
+                fco.setMaxFileSize(cmds[2], Tools.parseBool(cmds[3], false));
+                fab.addChild("sizelimit", cmds[2]).attr("zip", cmds[3]).build();
+                yield "Size limit added to " + fco.id();
+            }
+            case "path" -> {
+                fco.setPath(Path.of(cmds[2]), workPath.toString());
+                fab.alterChild("path", cmds[2]).build();
+                yield "Altered the path";
+            }
+            case "sizelimit" -> {
+                fco.setMaxFileSize(cmds[2]);
+                fab.alterChild("sizelimit", cmds[2]).build();
+                yield "Altered the size limit to " + cmds[2];
+            }
+            case "eol" -> {
+                fco.setLineSeparator(Tools.fromEscapedStringToBytes(cmds[2]));
+                yield alterAttribute(fab,cmds[1],cmds[2]);
+            }
+            case "charset" -> alterAttribute(fab,cmds[1],cmds[2]);
+            case "src" -> {
+                fco.addSource(cmds[2]);
+                yield alterAttribute(fab,cmds[1],cmds[2]);
+            }
+            case "reload" -> {
+                var opt = XMLfab.withRoot(settingsPath, "dcafs", "collectors")
+                        .getChild("file", "id", cmds[1]);
+
+                if( opt.isEmpty() )
+                    yield "! Couldn't find file";
+
+                fco.flushNow();
+                fco.readFromXML(XMLdigger.goIn(opt.get()), workPath.toString());
+                yield "Reloaded";
+            }
+            case "perms" -> {
+                fileCollectors.values().forEach(f -> FileTools.setAllPermissions(f.getPath().getParent()));
+                yield "Tried to alter permissions";
+            }
+            default -> "! No such subcommand for fc:id : " + cmds[1];
+        };
+    }
+    private String alterAttribute( XMLfab fab, String attr, String value){
+        fab.attr( attr,value).build();
+        return "Attribute "+ attr+" altered to " + value;
+    }
+    private String doRollOverCmd( FileCollector fco, String[] cmds, Path settingsPath ){
+        if (cmds.length < 6)
+            return "! Wrong amount of arguments -> fc:id,addrollover,period,format,zip?";
+        var rollCount = NumberUtils.toInt(cmds[2].replaceAll("\\D",""));
+        var unit = TimeTools.parseToChronoUnit( cmds[2].replaceAll("[^a-z]","") );
+        if (fco.setRollOver(cmds[4], rollCount,unit, Tools.parseBool(cmds[5], false))) {
+            XMLfab.withRoot(settingsPath, "dcafs", "collectors")
+                    .selectOrAddChildAsParent("file", "id", fco.id() )
+                    .alterChild("rollover", cmds[4])
+                        .attr("count", cmds[2]).attr("unit", cmds[3]).attr("zip", cmds[5]).build();
+            return "Rollover added to " + fco.id();
+        }
+        return "! Failed to add rollover";
+    }
+    private String doAddcmdCmd( FileCollector fc, String[] cmds, XMLfab fab ){
+        if (cmds.length < 3)
+            return "! Wrong amount of arguments -> fc:id,adcmd,trigger:cmd";
+        if (!cmds[2].contains(":"))
+            return "! No valid trigger:cmd pair in: " + cmds[2];
+
+        String[] sub = {"", ""};
+        sub[0] = cmds[2].substring(0, cmds[2].indexOf(":"));
+        sub[1] = cmds[2].substring(sub[0].length() + 1);
+
+        if (fc.addTriggerCommand(sub[0], sub[1])) {
+            fab.addChild("cmd", sub[1]).attr("trigger", sub[0]).build();
+            return "Triggered command added to " + fc.id();
+        }
+        return "! Failed to add command, unknown trigger?";
+    }
+
     @Override
     public boolean removeWritable(Writable wr) {
         return false;
