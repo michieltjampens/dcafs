@@ -142,10 +142,14 @@ public class CommandPool {
 	 * @return The response to the command/question
 	 */
 	public String executeCommand(Datagram d, boolean remember, boolean html) {
-		boolean removeTelnetCodes=false;
+
 		String question = d.getData();
 
+		if (remember) // If to store commands in the raw log (to have a full simulation when debugging)
+			Logger.tag("RAW").info("system\t" + question);
+
 		// If the question contains -r that means it shouldn't contain telnet code
+		boolean removeTelnetCodes=false;
 		if( question.contains( " -r")){
 			removeTelnetCodes=true;
 			question=question.replace(" -r","");
@@ -156,9 +160,6 @@ public class CommandPool {
 		// Some receivers of the result prefer html style (if possible)
 		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:")))
 			html=true;
-
-		if (remember) // If to store commands in the raw log (to have a full simulation when debugging)
-			Logger.tag("RAW").info("system\t" + question);
 
 		String[] split = new String[]{question,""};
 		if( question.contains(":")){ // might contain more than one ':' so split on the first one
@@ -180,9 +181,8 @@ public class CommandPool {
 		if( !wr.id().contains("telnet"))
 			removeTelnetCodes=true;
 
-		if( removeTelnetCodes ){ // Remove the telnetcodes
+		if( removeTelnetCodes ) // Remove the telnetcodes
 			result = TelnetCodes.removeCodes(result);
-		}
 
 		if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
 			wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origin in front

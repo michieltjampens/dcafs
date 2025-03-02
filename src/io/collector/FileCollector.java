@@ -119,7 +119,57 @@ public class FileCollector extends AbstractCollector{
     }
     public void readFromXML( XMLdigger dig, String workpath ){
 
+        /* Source and destination */
+        addSource( dig.attr("src",""));
+        var path = dig.attr("path",null,Path.of(workpath));
+        if( path.isEmpty() ){
+            Logger.error(id+"(fc) -> No valid destination given");
+            return;
+        }
+
+        setPath(path.get());
+        Logger.info("Trying to alter permissions");
+        FileTools.setAllPermissions(getPath().getParent());
+
         /* Flush settings */
+        digForFlush(dig);
+
+        /* Headers */
+        headers.clear();
+        dig.peekOut("header").forEach( ele->addHeaderLine(ele.getTextContent()));
+
+        /* RollOver */
+        digForRollover( dig );
+
+        /* Size limit */
+        trigCmds.clear();
+        if( dig.hasPeek("sizelimit") ){
+            boolean zip = dig.attr("zip",false);
+            var size = dig.value("");
+            if( !size.isEmpty())
+                setMaxFileSize(size.toLowerCase(),zip);
+        }
+
+        /* Changing defaults */
+        setLineSeparator( Tools.fromEscapedStringToBytes( dig.attr("eol",System.lineSeparator())) );
+
+        /* Triggered */
+        dig.digOut("cmd").forEach( cmd -> {
+            addTriggerCommand(cmd.attr("trigger","none").toLowerCase(),cmd.value(""));
+        });
+
+        /* Headers change ?*/
+        if( Files.exists(getPath()) ) {
+            var curHead = FileTools.readLines(getPath(), 1, headers.size());
+            headerChanged = !headers.equals(curHead);
+        }
+    }
+
+    /**
+     * Checks the digger for settings for the flush feature
+     * @param dig The digger to look into
+     */
+    private void digForFlush( XMLdigger dig ){
         if(  dig.hasPeek("flush") ){
             dig.usePeek();
             setBatchsize( dig.attr("batchsize",Integer.MAX_VALUE));
@@ -131,25 +181,8 @@ public class FileCollector extends AbstractCollector{
             }
             dig.goUp();
         }
-
-        /* Source and destination */
-        addSource( dig.attr("src",""));
-        var path = dig.attr("path",null,Path.of(workpath));
-        if( path.isEmpty() ){
-            Logger.error(id+"(fc) -> No valid destination given");
-            return;
-        }
-
-        setPath(path.get());
-
-        Logger.info("Trying to alter permissions");
-        FileTools.setAllPermissions(getPath().getParent());
-
-        /* Headers */
-        headers.clear();
-        dig.peekOut("header").forEach( ele->addHeaderLine(ele.getTextContent()));
-
-        /* RollOver */
+    }
+    private void digForRollover( XMLdigger dig ){
         if( dig.hasPeek("rollover")){
             String period = dig.attr("period","").toLowerCase();
             var rollCount = NumberUtils.toInt(period.replaceAll("\\D",""));
@@ -166,40 +199,7 @@ public class FileCollector extends AbstractCollector{
                 Logger.error(id+"(fc) -> Bad Rollover given" );
             }
         }
-
-        /* Size limit */
-        trigCmds.clear();
-        if( dig.hasPeek("sizelimit") ){
-            boolean zip = dig.attr("zip",false);
-            var size = dig.value("");
-            if( !size.isEmpty())
-                setMaxFileSize(size.toLowerCase(),zip);
-        }
-
-
-        /* Changing defaults */
-        setLineSeparator( Tools.fromEscapedStringToBytes( dig.attr("eol",System.lineSeparator())) );
-
-        /* Triggered */
-        dig.digOut("cmd").forEach( cmd -> {
-            addTriggerCommand(cmd.attr("trigger","none").toLowerCase(),cmd.value(""));
-        });
-
-        /* Headers change ?*/
-        if( Files.exists(getPath()) ) {
-            var curHead = FileTools.readLines(getPath(), 1, headers.size());
-            headerChanged = false;
-            if (curHead.size() == headers.size()) {
-                for (int a = 0; a < headers.size(); a++) {
-                    if (!headers.get(a).equals(curHead.get(a))) {
-                        headerChanged = true;
-                        break;
-                    }
-                }
-            }
-        }
     }
-
     /**
      * Add a blank node in the position the fab is pointing to
      * @param fab XMLfab pointing to where the collectors parent should be
@@ -418,15 +418,27 @@ public class FileCollector extends AbstractCollector{
                     return;
                 }
             }
+        }else if( headerChanged ){ // File already exists and the header changed, rename the old and start a new file
+            Path renamed = null;
+            for (int a = 1; a < 1000; a++) { // Find a name that isn't used yet
+                renamed = Path.of(dest.toString().replace(".", "." + a + "."));
+                // Check if the desired name or zipped version already is available
+                if (Files.notExists(renamed))
+                    break;
+            }
+            try {
+                Files.move(dest, dest.resolveSibling(renamed));
+            } catch (IOException e) {
+                Logger.error(id + "(fc) -> Failed to write to "+ dest+" because "+e);
+                return;
+            }
+            isNewFile=true;
         }
 
-        StringJoiner join;
-        if( !headers.isEmpty() && (isNewFile || headerChanged) ){ // the file doesn't exist yet
-            join = new StringJoiner( lineSeparator,"",lineSeparator );
+        StringJoiner join = new StringJoiner( lineSeparator,"",lineSeparator );
+        if( !headers.isEmpty() && isNewFile ) // the file doesn't exist yet and headers are defined
             headers.forEach( hdr -> join.add(hdr.replace("{file}",dest.getFileName().toString()))); // Add the headers
-        }else{
-            join = new StringJoiner( lineSeparator,"",lineSeparator );
-        }
+
         String line;
         int cnt=dataBuffer.size()*4; // At maximum write 4 times the buffer
         while((line=dataBuffer.poll()) != null && cnt !=0) {
@@ -437,54 +449,41 @@ public class FileCollector extends AbstractCollector{
 
         byteCount=0;
         try {
-            if (headerChanged && Files.exists(dest)) {
-                Path renamed = null;
-                for (int a = 1; a < 1000; a++) {
-                    renamed = Path.of(dest.toString().replace(".", "." + a + "."));
-                    // Check if the desired name or zipped version already is available
-                    if (Files.notExists(renamed))
-                        break;
-                }
-                Files.move(dest, dest.resolveSibling(renamed));
-                isNewFile=true;
-            }
-            headerChanged = false;
-
             if( join.toString().isBlank() )// Don't write empty lines
                 return;
 
             Files.writeString(dest, join.toString(), charSet, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             Logger.debug("Written " + join.toString().length() + " bytes to " + dest.getFileName().toString());
 
-            if(isNewFile){
+            if(isNewFile)
                 FileTools.setAllPermissions(dest);
+
+            // If max size isn't used or isn't reached return
+            if( maxBytes == -1 || Files.size(dest) < maxBytes  )
+                return;
+
+            Path renamed=null;
+            for( int a=1;a<1000;a++){
+                renamed = Path.of(dest.toString().replace(".", "."+a+"."));
+                // Check if the desired name or zipped version already is available
+                if( Files.notExists(renamed) && Files.notExists(Path.of(renamed+".zip")) )
+                    break;
+            }
+            Logger.debug("Renamed to "+ renamed);
+
+            Files.move(dest, dest.resolveSibling(renamed)); // rename the file
+            String path ;
+            if (zipMaxBytes) { // if wanted, zip it
+                FileTools.zipFile(renamed);
+                Files.deleteIfExists(renamed);
+                path = renamed+".zip";
+            }else{
+                path = renamed.toString();
             }
 
-            if( maxBytes!=-1 ){
-                if( Files.size(dest) >= maxBytes  ){
-                    Path renamed=null;
-                    for( int a=1;a<1000;a++){
-                        renamed = Path.of(dest.toString().replace(".", "."+a+"."));
-                        // Check if the desired name or zipped version already is available
-                        if( Files.notExists(renamed) && Files.notExists(Path.of(renamed+".zip")) )
-                            break;
-                    }
-                    Logger.debug("Renamed to "+ renamed);
-                    Files.move(dest, dest.resolveSibling(renamed)); // rename the file
-                    String path ;
-                    if (zipMaxBytes) { // if wanted, zip it
-                        FileTools.zipFile(renamed);
-                        Files.deleteIfExists(renamed);
-                        path = renamed+".zip";
-                    }else{
-                        path = renamed.toString();
-                    }
-
-                    // run the triggered commands
-                    trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.MAXSIZE)
-                            .forEach(tc->dQueue.add(Datagram.system(tc.cmd.replace("{path}",path)).writable(this)));
-                }
-            }
+            // run the triggered commands
+            trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.MAXSIZE)
+                    .forEach(tc->dQueue.add(Datagram.system(tc.cmd.replace("{path}",path)).writable(this)));
 
         } catch (IOException e) {
             Logger.error(id + "(fc) -> Failed to write to "+ dest+" because "+e);
