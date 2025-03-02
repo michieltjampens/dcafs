@@ -43,7 +43,7 @@ public class DAS implements Commandable{
 
     private static final String version = "2.13.1";
 
-    private final Path settingsPath; // Path to the settings.xml
+    private Path settingsPath; // Path to the settings.xml
     private String workPath; // Path to the working dir of dcafs
     private String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
@@ -87,7 +87,59 @@ public class DAS implements Commandable{
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
 
     public DAS() {
-        // Note: Don't use TinyLog yet!
+
+        figureOutPaths();   // This needs to be done before tinylog is used because it sets the paths
+        if( !checkSettingsFile() ) // Check if the file exist and create if it doesn't, if it does verify it
+            return;
+        Logger.info("Program booting");
+
+        var digger = XMLdigger.goIn(settingsPath,"dcafs"); // Use digger to go through settings.xml
+
+        digForSettings( digger );   // Dig for the settings node
+
+        /* CommandPool */
+        commandPool = new CommandPool( workPath );
+        addCommandable(this,"st"); // add the commands found in this file
+
+        addRtvals();            // Add Realtimevalues
+
+        /* Database manager */
+        dbManager = new DatabaseManager(workPath,rtvals);
+        addCommandable(dbManager,"dbm","myd");
+
+        addLabelWorker();       // Add Label worker
+        addStreamManager();     // Add Stream manager
+        prepareForwards();      // Add forwards
+        addI2CWorker();         // Add I2C
+
+        /* TransServer */
+        if( digger.hasPeek("transserver")) // Check if trans is in xml
+            addTransServer(); // and if so, set it up
+
+        /* Waypoints */
+        var waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
+        addCommandable(waypoints,"wpts");
+
+        digForCollectors(digger);   // Add FileCollectors
+        digForGPIOs(digger);        // Add GPIO's
+        digForEmail(digger);        // Add EmailWorker
+        digForFileMonitor(digger);  // Add Filemonitor
+        digForMatrix( digger );     // Add matrix
+        addMqttPool();              // Add MQTT
+        addTaskManager();           // Add Taskmanagers
+
+        /* Regular check if the system clock was changed */
+        nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
+
+        /* Build the stores in the sqltables, needs to be done at the end */
+        dbManager.buildStores(rtvals);
+
+        addTelnetServer();  // Add Telnet Server
+
+        attachShutDownHook();
+        bootOK = true;
+    }
+    private void figureOutPaths(){
         // Determine working dir based on the classpath
         var classPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
         classPath = classPath.replace("%20"," ");
@@ -122,23 +174,27 @@ public class DAS implements Commandable{
             System.setProperty("tinylog.directory", tinylogPath); // Set work path as system property
         }
 
-
-        /* *************************** FROM HERE ON TINYLOG CAN BE USED ****************************************** */
-
+        Logger.info("Used settingspath: "+settingsPath);
+    }
+    private boolean checkSettingsFile(){
         if (Files.notExists(settingsPath)) { // Check if the settings.xml exists
             Logger.warn("No Settings.xml file found, creating new one. Searched path: "
                     + settingsPath.toFile().getAbsolutePath());
             createXML(); // doesn't exist so create it
         }
-        Logger.info("Used settingspath: "+settingsPath);
 
         if( !XMLtools.checkXML(settingsPath).isEmpty() ){// Check if the reading resulted in a proper xml
             Logger.error("Issue in current settings.xml, aborting: " + settingsPath);
             addTelnetServer(); // Even if settings.xml is bad, start the telnet server anyway to inform user
-            return;
+            return false;
         }
-        var digger = XMLdigger.goIn(settingsPath,"dcafs"); // Use digger to go through settings.xml
-
+        return true;
+    }
+    /**
+     * Check the digger for the settings node and process if found
+     * @param digger The digger for the settings file with dcafs root
+     */
+    private void digForSettings( XMLdigger digger ){
         if( digger.hasPeek("settings") ){
             digger.digDown("settings");
             var age = digger.peekAt("maxrawage").value("1h");
@@ -156,71 +212,23 @@ public class DAS implements Commandable{
             }
             digger.goUp(); // Back from settings to root
         }
-        Logger.info("Program booting");
-
-        /* CommandPool */
-        commandPool = new CommandPool( workPath );
-        addCommandable(this,"st"); // add the commands found in this file
-
-        /* RealtimeValues */
+    }
+    private void addRtvals(){
         rtvals = new RealtimeValues( settingsPath, dQueue );
         addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text;flag");
         addCommandable(rtvals,"rtval","rtvals");
         addCommandable(rtvals,"stop");
-
-        /* Database manager */
-        dbManager = new DatabaseManager(workPath,rtvals);
-        addCommandable(dbManager,"dbm","myd");
-
-        /* Label Worker */
-        addLabelWorker();
-
-        /* StreamManager */
-        addStreamManager();
-
-        /* TransServer */
-        if( digger.hasPeek("transserver")) // Check if trans is in xml
-            addTransServer(); // and if so, set it up
-
-        /* Hardware: I2C & GPIO */
-        if( digger.hasPeek("gpios") ){
-            Logger.info("Reading interrupt gpio's from settings.xml");
-            isrs = new InterruptPins(dQueue,settingsPath,rtvals);
-            addCommandable(isrs,"gpios","isr");
-        }
-        addI2CWorker();
-
-        /* Forwards */
+    }
+    private void prepareForwards(){
         var pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
         addCommandable(pathPool,"paths","path","pf","paths");
         addCommandable(pathPool, ""); // empty cmd is used to stop data requests
-
-        /* Waypoints */
-        var waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
-        addCommandable(waypoints,"wpts");
-
-        /* Collectors */
-        if( digger.hasPeek("collectors")) {
-            collectorPool = new CollectorPool(settingsPath.getParent(), dQueue, nettyGroup, rtvals);
-            addCommandable(collectorPool, "fc");
-            addCommandable(collectorPool, "mc");
-        }else{
-            Logger.info("No collectors defined in xml");
-        }
-        /* EmailWorker */
-        if( digger.hasPeek("email") ) {
-            addEmailWorker();
-        }else{
-            statusEmail="";
-            Logger.info( "No email defined in xml");
-        }
-        /* File monitor */
-        if( digger.hasPeek("monitor") ) {
-            // Monitor files for changes
-            FileMonitor fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
-            addCommandable(fileMonitor,"fm","fms");
-        }
-        /* Matrix */
+    }
+    /**
+     * Check the digger for the matrix node and process if found
+     * @param digger The digger for the settings file with dcafs root
+     */
+    private void digForMatrix( XMLdigger digger ){
         if( digger.hasPeek("matrix") ){
             Logger.info("Reading Matrix info from settings.xml");
             matrixClient = new MatrixClient( dQueue, rtvals, settingsPath );
@@ -229,26 +237,54 @@ public class DAS implements Commandable{
             statusMatrixRoom="";
             Logger.info("No matrix settings");
         }
-
-        /* MQTT worker */
-        addMqttPool();
-
-        /* TaskManagerPool */
-        addTaskManager();
-
-        /* Check if the system clock was changed */
-        nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
-        bootOK = true;
-
-        /* Build the stores in the sqltables */
-        dbManager.buildStores(rtvals);
-
-        /* Telnet */
-        addTelnetServer();
-
-        attachShutDownHook();
     }
-
+    /**
+     * Check the digger for the file monitor node and process if found
+     * @param digger The digger for the settings file with dcafs root
+     */
+    private void digForFileMonitor( XMLdigger digger ){
+        if( digger.hasPeek("monitor") ) {
+            // Monitor files for changes
+            FileMonitor fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
+            addCommandable(fileMonitor,"fm","fms");
+        }
+    }
+    /**
+     * Check the digger for the email node and process if found
+     * @param digger The digger for the settings file with dcafs root
+     */
+    private void digForEmail( XMLdigger digger ){
+        if( digger.hasPeek("email") ) {
+            addEmailWorker();
+        }else{
+            statusEmail="";
+            Logger.info( "No email defined in xml");
+        }
+    }
+    /**
+     * Check the digger for the collector node and process if found
+     * @param digger The digger for the settings file with dcafs root
+     */
+    private void digForCollectors( XMLdigger digger ) {
+        if (digger.hasPeek("collectors")) {
+            collectorPool = new CollectorPool(settingsPath.getParent(), dQueue, nettyGroup, rtvals);
+            addCommandable(collectorPool, "fc");
+            addCommandable(collectorPool, "mc");
+        } else {
+            Logger.info("No collectors defined in xml");
+        }
+    }
+    /**
+     * Check the digger for the GPIO/ISR node and process if found
+     * @param digger The digger for the settings file with dcafs root
+     */
+    private void digForGPIOs( XMLdigger digger ) {
+        if (digger.hasPeek("gpios")) {
+            Logger.info("Reading interrupt gpio's from settings.xml");
+            isrs = new InterruptPins(dQueue, settingsPath, rtvals);
+            addCommandable(isrs, "gpios", "isr");
+        }
+    }
     /**
      * Get the version number of dcafs
      * @return The version nr in format x.y.z
@@ -429,7 +465,7 @@ public class DAS implements Commandable{
      * processed before the program is closed.
      */
     private void attachShutDownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread("shutdownHook") {
+        Runtime.getRuntime().addShutdownHook( new Thread("shutdownHook") {
             @Override
             public void run() {
                 Logger.info("Dcafs shutting down!");
@@ -536,14 +572,14 @@ public class DAS implements Commandable{
     private void checkStatus(){
         var status = getStatus(true);
 
-        if( status.contains("!!")){
-            if( statusBadChecks ==0){
-                if( !statusEmail.isEmpty() )
+        if( status.contains("!!")){ // This means a status is in error
+            if( statusBadChecks == 0 ){ // If this is the first time a bad status is reported
+                if( !statusEmail.isEmpty() ) // if the recipient of the status email is filled in
                     emailWorker.sendEmail( Email.to(statusEmail).subject("[Issue] Status report").content(status));
-                if( !statusMatrixRoom.isEmpty() ){
+                if( !statusMatrixRoom.isEmpty() ){ // If the status needs to be reported in a matrix room
                     var header = "<b>Issue found!</b><br>";
-                    for( var line : status.split("<br>")){
-                        if( line.startsWith( "!!") ) {
+                    for( var line : status.split("<br>")){ // Go through the status info
+                        if( line.startsWith( "!!") ) { // Only include the lines starting with !!
                             dQueue.add(Datagram.system("matrix:" + statusMatrixRoom + ",txt," + header + line));
                             header=""; // Only add header once
                         }
@@ -554,7 +590,7 @@ public class DAS implements Commandable{
             nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // Reschedule, but earlier
             statusBadChecks++;
             if( statusBadChecks == 13) { // Every 6 hours, send a reminder?
-                statusBadChecks =0;
+                statusBadChecks = 0;
             }
             return;
         }else if( statusBadChecks !=0 ){
@@ -573,14 +609,45 @@ public class DAS implements Commandable{
      * @return A status message
      */
     public String getStatus(boolean html) {
+
+        var report = new StringBuilder();
+
+        addDcafsStatus(report,html);  // General program status like memory etc
+
+        if (streamManager != null) {
+            report.append( formatStatusTitle("Streams",html));
+            formatStatusText( streamManager.getStatus(),report,html );
+        }
+        if( i2cWorker != null && i2cWorker.getDeviceCount()!=0){
+            report.append( formatStatusTitle("Devices",html));
+            formatStatusText( i2cWorker.getStatus("\r\n"),report,html );
+        }
+        if( isrs != null ){
+            report.append( formatStatusTitle( "GPIO Isr",html));
+            formatStatusText( isrs.getStatus("\r\n"),report,html);
+        }
+        if (mqttPool != null && !mqttPool.getMqttWorkerIDs().isEmpty()) {
+            report.append( formatStatusTitle("MQTT",html));
+            formatStatusText( mqttPool.getMqttBrokersInfo(),report,html);
+        }
+
+        // Buffer status
+        report.append( formatStatusTitle("Buffers",html));
+        formatStatusText( getQueueSizes(),report,html);
+
+        addDBMstatus(report,html); // Database Manager status
+
+        // Finally color the word false in red
+        return report.toString().replace("false", (html?"":TelnetCodes.TEXT_RED) + "false" + (html?"":TelnetCodes.TEXT_GREEN) );
+    }
+    private void addDcafsStatus( StringBuilder report, boolean html ){
         final String TEXT_GREEN = html?"":TelnetCodes.TEXT_GREEN;
-        final String TEXT_CYAN = html?"":TelnetCodes.TEXT_CYAN;
         final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
         final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_RED = html?"":TelnetCodes.TEXT_RED;
-        final String TEXT_ORANGE = html?"":TelnetCodes.TEXT_ORANGE;
+        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
+        final String TEXT_WARN = html?"":TelnetCodes.TEXT_ORANGE;
 
-        var b = new StringJoiner("");
+        String eol = html? "<br>" : "\r\n";
 
         double totalMem = (double)Runtime.getRuntime().totalMemory();
         double usedMem = totalMem-Runtime.getRuntime().freeMemory();
@@ -589,125 +656,96 @@ public class DAS implements Commandable{
         usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
 
         if (html) {
-            b.add("<b><u>DCAFS Status at ").add(TimeTools.formatNow("HH:mm:ss")).add(".</u></b><br><br>");
+            report.append("<b><u>DCAFS Status at ").append(TimeTools.formatNow("HH:mm:ss")).append(".</u></b><br><br>");
         } else {
-            b.add(TEXT_GREEN).add("DCAFS Status at ").add(TimeTools.formatNow("HH:mm:ss")).add("\r\n\r\n")
-                    .add(UNDERLINE_OFF);
+            report.append(TEXT_GREEN).append("DCAFS Status at ").append(TimeTools.formatNow("HH:mm:ss")).append(eol).append(eol)
+                    .append(UNDERLINE_OFF);
         }
-        b.add(TEXT_DEFAULT).add("DCAFS Version: ").add(TEXT_GREEN).add(version).add(" (jvm:").add(System.getProperty("java.version")).add(")\r\n");
-        b.add(TEXT_DEFAULT).add("Uptime: ").add(TEXT_GREEN).add(getUptime()).add("\r\n");
-        b.add(TEXT_DEFAULT).add(usedMem>70?"!! ":"").add("Memory: ")
-                .add(usedMem>70?TEXT_RED:TEXT_GREEN).add(String.valueOf(usedMem)).add("/").add(String.valueOf(totalMem)).add("MB\r\n");
-        b.add(TEXT_DEFAULT).add("IP: ").add(TEXT_GREEN).add(Tools.getLocalIP()).add("\r\n");
+        report.append(TEXT_DEFAULT).append("DCAFS Version: ").append(TEXT_GREEN).append(version).append(" (jvm:").append(System.getProperty("java.version")).append(")").append(eol);
+        report.append(TEXT_DEFAULT).append("Uptime: ").append(TEXT_GREEN).append(getUptime()).append(eol);
+        report.append(TEXT_DEFAULT).append(usedMem>70?"!! ":"").append("Memory: ")
+                .append(usedMem>70?TEXT_ERROR:TEXT_GREEN).append(usedMem).append("/").append(totalMem).append("MB").append(eol);
+        report.append(TEXT_DEFAULT).append("IP: ").append(TEXT_GREEN).append(Tools.getLocalIP()).append(eol);
 
         long age = Tools.getLastRawAge(Path.of(tinylogPath));
         if( age == -1 ){
-            b.add(TEXT_DEFAULT).add("!! Raw Age: ").add(TEXT_RED).add("No file yet!");
+            report.append(TEXT_DEFAULT).append("!! Raw Age: ").append(TEXT_ERROR).append("No file yet!");
         }else{
             var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
             var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
 
             if( age > maxRawAge && streamManager.getStreamCount()==0){
-                b.add(TEXT_DEFAULT).add("Raw Age: ").add(TEXT_ORANGE).add("No streams yet.");
+                report.append(TEXT_DEFAULT).append("Raw Age: ").append(TEXT_WARN).append("No streams yet.");
             }else{
-                b.add(TEXT_DEFAULT).add( (age>maxRawAge?"!! ":"")).add("Raw Age: ");
-                b.add((age > maxRawAge ? TEXT_RED : TEXT_GREEN)).add(convert).add(" [").add(max).add("]");
+                report.append(TEXT_DEFAULT).append( (age>maxRawAge?"!! ":"")).append("Raw Age: ");
+                report.append((age > maxRawAge ? TEXT_ERROR : TEXT_GREEN)).append(convert).append(" [").append(max).append("]");
             }
         }
-        b.add(UNDERLINE_OFF).add("\r\n");
+        report.append(UNDERLINE_OFF).append(eol);
+    }
 
-        if (html) {
-            b.add("<br><b>Streams</b><br>");
-        } else {
-            b.add(TEXT_DEFAULT).add(TEXT_CYAN).add("\r\n").add("Streams").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
-        }
-        if (streamManager != null) {
-            if (streamManager.getStreamCount() == 0) {
-                b.add("No streams defined (yet)").add("\r\n");
-            } else {
-                for (String s : streamManager.getStatus().split("\r\n")) {
-                    if (s.startsWith("!!")) {
-                        b.add(TEXT_RED).add(s).add(TEXT_DEFAULT).add(UNDERLINE_OFF);
-                    } else {
-                        b.add(s);
-                    }
-                    b.add("\r\n");
-                }
-            }
-        }
-        if( i2cWorker != null && i2cWorker.getDeviceCount()!=0){
-            if (html) {
-                b.add("<br><b>Devices</b><br>");
-            } else {
-                b.add(TEXT_CYAN).add("\r\n").add("Devices").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
-            }
-            for( String s : i2cWorker.getStatus("\r\n").split("\r\n") ){
-                if (s.startsWith("!!") || s.endsWith("false")) {
-                    b.add(TEXT_RED).add(s).add(TEXT_DEFAULT).add(UNDERLINE_OFF);
-                } else {
-                    b.add(s);
-                }
-                b.add("\r\n");
-            }
-        }
-        if( isrs != null ){
-            if (html) {
-                b.add("<br><b>GPIO Isr</b><br>");
-            } else {
-                b.add(TEXT_CYAN).add("\r\n").add("GPIO Isr").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
-            }
-            b.add(isrs.getStatus("\r\n"));
-            b.add("\r\n");
-        }
-        if (mqttPool != null && !mqttPool.getMqttWorkerIDs().isEmpty()) {
-            if (html) {
-                b.add("<br><b>MQTT</b><br>");
-            } else {
-                b.add(TEXT_DEFAULT).add(TEXT_CYAN).add("\r\n").add("MQTT").add("\r\n").add(UNDERLINE_OFF).add(TEXT_DEFAULT);
-            }
-            b.add(mqttPool.getMqttBrokersInfo()).add("\r\n");
-        }
-
-        try {
-            if (html) {
-                b.add("<br><b>Buffers</b><br>");
-            } else {
-                b.add(TEXT_CYAN).add("\r\nBuffers\r\n").add(TEXT_DEFAULT)
-                        .add(UNDERLINE_OFF);
-            }
-            b.add(getQueueSizes());
-        } catch (java.lang.NullPointerException e) {
-            Logger.error("Error reading buffers " + e.getMessage());
-        }
-        /* DATABASES */
-        if (html) {
-            b.add("<br><b>Databases</b><br>");
-        } else {
-            b.add(TelnetCodes.TEXT_CYAN)
-                    .add("\r\nDatabases\r\n")
-                    .add(TEXT_DEFAULT).add(UNDERLINE_OFF);
-        }
+    /**
+     * Prepare the status information about the Database Manager
+     * @param report This holds all other info
+     * @param html Whether to format in html
+     */
+    private void addDBMstatus(StringBuilder report, boolean html){
+        report.append( formatStatusTitle("Databases",html) );
         if (dbManager.hasDatabases()) {
-            for( String l : dbManager.getStatus().split("\r\n") ){
-                if( l.startsWith( "!! ")){
-                    var before = l.substring(2, l.indexOf("->")+2);
-                    var after = l.substring(l.indexOf("->")+2);
-                    l = TEXT_RED+"!!"+TEXT_DEFAULT
-                            +before+TEXT_RED+after+TEXT_DEFAULT;
-                }else if( l.contains("(NC)")){
-                    var before = l.substring(0, l.indexOf("->")+2);
-                    var after = l.substring(l.indexOf("->")+2);
-                    l = before+TEXT_ORANGE+after+TEXT_DEFAULT;
+            final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
+            final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
+            final String TEXT_WARN = html?"":TelnetCodes.TEXT_ORANGE;
+
+            for( String line : dbManager.getStatus().split("\r\n") ){
+                if( line.startsWith( "!! ")){
+                    var before = line.substring(2, line.indexOf("->")+2);
+                    var after = line.substring(line.indexOf("->")+2);
+                    line = TEXT_ERROR+"!!"+TEXT_DEFAULT
+                            +before+TEXT_ERROR+after+TEXT_DEFAULT;
+                }else if( line.contains("(NC)")){
+                    var before = line.substring(0, line.indexOf("->")+2);
+                    var after = line.substring(line.indexOf("->")+2);
+                    line = before+TEXT_WARN+after+TEXT_DEFAULT;
                 }
-                b.add(l.replace(workPath+File.separator,"")).add("\r\n");
+                report.append(line.replace(workPath+File.separator,"")).append(html ? "<br>" : "\r\n");
             }
         }else{
-            b.add("None yet\r\n");
+            report.append("None yet").append(html ? "<br>" : "\r\n");
         }
-        if( html ){
-            return b.toString().replace("\r\n","<br>");
+    }
+    /**
+     * Format a title for the status report
+     * @param title The title to format
+     * @param html Whether to use html
+     * @return The formatted title
+     */
+    private String formatStatusTitle(String title, boolean html ){
+        if (html) {
+            return "<br><b>"+title+"</b><br>";
         }
-        return b.toString().replace("false", TEXT_RED + "false" + TEXT_GREEN);
+        // If telnet
+        return TelnetCodes.TEXT_CYAN+"\r\n"+title+"\r\n"+TelnetCodes.TEXT_DEFAULT+TelnetCodes.UNDERLINE_OFF;
+    }
+
+    /**
+     * Format a portion of text for the status report, applying color is an error is marked with !!
+     * @param lines The lines to format
+     * @param report This holds the rest of  the status
+     * @param html Whether formatting is html or not
+     */
+    private void formatStatusText(String lines , StringBuilder report, boolean html ){
+        final String TEXT_INFO = html?"":TelnetCodes.TEXT_DEFAULT;
+        final String TEXT_ERROR = html?"":TelnetCodes.TEXT_RED;
+        final String UNDERLINE_OFF = html?"":TelnetCodes.UNDERLINE_OFF;
+
+        for (String line : lines.split("\r\n") ) {
+            if (line.startsWith("!!")) {
+                report.append(TEXT_ERROR).append(line).append(TEXT_INFO).append(UNDERLINE_OFF);
+            } else {
+                report.append(line);
+            }
+            report.append(html ? "<br>" : "\r\n");
+        }
     }
     /**
      * Get a status update of the various queues, mostly to verify that they are

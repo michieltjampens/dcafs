@@ -114,6 +114,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 * @return A string holding info regarding the status of each connection.
 	 */
 	public String getStatus() {
+
+		if( streams.isEmpty())
+			return "No streams defined (yet)";
+
 		StringJoiner join = new StringJoiner("");
 
 		int infoLength = 0;
