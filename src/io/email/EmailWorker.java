@@ -11,6 +11,7 @@ import jakarta.mail.internet.*;
 import jakarta.mail.search.FlagTerm;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -407,71 +408,62 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 		String[] cmds = args.split(",");
 
-		String green=html?"":TelnetCodes.TEXT_GREEN;
-		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-
-		switch (cmds[0]) {
-			case "?" -> {
-				StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
-				return b.add(green + "email:reload " + reg + "-> Reload the settings found in te XML.")
-						.add(green + "email:refs " + reg + "-> Get a list of refs and emailadresses.")
-						.add(green + "email:send,to,subject,content " + reg + "-> Send an email using to with subject and content")
-						.add(green + "email:setup " + reg + "-> Get a listing of all the settings.")
-						.add(green + "email:checknow " + reg + "-> Checks the inbox for new emails")
-						.add(green + "email:addallow,from,cmd(,isRegex) " + reg + "-> Adds permit allow node, default no regex")
-						.add(green + "email:adddeny,from,cmd(,isRegex) " + reg + "-> Adds permit deny node, default no regex")
-						.add(green + "email:interval,x " + reg + "-> Change the inbox check interval to x").toString();
-			}
-			case "reload" -> {
-				if (settingsPath == null)
-					return "! No xml defined yet...";
-				readFromXML();
-				return "Settings reloaded";
-			}
-			case "refs" -> {
-				return getEmailBook();
-			}
-			case "setup", "status" -> {
-				return getSettings();
-			}
+		return switch (cmds[0]) {
+			case "?" -> getHelp(html);
+			case "reload" -> readFromXML()?"Settings reloaded":"! Reload failed";
+			case "refs" -> getEmailBook();
+			case "setup", "status" -> getSettings();
 			case "send" -> {
 				if (cmds.length != 4)
-					return "! Wrong amount of arguments -> email:send,ref/email,subject,content";
+					yield "! Wrong amount of arguments -> email:send,ref/email,subject,content";
 
 				// Check if the subject contains time request
 				cmds[2] = cmds[2].replace("{localtime}", TimeTools.formatNow("HH:mm"));
 				cmds[2] = cmds[2].replace("{utctime}", TimeTools.formatUTCNow("HH:mm"));
 				sendEmail(Email.to(cmds[1]).subject(cmds[2]).content(cmds[3]));
-				return "Tried to send email";
+				yield "Tried to send email";
 			}
 			case "checknow" -> {
 				checker.cancel(false);
 				checker = scheduler.schedule(new Check(), 1, TimeUnit.SECONDS);
-				return "Will check emails asap.";
+				yield "Will check emails asap.";
 			}
 			case "interval" -> {
 				if (cmds.length != 2)
-					return "! Wrong amount of arguments -> email:interval,period (fe.5m for minutes)";
+					yield "! Wrong amount of arguments -> email:interval,period (fe.5m for minutes)";
 				checkIntervalSeconds = (int) TimeTools.parsePeriodStringToSeconds(cmds[1]);
-				return "Interval changed to " + checkIntervalSeconds + " seconds (todo:save to settings.xml)";
+				yield "Interval changed to " + checkIntervalSeconds + " seconds (todo:save to settings.xml)";
 			}
-			case "addallow", "adddeny" -> {
-				if (cmds.length < 3) {
-					return "! Wrong amount of arguments -> email:" + cmds[0] + ",from,cmd(,isRegex)";
-				}
-				boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
-				permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
-				return writePermits() ? "Permit added" : "! Failed to write to xml";
-			}
+			case "addallow", "adddeny" -> doAddAllowDenyCmd(cmds);
 			case "spam" -> {
 				var cl = clear != null ? "in " + clear.getDelay(TimeUnit.SECONDS) + "s" : "never";
-				return "Busy at " + busy + " and sendrequests at " + sendRequests + ", clearing " + cl;
+				yield "Busy at " + busy + " and sendrequests at " + sendRequests + ", clearing " + cl;
 			}
-			default -> {
-				return "! No such subcommand in email: " + args;
-			}
-		}
+			default ->  "! No such subcommand in email: " + args;
+		};
 	}
+	private String getHelp( boolean html ){
+		StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
+		b.add("EmailWorker takes care of sending and receiving emails.")
+				.add( "email:reload -> Reload the settings found in te XML.")
+				.add( "email:refs -> Get a list of refs and emailadresses.")
+				.add( "email:send,to,subject,content -> Send an email using to with subject and content")
+				.add( "email:setup -> Get a listing of all the settings.")
+				.add( "email:checknow -> Checks the inbox for new emails")
+				.add( "email:addallow,from,cmd(,isRegex) -> Adds permit allow node, default no regex")
+				.add( "email:adddeny,from,cmd(,isRegex) -> Adds permit deny node, default no regex")
+				.add( "email:interval,x -> Change the inbox check interval to x");
+		return LookAndFeel.formatCmdHelp(b.toString(),html);
+	}
+	private String doAddAllowDenyCmd( String[] cmds){
+		if (cmds.length < 3) {
+			return "! Wrong amount of arguments -> email:" + cmds[0] + ",from,cmd(,isRegex)";
+		}
+		boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
+		permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
+		return writePermits() ? "Permit added" : "! Failed to write to xml";
+	}
+
 	public String payloadCommand( String cmd, String args, Object payload){
 		return "! No such cmds in "+cmd;
 	}
@@ -562,33 +554,14 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				//mailSession.setDebug(true); 	// No need for extra feedback
 			}
 
-			Message message = new MimeMessage(mailSession);
-
-			String subject = email.subject;
-			if (email.subject.endsWith(" at.")) { //macro to get the local time added
-				subject = email.subject.replace(" at.", " at " + TimeTools.formatNow("HH:mm") + ".");
-			}
-			message.setSubject(subject);
+			var message = buildMessage(email);
 			boolean hasAttachment = false;
-			if (!email.hasAttachment()) { // If there's no attachment, this changes the content type
-				message.setContent(email.content, "text/html");
-			} else {
+			if ( email.hasAttachment() ) { // If there's no attachment, this changes the content type
 				hasAttachment=addAttachment(email,message);
-			}
-			String from = email.from.isEmpty()?(outbox.getFromStart()+"<" + outbox.from + ">"):email.from;
-			message.setFrom(new InternetAddress( from ));
-			for (String single : email.toRaw.split(",")) {
-				try {
-					message.addRecipient(Message.RecipientType.TO, new InternetAddress(single.split("\\|")[0]));
-				} catch (AddressException e) {
-					Logger.warn("Issue trying to convert: " + single.split("\\|")[0] + "\t" + e.getMessage());
-					Logger.error(e.getMessage());
-				}
 			}
 
 			// Send the complete message parts
 			Logger.debug("Trying to send email to " + email.toRaw + " through " + outbox.server + "!");
-
 			Transport.send(message);
 
 			if( hasAttachment ){
@@ -613,32 +586,71 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				retryQueue.clear();
 			}
 		} catch (MessagingException ex) {
-			Logger.error("Failed to send email: " + ex);
-			email.addAttempt();
-			if( !retry ){
-				if( retryQueue.isEmpty() || retryFuture == null || retryFuture.isDone() ) {
-					Logger.info("Scheduling a retry after 10 seconds");
-					retryFuture = scheduler.schedule( ()-> sendEmail(email,true), 10, TimeUnit.SECONDS);
-				}
-				Logger.info("Adding email to " + email.toRaw + " about " + email.subject + " to resend queue. Error count: " + errorCount);
-				retryQueue.add(email);
-			}else{
-				if( email.isFresh(maxEmailAgeInHours) ) { // If the email is younger than the preset age
-					Logger.info("Scheduling a successive retry after " + TimeTools.convertPeriodtoString(Math.min(30 * email.getAttempts(), 300), TimeUnit.SECONDS) + " with "
-							+ retryQueue.size() + " emails in retry queue");
-
-					retryFuture = scheduler.schedule(()-> sendEmail(email, true), Math.min(30 * email.getAttempts(), 300), TimeUnit.SECONDS);
-				}else{// If the email is older than the preset age
-					retryQueue.removeIf(em -> !em.isFresh(maxEmailAgeInHours)); // Remove all old emails
-					if( !retryQueue.isEmpty()){ // Check if any emails are left, and if so send the first one
-						retryFuture = scheduler.schedule(()-> sendEmail(retryQueue.get(0), true), 300, TimeUnit.SECONDS);
-					}
-				}
-			}
-			errorCount++;
+			handleError( ex, email, retry );
 		}
 	}
 
+	/**
+	 * Process the errors that occurred during the attempt to send an email
+	 * @param ex The error that occurred
+	 * @param email The email that was being sent
+	 * @param retry If it's a retry of an older email or not
+	 */
+	private void handleError(MessagingException ex, Email email, boolean retry){
+		Logger.error("Failed to send email: " + ex);
+		email.addAttempt();
+		if( !retry ){ // If this wasn't a retry
+			if( retryQueue.isEmpty() || retryFuture == null || retryFuture.isDone() ) {
+				Logger.info("Scheduling a retry after 10 seconds");
+				retryFuture = scheduler.schedule( ()-> sendEmail(email,true), 10, TimeUnit.SECONDS);
+			}
+			Logger.info("Adding email to " + email.toRaw + " about " + email.subject + " to resend queue. Error count: " + errorCount);
+			retryQueue.add(email);
+		}else{
+			if( email.isFresh(maxEmailAgeInHours) ) { // If the email is younger than the preset age
+				Logger.info("Scheduling a successive retry after " + TimeTools.convertPeriodtoString(Math.min(30 * email.getAttempts(), 300), TimeUnit.SECONDS) + " with "
+						+ retryQueue.size() + " emails in retry queue");
+
+				retryFuture = scheduler.schedule(()-> sendEmail(email, true), Math.min(30 * email.getAttempts(), 300), TimeUnit.SECONDS);
+			}else{// If the email is older than the preset age
+				retryQueue.removeIf(em -> !em.isFresh(maxEmailAgeInHours)); // Remove all old emails
+				if( !retryQueue.isEmpty()){ // Check if any emails are left, and if so send the first one
+					retryFuture = scheduler.schedule(()-> sendEmail(retryQueue.get(0), true), 300, TimeUnit.SECONDS);
+				}
+			}
+		}
+		errorCount++;
+	}
+	/**
+	 * Get the info from the email and build a message with it
+	 * @param email The email info to send
+	 * @return The build message
+	 * @throws MessagingException Something went wrong building the message
+	 */
+	private Message buildMessage(Email email) throws MessagingException {
+		Message message = new MimeMessage(mailSession);
+
+		String subject = email.subject;
+		if (email.subject.endsWith(" at.")) { //macro to get the local time added
+			subject = email.subject.replace(" at.", " at " + TimeTools.formatNow("HH:mm") + ".");
+		}
+		message.setSubject(subject);
+
+		if (!email.hasAttachment())  // If there's no attachment, this changes the content type
+			message.setContent(email.content, "text/html");
+
+		String from = email.from.isEmpty()?(outbox.getFromStart()+"<" + outbox.from + ">"):email.from;
+		message.setFrom(new InternetAddress( from ));
+		for (String single : email.toRaw.split(",")) {
+			try {
+				message.addRecipient(Message.RecipientType.TO, new InternetAddress(single.split("\\|")[0]));
+			} catch (AddressException e) {
+				Logger.warn("Issue trying to convert: " + single.split("\\|")[0] + "\t" + e.getMessage());
+				Logger.error(e.getMessage());
+			}
+		}
+		return message;
+	}
 	/**
 	 * Add the attachment information from the email to the message
 	 * @param email The email to handle the attachment from
@@ -734,43 +746,54 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	/**
 	 * Check if the email cmd from a certain sender is denied to run, admin commands are only allow for admins unless
 	 * explicit permission was given
-	 * @param to List of ref's the from belongs to
+	 * @param refs List of ref's the 'from' belongs to
 	 * @param from The sender
 	 * @param subject The command to execute
 	 * @return True if this sender hasn't got the permission
 	 */
-	private boolean isDenied(List<String> to, String from, String subject){
-		boolean deny=false;
+	private boolean isDenied(List<String> refs, String from, String subject){
+		boolean deny=isAdminCommand(subject);
+		if( deny && refs.contains("admin") )
+			return false;
 
-		if( subject.contains("admin")
-				|| subject.startsWith("sd") || subject.startsWith("shutdown")
-				|| subject.startsWith("sleep")
-				|| subject.startsWith("update")
-				|| subject.startsWith("retrieve:set")){
-			if( to.contains("admin") ){ // by default allow admins to issue admin commands...
-				return false;
-			}
-			deny=true; // change to default deny for admin commands
-		}
 		if( from.startsWith(inbox.user+"@") )
 			return false;
 
 		if( !permits.isEmpty() ){
-			boolean match=false;
-			for( Permit d : permits){
-				if (d.ref.contains("@")) {
-					if (d.ref.equals(from)) {
-						match = d.regex ? subject.matches(d.value) : subject.equals(d.value);
-					}
-				} else if (to.contains(d.ref)) {
-					match = d.regex ? subject.matches(d.value) : subject.equals(d.value);
-				}
-				if ( match ){
-					return d.denies;
+			for( Permit permit : permits){
+				if ( matchesPermit( permit,refs,from,subject ) ){
+					return permit.denies;
 				}
 			}
 		}
 		return deny;
+	}
+
+	/**
+	 * Check if it's an admin command
+	 * @param subject The command requested
+	 * @return True if it's an admin command
+	 */
+	private boolean isAdminCommand(String subject) {
+		return subject.contains("admin") ||
+				subject.startsWith("sd") ||
+				subject.startsWith("shutdown") ||
+				subject.startsWith("sleep") ||
+				subject.startsWith("update") ||
+				subject.startsWith("retrieve:set");
+	}
+
+	/**
+	 * Check if the sender is permitted to issue admin commands
+	 * @param permit The permit
+	 * @param refs List of ref's the 'from' belongs to
+	 * @param from The origin
+	 * @param subject The cmd
+	 * @return True if ok
+	 */
+	private boolean matchesPermit(Permit permit, List<String> refs, String from, String subject) {
+		boolean match = permit.ref.contains("@") ? permit.ref.equals(from) : refs.contains(permit.ref);
+		return match && (permit.regex ? subject.matches(permit.value) : subject.equals(permit.value));
 	}
 	/**
 	 * Class that checks for emails at a set interval.
@@ -793,123 +816,31 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			    Message[] messages = inbox.search(
 			        new FlagTerm(new Flags(Flags.Flag.SEEN), false));
 
-			    if( messages.length >0 ){
-					Logger.info("Messages found:"+messages.length);
-				}else{
-			    	return;
-				}
+			    if( messages.length == 0 ) // No message means nothing to do
+					return;
 
+				Logger.info( "Messages found: "+messages.length );
 			    for ( Message message : messages ) {
-
-					boolean delete=true;
 					String from = message.getFrom()[0].toString();
 					from = from.substring(from.indexOf("<")+1, from.length()-1);
 					String cmd = message.getSubject();
 
-					var tos = findTo(from);
-					if( tos.isEmpty()){
-						sendEmail( Email.to(from).subject("My admin doesn't allow me to talk to strangers...") );
-						sendEmail( Email.toAdminAbout("Got spam? ").content("From: "+from+" "+cmd) );
-						Logger.warn("Received spam from: "+from);
-						message.setFlag(Flags.Flag.DELETED, true); // delete spam
+					if( doEarlyAbortChecks(from,message) )
 						continue;
-					}
-
-					if( isDenied(tos, from, cmd) ){
-						sendEmail( Email.to(from).subject("Not allowed to use "+cmd).content("Try asking an admin for permission?") );
-						sendEmail( Email.toAdminAbout("Permission issue?").content("From: "+from+" -> "+cmd) );
-						Logger.warn(from+" tried using "+cmd+" without permission");
-						message.setFlag(Flags.Flag.DELETED, true); // delete things without permission
-						continue;
-					}
 
 					String to = message.getRecipients(Message.RecipientType.TO)[0].toString();
 					String body = getTextFromMessage(message);
 
-					if( cmd.contains(" for ")) { // meaning for multiple client checking this inbox
-						Logger.info("Checking if meant for me... "+outbox.getFromStart()+" in "+cmd);
-						if (!cmd.contains( outbox.getFromStart() )) { // the subject doesn't contain the id
-							message.setFlag(Flags.Flag.SEEN, false);// rever the flag to unseen
-							Logger.info("Email read but meant for another instance...");
-							continue; // go to next message
-						}else{
-							String newSub = cmd.replaceFirst(",?"+outbox.getFromStart(),"");
-							Logger.info( "Altered subject: "+newSub+"<");
-							if( !newSub.endsWith("for ")){ // meaning NOT everyone read it
-								message.setFlag(Flags.Flag.SEEN, false);
-								Logger.info( "Not yet read by "+newSub.substring(newSub.indexOf(" for ")+5));
+					if( checkifForAnother( message, to, from, body ) )
+						continue;
 
-								Logger.info("Someone else wants this...");
-								sendEmail( Email.to(to).from(from).subject(newSub).content(body) ); // make sure the other can get it
-							}else{
-								Logger.info( "Only one/Last one read it");
-							}
-						}
-						cmd = cmd.substring(0,cmd.indexOf(" for")); // remove everything not related to the command
-					}
 					maxQuickChecks = 5;
 					Logger.info("Command: " + cmd + " from: " + from );
 
-					if ( message.getContentType()!=null && message.getContentType().contains("multipart") ) {
-						try {
-							Object objRef = message.getContent();
-							if(objRef instanceof Multipart){
+					processAttachments( message );
+					processCommand( cmd, from, body );
 
-								Multipart multiPart = (Multipart) message.getContent();
-								if( multiPart != null ){
-									for (int i = 0; i < multiPart.getCount(); i++) {
-										MimeBodyPart part = (MimeBodyPart) multiPart.getBodyPart(i);
-
-										if ( part != null && Part.ATTACHMENT.equalsIgnoreCase( part.getDisposition() )) {
-											Logger.info("Attachment found:"+part.getFileName());
-											Path p = Path.of("attachments",part.getFileName());
-											Files.createDirectories(p.getParent());
-
-											part.saveFile(p.toFile());
-											
-											if( p.getFileName().toString().endsWith(".zip")){
-												Logger.info("Attachment zipped!");
-												FileTools.unzipFile( p.toString(), "attachments" );
-												Logger.info("Attachment unzipped!");
-												if( deleteReceivedZip )
-													Files.deleteIfExists(p);
-											}
-										}
-									}
-								}
-							}else{
-								Logger.error("Can't work with this thing: "+message.getContentType());
-							}
-						} catch (Exception e) {
-							Logger.error("Failed to read attachment");
-							Logger.error(e);
-						}
-					}
-
-					if( cmd.startsWith("label:")&&cmd.length()>7){ // email acts as data received from sensor, no clue on the use case yet
-						for( String line : body.split("\r\n") ) {
-							if( line.isEmpty()){
-								break;
-							}
-							dQueue.add( Datagram.build(line).label(cmd.split(":")[1]).origin(from) );
-						}
-					}else{
-						// Retrieve asks files to be emailed, if this command is without email append from address
-						if( cmd.startsWith("retrieve:") && !cmd.contains(",")){
-							cmd += ","+from;
-						}
-						//Datagram d = new Datagram( cmd, 1, "email");
-						var d = Datagram.build(cmd).label("email").origin(from);
-						if( cmd.contains(":")) { // only relevant for commands that contain :
-							DataRequest req = new DataRequest(from, cmd);
-							d.writable(req.getWritable());
-							buffered.put(req.getID(), req);
-						}
-						d.origin(from);
-						dQueue.add( d );
-					}
-					if(delete)
-						message.setFlag(Flags.Flag.DELETED, true);
+					message.setFlag(Flags.Flag.DELETED, true);
 				}
 				ok=true;
 				lastInboxConnect = Instant.now().toEpochMilli();							    		
@@ -937,6 +868,137 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 					fastCheck = scheduler.schedule( new Check(), Math.min(checkIntervalSeconds/3, 30), TimeUnit.SECONDS);
 			}
 	   }
+	}
+
+	/**
+	 * Check the origin of the email to see if that origin is actually allowed to talk to dcafs
+	 * @param from The origin
+	 * @param message The message received
+	 * @return True if the email needs to be ignored
+	 * @throws MessagingException The problems that occurred during use of message
+	 */
+	private boolean doEarlyAbortChecks(String from, Message message ) throws MessagingException {
+		var tos = findTo(from);
+		var cmd = message.getSubject();
+
+		if( tos.isEmpty()){
+			sendEmail( Email.to(from).subject("My admin doesn't allow me to talk to strangers...") );
+			sendEmail( Email.toAdminAbout("Got spam? ").content("From: "+from+" "+cmd) );
+			Logger.warn("Received spam from: "+from);
+			message.setFlag(Flags.Flag.DELETED, true); // delete spam
+			return true;
+		}
+
+		if( isDenied(tos, from, cmd) ){
+			sendEmail( Email.to(from).subject("Not allowed to use "+cmd).content("Try asking an admin for permission?") );
+			sendEmail( Email.toAdminAbout("Permission issue?").content("From: "+from+" -> "+cmd) );
+			Logger.warn(from+" tried using "+cmd+" without permission");
+			message.setFlag(Flags.Flag.DELETED, true); // delete things without permission
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Check if the message is multipart and if so if it contains an attachment, if so extract it
+	 * @param message The message received
+	 * @throws MessagingException The problems that occurred
+	 */
+	private void processAttachments( Message message) throws MessagingException {
+		if ( message.getContentType()!=null && message.getContentType().contains("multipart") ) {
+			try {
+				Object objRef = message.getContent();
+				if(objRef instanceof Multipart){
+
+					Multipart multiPart = (Multipart) message.getContent();
+					if( multiPart != null ){
+						for (int i = 0; i < multiPart.getCount(); i++) {
+							MimeBodyPart part = (MimeBodyPart) multiPart.getBodyPart(i);
+
+							if ( part != null && Part.ATTACHMENT.equalsIgnoreCase( part.getDisposition() )) {
+								Logger.info("Attachment found:"+part.getFileName());
+								Path p = Path.of("attachments",part.getFileName());
+								Files.createDirectories(p.getParent());
+
+								part.saveFile(p.toFile());
+
+								if( p.getFileName().toString().endsWith(".zip")){
+									Logger.info("Attachment zipped!");
+									FileTools.unzipFile( p.toString(), "attachments" );
+									Logger.info("Attachment unzipped!");
+									if( deleteReceivedZip )
+										Files.deleteIfExists(p);
+								}
+							}
+						}
+					}
+				}else{
+					Logger.error("Can't work with this thing: "+message.getContentType());
+				}
+			} catch (Exception e) {
+				Logger.error("Failed to read attachment");
+				Logger.error(e);
+			}
+		}
+	}
+	private void processCommand( String cmd, String from, String body){
+		cmd = cmd.substring(0,cmd.indexOf(" for")); // remove everything not related to the command
+
+		if( cmd.startsWith("label:")&&cmd.length()>7){ // email acts as data received from sensor, no clue on the use case yet
+			for( String line : body.split("\r\n") ) {
+				if( line.isEmpty()){
+					break;
+				}
+				dQueue.add( Datagram.build(line).label(cmd.split(":")[1]).origin(from) );
+			}
+		}else{
+			// Retrieve asks files to be emailed, if this command is without email append from address
+			if( cmd.startsWith("retrieve:") && !cmd.contains(",")){
+				cmd += ","+from;
+			}
+			var d = Datagram.build(cmd).label("email").origin(from);
+			if( cmd.contains(":")) { // only relevant for commands that contain :
+				DataRequest req = new DataRequest(from, cmd);
+				d.writable(req.getWritable());
+				buffered.put(req.getID(), req);
+			}
+			d.origin(from);
+			dQueue.add( d );
+		}
+	}
+
+	/**
+	 * If the email has a 'for' in the subject it means it's for a certain instance of dcafs, check if this matches
+	 * @param message The message received
+	 * @param to The
+	 * @param from The origin email address
+	 * @param body The content of the email
+	 * @return True if not for us, to know to skip the rest of the processing
+	 * @throws MessagingException Problems that might occur during checking the message
+	 */
+	private boolean checkifForAnother( Message message, String to, String from, String body ) throws MessagingException {
+		var cmd = message.getSubject();
+		if( cmd.contains(" for ")) { // meaning for multiple client checking this inbox
+			Logger.info("Checking if meant for me... "+outbox.getFromStart()+" in "+cmd);
+			if (!cmd.contains( outbox.getFromStart() )) { // the subject doesn't contain the id
+				message.setFlag(Flags.Flag.SEEN, false);// revert the flag to unseen
+				Logger.info("Email read but meant for another instance...");
+				return true; // go to next message
+			}else{
+				String newSub = cmd.replaceFirst(",?"+outbox.getFromStart(),"");
+				Logger.info( "Altered subject: "+newSub+"<");
+				if( !newSub.endsWith("for ")){ // meaning NOT everyone read it
+					message.setFlag(Flags.Flag.SEEN, false);
+					Logger.info( "Not yet read by "+newSub.substring(newSub.indexOf(" for ")+5));
+
+					Logger.info("Someone else wants this...");
+					sendEmail( Email.to(to).from(from).subject(newSub).content(body) ); // make sure the other can get it
+				}else{
+					Logger.info( "Only one/Last one read it");
+				}
+			}
+		}
+		return false;
 	}
 	/**
 	 * Retrieve the text content of an email message
