@@ -152,25 +152,56 @@ public class CommandPool {
 		}
 
 		var wr = d.getWritable();
+
 		// Some receivers of the result prefer html style (if possible)
-		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:"))){
+		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:")))
 			html=true;
-		}
-		String result;
 
 		if (remember) // If to store commands in the raw log (to have a full simulation when debugging)
 			Logger.tag("RAW").info("system\t" + question);
 
-		String[] split = new String[]{"",""};
+		String[] split = new String[]{question,""};
 		if( question.contains(":")){ // might contain more than one ':' so split on the first one
 			split[0]=question.substring(0, question.indexOf(":"));
 			split[1]=question.substring(question.indexOf(":")+1);
-		}else{
-			split[0]=question;
 		}
 		split[0]=split[0].toLowerCase(); // make sure the cmd is in lowercase
 
-		result = checkLocalCommandables(split,wr,html);// First check the standard commandables
+		// Check the repo's for a match for the given command
+		String result = findCommand(split,wr,html,d);
+
+		if( result.startsWith("! No such cmd group") ){
+			result = createMatrixNodeIfAsked(result,split[1]);
+			result = createEmailNodeIfAsked(result,split[1]);
+		}
+		if( wr == null )
+			return result + (html ? "<br>" : "\r\n");
+
+		if( !wr.id().contains("telnet"))
+			removeTelnetCodes=true;
+
+		if( removeTelnetCodes ){ // Remove the telnetcodes
+			result = TelnetCodes.removeCodes(result);
+		}
+
+		if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
+			wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origin in front
+		}else if (wr.id().startsWith("file:")) { // if the target is a file
+			result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
+			result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
+			wr.writeLine(result); // send the result
+		}else if(!d.isSilent()) { // Check if the receiver actually wants the reply
+			wr.writeLine(d.getOriginID(),result);
+		}
+
+		// If the receiver is a telnet session, change coloring on short results based on a ! prepended (! means bad news)
+		if( !html && wr.id().startsWith("telnet") && result.length()<150)
+			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
+
+		return result + (html ? "<br>" : "\r\n");
+	}
+	private String findCommand(String[] split, Writable wr, boolean html, Datagram d){
+		String result = checkLocalCommandables(split,wr,html);// First check the standard commandables
 
 		if( result.equals(UNKNOWN_CMD)) // Meaning not a standard first cmd
 			result = checkCommandables(split[0],split[1],wr,html,d);// Check the stored Commandables
@@ -182,56 +213,38 @@ public class CommandPool {
 			result = "! No such cmd group: |" + split[0] + "|"; // No result, so probably bad cmd
 			Logger.error("No cmd found with " + split[0] + ":" + split[1] + (wr != null ? " requested by " + wr.id() + "." : "."));
 		}
-		if( result.startsWith("! No such cmd group") ){
-			if( result.contains("matrix")){
-				if( split[1].startsWith("add")) {
-					// TODO: Passwords that contain a , ...?
-					if( MatrixClient.addBlankElement(settingsPath, split[1].split(",")) ) {
-						result = "Matrix element added to settings.xml.";
-					}else{
-						result = "! No valid settings.xml?";
-					}
-				}else{
-					result = "! No matrix yet, only available cmd is 'matrix:add,user,pass,room' to add element to xml," +
-							" user,pass and room are optional at this stage.";
-				}
-			}else if( result.contains("email")){
-				if( split[1].equals("add")) {
-					if( EmailWorker.addBlankElement(settingsPath,true,false) ) {
-						result = "Blank email element added to settings.xml, go fill it in!";
-					}else{
-						result = "! No valid settings.xml?";
-					}
-				}else{
-					result = "! No email yet, only available cmd is 'email:add' to add element to xml";
-				}
-			}
-		}
-		if( wr!=null && !wr.id().contains("telnet"))
-			removeTelnetCodes=true;
-
-		if( removeTelnetCodes ){ // Remove the telnetcodes
-			result = TelnetCodes.removeCodes(result);
-		}
-
-		if( wr!=null ) { // If a writable was given
-			if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
-				wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origin in front
-			}else if (wr.id().startsWith("file:")) { // if the target is a file
-				result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
-				result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
-				wr.writeLine(result); // send the result
-			}else if(!d.isSilent()) { // Check if the receiver actually wants the reply
-				wr.writeLine(d.getOriginID(),result);
-			}
-		}
-		// If the receiver is a telnet session, change coloring on short results based on a ! prepended (! means bad news)
-		if( !html && wr!=null && wr.id().startsWith("telnet") && result.length()<150)
-			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
-
-		return result + (html ? "<br>" : "\r\n");
+		return result;
 	}
-
+	private String createMatrixNodeIfAsked(String result, String subCmd){
+		if( result.contains("matrix")){
+			if( subCmd.startsWith("add")) {
+				// TODO: Passwords that contain a , ...?
+				if( MatrixClient.addBlankElement(settingsPath, subCmd.split(",")) ) {
+					result = "Matrix element added to settings.xml.";
+				}else{
+					result = "! No valid settings.xml?";
+				}
+			}else{
+				result = "! No matrix yet, only available cmd is 'matrix:add,user,pass,room' to add element to xml," +
+						" user,pass and room are optional at this stage.";
+			}
+		}
+		return result;
+	}
+	private String createEmailNodeIfAsked( String result, String subCmd){
+		if( result.contains("email")){
+			if( subCmd.equals("add")) {
+				if( EmailWorker.addBlankElement(settingsPath,true,false) ) {
+					result = "Blank email element added to settings.xml, go fill it in!";
+				}else{
+					result = "! No valid settings.xml?";
+				}
+			}else{
+				result = "! No email yet, only available cmd is 'email:add' to add element to xml";
+			}
+		}
+		return result;
+	}
 	/**
 	 * Checks if the cmd/question is for a standard commandable
 	 * @param split the question split on :
@@ -249,31 +262,9 @@ public class CommandPool {
 			case "sd" -> doShutDown(split, eol);
 			case "serialports" -> Tools.getSerialPorts(html);
 			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
-			case "store" -> {
-				var ans = StoreCmds.replyToCommand(split[1],html,settingsPath);
-				if( !split[1].startsWith("?")) {
-					if( split[1].equalsIgnoreCase("global")) {
-						doCmd("rtvals","reload",wr);// reload the global rtvals
-					}else{
-						doCmd("ss", split[1].split(",")[0]+",reloadstore", wr);
-					}
-				}
-				yield ans;
-			}
+			case "store" -> doStoreCommands( split[1], wr, html );
 			case "history" -> HistoryCmds.replyToCommand(split[1],html,settingsPath.getParent());
-			case "log" -> {
-				if( split[1].contains(",")){
-					String level = split[1].substring(0,split[1].indexOf(","));
-					String mess = split[1].substring(level.length()+1);
-					switch( level ){
-						case "info" -> Logger.info(mess);
-						case "warn" -> Logger.warn(mess);
-						case "error" -> Logger.error(mess);
-					}
-					yield "Message logged";
-				}
-				yield "! Not enough arguments";
-			}
+			case "log" -> doTinyLogCommands( split[1] );
 			case "", "stop", "nothing" -> {
 				stopCommandable.forEach(c -> c.replyToCommand("","", wr, false));
 				yield "Clearing requests";
@@ -351,6 +342,41 @@ public class CommandPool {
 	}
 	/* ********************************************************************************************/
 	/**
+	 * Executes commands that are related to store
+	 * @param subCmd The command to execute, with arguments delimited with ,
+	 * @return The result of the command
+	 */
+	private String doStoreCommands( String subCmd, Writable wr, boolean html ){
+		var ans = StoreCmds.replyToCommand( subCmd, html, settingsPath );
+		if( !subCmd.startsWith("?")) {
+			if( subCmd.equalsIgnoreCase("global")) {
+				doCmd("rtvals","reload",wr);// reload the global rtvals
+			}else{
+				doCmd("ss", subCmd.split(",")[0]+",reloadstore", wr);
+			}
+		}
+		return ans;
+	}
+
+	/**
+	 * Executes commands that are related to tinylog logging framework
+	 * @param subCmd The command to execute, with arguments delimited with ,
+	 * @return The result of the command
+	 */
+	private String doTinyLogCommands( String subCmd ){
+		if( subCmd.contains(",")){
+			String level = subCmd.substring(0,subCmd.indexOf(","));
+			String mess = subCmd.substring(level.length()+1);
+			switch( level ){
+				case "info" -> Logger.info(mess);
+				case "warn" -> Logger.warn(mess);
+				case "error" -> Logger.error(mess);
+			}
+			return "Message logged";
+		}
+		return "! Not enough arguments";
+	}
+	/**
 	 * Try to update a file received somehow (email or otherwise)
 	 * Current options: dcafs,script and settings (dcafs is wip)
 	 * 
@@ -361,65 +387,64 @@ public class CommandPool {
 	 */
 	public String doUPGRADE(String[] request, Writable wr, String eol) {
 		
-		Path p;
-		Path to;
-		Path refr;
-
 		String[] spl = request[1].split(",");
 
-		switch (spl[0]) {
+		return switch (spl[0]) {
 			case "?" -> {
 				StringJoiner join = new StringJoiner(eol);
 				join.add(TelnetCodes.TEXT_GREEN+"upgrade:tmscript,tm id"+TelnetCodes.TEXT_DEFAULT+" -> Try to update the given taskmanagers script")
 						.add(TelnetCodes.TEXT_GREEN+"upgrade:settings"+TelnetCodes.TEXT_DEFAULT+" -> Try to update the settings.xml");
-				return join.toString();
+				yield join.toString();
 			}
-			case "tmscript" -> {//fe. update:tmscript,tmid
-				var ori = doCmd("tm", "getpath," + spl[1], wr);
-				if (ori.isEmpty())
-					return "! No such script";
-				p = Path.of(ori);
-				to = Path.of(ori.replace(".xml", "") + "_" + TimeTools.formatUTCNow("yyMMdd_HHmm") + ".xml");
-				refr = Path.of(workPath, "attachments", spl[1]);
-				try {
-					if (Files.exists(p) && Files.exists(refr)) {
-						Files.copy(p, to);    // Make a backup if it doesn't exist yet
-						Files.move(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
+			case "tmscript" -> doUpgradeOfTaskManagerScript(spl[1],wr); // fe. update:tmscript,tmid
+			case "settings" -> doUpgradeOfSettingsFile();
+			default -> "! No such subcommand in upgrade: " +spl[0];
+		};
+	}
+	private String doUpgradeOfTaskManagerScript( String subCmd, Writable wr){
+		var ori = doCmd("tm", "getpath," +subCmd, wr);
+		if (ori.isEmpty())
+			return "! No such script";
 
-						// somehow reload the script
-						return doCmd("tm", "reload," + spl[1], wr);// Reloads based on id
-					} else {
-						Logger.warn("Didn't find the needed files.");
-						return "! Couldn't find the correct files. (maybe check spelling?)";
-					}
-				} catch (IOException e) {
-					Logger.error(e);
-					return "! Error when trying to upgrade tmscript.";
-				}
+		Path p = Path.of(ori);
+		Path to = Path.of(ori.replace(".xml", "") + "_" + TimeTools.formatUTCNow("yyMMdd_HHmm") + ".xml");
+		Path refr = Path.of(workPath, "attachments", subCmd);
+
+		try {
+			if (Files.exists(p) && Files.exists(refr)) {
+				Files.copy(p, to);    // Make a backup if it doesn't exist yet
+				Files.move(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
+
+				// somehow reload the script
+				return doCmd("tm", "reload," + subCmd, wr);// Reloads based on id
+			} else {
+				Logger.warn("Didn't find the needed files.");
+				return "! Couldn't find the correct files. (maybe check spelling?)";
 			}
-			case "settings" -> {
-				p = Path.of(workPath, "settings.xml");
-				to = Path.of(workPath, "settings_" + TimeTools.formatNow("yyMMdd_HHmm") + ".xml");
-				refr = Path.of(workPath, "attachments" + File.separator + "settings.xml");
-				try {
-					if (Files.exists(p) && Files.exists(refr)) {
-						Files.copy(p, to);    // Make a backup if it doesn't exist yet
-						Files.copy(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
-						shutdownReason = "Replaced settings.xml";    // restart das
-						System.exit(0);
-						return "Shutting down...";
-					} else {
-						Logger.warn("Didn't find the needed files.");
-						return "Couldn't find the correct files. (maybe check spelling?)";
-					}
-				} catch (IOException e) {
-					Logger.error(e);
-					return "! Error when trying to upgrade settings.";
-				}
+		} catch (IOException e) {
+			Logger.error(e);
+			return "! Error when trying to upgrade tmscript.";
+		}
+	}
+	private String doUpgradeOfSettingsFile(){
+		Path p = Path.of(workPath, "settings.xml");
+		Path to = Path.of(workPath, "settings_" + TimeTools.formatNow("yyMMdd_HHmm") + ".xml");
+		Path refr = Path.of(workPath, "attachments" + File.separator + "settings.xml");
+
+		try {
+			if (Files.exists(p) && Files.exists(refr)) {
+				Files.copy(p, to);    // Make a backup if it doesn't exist yet
+				Files.copy(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
+				shutdownReason = "Replaced settings.xml";    // restart das
+				System.exit(0);
+				return "Shutting down...";
+			} else {
+				Logger.warn("Didn't find the needed files.");
+				return "Couldn't find the correct files. (maybe check spelling?)";
 			}
-			default -> {
-				return "! No such subcommand in upgrade: " +spl[0];
-			}
+		} catch (IOException e) {
+			Logger.error(e);
+			return "! Error when trying to upgrade settings.";
 		}
 	}
 	/**
@@ -438,36 +463,36 @@ public class CommandPool {
 
 		String[] spl = request[1].split(",");
 
-		switch (spl[0]) {
+		return switch (spl[0]) {
 			case "?" -> {
 				StringJoiner join = new StringJoiner(eol, "", eol);
-				join.add("retrieve:tmscript,tm id,<email/ref> -> Request the given taskmanager script through email")
+				join.add("retrieve:tmscript,tm id,<email/ref> -> Request the given TaskManager script through email")
 						.add("retrieve:settings,<email/ref> -> Request the current settings.xml through email");
-				return join.toString();
+				yield join.toString();
 			}
-			case "tmscript", "tmscripts" -> {
-				if (spl.length < 3)
-					return "! Not enough arguments retrieve:type,tmid,email in " + request[0] + ":" + request[1];
-				var p = doCmd("tm", "getpath," + spl[1], wr);
-				if (p.isEmpty())
-					return "! No such script";
-				sendEmail.sendEmail(Email.to(spl[2]).subject("Requested tm script: " + spl[1]).content("Nothing to say").attachment(p));
-				return "Tried sending " + spl[1] + " to " + spl[2];
-			}
-			case "setup", "settings" -> {
-				Path set = Path.of(workPath, "settings.xml");
-				if (Files.notExists(set)) {
-					return "! No such file: " + set;
-				}
-				if (spl.length != 2)
-					return "! Not enough arguments, expected retrieve:setup,email/ref";
-				sendEmail.sendEmail(Email.to(spl[1]).subject("Requested file: settings.xml").content("Nothing to say").attachment(workPath + File.separator + "settings.xml"));
-				return "Tried sending settings.xml to " + spl[1];
-			}
-			default -> {
-				return "! No such subcommand in retrieve: " + spl[0];
-			}
+			case "tmscript", "tmscripts" -> doRetrieveOfTaskManagerScript(spl,request,wr);
+			case "setup", "settings" -> doRetrieveOfSettingsFile(spl);
+			default -> "! No such subcommand in retrieve: " + spl[0];
+		};
+	}
+	private String doRetrieveOfTaskManagerScript(String[] spl, String[] request, Writable wr){
+		if (spl.length < 3)
+			return "! Not enough arguments retrieve:type,tmid,email in " + request[0] + ":" + request[1];
+		var p = doCmd("tm", "getpath," + spl[1], wr);
+		if (p.isEmpty())
+			return "! No such script";
+		sendEmail.sendEmail(Email.to(spl[2]).subject("Requested tm script: " + spl[1]).content("Nothing to say").attachment(p));
+		return "Tried sending " + spl[1] + " to " + spl[2];
+	}
+	private String doRetrieveOfSettingsFile( String[] spl ){
+		Path set = Path.of(workPath, "settings.xml");
+		if (Files.notExists(set)) {
+			return "! No such file: " + set;
 		}
+		if (spl.length != 2)
+			return "! Not enough arguments, expected retrieve:setup,email/ref";
+		sendEmail.sendEmail(Email.to(spl[1]).subject("Requested file: settings.xml").content("Nothing to say").attachment(workPath + File.separator + "settings.xml"));
+		return "Tried sending settings.xml to " + spl[1];
 	}
 	/* *******************************************************************************/
 
