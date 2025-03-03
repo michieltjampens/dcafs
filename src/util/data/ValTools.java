@@ -8,6 +8,7 @@ import util.tools.Tools;
 
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
@@ -32,7 +33,6 @@ public class ValTools {
 
         // Find all the real/flag/int pairs
         var pairs = Tools.parseKeyValue(exp,true); // Add those of the format {d:id}
-        //pairs.addAll( Tools.parseKeyValueNoBrackets(exp) ); // Add those of the format d:id
 
         for( var p : pairs ) {
             boolean ok=false;
@@ -48,58 +48,13 @@ public class ValTools {
                 }
                 if( ok )
                     continue;
-                int index;
-                switch (p[0]) {
-                    case "d", "double", "r", "real" -> {
-                        var d = rtvals.getRealVal(p[1]);
-                        if (d.isPresent()) {
-                            index = nums.indexOf(d.get());
-                            if (index == -1) {
-                                nums.add(d.get());
-                                index = nums.size() - 1;
-                            }
-                            index += offset;
-                            exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + index);
-                        } else {
-                            Logger.error("Couldn't find a real with id " + p[1]);
-                            return "";
-                        }
-                    }
-                    case "int", "i" -> {
-                        var ii = rtvals.getIntegerVal(p[1]);
-                        if (ii.isPresent()) {
-                            index = nums.indexOf(ii.get());
-                            if (index == -1) {
-                                nums.add(ii.get());
-                                index = nums.size() - 1;
-                            }
-                            index += offset;
-                            exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + index);
-                        } else {
-                            Logger.error("Couldn't find a integer with id " + p[1]);
-                            return "";
-                        }
-                    }
-                    case "f", "flag", "b" -> {
-                        var f = rtvals.getFlagVal(p[1]);
-                        if (f.isPresent()) {
-                            index = nums.indexOf(f.get());
-                            if (index == -1) {
-                                nums.add(f.get());
-                                index = nums.size() - 1;
-                            }
-                            index += offset;
-                            exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + index);
-                        } else {
-                            Logger.error("Couldn't find a FlagVal with id " + p[1]);
-                            return "";
-                        }
-                    }
-                    default -> {
-                        Logger.error("Operation containing unknown pair: " + p[0] + ":" + p[1]);
-                        return "";
-                    }
-                }
+
+                int index = findOrAddValue( p[1], p[0],  rtvals, nums, offset);
+                if( index == -1 )
+                    return "";
+
+                exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + index);
+                exp = exp.replace(p[0] + ":" + p[1], "i" + index);
             }else{
                 Logger.error( "Pair containing odd amount of elements: "+String.join(":",p));
             }
@@ -109,53 +64,39 @@ public class ValTools {
         for( String fl : found){
             if( fl.matches("^i\\d+") )
                 continue;
-            int index;
-            if( fl.startsWith("flag:")){
-                var f = rtvals.getFlagVal(fl.substring(5));
-                if( f.isPresent() ){
-                    index = nums.indexOf(f.get());
-                    if(index==-1){
-                        nums.add( f.get() );
-                        index = nums.size()-1;
-                    }
-                    index += offset;
-                    exp = exp.replace(fl, "i" + index);
-                }else{
-                    Logger.error("Couldn't find a FlagVal with id "+fl);
-                    return "";
-                }
-            }else{
-                var d = rtvals.getRealVal(fl);
-                if( d.isPresent() ){
-                    index = nums.indexOf(d.get());
-                    if(index==-1){
-                        nums.add( d.get() );
-                        index = nums.size()-1;
-                    }
-                    index += offset;
-                    exp = exp.replace(fl, "i" + index);
-                }else{
-                    var f = rtvals.getFlagVal(fl);
-                    if( f.isPresent() ){
-                        index = nums.indexOf(f.get());
-                        if(index==-1){
-                            nums.add( f.get() );
-                            index = nums.size()-1;
-                        }
-                        index += offset;
-                        exp = exp.replace(fl, "i" + index);
-                    }else{
-                        Logger.error("Couldn't find a realval with id "+fl);
-                        return "";
-                    }
-                    return exp;
-                }
+            int index = findOrAddValue( fl, fl.contains("flag:") ? "f" : "d",  rtvals, nums, offset);
+            if (index == -1) {
+                return "";
             }
+            exp = exp.replace(fl, "i" + index);
         }
         nums.trimToSize();
         return exp;
     }
+    private static int findOrAddValue( String id, String type, RealtimeValues rtvals, ArrayList<NumericVal> nums, int offset) {
+        int index;
+        Optional<? extends NumericVal> value;
+        switch (type) {
+            case "d", "double", "r", "real" -> value = rtvals.getRealVal(id);
+            case "int", "i" -> value = rtvals.getIntegerVal(id);
+            case "f", "flag", "b" -> value = rtvals.getFlagVal(id);
+            default -> throw new IllegalArgumentException("Unknown type: " + type);
+        }
 
+        if (value.isPresent()) {
+            NumericVal val = value.get();
+            index = nums.indexOf(val);
+            if (index == -1) {
+                nums.add(val);
+                index = nums.size() - 1;
+            }
+            index += offset;
+        } else {
+            Logger.error("Couldn't find a " + type + " with id " + id);
+            return -1; // Or any other sentinel value indicating failure
+        }
+        return index;
+    }
     /**
      * Process an expression that contains both numbers and references and figure out the result
      *
@@ -234,24 +175,27 @@ public class ValTools {
                     }
                 }
             }else{
-                line = switch(p[0]){
-                    case "utc" -> line.replace("{utc}", TimeTools.formatLongUTCNow());
-                    case "utclong" -> line.replace("{utclong}", TimeTools.formatLongUTCNow());
-                    case "utcshort"-> line.replace("{utcshort}", TimeTools.formatShortUTCNow());
-                    default ->
-                    {
-                        var val = rtvals.getAbstractVal(p[0]);
-                        if( val.isPresent())
-                            yield line.replace( "{"+p[0]+"}",val.get().stringValue());
-                        yield line;
-                    }
-                };
+                line = replaceTime( p[0],line,rtvals );
             }
         }
         if( line.toLowerCase().matches(".*[{][drfi]:.*") && !pairs.isEmpty()){
             Logger.warn("Found a {*:*}, might mean parsing a section of "+line+" failed");
         }
         return line;
+    }
+    private static String replaceTime( String ref, String line, RealtimeValues rtvals){
+        return switch(ref){
+            case "ref" -> line.replace("{utc}", TimeTools.formatLongUTCNow());
+            case "utclong" -> line.replace("{utclong}", TimeTools.formatLongUTCNow());
+            case "utcshort"-> line.replace("{utcshort}", TimeTools.formatShortUTCNow());
+            default ->
+            {
+                var val = rtvals.getAbstractVal(ref);
+                if( val.isPresent())
+                    yield line.replace( "{"+ref+"}",val.get().stringValue());
+                yield line;
+            }
+        };
     }
     /**
      * Simple version of the parse realtime line, just checks all the words to see if any matches the hashmaps.
