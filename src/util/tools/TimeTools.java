@@ -105,16 +105,15 @@ public class TimeTools {
      * @return If successful it returns the requested date, if not an empty string
      */
     public static String formatNow(String outputFormat) {
-        try{
-            return LocalDateTime.now().format(DateTimeFormatter.ofPattern(outputFormat).withLocale(Locale.ENGLISH));
-        }catch( IllegalArgumentException e){
-            Logger.error(e.getMessage());
-        }
-        return "BAD:"+outputFormat;
+        return formatNowLocalOrUTC(false,outputFormat);
     }
     public static String formatUTCNow(String outputFormat) {
+        return formatNowLocalOrUTC(true,outputFormat);
+    }
+    private static String formatNowLocalOrUTC(boolean utc, String outputFormat){
         try {
-            return LocalDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ofPattern(outputFormat).withLocale(Locale.ENGLISH));
+            var lc = utc?LocalDateTime.now(ZoneId.of("UTC")):LocalDateTime.now();
+            return lc.format(DateTimeFormatter.ofPattern(outputFormat).withLocale(Locale.ENGLISH));
         }catch( IllegalArgumentException e){
             Logger.error(e.getMessage());
         }
@@ -145,58 +144,59 @@ public class TimeTools {
      * @return Amount of millis calculated till next
      */
     public static long millisDelayToCleanTime( long interval_millis ){
-        LocalDateTime now = LocalDateTime.now();
 
-        if( interval_millis%1000 == 0 ){ //meaning clean seconds
-            long sec = interval_millis/1000;
-            LocalDateTime first = now.withNano(0);
-            if( sec < 60 ){ // so less than a minute
-                int secs = (int)((now.getSecond()/sec+1)*sec);
-                if( secs >= 60 ){
-                    first = first.plusMinutes(1).withSecond( secs - 60);
-                }else {
-                    first = first.withSecond( secs );
-                }
-            }else if( sec < 3600 ) { // so below an hour
-                int mins;
-                if( sec%60==0){ // so clean minutes
-                    sec /= 60;
-                    mins = (int) (((now.getMinute()/sec+1))*sec);
-                    first = first.withSecond(0);
-                }else{ // so combination of minutes and seconds...
-                    long m_s= now.getMinute()*60+now.getSecond();
-                    int res = (int) ((m_s/sec+1)*sec);
-                    mins = res/60;
-                    first = first.withSecond(res%60);
-                }
-                if( mins >= 60 ){
-                    first = first.plusHours(1).withMinute( mins - 60);
-                }else {
-                    first = first.withMinute( mins );
-                }
-            }else{ // more than an hour
-                first = first.withMinute(0).withSecond(0);
-                int h = (int) sec/3600;
-                int m = (int) sec/60;
-                int hs;
-                if( sec % 3600 == 0 ){ // clean hours
-                    hs = h*(now.getHour()/h+1);
-                }else{ // hours and min (fe 1h30m or 90m)
-                    long h_m= now.getHour()*60+now.getMinute();
-                    int res = (int) (h_m/m+1)*m;
-                    first = first.withMinute(res%60);
-                    hs = res/60;
-                }
-                if( hs>23 ){
-                    first = first.plusDays(hs/24).withHour( hs%24 );
-                }else{
-                    first = first.withHour( hs );
-                }
+        if( interval_millis%1000 != 0 )
+            return interval_millis;
+
+        // Meaning clean seconds
+        LocalDateTime now = LocalDateTime.now();
+        long sec = interval_millis/1000;
+        LocalDateTime first = now.withNano(0);
+        if( sec < 60 ){ // so less than a minute
+            int secs = (int)((now.getSecond()/sec+1)*sec);
+            if( secs >= 60 ){
+                first = first.plusMinutes(1).withSecond( secs - 60);
+            }else {
+                first = first.withSecond( secs );
             }
-            Logger.info("Found next at "+first);
-            return Duration.between( LocalDateTime.now(),first).toMillis();
+        }else if( sec < 3600 ) { // so below an hour
+            int mins;
+            if( sec%60==0){ // so clean minutes
+                sec /= 60;
+                mins = (int) (((now.getMinute()/sec+1))*sec);
+                first = first.withSecond(0);
+            }else{ // so combination of minutes and seconds...
+                long m_s= now.getMinute()*60+now.getSecond();
+                int res = (int) ((m_s/sec+1)*sec);
+                mins = res/60;
+                first = first.withSecond(res%60);
+            }
+            if( mins >= 60 ){
+                first = first.plusHours(1).withMinute( mins - 60);
+            }else {
+                first = first.withMinute( mins );
+            }
+        }else{ // more than an hour
+            first = first.withMinute(0).withSecond(0);
+            int h = (int) sec/3600;
+            int m = (int) sec/60;
+            int hs;
+            if( sec % 3600 == 0 ){ // clean hours
+                hs = h*(now.getHour()/h+1);
+            }else{ // hours and min (fe 1h30m or 90m)
+                long h_m= now.getHour()*60+now.getMinute();
+                int res = (int) (h_m/m+1)*m;
+                first = first.withMinute(res%60);
+                hs = res/60;
+            }
+            if( hs>23 ){
+                first = first.plusDays(hs/24).withHour( hs%24 );
+            }else{
+                first = first.withHour( hs );
+            }
         }
-        return interval_millis;
+        Logger.info("Found next at "+first);
+        return Duration.between( LocalDateTime.now(),first).toMillis();
     }
 
     /**
@@ -266,72 +266,10 @@ public class TimeTools {
     }
 
     public static Pair<Long,TimeUnit> parsePeriodString( String period ){
-        
-        period = period.toUpperCase();
-        period = period.replace("DAYS", "D");
-        period = period.replace("HOURS", "H");
-        period = period.replace("SEC", "S");
-        period = period.replace("MIN", "M");
-        int d = period.indexOf("D");
-        int h = period.indexOf("H");
-    	int m = period.indexOf("M");
-        int s = period.indexOf("S");
-        int ms = period.indexOf("MS");
-        long total=0;
-        
-    	try {
-            // Days
-            if( d != -1 ){    		
-	    		total += Tools.parseInt( period.substring(0, d), 0 );
-                d+=1;
-                if( d==period.length() ){
-                    return Pair.of(total,TimeUnit.DAYS);
-                }
-	    	}else{
-	    		d=0;
-            }
-            total *= 24;
-            // Hours
-	    	if( h != -1 ){    		
-	    		total += Tools.parseInt( period.substring(d, h), 0 );
-                h+=1;
-                if( h==period.length() ){
-                    return Pair.of(total,TimeUnit.HOURS);
-                }
-	    	}else{
-	    		h=0;
-            }
-            total *= 60; //in minutes
-            // Minutes
-	    	if( m !=- 1 && m != ms){
-	    		total += Tools.parseInt(period.substring(h, m), 0);
-                m+=1;
-                if( m==period.length() ){
-                    return Pair.of(total,TimeUnit.MINUTES);
-                }
-	    	}else{
-	    		m=h;
-            }
-            total *= 60; //in seconds
-
-	    	if( s!= -1 && s!=ms+1){
-                total += Tools.parseInt( period.substring(m, s), 0 );
-                s++;
-                if( s==period.length() ){
-                    return Pair.of(total,TimeUnit.SECONDS);
-                }
-            }else{
-                s=m;
-            }    
-            total *= 1000; //in millis
-            if( ms!= -1){ 
-                total += Tools.parseInt( period.substring(s, ms), 0 );                      
-            }	
-            return Pair.of(total,TimeUnit.MILLISECONDS);
-	    }catch( java.lang.ArrayIndexOutOfBoundsException e) {
-            Logger.error("Error parsing period to seconds:"+period);
-            return Pair.of(total,null);
-        }   
+        var millis = parsePeriodString(period,TimeUnit.MILLISECONDS);
+        if( millis == -1 )
+            return Pair.of(millis,null);
+        return Pair.of(millis,TimeUnit.MILLISECONDS);
     }
     public static long parsePeriodStringToSeconds( String period ){
         return parsePeriodString(period, TimeUnit.SECONDS);
@@ -346,7 +284,7 @@ public class TimeTools {
      * @return The string formatted period
      */
 	public static String convertPeriodtoString( long amount, TimeUnit unit ){		
-		boolean round=false;
+
 		if( unit == TimeUnit.MILLISECONDS ){
 			if( amount < 5000 ){
                 if( amount%1000==0)
@@ -362,12 +300,10 @@ public class TimeTools {
 			}else if( amount < 3600 ){
 				return (amount-amount%60)/60+"m"+(amount%60==0?"":amount%60+"s");
 			}
-			if( amount % 60 > 30 )
-				round=true;
+            var round = amount % 60 > 30;
 			amount /= 60; //minutes
 			if(round)
 				amount++;
-			round=false;
 			unit = TimeUnit.MINUTES;
 		}
 		long min=0;
@@ -377,9 +313,7 @@ public class TimeTools {
 			}else if( amount < 1440 ){
 				return (amount-amount%60)/60+"h"+(amount%60==0?"":amount%60+"m");
 			}
-			
-			if( amount % 60 > 30 )
-				round=true;
+            var round = amount % 60 > 30;
 			min=amount%60;
 			amount /= 60;
 			if(round)
@@ -486,22 +420,18 @@ public class TimeTools {
      */
     public static ChronoUnit parseToChronoUnit(String unit ){
 
-        unit=unit.replace("s",""); // So both single and multiple are found
-        return switch (unit) {
-            case "sec","second" -> ChronoUnit.SECONDS;
-            case "minute", "min" -> ChronoUnit.MINUTES;
-            case "hour" -> ChronoUnit.HOURS;
-            case "day" -> ChronoUnit.DAYS;
-            case "week" -> ChronoUnit.WEEKS;
-            case "month" -> ChronoUnit.MONTHS;
-            case "year" -> ChronoUnit.YEARS;
-            case "decade" -> ChronoUnit.DECADES;
-            case "century","centurie" -> ChronoUnit.CENTURIES; // Not a type, because s has been removed earlier
-            default -> {
-                Logger.error("Invalid unit given "+unit+", defaulting to forever");
-                yield ChronoUnit.FOREVER;
+        unit = unit.replace("s", ""); // So both singular and plural are handled
+
+        for (ChronoUnit chronoUnit : ChronoUnit.values()) {
+            if (chronoUnit.toString().toLowerCase().startsWith(unit.toLowerCase())) {
+                return chronoUnit;
             }
-        };
+        }
+        if( unit.equals("century"))
+            return ChronoUnit.CENTURIES;
+
+        Logger.error("Invalid unit given " + unit + ", defaulting to forever");
+        return ChronoUnit.FOREVER;
     }
     /**
      * Convert the string representation of the days for execution to objects
@@ -510,37 +440,31 @@ public class TimeTools {
     public static ArrayList<DayOfWeek> convertDAY( String day ){
         ArrayList<DayOfWeek> daysList = new ArrayList<>();
 
-        if( day.isBlank() )
+        if( day.isBlank() ) // default is all
             day = "all";
 
+        // Check if the whole week with or without weekend is asked
         if( day.startsWith("weekday")||day.equals("all")||day.equals("always")){
             daysList.add( DayOfWeek.MONDAY);
             daysList.add( DayOfWeek.TUESDAY);
             daysList.add( DayOfWeek.WEDNESDAY);
             daysList.add( DayOfWeek.THURSDAY);
             daysList.add( DayOfWeek.FRIDAY);
-        }
-        if(day.equals("all")||day.equals("always")) {
-            daysList.add(DayOfWeek.SATURDAY);
-            daysList.add(DayOfWeek.SUNDAY);
-        }
-        if( daysList.isEmpty()){
-            if( day.contains("mo"))
-                daysList.add(DayOfWeek.MONDAY);
-            if( day.contains("tu"))
-                daysList.add(DayOfWeek.TUESDAY);
-            if( day.contains("we"))
-                daysList.add(DayOfWeek.WEDNESDAY);
-            if( day.contains("th"))
-                daysList.add(DayOfWeek.THURSDAY);
-            if( day.contains("fr"))
-                daysList.add(DayOfWeek.FRIDAY);
-            if( day.contains("sa"))
+
+            if(!day.startsWith("weekday")){
                 daysList.add(DayOfWeek.SATURDAY);
-            if( day.contains("su"))
                 daysList.add(DayOfWeek.SUNDAY);
+            }
+            return daysList;
         }
-        daysList.trimToSize();
+        // Specific days are requested
+        day = day.toUpperCase(); // Convert input to uppercase for consistency
+        for (DayOfWeek dow : DayOfWeek.values()) {
+            var pref = dow.toString().substring(0, 2); // Get first two characters of each day
+            if (day.contains(pref)) {
+                daysList.add(dow);
+            }
+        }
         return daysList;
     }
     public static long secondsSinceMidnight(){
