@@ -2,7 +2,6 @@ package util.tools;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.tinylog.Logger;
-import util.task.Task;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -150,8 +149,9 @@ public class TimeTools {
 
         // Meaning clean seconds
         LocalDateTime now = LocalDateTime.now();
-        long sec = interval_millis/1000;
         LocalDateTime first = now.withNano(0);
+
+        long sec = interval_millis/1000;
         if( sec < 60 ){ // so less than a minute
             int secs = (int)((now.getSecond()/sec+1)*sec);
             if( secs >= 60 ){
@@ -160,45 +160,55 @@ public class TimeTools {
                 first = first.withSecond( secs );
             }
         }else if( sec < 3600 ) { // so below an hour
-            int mins;
-            if( sec%60==0){ // so clean minutes
-                sec /= 60;
-                mins = (int) (((now.getMinute()/sec+1))*sec);
-                first = first.withSecond(0);
-            }else{ // so combination of minutes and seconds...
-                long m_s= now.getMinute()*60+now.getSecond();
-                int res = (int) ((m_s/sec+1)*sec);
-                mins = res/60;
-                first = first.withSecond(res%60);
-            }
-            if( mins >= 60 ){
-                first = first.plusHours(1).withMinute( mins - 60);
-            }else {
-                first = first.withMinute( mins );
-            }
+           first = handleBelowHour(sec);
         }else{ // more than an hour
-            first = first.withMinute(0).withSecond(0);
-            int h = (int) sec/3600;
-            int m = (int) sec/60;
-            int hs;
-            if( sec % 3600 == 0 ){ // clean hours
-                hs = h*(now.getHour()/h+1);
-            }else{ // hours and min (fe 1h30m or 90m)
-                long h_m= now.getHour()*60+now.getMinute();
-                int res = (int) (h_m/m+1)*m;
-                first = first.withMinute(res%60);
-                hs = res/60;
-            }
-            if( hs>23 ){
-                first = first.plusDays(hs/24).withHour( hs%24 );
-            }else{
-                first = first.withHour( hs );
-            }
+            first = handleAboveHour(sec);
         }
         Logger.info("Found next at "+first);
         return Duration.between( LocalDateTime.now(),first).toMillis();
     }
-
+    private static LocalDateTime handleBelowHour(long sec){
+        int mins;
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime first = now.withNano(0);
+        if( sec%60==0){ // so clean minutes
+            sec /= 60;
+            mins = (int) (((now.getMinute()/sec+1))*sec);
+            first = first.withSecond(0);
+        }else{ // so combination of minutes and seconds...
+            long m_s= now.getMinute()* 60L +now.getSecond();
+            int res = (int) ((m_s/sec+1)*sec);
+            mins = res/60;
+            first = first.withSecond(res%60);
+        }
+        if( mins >= 60 ){
+            first = first.plusHours(1).withMinute( mins - 60);
+        }else {
+            first = first.withMinute( mins );
+        }
+        return first;
+    }
+    private static LocalDateTime handleAboveHour( long sec ){
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime first = now.withNano(0).withMinute(0).withSecond(0);
+        int h = (int) sec/3600;
+        int m = (int) sec/60;
+        int hs;
+        if( sec % 3600 == 0 ){ // clean hours
+            hs = h*(now.getHour()/h+1);
+        }else{ // hours and min (fe 1h30m or 90m)
+            long h_m= now.getHour()*60+now.getMinute();
+            int res = (int) (h_m/m+1)*m;
+            first = first.withMinute(res%60);
+            hs = res/60;
+        }
+        if( hs>23 ){
+            first = first.plusDays(hs/24).withHour( hs%24 );
+        }else{
+            first = first.withHour( hs );
+        }
+        return first;
+    }
     /**
      * Parses the given time period to the equivalent amount of TimeUnits
      * @param period The period that needs to be parsed
