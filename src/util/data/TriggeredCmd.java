@@ -15,7 +15,6 @@ import java.util.function.Supplier;
  */
 public class TriggeredCmd<T extends Number> {
     private String cmd;
-    private String ori;
     private TRIGGERTYPE type;
     private Function<Double, Boolean> comp;
     private boolean triggered = false;
@@ -23,7 +22,6 @@ public class TriggeredCmd<T extends Number> {
 
     public TriggeredCmd(String cmd, String trigger ) {
         this.cmd = cmd;
-        this.ori = trigger;
         type = TRIGGERTYPE.COMP;
         switch (trigger) {
             case "", "always" -> type = TRIGGERTYPE.ALWAYS;
