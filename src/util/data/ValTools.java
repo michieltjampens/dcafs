@@ -7,6 +7,7 @@ import util.tools.TimeTools;
 import util.tools.Tools;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.MatchResult;
@@ -27,7 +28,7 @@ public class ValTools {
      * @param offset The index offset to apply
      * @return The altered expression
      */
-    public static String buildNumericalMem(RealtimeValues rtvals, String exp, ArrayList<NumericVal> nums, int offset){
+    public static String buildNumericalMem(RealtimeValues rtvals, String exp, ArrayList<NumberVal<? extends Number>> nums, int offset){
         if( nums==null)
             nums = new ArrayList<>();
 
@@ -73,9 +74,10 @@ public class ValTools {
         nums.trimToSize();
         return exp;
     }
-    private static int findOrAddValue( String id, String type, RealtimeValues rtvals, ArrayList<NumericVal> nums, int offset) {
+    private static int findOrAddValue( String id, String type, RealtimeValues rtvals, ArrayList<NumberVal<? extends Number>> nums, int offset) {
         int index;
-        Optional<? extends NumericVal> value;
+
+        Optional<? extends NumberVal> value;
         switch (type) {
             case "d", "double", "r", "real" -> value = rtvals.getRealVal(id);
             case "int", "i" -> value = rtvals.getIntegerVal(id);

@@ -524,22 +524,20 @@ public class RealtimeValues implements Commandable {
 			case "update","def" -> {
 				if (cmds.length < 3)
 					yield "! Not enough arguments, "+cmd+":id,"+cmds[1]+",expression";
-				if( cmd.startsWith("r")){ // so real, rv
-					var rOpt = getRealVal(cmds[0]);
-					if( rOpt.isEmpty() )
-						yield "! No such real yet";
-					val = rOpt.get();
-				}else{ // so int,iv
-					var iOpt = getIntegerVal(cmds[0]);
-					if( iOpt.isEmpty() )
-						yield "! No such int yet";
-					val = iOpt.get();
-				}
+
 				var result = ValTools.processExpression(cmds[2], this);
 				if (Double.isNaN(result))
 					yield "! Unknown id(s) in the expression " + cmds[2];
-				val.updateValue(result);
-				yield val.id()+" updated to " + result;
+
+				if( cmd.startsWith("r")){ // so real, rv
+					yield getRealVal(cmds[0])
+							.map(r -> { r.updateValue(result); return r.id() + " updated to " + result; })
+							.orElse("! No such real yet");
+				}else{ // so int,iv
+					yield getIntegerVal(cmds[0])
+							.map(r -> { r.updateValue(result); return r.id() + " updated to " + result; })
+							.orElse("! No such real yet");
+				}
 			}
 			case "new" -> {
 				// Split in group & name
@@ -788,7 +786,7 @@ public class RealtimeValues implements Commandable {
 		StringJoiner join = new StringJoiner(eol, title + eol, "");
 		join.setEmptyValue("None yet");
 		var list = new ArrayList<String>();
-		ArrayList<NumericVal> nums = new ArrayList<>();
+		ArrayList<NumberVal<T>> nums = new ArrayList<>();
 		if (showReals){
 			nums.addAll(realVals.values().stream().filter(rv -> rv.group().equalsIgnoreCase(group)).toList());
 		}
@@ -805,7 +803,6 @@ public class RealtimeValues implements Commandable {
 						}
 					})
 					.map(nv -> {
-
 						return "  "+ nv.name() + " : "+applyUnit(nv);
 					} ) // change it to strings
 					.forEach(list::add);

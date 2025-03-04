@@ -57,7 +57,7 @@ public class CheckBlock extends AbstractBlock{
         }
         Double[] work= new Double[steps.size()+sharedMem.size()];
         for (int a = 0; a < sharedMem.size();a++ ){
-            work[steps.size()+a]=sharedMem.get(a).value();
+            work[steps.size()+a] = sharedMem.get(a).value().doubleValue();
         }
         for( int a=0;a<steps.size();a++)
             work[a]=steps.get(a).apply(work);

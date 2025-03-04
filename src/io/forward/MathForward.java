@@ -1,5 +1,6 @@
 package io.forward;
 
+import util.data.NumberVal;
 import util.data.RealtimeValues;
 import util.data.RealVal;
 import org.apache.commons.lang3.ArrayUtils;
@@ -33,7 +34,7 @@ public class MathForward extends AbstractForward {
     HashMap<String,String> defines = new HashMap<>();
 
     public enum OP_TYPE{COMPLEX, SCALE, LN, SALINITY, SVC,TRUEWINDSPEED,TRUEWINDDIR,UTM,GDC}
-    private ArrayList<NumericVal> referencedNums = new ArrayList<>();
+    private ArrayList<NumberVal<? extends Number>> referencedNums = new ArrayList<>();
     private int highestI=-1;
     private final ArrayList<BigDecimal> temps = new ArrayList<>();
 

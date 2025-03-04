@@ -1,6 +1,7 @@
 package util.taskblocks;
 
 import org.tinylog.Logger;
+import util.data.NumberVal;
 import util.data.NumericVal;
 import util.task.Task;
 
@@ -9,7 +10,7 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 public abstract class AbstractBlock implements TaskBlock{
-    ArrayList<NumericVal> sharedMem;
+    ArrayList<NumberVal<? extends Number>> sharedMem;
     ArrayList<TaskBlock> next = new ArrayList<>();
     String ori;
     Optional<TaskBlock> parentBlock=Optional.empty();
@@ -19,13 +20,14 @@ public abstract class AbstractBlock implements TaskBlock{
     boolean valid=true;
 
     /* Shared mem */
-    public void setSharedMem(ArrayList<NumericVal> mem) {
+    @Override
+    public void setSharedMem(ArrayList<NumberVal<? extends Number>> mem) {
         sharedMem=mem;
     }
     public boolean hasSharedMem(){
         return sharedMem!=null;
     }
-    public ArrayList<NumericVal> getSharedMem(){
+    public ArrayList<NumberVal<? extends Number>> getSharedMem(){
         return sharedMem;
     }
 

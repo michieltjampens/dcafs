@@ -1,5 +1,6 @@
 package util.taskblocks;
 
+import util.data.NumberVal;
 import util.data.NumericVal;
 
 import java.util.ArrayList;
@@ -9,9 +10,9 @@ import java.util.StringJoiner;
 public interface TaskBlock {
 
     /* Shared Numerical Mem */
-    void setSharedMem( ArrayList<NumericVal> mem);
+    void setSharedMem( ArrayList<NumberVal<? extends Number>> mem);
     boolean hasSharedMem();
-    ArrayList<NumericVal> getSharedMem();
+    ArrayList<NumberVal<? extends Number>> getSharedMem();
 
     boolean addNext(TaskBlock block);
     Optional<TaskBlock> getParent();
