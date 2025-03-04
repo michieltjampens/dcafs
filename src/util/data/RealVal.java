@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
 public class RealVal extends AbstractVal implements NumericVal{
 
@@ -37,7 +36,7 @@ public class RealVal extends AbstractVal implements NumericVal{
     private ArrayList<Double> history;
 
     /* Triggering */
-    private ArrayList<TriggeredCmd> triggered;
+    private ArrayList<TriggeredCmd<Double>> triggered;
     private MathFab parseOp;
 
     private RealVal(){}
@@ -186,9 +185,8 @@ public class RealVal extends AbstractVal implements NumericVal{
         }
         /* Respond to triggered command based on value */
         if( dQueue!=null && triggered!=null ) {
-            double v = val;
-            // Execute all the triggers, only if it's the first time
-            triggered.forEach(tc -> tc.apply(v));
+            for( var trigger : triggered )
+                trigger.check(val,value, cmd -> dQueue.add( Datagram.system(cmd)), this::getStdev );
         }
 
         if( targets!=null ){
@@ -270,7 +268,7 @@ public class RealVal extends AbstractVal implements NumericVal{
         if( triggered==null)
             triggered = new ArrayList<>();
 
-        var td = new TriggeredCmd(cmd,trigger);
+        var td = new TriggeredCmd<Double>(cmd,trigger);
         if( td.isInvalid()) {
             Logger.error(id()+" (dv)-> Failed to convert trigger: "+trigger);
             return;
@@ -427,84 +425,5 @@ public class RealVal extends AbstractVal implements NumericVal{
             }
         }
         return line;
-    }
-
-    /**
-     * TriggeredCmd is a way to run cmd's if the new value succeeds in either the compare or meets the other options
-     * Cmd: if it contains a '$' this will be replaced with the current value
-     * Current triggers:
-     * - Double comparison fe. above 5 and below 10
-     * - always, means always issue the cmd independent of the value
-     * - changed, only issue the command if the value has changed
-     */
-    private class TriggeredCmd{
-        String cmd; // The cmd to issue
-        String ori; // The compare before it was converted to a function (for toString purposes)
-        TRIGGERTYPE type;
-        Function<Double,Boolean> comp; // The compare after it was converted to a function
-        boolean triggered=false; // The last result of the comparison
-
-        /**
-         * Create a new TriggeredCmd with the given cmd and trigger, doesn't set the cmd of it failed to convert the trigger
-         * @param cmd The cmd to execute when triggered
-         * @param trigger Either 'always' if the cmd should be done on each update, or 'changed' if the value changed
-         *                or a single or double compare fe 'above 10' or 'below 5 or above 50' etc
-         */
-        public TriggeredCmd( String cmd, String trigger){
-            this.cmd=cmd;
-            this.ori=trigger;
-            type=TRIGGERTYPE.COMP;
-            switch (trigger) {
-                case "", "always" -> type = TRIGGERTYPE.ALWAYS;
-                case "changed" -> type = TRIGGERTYPE.CHANGED;
-                default -> {
-                    if (trigger.contains("stdev")) {
-                        type = TRIGGERTYPE.STDEV;
-                        trigger = trigger.replace("stdev", "");
-                    }
-                    comp = MathUtils.parseSingleCompareFunction(trigger);
-                    if (comp == null) {
-                        this.cmd = "";
-                    }
-                }
-            }
-        }
-        public boolean isInvalid(){
-            return cmd.isEmpty();
-        }
-        public void apply( double val ){
-            if( dQueue==null) {
-                Logger.error(id()+" (dv)-> Tried to check for a trigger without a dQueue");
-                return;
-            }
-            boolean ok;
-            switch (type) {
-                case ALWAYS -> {
-                    dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
-                    return;
-                }
-                case CHANGED -> {
-                    if (val != value)
-                        dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
-                    return;
-                }
-                case COMP -> ok = comp.apply(val);
-                case STDEV -> {
-                    double sd = getStdev();
-                    if (Double.isNaN(sd))
-                        return;
-                    ok = comp.apply(getStdev()); // Compare with the Standard Deviation instead of value
-                }
-                default -> {
-                    Logger.error(id() + " (dv)-> Somehow an invalid trigger sneaked in... ");
-                    return;
-                }
-            }
-            if( !triggered && ok ){
-                dQueue.add(Datagram.system(cmd.replace("$", String.valueOf(val))));
-            }else if( triggered && !ok){
-                triggered=false;
-            }
-        }
     }
 }
