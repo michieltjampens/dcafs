@@ -13,7 +13,7 @@ import java.util.function.Supplier;
  * - always, means always issue the cmd independent of the value
  * - changed, only issue the command if the value has changed
  */
-public class TriggeredCmd<T extends Number> {
+public class TriggeredCmd {
     private String cmd;
     private TRIGGERTYPE type;
     private Function<Double, Boolean> comp;
