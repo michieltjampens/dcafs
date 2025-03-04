@@ -45,7 +45,10 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      * @return The constructed RealVal
      */
     public static IntegerVal newVal(String group, String name){
-        return new IntegerVal().group(group).name(name);
+        var iv = new IntegerVal();
+        iv.name(name);
+        iv.group(group);
+        return iv;
     }
 
     /* ********************************* Constructing ************************************************************ */
@@ -112,25 +115,6 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         }
     }
     /**
-     * Set the name, this needs to be unique within the group
-     * @param name The new name
-     * @return This object with altered name
-     */
-    public IntegerVal name(String name){
-        this.name=name;
-        return this;
-    }
-    /**
-     * Set the group, multiple DoubleVals can share a group id
-     * @param group The new group
-     * @return This object with altered group
-     */
-    public IntegerVal group(String group){
-        this.group=group;
-        return this;
-    }
-
-    /**
      * Set the unit of the value fe. °C
      * @param unit The unit for the value
      * @return This object with updated unit
@@ -191,13 +175,9 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public boolean parseValue( String val ){
         // NumberUtils.createInteger can handle hex, but considers leading zero and not hex as octal
         // So remove those leading zero's if not hex
-        if( val.startsWith("0") ){
-            if( val.length()>2){
-                if( val.charAt(1)!='x') {
-                    while( val.charAt(0)=='0' && val.length()>1)
-                        val = val.substring(1);
-                }
-            }
+        if( val.startsWith("0") && val.length()>2 && val.charAt(1)!='x') {
+            while( val.charAt(0)=='0' && val.length()>1)
+                val = val.substring(1);
         }
         try {
             var res = NumberUtils.createInteger(val.trim());
@@ -375,22 +355,24 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     }
     public String toString(){
         String line = value+unit;
+        // Check if min max data is kept, if so, add it.
         if( keepMinMax && max!=Integer.MIN_VALUE )
             line += " (Min:"+min+unit+", Max: "+max+unit+")";
+
+        // Check if history is kept, if so, append relevant info
         if( keepHistory>0 && !history.isEmpty()) {
+            // Check is we previously added minmax, so we know to remove the closing )
             line = (line.endsWith(")") ? line.substring(0, line.length() - 1) + ", " : line + " (") + "Avg:" + getAvg() + unit + ")";
             if( history.size()==keepHistory){
                 line = line.substring(0,line.length()-1) +" StDev: "+getStdev()+unit+")";
             }
         }
-        if( keepTime ) {
-            if (timestamp != null) {
-                line += " Age: " + TimeTools.convertPeriodtoString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
-            } else {
-                line += " Age: No updates yet.";
-            }
-        }
-        return line;
+        if( !keepTime )
+            return line;
+
+        if (timestamp != null)
+            return line + " Age: " + TimeTools.convertPeriodtoString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
+        return line + " Age: No updates yet.";
     }
     /**
      * TriggeredCmd is a way to run cmd's if the new value succeeds in either the compare or meets the other options

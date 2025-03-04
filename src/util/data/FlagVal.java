@@ -37,7 +37,10 @@ public class FlagVal extends AbstractVal implements NumericVal{
      * @return The constructed FlagVal
      */
     public static FlagVal newVal(String group, String name){
-        return new FlagVal().group(group).name(name);
+        var fv = new FlagVal();
+        fv.name(name);
+        fv.group(group);
+        return fv;
     }
 
     /* **************************** C O N S T R U C T I N G ******************************************************* */
@@ -109,25 +112,6 @@ public class FlagVal extends AbstractVal implements NumericVal{
         if( !FALSE.isEmpty() && falseRegex!=null ){
             Logger.error(id()+" -> Can't combine both fixed and regex based for false flag");
         }
-        return this;
-    }
-    /**
-     * Set the name
-     * @param name The name
-     * @return This object with altered name
-     */
-    public FlagVal name(String name){
-        this.name=name;
-        return this;
-    }
-
-    /**
-     * Set the group this belongs to
-     * @param group The group of which this is part
-     * @return This object with altered group
-     */
-    public FlagVal group(String group){
-        this.group=group;
         return this;
     }
     public FlagVal value(String state ){

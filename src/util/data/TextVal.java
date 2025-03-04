@@ -5,7 +5,6 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.time.Instant;
@@ -24,21 +23,25 @@ public class TextVal extends AbstractVal{
     private enum TYPE{STATIC,LOCALDT,UTCDT};
     private TYPE type = TYPE.STATIC;
     /* ********************************* Constructing ************************************************************ */
+
     /**
-     * Constructs a new RealVal with the given group and name
+     * Constructs a new TextVal with the given group and name
      *
      * @param group The group this RealVal belongs to
      * @param name The name for the RealVal
-     * @return The constructed RealVal
      */
+    public TextVal( String group, String name){
+        this.name=name;
+        this.group=group;
+    }
     public static TextVal newVal(String group, String name){
-        return new TextVal().group(group).name(name);
+        return new TextVal(group,name);
     }
     public static TextVal newLocalTimeVal(String group, String name){
-        return new TextVal().group(group).name(name).makeLocalDT();
+        return new TextVal(group,name).makeLocalDT();
     }
     public static TextVal newUTCTimeVal(String group, String name){
-        return new TextVal().group(group).name(name).makeUTCDT();
+        return new TextVal(group,name).makeUTCDT();
     }
     /**
      * Create a new TextVal based on a rtval text node
@@ -67,7 +70,8 @@ public class TextVal extends AbstractVal{
     public TextVal reload(Element rtval){
         reset();
         var dig = XMLdigger.goIn(rtval);
-        name(name).group( dig.attr("group", group()));
+        name(name);
+        group( dig.attr("group", group()));
         defValue( dig.attr( "def", def) );
         defValue( dig.attr( "default", def) );
         if( !def.isEmpty())
@@ -114,15 +118,6 @@ public class TextVal extends AbstractVal{
                 default -> Logger.error("Unrecognized node in "+id()+" xml");
             }
         }
-        return this;
-    }
-
-    public TextVal group(String group){
-        this.group=group;
-        return this;
-    }
-    public TextVal name(String name){
-        this.name=name;
         return this;
     }
     public String value() {

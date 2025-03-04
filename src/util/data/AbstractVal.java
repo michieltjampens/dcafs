@@ -140,6 +140,12 @@ public abstract class AbstractVal {
      */
     abstract boolean hasTriggeredCmds();
     /* ************************************** Getters ************************************************************** */
+    public void name( String name ){
+        this.name=name;
+    }
+    public void group( String group ){
+        this.group=group;
+    }
     /**
      * Get the id, which is group + underscore + name
      * @return The concatenation of group, underscore and name

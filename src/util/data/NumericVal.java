@@ -4,8 +4,6 @@ import java.math.BigDecimal;
 
 public interface NumericVal {
 
-    String name(); // get the name
-    String group(); // get the group
     String id(); //get the id
     String asValueString();
     BigDecimal toBigDecimal(); // get the value as a BigDecimal

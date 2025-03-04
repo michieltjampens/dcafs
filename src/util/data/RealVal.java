@@ -50,7 +50,10 @@ public class RealVal extends AbstractVal implements NumericVal{
      * @return The constructed RealVal
      */
     public static RealVal newVal(String group, String name){
-        return new RealVal().group(group).name(name);
+        var rv = new RealVal();
+        rv.name(name);
+        rv.group(group);
+        return rv;
     }
 
     /* ********************************* Constructing ************************************************************ */
@@ -120,25 +123,6 @@ public class RealVal extends AbstractVal implements NumericVal{
             Logger.info(id()+" -> Applying "+op+" after parsing to real/double.");
         }
     }
-    /**
-     * Set the name, this needs to be unique within the group
-     * @param name The new name
-     * @return This object with altered name
-     */
-    public RealVal name(String name){
-        this.name=name;
-        return this;
-    }
-    /**
-     * Set the group, multiple DoubleVals can share a group id
-     * @param group The new group
-     * @return This object with altered group
-     */
-    public RealVal group(String group){
-        this.group=group;
-        return this;
-    }
-
     /**
      * Set the unit of the value fe. °C
      * @param unit The unit for the value
