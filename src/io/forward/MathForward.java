@@ -240,14 +240,7 @@ public class MathForward extends AbstractForward {
             Logger.info(id+" (mf) -> Executed properly after previous issues, resetting bad count" );
         badDataCount=0;
 
-        StringJoiner join = new StringJoiner(delimiter); // prepare a joiner to rejoin the data
-        for( int a=0;a<split.length;a++){
-            if( a <= (highestI==-1?0:highestI) ) {
-                join.add(bds[a] != null ? bds[a].toPlainString() : split[a]); // if no valid bd is found, use the original data
-            }else{
-                join.add(split[a]);
-            }
-        }
+        var join = joinBddata(bds,split);
 
         // append suffix
         String result = switch( suffix ){
@@ -290,6 +283,7 @@ public class MathForward extends AbstractForward {
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         return !noTargets() || log || store != null;
     }
+
     private void showError(String error){
         showError(true,error);
     }
@@ -613,16 +607,7 @@ public class MathForward extends AbstractForward {
             return "";
         }
         ops.forEach( op -> op.solve(bds) );
-
-        StringJoiner join = new StringJoiner(delimiter); // prepare a joiner to rejoin the data
-        for( int a=0;a<split.length;a++){
-            if( a <= highestI ) {
-                join.add(bds[a] != null ? bds[a].toPlainString() : split[a]); // if no valid bd is found, use the original data
-            }else{
-                join.add(split[a]);
-            }
-        }
-        return join.toString();
+        return joinBddata(bds,split).toString();
     }
 
     /**
@@ -797,6 +782,18 @@ public class MathForward extends AbstractForward {
         }
         return exp;
     }
+    private StringJoiner joinBddata( BigDecimal[] bds, String[] split ){
+        StringJoiner join = new StringJoiner(delimiter); // prepare a joiner to rejoin the data
+        for( int a=0;a<split.length;a++){
+            if( a <= (highestI==-1?0:highestI) ) {
+                join.add(bds[a] != null ? bds[a].toPlainString() : split[a]); // if no valid bd is found, use the original data
+            }else{
+                join.add(split[a]);
+            }
+        }
+        return join;
+    }
+
     /* ************************************* O P E R A T I O N ***************************************************** */
     /**
      * Storage class for everything related to an operation.

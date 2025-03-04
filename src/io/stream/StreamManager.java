@@ -662,307 +662,299 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String replyToStreamCommand(String request, boolean html ){
 
-		String nl = html?"<br>":"\r\n";
-
 		String[] cmds = request.split(",");
-
-		StringJoiner join = new StringJoiner(nl);
-		BaseStream stream;
-		XMLfab fab;
-
+		// Prepare the digger
 		var dig = XMLdigger.goIn(settingsPath,"dcafs");
 		if( !dig.hasPeek("streams")) {
 			XMLfab.alterDigger(dig).ifPresent( x->x.addChild("streams").build());
 		}
 		dig.digDown("streams");
 		if( cmds.length==1){
-			switch (cmds[0]) {
-				case "?" -> {
-					String cyan = html ? "" : TelnetCodes.TEXT_CYAN;
-					String green = html ? "" : TelnetCodes.TEXT_GREEN;
-					String ora = html ? "" : TelnetCodes.TEXT_ORANGE;
-					String reg = html ? "" : TelnetCodes.TEXT_YELLOW + TelnetCodes.UNDERLINE_OFF;
-					join.add(TelnetCodes.TEXT_RESET + ora + "Notes" + reg)
-							.add("-> ss: and streams: do the same thing")
-							.add("-> Every stream has at least:")
-							.add("   - a unique id which is used to identify it, lowercase is enforced")
-							.add("   - an eol (end of line), the default is crlf")
-							.add("   - ...");
-					join.add("").add(cyan + "Add new streams" + reg)
-							.add(green + " ss:addtcp,id,ip:port " + reg + "-> Add a TCP stream to xml and try to connect")
-							.add(green + " ss:addudp,id,ip:port " + reg + "-> Add a UDP stream to xml and connect")
-							.add(green + " ss:addserial,id,port,baudrate" + reg + " -> Add a serial stream to xml and try to connect")
-							.add(green + " ss:addlocal,id,source " + reg + "-> Add a internal stream that handles internal data");
-					join.add("").add(cyan + "Info about all streams" + reg)
-							.add(green + " ss "+reg+"-> Get a list of all streams with indexes for sending data")
-							.add(green + " ss:buffers " + reg + "-> Get confirm buffers.")
-							.add(green + " ss:status " + reg + "-> Get streamlist.")
-							.add(green + " ss:requests " + reg + "-> Get an overview of all the datarequests held by the streams");
-					join.add("").add(cyan + "Alter the stream settings" + reg)
-							.add(green + " ss:id,ttl,value " + reg + "-> Alter the ttl")
-							.add(green + " ss:id,prefixorigin,true/false -> Do/don't add the id of the data origin to lines received ")
-							.add(green + " ss:id,eol,value " + reg + "-> Alter the eol string")
-							.add(green + " ss:id,baudrate,value " + reg + "-> Alter the baudrate of a serial/modbus stream")
-							.add(green + " ss:id,addwrite,when:data " + reg + "-> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
-							.add(green + " ss:id,addcmd,when:data " + reg + "-> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
-							.add(green + " ss:id,echo,on/off " + reg + "-> Sets if the data received on this stream will be returned to sender");
-					join.add("").add(cyan + "Route data from or to a stream" + reg)
-							.add(green + " ss:forward,source,id " + reg + "-> Forward the data from a source to the stream, source can be any object that accepts a writable")
-							.add(green + " ss:connect,id1,if2 " + reg + "-> Data is interchanged between the streams with the given id's")
-							.add(green + " ss:id,send,data(,reply) " + reg + "-> Send the given data to the id with optional reply");
-					return join.toString();
-				}
-				case "reload" -> {
-					readSettingsFromXML(settingsPath);
-					return "Settings reloaded.";
-				}
-				case "buffers" -> {
-					return getConfirmBuffers();
-				}
-				case "requests" -> {
-					join.setEmptyValue("! No requests yet.");
-					streams.values().stream().filter(base -> base.getRequestsSize() != 0)
-							.forEach(x -> join.add(x.id() + " -> " + x.listTargets()));
-					return join.toString();
-				}
-				case "status" -> {
-					return getStatus();
-				}
-				case "" ->{
-					return getStreamList(html);
-				}
-				default -> {
-					return "! No such cmd in ss: " + cmds[0];
-				}
-			}
+			return doSingleCmd(cmds[0],html);
 		}else if( Arrays.asList(NEWSTREAM).contains(cmds[0]) ){ // Meaning it's an add cmd
-			cmds[1]=cmds[1].toLowerCase();
-			dig.hasPeek("stream","id",cmds[1]);
-			if( dig.hasValidPeek())
-				return "! Already a stream with that id, try something else?";
-
-			var fabOpt = XMLfab.alterDigger(dig);
-			if( fabOpt.isEmpty())
-				return "! Failed to create fab";
-
-			fab = fabOpt.get();
-			var type = cmds[0].substring(3);
-
-			switch (type) {
-				case "tcp", "udpclient","tcpserver" -> {
-					if (cmds.length != 3)
-						return "! Not enough arguments: ss:" + cmds[0] + ",id,ip:port";
-					addBaseToXML(fab, cmds[1], type);
-					fab.addChild("address", cmds[2]).build();
-				}
-				case "serial", "modbus" -> {
-					if (cmds.length < 3)
-						return "! Not enough arguments: ss:" + cmds[0] + ",id,port(,baudrate)";
-					addBaseToXML(fab, cmds[1], type);
-					fab.addChild("port", cmds[2]);
-					fab.addChild("serialsettings", (cmds.length == 4 ? cmds[3] : "19200") + ",8,1,none")
-							.build();
-				}
-				case "local"->{
-					addBaseToXML(fab, cmds[1], type);
-					if( cmds.length==3)
-						fab.attr("src",cmds[2]);
-					fab.build();
-				}
-				case "udpserver" -> {
-					if (cmds.length != 3) // Make sure we got the correct amount of arguments
-						return "! Wrong amount of arguments -> ss:addudpserver,id,port";
-					new UdpServer(cmds[1], Integer.parseInt(cmds[2]), dQueue);
-					return "Started udp server (probably)";
-				}
-				default -> {
-					return "! Invalid option";
-				}
-			}
-			var base = addStreamFromXML(fab.getCurrentParent());
-			if( base != null){
-				try{
-					base.reconnectFuture.get(2,TimeUnit.SECONDS);
-					streams.put( cmds[1], base );
-				}catch(CancellationException | ExecutionException | InterruptedException | TimeoutException e){
-					return "! Failed to connect.";
-				}
-				return "Connected to "+base.id()+", use 'raw:"+base.id()+"' to see incoming data.";
-			}
-			return "! Failed to read stream from XML";
+			return doAddStreamCmd(cmds,dig);
 		}else{ // Meaning it's an alter/use cmd
-			cmds[0] = cmds[0].toLowerCase();
+			return doAlterUseCmd( cmds, dig );
+		}
+	}
+	private String doSingleCmd( String cmd, boolean html){
+		return switch (cmd) {
+			case "?" -> getCmdHelp(html);
+			case "reload" -> {
+				readSettingsFromXML(settingsPath);
+				yield "Settings reloaded.";
+			}
+			case "buffers" ->  getConfirmBuffers();
+			case "requests" -> {
+				var join = new StringJoiner(html?"<br>":"\r\n");
+				join.setEmptyValue("! No requests yet.");
+				streams.values().stream().filter(base -> base.getRequestsSize() != 0)
+						.forEach(x -> join.add(x.id() + " -> " + x.listTargets()));
+				yield join.toString();
+			}
+			case "status" -> getStatus();
+			case "" -> getStreamList(html);
+			default ->  "! No such cmd in ss: " + cmd;
+		};
+	}
+	private String getCmdHelp(boolean html){
+		var join = new StringJoiner("\r\n");
 
-			dig.hasPeek("stream","id",cmds[0]);
-			if( !dig.hasValidPeek())
-				return "! No such stream yet.";
-			dig.digDown("stream","id",cmds[0]);
-			var type = dig.attr("type","");
-			var fabOpt = XMLfab.alterDigger(dig);
-			if( fabOpt.isEmpty() )
-				return "! Failed to find in xml";
-			fab = fabOpt.get();
+		join.add("Manages all the streams: adding, checking, writing etc.");
+		join.add("Add new streams")
+				.add( "ss:addtcp,id,ip:port -> Add a TCP stream to xml and try to connect")
+				.add( "ss:addudp,id,ip:port -> Add a UDP stream to xml and connect")
+				.add( "ss:addserial,id,port,baudrate -> Add a serial stream to xml and try to connect")
+				.add( "ss:addlocal,id,source -> Add a internal stream that handles internal data");
+		join.add( "Info about all streams")
+				.add( "ss -> Get a list of all streams with indexes for sending data")
+				.add( "ss:buffers -> Get confirm buffers.")
+				.add( "ss:status -> Get streamlist.")
+				.add( "ss:requests -> Get an overview of all the datarequests held by the streams");
+		join.add("Alter the stream settings")
+				.add( "ss:id,ttl,value -> Alter the ttl")
+				.add( "ss:id,prefixorigin,true/false -> Do/don't add the id of the data origin to lines received ")
+				.add( "ss:id,eol,value -> Alter the eol string")
+				.add( "ss:id,baudrate,value -> Alter the baudrate of a serial/modbus stream")
+				.add( "ss:id,addwrite,when:data -> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
+				.add( "ss:id,addcmd,when:data -> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
+				.add( "ss:id,echo,on/off -> Sets if the data received on this stream will be returned to sender");
+		join.add( "Route data from or to a stream")
+				.add( "ss:forward,source,id -> Forward the data from a source to the stream, source can be any object that accepts a writable")
+				.add( "ss:connect,id1,if2 -> Data is interchanged between the streams with the given id's")
+				.add( "ss:id,send,data(,reply) -> Send the given data to the id with optional reply");
+		return LookAndFeel.formatCmdHelp(join.toString(),html);
+	}
+	private String doAddStreamCmd( String[] cmds, XMLdigger dig){
+		cmds[1]=cmds[1].toLowerCase();
+		dig.hasPeek("stream","id",cmds[1]);
+		if( dig.hasValidPeek())
+			return "! Already a stream with that id, try something else?";
 
-			stream = streams.get(cmds[0]);
+		var fabOpt = XMLfab.alterDigger(dig);
+		if( fabOpt.isEmpty())
+			return "! Failed to create fab";
 
-			switch (cmds[1]) {
-				case "send" -> {
-					if (cmds.length < 3)
-						return "! Not enough arguments given: ss:id,send,data";
-					String written = writeToStream(cmds[1], cmds[2], cmds.length > 3 ? cmds[3] : "");
-					if (written.isEmpty())
-						return "! Failed to write data";
-					return "Data written: " + written;
-				}
-				case "recon" -> {
-					if (stream != null) {
-						stream.disconnect();
-						if (stream.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0) {
-							Logger.info("Already scheduled to reconnect");
-							stream.reconnectFuture = scheduler.schedule(new DoConnection(stream), 5, TimeUnit.SECONDS);
-						}
-						try {
-							stream.reconnectFuture.get(2, TimeUnit.SECONDS);
-						} catch (CancellationException | ExecutionException | InterruptedException |
-								 TimeoutException e) {
-							return "! Failed to connect.";
-						}
-						return "Reconnected to " + stream.id() + ", use 'raw:" + stream.id() + "' to see incoming data.";
+		var fab = fabOpt.get();
+		var type = cmds[0].substring(3);
+
+		switch (type) {
+			case "tcp", "udpclient","tcpserver" -> {
+				if (cmds.length != 3)
+					return "! Not enough arguments: ss:" + cmds[0] + ",id,ip:port";
+				addBaseToXML(fab, cmds[1], type);
+				fab.addChild("address", cmds[2]).build();
+			}
+			case "serial", "modbus" -> {
+				if (cmds.length < 3)
+					return "! Not enough arguments: ss:" + cmds[0] + ",id,port(,baudrate)";
+				addBaseToXML(fab, cmds[1], type);
+				fab.addChild("port", cmds[2]);
+				fab.addChild("serialsettings", (cmds.length == 4 ? cmds[3] : "19200") + ",8,1,none")
+						.build();
+			}
+			case "local"->{
+				addBaseToXML(fab, cmds[1], type);
+				if( cmds.length==3)
+					fab.attr("src",cmds[2]);
+				fab.build();
+			}
+			case "udpserver" -> {
+				if (cmds.length != 3) // Make sure we got the correct amount of arguments
+					return "! Wrong amount of arguments -> ss:addudpserver,id,port";
+				new UdpServer(cmds[1], Integer.parseInt(cmds[2]), dQueue);
+				return "Started udp server (probably)";
+			}
+			default -> {
+				return "! Invalid option";
+			}
+		}
+		var base = addStreamFromXML(fab.getCurrentParent());
+		if( base != null){
+			try{
+				base.reconnectFuture.get(2,TimeUnit.SECONDS);
+				streams.put( cmds[1], base );
+			}catch(CancellationException | ExecutionException | InterruptedException | TimeoutException e){
+				return "! Failed to connect.";
+			}
+			return "Connected to "+base.id()+", use 'raw:"+base.id()+"' to see incoming data.";
+		}
+		return "! Failed to read stream from XML";
+	}
+	private String doAlterUseCmd( String[] cmds, XMLdigger dig){
+		cmds[0] = cmds[0].toLowerCase();
+
+		dig.hasPeek("stream","id",cmds[0]);
+		if( !dig.hasValidPeek())
+			return "! No such stream yet.";
+		dig.digDown("stream","id",cmds[0]);
+		var type = dig.attr("type","");
+		var fabOpt = XMLfab.alterDigger(dig);
+		if( fabOpt.isEmpty() )
+			return "! Failed to find in xml";
+		var fab = fabOpt.get();
+
+		var stream = streams.get(cmds[0]);
+
+		switch (cmds[1]) {
+			case "send" -> {
+				if (cmds.length < 3)
+					return "! Not enough arguments given: ss:id,send,data";
+				String written = writeToStream(cmds[1], cmds[2], cmds.length > 3 ? cmds[3] : "");
+				if (written.isEmpty())
+					return "! Failed to write data";
+				return "Data written: " + written;
+			}
+			case "recon" -> {
+				if (stream != null) {
+					stream.disconnect();
+					if (stream.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0) {
+						Logger.info("Already scheduled to reconnect");
+						stream.reconnectFuture = scheduler.schedule(new DoConnection(stream), 5, TimeUnit.SECONDS);
 					}
-					return "! Couldn't find that stream";
-				}
-				case "reload" -> {
-					return reloadStream(cmds[0]);
-				}
-				case "clearrequests" -> {
-					return "Targets cleared:" + stream.clearTargets();
-				}
-				case "baudrate" -> {
-					if (!(stream instanceof SerialStream))
-						return "! Not a Serial port, no baudrate to change";
-					((SerialStream) stream).setBaudrate(Tools.parseInt(cmds[2], -1));
-					fab.alterChild("serialsettings", ((SerialStream) stream).getSerialSettings()).build();
-					return "Altered the baudrate";
-				}
-				case "label" -> {
-					if( cmds[2].isEmpty()||cmds[2].equalsIgnoreCase("void")){
-						fab.removeChild("label").build();
-						return "Label removed";
+					try {
+						stream.reconnectFuture.get(2, TimeUnit.SECONDS);
+					} catch (CancellationException | ExecutionException | InterruptedException |
+							 TimeoutException e) {
+						return "! Failed to connect.";
 					}
-					fab.alterChild("label", cmds[2]).build();
-					stream.setLabel(cmds[2]);
-					return "Label altered to " + cmds[2];
+					return "Reconnected to " + stream.id() + ", use 'raw:" + stream.id() + "' to see incoming data.";
 				}
-				case "prefixorigin" -> {
-					if( Tools.parseBool(cmds[2],false )){
-						fab.removeChild("prefixorigin");
-						stream.showOriginAsPrefix(false);
-					}else {
-						fab.alterChild("prefixorigin", cmds[2]);
-						stream.showOriginAsPrefix(true);
-					}
-					fab.build();
-					return "Prefix choice altered";
+				return "! Couldn't find that stream";
+			}
+			case "reload" -> {
+				return reloadStream(cmds[0]);
+			}
+			case "clearrequests" -> {
+				return "Targets cleared:" + stream.clearTargets();
+			}
+			case "baudrate" -> {
+				if (!(stream instanceof SerialStream))
+					return "! Not a Serial port, no baudrate to change";
+				((SerialStream) stream).setBaudrate(Tools.parseInt(cmds[2], -1));
+				fab.alterChild("serialsettings", ((SerialStream) stream).getSerialSettings()).build();
+				return "Altered the baudrate";
+			}
+			case "label" -> {
+				if( cmds[2].isEmpty()||cmds[2].equalsIgnoreCase("void")){
+					fab.removeChild("label").build();
+					return "Label removed";
 				}
-				case "ttl" -> {
-					if (!cmds[2].equals("-1")) {
-						stream.setReaderIdleTime(TimeTools.parsePeriodStringToSeconds(cmds[2]));
-						fab.alterChild("ttl", cmds[2]);
-					} else {
-						fab.removeChild("ttl");
-					}
-					fab.build();
-					scheduler.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
-					//reloadStream(cmds[0]);
-					return "TTL altered";
+				fab.alterChild("label", cmds[2]).build();
+				stream.setLabel(cmds[2]);
+				return "Label altered to " + cmds[2];
+			}
+			case "prefixorigin" -> {
+				if( Tools.parseBool(cmds[2],false )){
+					fab.removeChild("prefixorigin");
+					stream.showOriginAsPrefix(false);
+				}else {
+					fab.alterChild("prefixorigin", cmds[2]);
+					stream.showOriginAsPrefix(true);
 				}
-				case "port" -> {
-					if( type.equals("serial")){
-						if( Tools.getSerialPorts(false).contains(cmds[2]) ){
-							fab.alterChild("port", cmds[2]);
-						}else{
-							return "! No such serial port available";
-						}
-					}else if( type.equals("tcp")){
-						var addr = dig.attr("address","");
-						if( addr.contains(":")) {
-							var ip = addr.split(":")[0];
-							fab.alterChild("address", ip+":"+cmds[2]);
-						}else{
-							return "! No valid/empty address node?";
-						}
+				fab.build();
+				return "Prefix choice altered";
+			}
+			case "ttl" -> {
+				if (!cmds[2].equals("-1")) {
+					stream.setReaderIdleTime(TimeTools.parsePeriodStringToSeconds(cmds[2]));
+					fab.alterChild("ttl", cmds[2]);
+				} else {
+					fab.removeChild("ttl");
+				}
+				fab.build();
+				scheduler.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
+				//reloadStream(cmds[0]);
+				return "TTL altered";
+			}
+			case "port" -> {
+				if( type.equals("serial")){
+					if( Tools.getSerialPorts(false).contains(cmds[2]) ){
+						fab.alterChild("port", cmds[2]);
 					}else{
-						return "! Command not supported for this type (yet)";
+						return "! No such serial port available";
 					}
-					fab.build();
-					reloadStream(cmds[0]);
-					return "Port altered to "+cmds[2];
-				}
-				case "eol" -> {
-					fab.alterChild("eol", cmds[2]);
-					fab.build();
-					reloadStream(cmds[0]);
-					return "EOL altered";
-				}
-				case "addwrite", "addcmd" -> {
-					if (cmds.length < 3) {
-						return "! Wrong amount of arguments -> ss:id," + cmds[1] + ",when,cmd";
+				}else if( type.equals("tcp")){
+					var addr = dig.attr("address","");
+					if( addr.contains(":")) {
+						var ip = addr.split(":")[0];
+						fab.alterChild("address", ip+":"+cmds[2]);
+					}else{
+						return "! No valid/empty address node?";
 					}
-					if( !Arrays.asList(WHEN).contains(cmds[2]))
-						return "! Not a valid when.";
-					var from = request.indexOf(","+cmds[2]+",");
-					from+=cmds[2].length()+2;
-					var cmd = request.substring(from);
-					fab.addChild(cmds[1].substring(3), cmd).attr("when", cmds[2]).build();
-					stream.addTriggeredAction(cmds[2], cmd);
-					return "Added triggered " + cmds[1].substring(3) + " to " + cmds[0];
+				}else{
+					return "! Command not supported for this type (yet)";
 				}
-				case "echo" -> {
-					if (cmds.length != 3) // Make sure we got the correct amount of arguments
-						return "! Wrong amount of arguments -> ss:id,echo,on/off";
-					var state = Tools.parseBool(cmds[2], false);
-					if (state) {
-						fab.alterChild("echo", "on");
-						stream.enableEcho();
-					} else {
-						fab.removeChild("echo");
-						stream.disableEcho();
-					}
-					fab.build();
-					return "Echo altered";
+				fab.build();
+				reloadStream(cmds[0]);
+				return "Port altered to "+cmds[2];
+			}
+			case "eol" -> {
+				fab.alterChild("eol", cmds[2]);
+				fab.build();
+				reloadStream(cmds[0]);
+				return "EOL altered";
+			}
+			case "addwrite", "addcmd" -> {
+				if (cmds.length < 3) {
+					return "! Wrong amount of arguments -> ss:id," + cmds[1] + ",when,cmd";
 				}
-				case "reloadstore"-> {
-					if (reloadStore(cmds[0]))
-						return "Reloaded the store of " + cmds[0];
-					return "! Failed to reload the store of " + cmds[0];
-				}
-				case "tunnel" -> {
-					if (cmds.length != 3) // Make sure we got the correct amount of arguments
-						return "! Wrong amount of arguments -> ss:fromid,tunnel,toid";
+				if( !Arrays.asList(WHEN).contains(cmds[2]))
+					return "! Not a valid when.";
 
-					int s1_ok = getWritable(cmds[0]).map(wr -> addTargetRequest(cmds[2], wr) ? 1 : 0).orElse(-1);
-					if (s1_ok != 1)
-						return s1_ok == -1 ? "! No writable " + cmds[0] : "! No such source " + cmds[2];
+				// Last bit could contain a ',' so combine everything from there onwards
+				var from = Arrays.copyOfRange(cmds,3,cmds.length);
+				var cmd = String.join(",",from);
 
-					int s2_ok = getWritable(cmds[2]).map(wr -> addTargetRequest(cmds[0], wr) ? 1 : 0).orElse(-1);
-					if (s2_ok != 1)
-						return s2_ok == -1 ? "! No writable " + cmds[1] : "! No such source " + cmds[1];
+				fab.addChild(cmds[1].substring(3), cmd).attr("when", cmds[2]).build();
+				stream.addTriggeredAction(cmds[2], cmd);
+				return "Added triggered " + cmds[1].substring(3) + " to " + cmds[0];
+			}
+			case "echo" -> {
+				if (cmds.length != 3) // Make sure we got the correct amount of arguments
+					return "! Wrong amount of arguments -> ss:id,echo,on/off";
+				var state = Tools.parseBool(cmds[2], false);
+				if (state) {
+					fab.alterChild("echo", "on");
+					stream.enableEcho();
+				} else {
+					fab.removeChild("echo");
+					stream.disableEcho();
+				}
+				fab.build();
+				return "Echo altered";
+			}
+			case "reloadstore"-> {
+				if (reloadStore(cmds[0]))
+					return "Reloaded the store of " + cmds[0];
+				return "! Failed to reload the store of " + cmds[0];
+			}
+			case "tunnel" -> {
+				if (cmds.length != 3) // Make sure we got the correct amount of arguments
+					return "! Wrong amount of arguments -> ss:fromid,tunnel,toid";
 
-					return "Tunnel established between " + cmds[1] + " and " + cmds[2];
-				}
-				case "link" -> {
-					if (cmds.length != 3) // Make sure we got the correct amount of arguments
-						return "! Wrong amount of arguments -> ss:id,link,toid";
-					getWritable(cmds[0]).ifPresent( wr -> dQueue.add(Datagram.system(cmds[2]).writable(wr)));
-					return "Tried enabling the forward from " + cmds[0] + " to " + cmds[2];
-				}
-				default -> {
-					return "! No such subcommand for ss:id :"+cmds[1];
-				}
+				int s1_ok = getWritable(cmds[0]).map(wr -> addTargetRequest(cmds[2], wr) ? 1 : 0).orElse(-1);
+				if (s1_ok != 1)
+					return s1_ok == -1 ? "! No writable " + cmds[0] : "! No such source " + cmds[2];
+
+				int s2_ok = getWritable(cmds[2]).map(wr -> addTargetRequest(cmds[0], wr) ? 1 : 0).orElse(-1);
+				if (s2_ok != 1)
+					return s2_ok == -1 ? "! No writable " + cmds[1] : "! No such source " + cmds[1];
+
+				return "Tunnel established between " + cmds[1] + " and " + cmds[2];
+			}
+			case "link" -> {
+				if (cmds.length != 3) // Make sure we got the correct amount of arguments
+					return "! Wrong amount of arguments -> ss:id,link,toid";
+				getWritable(cmds[0]).ifPresent( wr -> dQueue.add(Datagram.system(cmds[2]).writable(wr)));
+				return "Tried enabling the forward from " + cmds[0] + " to " + cmds[2];
+			}
+			default -> {
+				return "! No such subcommand for ss:id :"+cmds[1];
 			}
 		}
 	}
-
+	/* ************************************************************************************************************** */
 	/**
 	 * Checks for a stream that starts with id and adds the given writable to its targets
 	 * @param id The (start of) the stream id

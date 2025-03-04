@@ -132,7 +132,7 @@ public class ConfirmCollector extends AbstractCollector {
             return;
 
         if( confirms.get(0).reply.isEmpty() ){ // Meaning no reply requested (so just delayed sending)
-            confirms.remove(0); // remove the top one that was send
+            confirms.remove(0); // remove the top one that was sent
             if( !confirms.isEmpty() ) { // If that didn't empty the list
                 confirms.get(0).doAttempt(true); // try sending the top one
                 if( confirms.size()==1) // send the last one and no reply needed
