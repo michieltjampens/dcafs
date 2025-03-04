@@ -36,7 +36,7 @@ public class RealVal extends AbstractVal implements NumericVal{
     private ArrayList<Double> history;
 
     /* Triggering */
-    private ArrayList<TriggeredCmd<Double>> triggered;
+    private ArrayList<TriggeredCmd> triggered;
     private MathFab parseOp;
 
     private RealVal(){}
@@ -268,7 +268,7 @@ public class RealVal extends AbstractVal implements NumericVal{
         if( triggered==null)
             triggered = new ArrayList<>();
 
-        var td = new TriggeredCmd<Double>(cmd,trigger);
+        var td = new TriggeredCmd(cmd,trigger);
         if( td.isInvalid()) {
             Logger.error(id()+" (dv)-> Failed to convert trigger: "+trigger);
             return;

@@ -33,7 +33,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     private ArrayList<Integer> history;
 
     /* Triggering */
-    private ArrayList<TriggeredCmd<Integer>> triggered;
+    private ArrayList<TriggeredCmd> triggered;
     private MathFab parseOp;
     private boolean roundDoubles=false;
     /**
@@ -256,7 +256,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
         if( triggered==null)
             triggered = new ArrayList<>();
 
-        var td = new TriggeredCmd<Integer>(cmd,trigger);
+        var td = new TriggeredCmd(cmd,trigger);
         if( td.isInvalid()) {
             Logger.error(id()+" (iv)-> Failed to convert trigger: "+trigger);
             return;
