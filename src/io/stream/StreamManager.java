@@ -20,6 +20,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.lang3.StringUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -586,7 +587,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				int delay = retryDelayIncrement*(base.connectionAttempts+1);
 				if( delay > retryDelayMax )
 					delay = retryDelayMax;
-				Logger.error( "Failed to connect to "+base.id()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );
+
+				if (LookAndFeel.isNthAttempt(base.connectionAttempts))
+					Logger.error( "Failed to connect to "+base.id()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );
+
 				base.reconnectFuture = scheduler.schedule( new DoConnection( base ), delay, TimeUnit.SECONDS );
 			} catch (Exception ex) {
 				Logger.error( "Connection thread interrupting while trying to connect to "+base.id());

@@ -27,4 +27,22 @@ public class LookAndFeel {
         }
         return colored.toString();
     }
+
+    /**
+     * Limits action based on event count.
+     * Returns true if only one digit is non-zero (e.g. ,1,2,3...10,20....100,200)
+     * @param count The number of attempts,events, etc.
+     * @return true if only one digit is non-zero
+     */
+    public static boolean isNthAttempt(int count) {
+        if (count <= 0) {
+            return false;
+        }
+        // Logarithm base 10 gives the number of digits minus one.
+        // Example: log10(123) = 2 → 10^2 = 100
+        // This calculates the closest lower power of 10 to group attempts (10, 100, 1000, ...).
+        // The count is divided by this power, showing the message only on exact multiples.
+        int divisor = (int)Math.pow(10, (int)Math.log10(count));
+        return count % divisor == 0;
+    }
 }
