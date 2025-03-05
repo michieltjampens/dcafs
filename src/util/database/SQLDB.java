@@ -14,6 +14,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class SQLDB extends Database implements TableInsert{
@@ -789,7 +790,23 @@ public class SQLDB extends Database implements TableInsert{
             default -> Logger.warn(id + "(db) -> Unknown state: " + state);
         }
     }
+    protected boolean readTable(Connection con, String query, Consumer<ResultSet> action) {
+        try (Statement stmt = con.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
 
+            if (rs == null) {
+                return false;
+            }
+
+            while (rs.next())
+                action.accept(rs);
+
+        } catch (SQLException e) {
+            Logger.error(getID() + " -> Error during table read: " + e.getErrorCode());
+            return false;
+        }
+        return true;
+    }
     /**
      * Execute the simple queries one by one
      */

@@ -210,80 +210,59 @@ public class SQLiteDB extends SQLDB{
      * Check which tables currently exist in the database and add them to this object
      */
     @Override
-    public boolean getCurrentTables( boolean clear){
-
+    public boolean getCurrentTables(boolean clear){
         if( !connect(false))
             return false;
 
         if( clear )
             tables.clear();
 
-        try( Statement stmt = con.createStatement() ){
-            ResultSet rs = stmt.executeQuery(GET_SQLITE_TABLES);
-            if (rs != null) {
-                try {
-                    while (rs.next()) {
-                        String tableName = rs.getString(1);
-                        if( tables.get(tableName)==null) {//don't overwrite
-                            var t= new SqlTable(tableName);
-                            tables.put(tableName, t);
-                        }
-                        tables.get(tableName).flagAsReadFromDB();
-                    }
-                } catch (SQLException e) {
-                    Logger.error( getID() + " -> Error during table read: "+e.getErrorCode());
-                    return false;
+        readTable(con, GET_SQLITE_TABLES, rs -> {
+            try {
+                String tableName = rs.getString(1);
+                if( tables.get(tableName)==null) {//don't overwrite
+                    var t= new SqlTable(tableName);
+                    tables.put(tableName, t);
                 }
+                tables.get(tableName).flagAsReadFromDB();
+            } catch (SQLException e) {
+                Logger.error( getID() + " -> Error during table read: "+e.getErrorCode());
             }
-        }catch( SQLException e ){
-            Logger.error(e);
-        }
+        });
         for( SqlTable table : tables.values() ){
             if( table.isReadFromDB() ){// Don't overwrite existing info
                 Logger.debug( getID() + " -> The table "+table.getName()+" has already been setup, not adding the columns");
                 continue;
             }
-
-            try( Statement stmt = con.createStatement() ){
-                ResultSet rs = stmt.executeQuery("PRAGMA table_info(\""+table.getName()+"\");");
-                if (rs != null) {
-                    try {
-                        while (rs.next()) {
-                            String column = rs.getString(rs.findColumn("name"));
-                            String type = rs.getString(rs.findColumn("type"));
-
-                            switch (type.toLowerCase()) {
-                                case "integer" -> table.addInteger(column);
-                                case "real" -> table.addReal(column);
-                                case "text" -> {
-                                    if (column.equalsIgnoreCase("timestamp")) {
-                                        table.addTimestamp(column);
-                                    } else {
-                                        table.addText(column);
-                                    }
-                                }
-                                default -> Logger.warn("Unknown type: " + type);
-                            }
-                            try{
-                                table.setNotNull( rs.getBoolean(rs.findColumn("notnull")) );
-                                table.setPrimaryKey( rs.getBoolean(rs.findColumn("pk")) );
-                            }catch (SQLException e) {
-                                Logger.error(e);
-                                return false;
-                            }
-                        }
-                    } catch (SQLException e) {
-                        Logger.error( getID() + " -> Error during table read: "+e.getErrorCode());
-                        return false;
-                    }
-                }
-            }catch( SQLException e ){
-                Logger.error(e);
-                return false;
-            }
+            readTableInfo(table);
         }
+        return true;
+    }
+    private void readTableInfo(SqlTable table){
+        readTable(con, "PRAGMA table_info(\"" + table.getName() + "\");", rs -> {
+            try {
+                String column = rs.getString(rs.findColumn("name"));
+                String type = rs.getString(rs.findColumn("type"));
 
-        return true;  
+                switch (type.toLowerCase()) {
+                    case "integer" -> table.addInteger(column);
+                    case "real" -> table.addReal(column);
+                    case "text" -> {
+                        if (column.equalsIgnoreCase("timestamp")) {
+                            table.addTimestamp(column);
+                        } else {
+                            table.addText(column);
+                        }
+                    }
+                    default -> Logger.warn("Unknown type: " + type);
+                }
+
+                table.setNotNull(rs.getBoolean(rs.findColumn("notnull")));
+                table.setPrimaryKey(rs.getBoolean(rs.findColumn("pk")));
+            } catch (SQLException e) {
+                Logger.error("Error during read of table info for:"+table.getName(), e);
+            }
+        });
     }
     /**
      * Write the settings from the database to xml
