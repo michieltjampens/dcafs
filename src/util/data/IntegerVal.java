@@ -3,28 +3,26 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class IntegerVal extends NumberVal<Integer>{
 
-    private int defVal=0;
-    private boolean abs=false;
-
-    /* Min max*/
-    private int min=Integer.MAX_VALUE;
-    private int max=Integer.MIN_VALUE;
-    private boolean keepMinMax=false;
     private boolean roundDoubles=false;
+
+    public IntegerVal(){
+        /* Min max*/
+        min=Integer.MAX_VALUE;
+        max=Integer.MIN_VALUE;
+
+        defVal = 0;
+    }
     /**
      * Constructs a new RealVal with the given group and name
      *
@@ -62,47 +60,17 @@ public class IntegerVal extends NumberVal<Integer>{
     public IntegerVal alter( Element rtval ){
         reset();
         var dig = XMLdigger.goIn(rtval);
-        unit( dig.attr("unit", dig.peekAt("unit").value("")) );
+
         defValue( dig.attr( "def", defVal) );
         defValue( dig.attr( "default", defVal) );
         roundDoubles = dig.attr("allowreal",false);
 
         value=defVal; // Set the current value to the default
 
-        String options = dig.attr( "options", "");
-        for (var opt : options.split(",")) {
-            var arg = opt.split(":");
-            switch (arg[0]) {
-                case "minmax" -> keepMinMax();
-                case "time" -> keepTime();
-                case "order" -> order(NumberUtils.toInt(arg[1], -1));
-                case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
-                case "abs" -> enableAbs();
-            }
-        }
-        if( dig.hasPeek("op")){
-            setParseOp( dig.peekAt("op").value("") );
-        }
-
-        for (Element trigCmd : dig.peekOut("cmd") ) {
-            String trig = trigCmd.getAttribute("when");
-            String cmd = trigCmd.getTextContent();
-            addTriggeredCmd(trig, cmd);
-        }
+        baseAlter(dig);
 
         return this;
     }
-
-    /**
-     * Set the unit of the value fe. °C
-     * @param unit The unit for the value
-     * @return This object with updated unit
-     */
-    public IntegerVal unit(String unit){
-        this.unit=unit;
-        return this;
-    }
-
     /**
      * Update the value, this will -depending on the options set- also update related variables
      * @param val The new value
@@ -119,17 +87,10 @@ public class IntegerVal extends NumberVal<Integer>{
         }
         if( abs )
             val=Math.abs(val);
-
-        /* Respond to triggered command based on value */
-        if( dQueue!=null && triggered!=null ) {
-            for( var trigger : triggered )
-                trigger.check(val,value, cmd -> dQueue.add( Datagram.system(cmd)), this::getStdev );
-        }
         value=val;
-        if( targets!=null ){
-            int v = val;
-            targets.forEach( wr -> wr.writeLine(id(), Integer.toString(v)));
-        }
+
+        /* Respond to triggered command based on value and forward */
+        triggerAndForward(val);
         return this;
     }
     public void increment(){
@@ -188,66 +149,7 @@ public class IntegerVal extends NumberVal<Integer>{
     public void defValue(Integer defVal){
         this.defVal = defVal;
     }
-    /**
-     * Enable keeping track of the max and min values received since last reset
-     */
-    public void keepMinMax(){
-        keepMinMax=true;
-    }
-    public void enableAbs(){
-        abs=true;
-    }
-
-    /**
-     * Reset this RealVal to its default value
-     */
-    @Override
-    public void reset(){
-        keepMinMax=false;
-        if( triggered!=null)
-            triggered.clear();
-        super.reset();
-    }
 
     /* ***************************************** U S I N G ********************************************************** */
-    public int max(){
-        return max;
-    }
-    public int min(){
-        return min;
-    }
 
-    public double asDoubleValue() {
-        return value;
-    }
-    public Object valueAsObject(){ return value;}
-    public String stringValue(){ return String.valueOf(value);}
-    @Override
-    public int asIntegerValue() {
-        return value;
-    }
-    public String asValueString(){
-        return value+unit;
-    }
-    public String toString(){
-        String line = value+unit;
-        // Check if min max data is kept, if so, add it.
-        if( keepMinMax && max!=Integer.MIN_VALUE )
-            line += " (Min:"+min+unit+", Max: "+max+unit+")";
-
-        // Check if history is kept, if so, append relevant info
-        if( keepHistory>0 && !history.isEmpty()) {
-            // Check is we previously added minmax, so we know to remove the closing )
-            line = (line.endsWith(")") ? line.substring(0, line.length() - 1) + ", " : line + " (") + "Avg:" + getAvg() + unit + ")";
-            if( history.size()==keepHistory){
-                line = line.substring(0,line.length()-1) +" StDev: "+getStdev()+unit+")";
-            }
-        }
-        if( !keepTime )
-            return line;
-
-        if (timestamp != null)
-            return line + " Age: " + TimeTools.convertPeriodtoString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
-        return line + " Age: No updates yet.";
-    }
 }

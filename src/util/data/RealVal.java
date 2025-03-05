@@ -3,33 +3,21 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
-import java.time.*;
-import java.util.ArrayList;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 public class RealVal extends NumberVal<Double>{
 
     private double rawValue=Double.NaN;
-    private double defVal=Double.NaN;
 
-    private int digits=-1;
-    private boolean abs=false;
-
-    /* Min max*/
-    private double min=Double.MAX_VALUE;
-    private double max=-1*Double.MAX_VALUE;
-    private boolean keepMinMax=false;
-
-    /* Triggering */
-    private ArrayList<TriggeredCmd> triggered;
-
-    private RealVal(){}
+    private RealVal(){
+        min = Double.MAX_VALUE;
+        max = Double.MIN_VALUE;
+        defVal=Double.NaN;
+    }
 
     /**
      * Constructs a new RealVal with the given group and name
@@ -67,7 +55,7 @@ public class RealVal extends NumberVal<Double>{
         reset();
 
         var dig = XMLdigger.goIn(rtval);
-        unit( dig.attr("unit", dig.peekAt("unit").value("")) );
+
         scale( dig.attr("scale", dig.peekAt("scale").value(-1)) ) ;
 
         defValue( dig.attr("default", defVal) );
@@ -75,41 +63,11 @@ public class RealVal extends NumberVal<Double>{
 
         value=defVal; // Set the current value to the default
 
-        String options = dig.attr("options", "");
-        for (var opt : options.split(",")) {
-            var arg = opt.split(":");
-            switch (arg[0]) {
-                case "minmax" -> keepMinMax();
-                case "time" -> keepTime();
-                case "scale" -> scale(NumberUtils.toInt(arg[1], -1));
-                case "order" -> order(NumberUtils.toInt(arg[1], -1));
-                case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
-                case "abs" -> enableAbs();
-            }
-        }
-        dig.peekOut("cmd").forEach( trigCmd -> {
-            String trig = trigCmd.getAttribute("when");
-            String cmd = trigCmd.getTextContent();
-            addTriggeredCmd(trig, cmd);
-        });
-        var op = dig.attr("op","");
-        if( op.isEmpty() )
-            op = dig.peekAt("op").value("");
-        if( !op.isEmpty())
-            setParseOp(op);
+        baseAlter(dig);
 
         return this;
     }
 
-    /**
-     * Set the unit of the value fe. °C
-     * @param unit The unit for the value
-     * @return This object with updated unit
-     */
-    public RealVal unit(String unit){
-        this.unit=unit;
-        return this;
-    }
     public boolean parseValue( String val ){
         var res = NumberUtils.toDouble(val,Double.NaN);
 
@@ -154,16 +112,7 @@ public class RealVal extends NumberVal<Double>{
         }else{
             value=val;
         }
-        /* Respond to triggered command based on value */
-        if( dQueue!=null && triggered!=null ) {
-            for( var trigger : triggered )
-                trigger.check(val,value, cmd -> dQueue.add( Datagram.system(cmd)), this::getStdev );
-        }
-
-        if( targets!=null ){
-            double v = val;
-            targets.forEach( wr -> wr.writeLine(id(),Double.toString(v)));
-        }
+        triggerAndForward(val);
         return this;
     }
 
@@ -181,17 +130,6 @@ public class RealVal extends NumberVal<Double>{
     }
 
     /**
-     * Reset this RealVal to its default value
-     */
-    @Override
-    public void reset(){
-        keepMinMax=false;
-        digits=-1;
-        if( triggered!=null)
-            triggered.clear();
-        super.reset();
-    }
-    /**
      * Set the amount of digits to scale to using half up rounding
      * @param fd The amount of digits
      * @return This object after setting the digits
@@ -200,30 +138,12 @@ public class RealVal extends NumberVal<Double>{
         this.digits=fd;
         return this;
     }
-
-    /**
-     * Enable keeping track of the max and min values received since last reset
-     */
-    public void keepMinMax(){
-        keepMinMax=true;
-    }
-
-    public void enableAbs(){
-        abs=true;
-    }
-
-    /* ***************************************** U S I N G ********************************************************** */
     /**
      *
      * @return The amount of digits to scale to using rounding half up
      */
     public int scale(){ return digits; }
-    /**
-     * @return Get the current value as a double
-     */
-    //public double value(){ return value; }
-    public Object valueAsObject(){ return value;}
-    public String stringValue(){ return String.valueOf(value);}
+    /* ***************************************** U S I N G ********************************************************** */
     public double value( String type ){
         return switch( type ){
             case "stdev", "stdv"-> getStdev();
@@ -234,7 +154,7 @@ public class RealVal extends NumberVal<Double>{
             default -> asDoubleValue();
         };
     }
-    public int asIntegerValue(){ return value.intValue(); }
+
     /**
      * Update the value
      * @param val The new value
@@ -242,12 +162,7 @@ public class RealVal extends NumberVal<Double>{
     public void updateValue(double val){
         value(val);
     }
-    public double min(){
-        return min;
-    }
-    public double max(){
-        return max;
-    }
+
     public double raw() {
         if( Double.isNaN(rawValue))
             return value;
@@ -274,27 +189,5 @@ public class RealVal extends NumberVal<Double>{
      */
     public boolean equals( double d){
         return Double.compare(value,d)==0;
-    }
-    public String asValueString(){
-        return value+unit;
-    }
-    public String toString(){
-        String line = value+unit;
-        if( keepMinMax && max!=Double.MIN_VALUE )
-            line += " (Min:"+min+unit+", Max: "+max+unit+")";
-        if( keepHistory>0 && !history.isEmpty()) {
-            line = (line.endsWith(")") ? line.substring(0, line.length() - 1) + ", " : line + " (") + "Avg:" + getAvg() + unit + ")";
-            if( history.size()==keepHistory){
-                line = line.substring(0,line.length()-1) +" StDev: "+getStdev()+unit+")";
-            }
-        }
-        if( keepTime ) {
-            if (timestamp != null) {
-                line += " Age: " + TimeTools.convertPeriodtoString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
-            } else {
-                line += " Age: No updates yet.";
-            }
-        }
-        return line;
     }
 }

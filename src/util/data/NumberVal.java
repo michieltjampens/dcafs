@@ -1,21 +1,31 @@
 package util.data;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.math.MathFab;
 import util.math.MathUtils;
+import util.tools.TimeTools;
 import util.tools.Tools;
+import util.xml.XMLdigger;
+import worker.Datagram;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 public abstract class NumberVal<T extends Number> extends AbstractVal implements NumericVal{
-    protected T value;
+    protected T value,defVal;
+    protected T min,max;
     protected MathFab parseOp;
+    protected int digits=-1;
     /* History */
     protected ArrayList<T> history;
     /* Triggering */
     protected ArrayList<TriggeredCmd> triggered;
+    protected boolean keepMinMax=false;
+    protected boolean abs=false;
 
     public void setParseOp( String op ){
         op=op.replace("i","i0");
@@ -38,6 +48,51 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
         if( keepTime )
             timestamp= Instant.now();
 
+    }
+    /**
+     * Enable keeping track of the max and min values received since last reset
+     */
+    public void keepMinMax(){
+        keepMinMax=true;
+    }
+
+    public void enableAbs(){
+        abs=true;
+    }
+    /**
+     * Set the unit of the value fe. °C
+     * @param unit The unit for the value
+     */
+    public void unit(String unit){
+        this.unit=unit;
+    }
+    /* *********************************** X M L ********************************************************************* */
+    public void baseAlter( XMLdigger dig ){
+
+        unit( dig.attr("unit", dig.peekAt("unit").value("")) );
+
+        String options = dig.attr("options", "");
+        for (var opt : options.split(",")) {
+            var arg = opt.split(":");
+            switch (arg[0]) {
+                case "minmax" -> keepMinMax();
+                case "time" -> keepTime();
+                case "scale" -> digits = NumberUtils.toInt(arg[1], -1);
+                case "order" -> order(NumberUtils.toInt(arg[1], -1));
+                case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
+                case "abs" -> enableAbs();
+            }
+        }
+        dig.peekOut("cmd").forEach( trigCmd -> {
+            String trig = trigCmd.getAttribute("when");
+            String cmd = trigCmd.getTextContent();
+            addTriggeredCmd(trig, cmd);
+        });
+        var op = dig.attr("op","");
+        if( op.isEmpty() )
+            op = dig.peekAt("op").value("");
+        if( !op.isEmpty())
+            setParseOp(op);
     }
     /* *********************************** H I S T O R Y ************************************************************* */
     public boolean enableHistory(int count){
@@ -111,7 +166,30 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
     public boolean hasTriggeredCmds(){
         return triggered!=null&& !triggered.isEmpty();
     }
+    public void triggerAndForward(T val){
+        /* Respond to triggered command based on value */
+        if( dQueue!=null && triggered!=null ) {
+            for( var trigger : triggered )
+                trigger.check(val,value, cmd -> dQueue.add( Datagram.system(cmd)), this::getStdev );
+        }
+
+        if( targets!=null ){
+            targets.forEach( wr -> wr.writeLine(id(),String.valueOf(val)));
+        }
+    }
     /* ************************************************************************************************************** */
+    /**
+     * Reset this RealVal to its default value
+     */
+    @Override
+    public void reset(){
+        keepMinMax=false;
+        digits=-1;
+        abs=false;
+        if( triggered!=null)
+            triggered.clear();
+        super.reset();
+    }
     /**
      * Get the value but as a BigDecimal instead of double
      * @return The BigDecimal value of this object
@@ -124,8 +202,39 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
             return null;
         }
     }
+    public T max(){
+        return max;
+    }
+    public T min(){
+        return min;
+    }
     public abstract void updateValue( double val );
     public abstract void defValue( T val);
-    public abstract int asIntegerValue();
+    public int asIntegerValue(){ return value.intValue();};
     public double asDoubleValue(){ return value.doubleValue(); }
+    public Object valueAsObject(){ return value;}
+    public String stringValue(){ return String.valueOf(value);}
+    public String asValueString(){ return value+unit; }
+
+    public String toString(){
+        String line = value+unit;
+        // Check if min max data is kept, if so, add it.
+        if( keepMinMax )
+            line += " (Min:"+min+unit+", Max: "+max+unit+")";
+
+        // Check if history is kept, if so, append relevant info
+        if( keepHistory>0 && !history.isEmpty()) {
+            // Check is we previously added minmax, so we know to remove the closing )
+            line = (line.endsWith(")") ? line.substring(0, line.length() - 1) + ", " : line + " (") + "Avg:" + getAvg() + unit + ")";
+            if( history.size()==keepHistory){
+                line = line.substring(0,line.length()-1) +" StDev: "+getStdev()+unit+")";
+            }
+        }
+        if( !keepTime )
+            return line;
+
+        if (timestamp != null)
+            return line + " Age: " + TimeTools.convertPeriodtoString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
+        return line + " Age: No updates yet.";
+    }
 }
