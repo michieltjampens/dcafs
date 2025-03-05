@@ -4,6 +4,8 @@ import org.apache.commons.lang3.math.NumberUtils;
 import util.tools.Tools;
 
 import java.math.BigDecimal;
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.function.Function;
 
 public class Calculations {
@@ -16,30 +18,19 @@ public class Calculations {
             B4 = -3.107e-3, C0 = 6.766097e-1, C1 = 2.00564e-2, C2 = 1.104259e-4, C3 = -6.9698e-7, C4 = 1.0031e-9;
 
     public static Function<BigDecimal[],BigDecimal> procSalinity( String temp, String cond, String pressure){
-        int tempIndex,condIndex,pressIndex;
-        double tempVal,condVal,pressVal;
-        if( temp.startsWith("i")) {
-            tempIndex = NumberUtils.toInt(temp.substring(1), -1);
-            tempVal=0;
-        }else{
-            tempIndex=-1;
-            tempVal=NumberUtils.toDouble(temp);
-        }
-        if( cond.startsWith("i")) {
-            condIndex = NumberUtils.toInt(cond.substring(1), -1);
-            condVal=0;
-        }else{
-            condIndex=-1;
-            condVal=NumberUtils.toDouble(cond);
-        }
 
-        if( pressure.startsWith("i")) {
-            pressIndex = NumberUtils.toInt(pressure.substring(1), -1);
-            pressVal=0;
-        }else{
-            pressIndex=-1;
-            pressVal=NumberUtils.toDouble(pressure);
-        }
+        var t = getIndexAndVal(temp);
+        int tempIndex = t.getKey();
+        double tempVal = t.getValue();
+
+        var c = getIndexAndVal(cond);
+        int condIndex = c.getKey();
+        double condVal = c.getValue();
+
+        var p = getIndexAndVal(pressure);
+        int pressIndex = p.getKey();
+        double pressVal = p.getValue();
+
         return x -> {
             var sal = calcSalinity(
                     condIndex==-1?condVal:x[condIndex].doubleValue(),
@@ -150,30 +141,19 @@ public class Calculations {
      * @return Function to calculate sound velocity in m/s
      */
     public static Function<BigDecimal[],BigDecimal> procSoundVelocity( String temp, String salinity, String pressure){
-        int tempIndex,salIndex,pressIndex;
-        double tempVal,salVal,pressVal;
-        if( temp.startsWith("i")) {
-            tempIndex = NumberUtils.toInt(temp.substring(1), -1);
-            tempVal=0;
-        }else{
-            tempIndex=-1;
-            tempVal=NumberUtils.toDouble(temp);
-        }
-        if( salinity.startsWith("i")) {
-            salIndex = NumberUtils.toInt(salinity.substring(1), -1);
-            salVal=0;
-        }else{
-            salIndex=-1;
-            salVal=NumberUtils.toDouble(salinity);
-        }
 
-        if( pressure.startsWith("i")) {
-            pressIndex = NumberUtils.toInt(pressure.substring(1), -1);
-            pressVal=0;
-        }else{
-            pressIndex=-1;
-            pressVal=NumberUtils.toDouble(pressure);
-        }
+        var t = getIndexAndVal(temp);
+        int tempIndex = t.getKey();
+        double tempVal = t.getValue();
+
+        var s = getIndexAndVal(salinity);
+        int salIndex = s.getKey();
+        double salVal = s.getValue();
+
+        var p = getIndexAndVal(pressure);
+        int pressIndex = p.getKey();
+        double pressVal = p.getValue();
+
         return x -> {
             var sv = calcSndVelC(
                     salIndex==-1?salVal:x[salIndex].doubleValue(),
@@ -218,51 +198,27 @@ public class Calculations {
      * @return A function that calculates true wind speed in knots
      */
     public static Function<BigDecimal[],BigDecimal> procTrueWindSpeed( String windvel, String winddir, String sogKnots, String cog,String heading){
-        int windvelIndex,winddirIndex,sogKnotsIndex,cogIndex,headingIndex;
-        double windvelVal,winddirVal,sogKnotsVal,cogVal,headingVal;
 
-        // Apparent Wind Velocity
-        if( windvel.startsWith("i")) {
-            windvelIndex = NumberUtils.toInt(windvel.substring(1), -1);
-            windvelVal=0;
-        }else{
-            windvelIndex=-1;
-            windvelVal=NumberUtils.toDouble(windvel);
-        }
+        var windv = getIndexAndVal(windvel);
+        int windvelIndex = windv.getKey();
+        double windvelVal = windv.getValue();
 
-        // Apparent Wind Direction
-        if( winddir.startsWith("i")) {
-            winddirIndex = NumberUtils.toInt(winddir.substring(1), -1);
-            winddirVal=0;
-        }else{
-            winddirIndex=-1;
-            winddirVal=NumberUtils.toDouble(winddir);
-        }
+        var wd = getIndexAndVal(winddir);
+        int winddirIndex = wd.getKey();
+        double winddirVal = wd.getValue();
 
-        // Speed over ground in knots
-        if( sogKnots.startsWith("i")) {
-            sogKnotsIndex = NumberUtils.toInt(sogKnots.substring(1), -1);
-            sogKnotsVal=0;
-        }else{
-            sogKnotsIndex=-1;
-            sogKnotsVal=NumberUtils.toDouble(sogKnots);
-        }
-        // Course over ground in knots
-        if( sogKnots.startsWith("i")) {
-            cogIndex = NumberUtils.toInt(cog.substring(1), -1);
-            cogVal=0;
-        }else{
-            cogIndex=-1;
-            cogVal=NumberUtils.toDouble(cog);
-        }
-        // Course over ground in knots
-        if( heading.startsWith("i")) {
-            headingIndex = NumberUtils.toInt(heading.substring(1), -1);
-            headingVal=0;
-        }else{
-            headingIndex=-1;
-            headingVal=NumberUtils.toDouble(heading);
-        }
+        var sk = getIndexAndVal(sogKnots);
+        int sogKnotsIndex = sk.getKey();
+        double sogKnotsVal = sk.getValue();
+
+        var cg = getIndexAndVal(cog);
+        int cogIndex = cg.getKey();
+        double cogVal = cg.getValue();
+
+        var hd = getIndexAndVal(heading);
+        int headingIndex = hd.getKey();
+        double headingVal = hd.getValue();
+
         return x -> {
             var dir = calcTrueWindVelocity(
                     windvelIndex==-1?windvelVal:x[windvelIndex].doubleValue(),
@@ -312,6 +268,7 @@ public class Calculations {
         }
         return Truedir;
     }
+
     /**
      * Create a function that calculates the true wind speed
      * @param windvel The apparent wind velocity in knots
@@ -322,51 +279,28 @@ public class Calculations {
      * @return A function that calculates true wind speed in knots
      */
     public static Function<BigDecimal[],BigDecimal> procTrueWindDirection( String windvel, String winddir, String sogKnots, String cog,String heading){
-        int windvelIndex,winddirIndex,sogKnotsIndex,cogIndex,headingIndex;
-        double windvelVal,winddirVal,sogKnotsVal,cogVal,headingVal;
 
         // Apparent Wind Velocity
-        if( windvel.startsWith("i")) {
-            windvelIndex = NumberUtils.toInt(windvel.substring(1), -1);
-            windvelVal=0;
-        }else{
-            windvelIndex=-1;
-            windvelVal=NumberUtils.toDouble(windvel);
-        }
+        var windv = getIndexAndVal(windvel);
+        int windvelIndex = windv.getKey();
+        double windvelVal = windv.getValue();
 
-        // Apparent Wind Direction
-        if( winddir.startsWith("i")) {
-            winddirIndex = NumberUtils.toInt(winddir.substring(1), -1);
-            winddirVal=0;
-        }else{
-            winddirIndex=-1;
-            winddirVal=NumberUtils.toDouble(winddir);
-        }
+        var wd = getIndexAndVal(winddir);
+        int winddirIndex = wd.getKey();
+        double winddirVal = wd.getValue();
 
-        // Speed over ground in knots
-        if( sogKnots.startsWith("i")) {
-            sogKnotsIndex = NumberUtils.toInt(sogKnots.substring(1), -1);
-            sogKnotsVal=0;
-        }else{
-            sogKnotsIndex=-1;
-            sogKnotsVal=NumberUtils.toDouble(sogKnots);
-        }
-        // Course over ground in knots
-        if( sogKnots.startsWith("i")) {
-            cogIndex = NumberUtils.toInt(cog.substring(1), -1);
-            cogVal=0;
-        }else{
-            cogIndex=-1;
-            cogVal=NumberUtils.toDouble(cog);
-        }
-        // Course over ground in knots
-        if( heading.startsWith("i")) {
-            headingIndex = NumberUtils.toInt(heading.substring(1), -1);
-            headingVal=0;
-        }else{
-            headingIndex=-1;
-            headingVal=NumberUtils.toDouble(heading);
-        }
+        var sk = getIndexAndVal(sogKnots);
+        int sogKnotsIndex = sk.getKey();
+        double sogKnotsVal = sk.getValue();
+
+        var cg = getIndexAndVal(cog);
+        int cogIndex = cg.getKey();
+        double cogVal = cg.getValue();
+
+        var hd = getIndexAndVal(heading);
+        int headingIndex = hd.getKey();
+        double headingVal = hd.getValue();
+
         return x -> {
             var dir = calcTrueWindDirection(
                     windvelIndex==-1?windvelVal:x[windvelIndex].doubleValue(),
@@ -376,5 +310,17 @@ public class Calculations {
                     headingIndex==-1?headingVal:x[headingIndex].doubleValue());
             return BigDecimal.valueOf(dir);
         };
+    }
+    private static Map.Entry<Integer, Double> getIndexAndVal(String input){
+        int index;
+        double value;
+        if( input.startsWith("i")) {
+            index = NumberUtils.toInt(input.substring(1), -1);
+            value=0;
+        }else{
+            index=-1;
+            value=NumberUtils.toDouble(input);
+        }
+        return new AbstractMap.SimpleEntry<>(index, value);
     }
 }
