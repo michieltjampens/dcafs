@@ -158,7 +158,7 @@ public class ValTools {
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : String.valueOf(d));
                     }
                     case "i", "int", "integer" -> {
-                        var i = rtvals.getIntegerVal(p[1]).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE);
+                        var i = rtvals.getIntegerVal(p[1]).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE);
                         if (i != Integer.MAX_VALUE)
                             line = line.replace("{" + p[0] + ":" + p[1] + "}", String.valueOf(i));
                     }
@@ -228,7 +228,7 @@ public class ValTools {
                             if( !error.equalsIgnoreCase("ignore")) // if errors should be ignored
                                 yield error;
                         }
-                        yield String.valueOf(rv.getIntegerVal(id).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE));
+                        yield String.valueOf(rv.getIntegerVal(id).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
                     }
                     case 'f'-> {
                         if (!rv.hasFlag(id)) {
@@ -262,7 +262,7 @@ public class ValTools {
                     replacement = String.valueOf(rv.getReal(word, Double.NaN));
                 } else { // if not
                     if( rv.hasInteger(word)){
-                        replacement = String.valueOf(rv.getIntegerVal(word).map(IntegerVal::intValue).orElse(Integer.MAX_VALUE));
+                        replacement = String.valueOf(rv.getIntegerVal(word).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
                     }else {
                         if (rv.hasText(word)) { //next, try text
                             replacement = rv.getTextVal(word).map(TextVal::value).orElse("");

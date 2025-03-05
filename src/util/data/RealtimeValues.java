@@ -845,11 +845,11 @@ public class RealtimeValues implements Commandable {
 			return nv.asValueString();
 		if( nv.getClass() == RealVal.class) {
 			var rv = (RealVal)nv;
-			if( Double.isNaN(rv.value()))
+			if( Double.isNaN(rv.asDoubleValue()))
 				return "NaN";
 			return unit.apply(rv.raw(), rv.unit, rv.scale() );
 		}
-		return unit.apply(nv.value(), nv.unit(),0);
+		return unit.apply(nv.asDoubleValue(), nv.unit(),0);
 	}
 	/**
 	 * Get the full listing of all reals,flags and text, so both grouped and ungrouped

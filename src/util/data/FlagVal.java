@@ -246,12 +246,12 @@ public class FlagVal extends AbstractVal implements NumericVal{
      * Retrieve the state of the flag but as a double
      * @return 1.0 if true and 0.0 if false
      */
-    public double value(){
+    public double asDoubleValue(){
         return state?1:0;
     }
 
     @Override
-    public int intValue() {
+    public int asIntegerValue() {
         return state?1:0;
     }
     public String stringValue(){ return toString();}

@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class CheckBlock extends AbstractBlock{
 
@@ -57,7 +56,7 @@ public class CheckBlock extends AbstractBlock{
         }
         Double[] work= new Double[steps.size()+sharedMem.size()];
         for (int a = 0; a < sharedMem.size();a++ ){
-            work[steps.size()+a]=sharedMem.get(a).value();
+            work[steps.size()+a]=sharedMem.get(a).asDoubleValue();
         }
         for( int a=0;a<steps.size();a++)
             work[a]=steps.get(a).apply(work);

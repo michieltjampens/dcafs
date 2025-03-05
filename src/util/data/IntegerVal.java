@@ -3,10 +3,8 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.math.MathFab;
 import util.math.MathUtils;
 import util.tools.TimeTools;
-import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
@@ -15,12 +13,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
 
-public class IntegerVal extends AbstractVal implements NumericVal{
-    private int value;
-    private int rawValue=Integer.MAX_VALUE;
+public class IntegerVal extends NumberVal<Integer>{
+
     private int defVal=0;
     private boolean abs=false;
 
@@ -28,13 +24,6 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     private int min=Integer.MAX_VALUE;
     private int max=Integer.MIN_VALUE;
     private boolean keepMinMax=false;
-
-    /* History */
-    private ArrayList<Integer> history;
-
-    /* Triggering */
-    private ArrayList<TriggeredCmd> triggered;
-    private MathFab parseOp;
     private boolean roundDoubles=false;
     /**
      * Constructs a new RealVal with the given group and name
@@ -103,16 +92,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
 
         return this;
     }
-    public void setParseOp( String op ){
-        op=op.replace("i","i0");
-        op=op.replace("i00","i0"); // just in case it was actually with i0
-        parseOp = MathFab.newFormula(op);
-        if( !parseOp.isValid() ){
-            Logger.error(id() +" -> Tried to apply an invalid op for parsing "+op);
-        }else{
-            Logger.info(id()+" -> Applying "+op+" after parsing to real/double.");
-        }
-    }
+
     /**
      * Set the unit of the value fe. °C
      * @param unit The unit for the value
@@ -130,15 +110,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      */
     public IntegerVal value( int val ){
 
-        /* Keep history of passed values */
-        if( keepHistory!=0 ) {
-            history.add(val);
-            if( history.size()>keepHistory)
-                history.remove(0);
-        }
-        /* Keep time of last value */
-        if( keepTime )
-            timestamp= Instant.now();
+       updateHisoryAndTimestamp(val);
 
         /* Keep min max */
         if( keepMinMax ){
@@ -186,9 +158,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
                 }else{
                     res = (int) dres;
                 }
-
             }
-            rawValue=res;
             value(res);
             return true;
         }catch( NumberFormatException e ){
@@ -203,7 +173,6 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             }
             Logger.error(id()+" -> Failed to parse "+val+" to integer.");
             if( defVal != Integer.MAX_VALUE ) {
-                rawValue=defVal;
                 value(defVal);
                 return true;
             }
@@ -216,7 +185,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
      *
      * @param defVal The default value
      */
-    public void defValue(int defVal){
+    public void defValue(Integer defVal){
         this.defVal = defVal;
     }
     /**
@@ -228,12 +197,7 @@ public class IntegerVal extends AbstractVal implements NumericVal{
     public void enableAbs(){
         abs=true;
     }
-    @Override
-    public boolean enableHistory(int count){
-        if( count > 0)
-            history=new ArrayList<>();
-        return super.enableHistory(count);
-    }
+
     /**
      * Reset this RealVal to its default value
      */
@@ -244,109 +208,23 @@ public class IntegerVal extends AbstractVal implements NumericVal{
             triggered.clear();
         super.reset();
     }
-    /**
-     * Tries to add a cmd with given trigger, will warn if no valid queue is present to actually execute them
-     *
-     * @param cmd     The cmd to trigger, $ will be replaced with the current value
-     * @param trigger The trigger which is either a comparison between the value and another fixed value fe. above 10 or
-     *                'always' to trigger on every update or 'changed' to trigger only on a changed value
-     */
-    public void addTriggeredCmd(String trigger, String cmd ){
 
-        if( triggered==null)
-            triggered = new ArrayList<>();
-
-        var td = new TriggeredCmd(cmd,trigger);
-        if( td.isInvalid()) {
-            Logger.error(id()+" (iv)-> Failed to convert trigger: "+trigger);
-            return;
-        }
-        triggered.add( td );
-    }
-    public boolean hasTriggeredCmds(){
-        return triggered!=null&& !triggered.isEmpty();
-    }
     /* ***************************************** U S I N G ********************************************************** */
-    /**
-     * Get a ',' delimited string with all the used options
-     * @return The options in a listing or empty if none are used
-     */
-    private String getOptions(){
-        var join = new StringJoiner(",");
-        if( keepTime )
-            join.add("time");
-        if( keepHistory>0)
-            join.add("history:"+keepHistory);
-        if( keepMinMax )
-            join.add("minmax");
-        if( order !=-1 )
-            join.add("order:"+order);
-        return join.toString();
-    }
-    @Override
-    public BigDecimal toBigDecimal() {
-        try {
-            return BigDecimal.valueOf(value);
-        }catch(NumberFormatException e){
-            Logger.warn(id()+" hasn't got a valid value yet to convert to BigDecimal");
-            return null;
-        }
-    }
     public int max(){
         return max;
     }
     public int min(){
         return min;
     }
-    @Override
-    public double value() {
+
+    public double asDoubleValue() {
         return value;
     }
     public Object valueAsObject(){ return value;}
     public String stringValue(){ return String.valueOf(value);}
     @Override
-    public int intValue() {
+    public int asIntegerValue() {
         return value;
-    }
-    public int intValue( String type) {
-        return switch( type ){
-            case "min" -> min();
-            case "max" -> max();
-            case "raw" -> rawValue;
-            default -> intValue();
-        };
-    }
-    /**
-     * Calculate the average of all the values stored in the history
-     * @return The average of the stored values
-     */
-    public double getAvg(){
-        double total=0;
-        if(history!=null){
-            for( var h : history){
-                total+=h;
-            }
-        }else{
-            Logger.warn(id() + "(iv)-> Asked for the average of "+(group.isEmpty()?"":group+"_")+name+" but no history kept");
-            return value;
-        }
-        return Tools.roundDouble(total/history.size(),3);
-    }
-    /**
-     * Get the current Standard Deviation based on the history rounded to digits + 2 or 5 digits if no scale was set
-     * @return The calculated standard deviation or NaN if either no history is kept or the history hasn't reached
-     * the full size yet.
-     */
-    public double getStdev(){
-        if( history==null) {
-            Logger.error(id()+" (iv)-> Can't calculate standard deviation without history");
-            return Double.NaN;
-        }else if( history.size() != keepHistory){
-            return Double.NaN;
-        }
-        ArrayList<Double> decs = new ArrayList<>();
-        history.forEach( x -> decs.add((double)x));
-        return MathUtils.calcStandardDeviation( decs,3);
     }
     public String asValueString(){
         return value+unit;

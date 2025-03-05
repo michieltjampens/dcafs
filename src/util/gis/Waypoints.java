@@ -219,7 +219,7 @@ public class Waypoints implements Commandable {
             return "No waypoints yet.";
         for( Waypoint wp : wps.values() ){
             b.add( wp.getInfo(newline) );
-            b.add( wp.toString(false, true, sog.value()) ).add("");
+            b.add( wp.toString(false, true, sog.asDoubleValue()) ).add("");
         }
         var age = TimeTools.convertPeriodtoString(Duration.between(lastCheck,OffsetDateTime.now(ZoneOffset.UTC)).getSeconds(),TimeUnit.SECONDS);
 
@@ -256,7 +256,7 @@ public class Waypoints implements Commandable {
       * @return The id found
      */
     public String getNearestWaypoint( ){
-        return getClosestWaypoint( latitude.value(),longitude.value());
+        return getClosestWaypoint( latitude.asDoubleValue(),longitude.asDoubleValue());
     }
     /**
      * Get the distance to a certain waypoint in meters
@@ -267,7 +267,7 @@ public class Waypoints implements Commandable {
         var wp = wps.get(id);
         if( wp == null || longitude==null || latitude==null)
             return -1;
-        return wp.distanceTo(latitude.value(), longitude.value());
+        return wp.distanceTo(latitude.asDoubleValue(), longitude.asDoubleValue());
     }
     /* ********************************* T H R E A D ***************************************** */
     private void checkTravelThread( boolean hasTravel ){
@@ -299,12 +299,12 @@ public class Waypoints implements Commandable {
         lastCheck = OffsetDateTime.now(ZoneOffset.UTC);
         try {
             wps.values().forEach(wp -> {
-                wp.checkIt( latitude.value(), longitude.value()).ifPresent(
+                wp.checkIt( latitude.asDoubleValue(), longitude.asDoubleValue()).ifPresent(
                         travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
                 );
             });
             quads.values().forEach( gq -> {
-                gq.checkIt(latitude.value(), longitude.value())
+                gq.checkIt(latitude.asDoubleValue(), longitude.asDoubleValue())
                         .forEach( cmd -> dQueue.add(Datagram.system(cmd)));
             });
         }catch( Throwable trow){
@@ -369,7 +369,7 @@ public class Waypoints implements Commandable {
             case "states" -> {
                 if (sog == null)
                     return "! Can't determine state, no sog defined";
-                return getCurrentStates(false, sog.value());
+                return getCurrentStates(false, sog.asDoubleValue());
             }
             case "store" -> {
                 if (this.storeInXML())
