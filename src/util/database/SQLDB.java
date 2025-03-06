@@ -289,41 +289,8 @@ public class SQLDB extends Database implements TableInsert{
         if( !connect(false) ) // if no connection available try to reconnect
             return false; // Not connected and reconnect failed, can't do anything
 
-        try( Statement stmt = con.createStatement() ){ // Prepare a statement
-            ResultSet rs = stmt.executeQuery(tableRequest); // Send the tablerequest query
-            if (rs != null) { // If there's a valid resultset
-                try {
-                    if( clear ) // If clear is set, first clear existing tables
-                        tables.clear();
-                    while (rs.next()) { // Go through the resultset
-                        ResultSetMetaData rsmd = rs.getMetaData(); // get the metadata
-                        String tableName = rs.getString(1); // the tablename is in the first column
+        requestTables(clear);
 
-                        String tableType="base table"; // only interested in the base tables, not system ones
-                        if( rsmd.getColumnCount()==2)
-                            tableType=rs.getString(2);
-
-                        if( tableType.equalsIgnoreCase("base table") && !tableName.startsWith("sym_") ){ // ignore symmetricsDS tables and don't overwrite
-                            SqlTable table = tables.get(tableName); // look for it in the stored tables
-                            if( table == null ){ // if not found, it's new
-                                table = new SqlTable(tableName); // so create it
-                                tables.put(tableName, table); //and add it to the hashmap
-                            }
-                            table.toggleServer();
-                            table.flagAsReadFromDB(); // either way, it's already present in the database
-                            Logger.debug(id+" (db) -> Found: "+tableName+" -> "+tableType);
-                        }                        
-                    }
-                } catch (SQLException e) {
-                    Logger.error(id+"(db) -> Error during table read: "+e.getErrorCode());
-                    Logger.error(e.getMessage());
-                    return false;
-                }  
-            }
-        }catch( SQLException e ){
-            Logger.error(e);
-            return false;
-        }   
         // Get the column information....
         for( SqlTable table :tables.values() ){
             if( table.hasColumns() ){// Don't overwrite existing info
@@ -334,48 +301,71 @@ public class SQLDB extends Database implements TableInsert{
                 Logger.debug(id+"(db) -> The table "+table.getName()+" is inside a MSSQL DB, no column request query.");
                 continue;
             }
-            try( Statement stmt = con.createStatement() ){
-                String tblName = table.getName();
-                if( type == DBTYPE.POSTGRESQL )
-                    tblName = "'"+tblName+"'";
-                ResultSet rs = stmt.executeQuery(columnRequest+tblName+";");
-                if (rs != null) {
-                    try {
-                        boolean first = true;
-                        while (rs.next()) {               
-                            String name = rs.getString(1);
-                            String colType=rs.getString(2).toLowerCase();
-                            if( first && (colType.equals("timestamp") || colType.equals("datetime"))){
-                                table.addUTCDateTime(name,"",true);
-                                first=false;                                
-                            }else if( name.equalsIgnoreCase("timestamp") && colType.equalsIgnoreCase("long") ){
-                                table.addEpochMillis(name);
-                            }else if( colType.contains("text") || colType.contains("char") ){
-                                table.addText(name);
-                            }else if( colType.equalsIgnoreCase("double") || colType.equalsIgnoreCase("decimal") || colType.startsWith("float")|| colType.equals("real")){
-                                table.addReal(name);
-                            }else if( colType.contains("int") || colType.contains("bit") || colType.contains("boolean")) {
-                                table.addInteger(name);
-                            }else if(colType.equalsIgnoreCase("timestamp") ){
-                                table.addLocalDateTime(name,"",false);
-                            }else if(colType.equalsIgnoreCase("timestamptz") || colType.equalsIgnoreCase("datetime") ){
-                                table.addUTCDateTime(name,"",false);
-                            }else{
-                                Logger.info(id+" -> Found unknown column type in "+table.getName()+": "+name+" -> "+colType);
-                            }                            
-                        }
-                        Logger.info(table.getInfo());
-                    } catch (SQLException e) {
-                        Logger.error(id+"(db) -> Error during table read: "+e.getErrorCode());
-                        return false;
-                    }  
-                }
-            }catch( SQLException e ){
-                Logger.error(e);
-                return false;
-            } 
+            requestColumns(table);
         }     
         return true;
+    }
+    private void requestTables(boolean clear){
+        if( clear ) // If clear is set, first clear existing tables
+            tables.clear();
+
+        readTable(con,tableRequest, rs -> {
+            try {
+                ResultSetMetaData rsmd = rs.getMetaData(); // get the metadata
+                String tableName = rs.getString(1); // the tablename is in the first column
+
+                String tableType="base table"; // only interested in the base tables, not system ones
+                if( rsmd.getColumnCount()==2)
+                    tableType=rs.getString(2);
+
+                if( tableType.equalsIgnoreCase("base table") && !tableName.startsWith("sym_") ){ // ignore symmetricsDS tables and don't overwrite
+                    SqlTable table = tables.get(tableName); // look for it in the stored tables
+                    if( table == null ){ // if not found, it's new
+                        table = new SqlTable(tableName); // so create it
+                        tables.put(tableName, table); //and add it to the hashmap
+                    }
+                    table.toggleServer();
+                    table.flagAsReadFromDB(); // either way, it's already present in the database
+                    Logger.debug(id+" (db) -> Found: "+tableName+" -> "+tableType);
+                }
+            } catch (SQLException e) {
+                Logger.error(id+"(db) -> Error during table read: "+e.getErrorCode());
+                Logger.error(e.getMessage());
+            }
+        });
+    }
+    private void requestColumns(SqlTable table){
+        String tblName = table.getName();
+        if( type == DBTYPE.POSTGRESQL )
+            tblName = "'"+tblName+"'";
+        final boolean[] first = {true};
+        readTable(con,columnRequest+tblName+";", rs -> {
+            try {
+                String name = rs.getString(1);
+                String colType=rs.getString(2).toLowerCase();
+                if( first[0] && (colType.equals("timestamp") || colType.equals("datetime"))){
+                    table.addUTCDateTime(name,"",true);
+                    first[0]=false;
+                }else if( name.equalsIgnoreCase("timestamp") && colType.equalsIgnoreCase("long") ){
+                    table.addEpochMillis(name);
+                }else if( colType.contains("text") || colType.contains("char") ){
+                    table.addText(name);
+                }else if( colType.equalsIgnoreCase("double") || colType.equalsIgnoreCase("decimal") || colType.startsWith("float")|| colType.equals("real")){
+                    table.addReal(name);
+                }else if( colType.contains("int") || colType.contains("bit") || colType.contains("boolean")) {
+                    table.addInteger(name);
+                }else if(colType.equalsIgnoreCase("timestamp") ){
+                    table.addLocalDateTime(name,"",false);
+                }else if(colType.equalsIgnoreCase("timestamptz") || colType.equalsIgnoreCase("datetime") ){
+                    table.addUTCDateTime(name,"",false);
+                }else{
+                    Logger.info(id+" -> Found unknown column type in "+table.getName()+": "+name+" -> "+colType);
+                }
+            } catch (SQLException e) {
+                Logger.error(id+"(db) -> Error during table read: "+e.getErrorCode());
+            }
+        });
+        Logger.info(table.getInfo());
     }
     /**
      * Actually create all the tables
@@ -448,11 +438,9 @@ public class SQLDB extends Database implements TableInsert{
      */
     public Optional<List<List<Object>>> doSelect(String query, boolean includeNames ){
 
-        if( !isValid(1) ){
-            if( !connect(false) ){
-                Logger.error( id+"(db) -> Couldn't connect to database: "+id);
-                return Optional.empty();
-            }
+        if( !isValid(1) && !connect(false) ){
+            Logger.error( id+"(db) -> Couldn't connect to database: "+id);
+            return Optional.empty();
         }
         var data = new ArrayList<List<Object>>();
         try( Statement stmt = con.createStatement() ){
@@ -669,19 +657,18 @@ public class SQLDB extends Database implements TableInsert{
     }
 
     /**
-     * Write the table information to the database node
-     * @param fab The xmlfab to use
+     * Write the table information into the database node
+     * @param fab The XMLfab to use
      * @param tableName The name of the table to write or * to write all
      * @return The amount of tables written
      */
     public int writeTableToXml( XMLfab fab, String tableName ){
         int cnt=0;
         for( var table : tables.values() ){
-            if( table.name.equalsIgnoreCase(tableName) || tableName.equals("*")) {
-                if( fab.hasChild("table","name",table.name).isEmpty()){
+            if( (table.name.equalsIgnoreCase(tableName) || tableName.equals("*"))
+                    && fab.hasChild("table","name",table.name).isEmpty() ){
                     table.writeToXml( fab, false);
                     cnt++;
-                }
             }
         }
         if( cnt!=0)
@@ -790,6 +777,7 @@ public class SQLDB extends Database implements TableInsert{
             default -> Logger.warn(id + "(db) -> Unknown state: " + state);
         }
     }
+    // @SuppressWarnings("SQLInjection")
     protected boolean readTable(Connection con, String query, Consumer<ResultSet> action) {
         try (Statement stmt = con.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
