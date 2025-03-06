@@ -685,16 +685,19 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			attach = email.attachment;
 		}
 
+		Path path = Path.of(attach).normalize().toAbsolutePath();
+		if( !path.startsWith(settingsPath.getParent().toAbsolutePath().toString()) ) {
+			Logger.error("Attach at "+path+ " didn't reside in "+settingsPath.getParent());
+			return false;
+		}
+
 		try {
-			Path path = Path.of(attach).normalize().toAbsolutePath();
-			var pathSafe=false;
 			if (Files.notExists(path)) { // If the attachment doesn't exist
 				email.attachment = "";
 				message.setContent(email.content, "text/html");
 				message.setSubject( message.getSubject() + " [attachment not found!]"); // Notify the receiver that is should have had an attachment
 				return false;
-			} else if (Files.size(path) > doZipFromSizeMB * megaByte && path.startsWith(settingsPath.getParent().toAbsolutePath().toString())) { // If the attachment is larger than the zip limit
-				pathSafe=true;
+			} else if (Files.size(path) > doZipFromSizeMB * megaByte && ) { // If the attachment is larger than the zip limit
 				FileTools.zipFile(path); // zip it
 				attach += ".zip"; // rename attachment
 				Logger.info("File zipped because of size larger than " + doZipFromSizeMB + "MB. Zipped size:" + Files.size(path) / megaByte + "MB");
@@ -706,10 +709,6 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 					Logger.info("Removed attachment because to big (>" + maxSizeMB + "MB)");
 					return false;
 				}
-			}
-			if(!pathSafe){
-				Logger.error("Attach at "+path+ " didn't reside in "+settingsPath.getParent());
-				return false;
 			}
 		} catch (IOException e) {
 			Logger.error(e);
