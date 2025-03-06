@@ -567,9 +567,15 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 			if( hasAttachment ){
 				try {
-					Files.deleteIfExists(Path.of(email.attachment+".zip"));
-					if (email.deleteOnSend())
-						Files.deleteIfExists(Path.of(email.attachment));
+					var safe = settingsPath.getParent().toAbsolutePath().toString();
+					var zip = Path.of(email.attachment+".zip").normalize().toAbsolutePath();
+					if( zip.toString().startsWith(safe) )
+						Files.deleteIfExists(zip);
+					if (email.deleteOnSend()) {
+						var reg = Path.of(email.attachment+".zip").normalize().toAbsolutePath();
+						if( reg.toString().startsWith(safe) )
+							Files.deleteIfExists(reg);
+					}
 				} catch (IOException e) {
 					Logger.error(e);
 				}
@@ -922,17 +928,19 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 							if ( part != null && Part.ATTACHMENT.equalsIgnoreCase( part.getDisposition() )) {
 								Logger.info("Attachment found:"+part.getFileName());
-								Path p = Path.of("attachments",part.getFileName());
-								Files.createDirectories(p.getParent());
+								Path p = Path.of("attachments",part.getFileName()).normalize().toAbsolutePath();
+								if( p.toString().startsWith(settingsPath.getParent().toAbsolutePath().toString())) {
+									Files.createDirectories(p.getParent());
 
-								part.saveFile(p.toFile());
+									part.saveFile(p.toFile());
 
-								if( p.getFileName().toString().endsWith(".zip")){
-									Logger.info("Attachment zipped!");
-									FileTools.unzipFile( p.toString(), "attachments" );
-									Logger.info("Attachment unzipped!");
-									if( deleteReceivedZip )
-										Files.deleteIfExists(p);
+									if (p.getFileName().toString().endsWith(".zip")) {
+										Logger.info("Attachment zipped!");
+										FileTools.unzipFile(p.toString(), "attachments");
+										Logger.info("Attachment unzipped!");
+										if (deleteReceivedZip)
+											Files.deleteIfExists(p);
+									}
 								}
 							}
 						}
