@@ -14,15 +14,14 @@ import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
-import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
-import java.nio.file.Path;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
@@ -308,44 +307,24 @@ public class TcpServer implements StreamListener, Commandable {
 			}else{
 				return "No server active yet, use ts:start,port to start one";
 			}
-
 		}
 		if( cmds[0].equals("create"))
-			return "Server already exists";
+			return "! Server already exists";
 
 		Optional<TransHandler> hOpt = cmds.length>1?getHandler(cmds[1]):Optional.empty();
 
-		String cyan = html?"": TelnetCodes.TEXT_CYAN;
-		String green=html?"":TelnetCodes.TEXT_GREEN;
-		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-
 		switch( cmds[0] ){
 			case "?":
-				StringJoiner j = new StringJoiner("\r\n");
-				return j.add(cyan+"General"+reg)
-						.add( green + "ts:store,id/index<,newid> "+reg+"-> Store the session in the xml, optional id")
-						.add( green +"ts:add,id/index,cmd "+reg+"-> Add the cmd to the id/index")
-						.add( green +"ts:clear,id/index "+reg+"-> Clear all cmds from the client id/index")
-						.add( green +"ts:list "+reg+"-> List of all the connected clients")
-						.add( green +"ts:defaults "+reg+"-> List of all the defaults")
-						.add( green +"ts:alter,id,ref:value "+reg+"-> Alter some settings")
-						.add( green +"ts:forward,id "+reg+"-> Forward data received on the trans to the issuer of the command")
-						.add( green +"ts:reload "+reg+"-> Reload the xml settings.").toString();
+				return doCmdHelp(html);
 			case "store":
 				if( hOpt.isEmpty() )
 					return "Invalid id";
 				var handler = hOpt.get();
 				handler.setID(cmds.length==3?cmds[2]:handler.id());
 				storeHandler(handler,wr);
-				return "";
+				return "Stored";
 			case "add":
-				return getHandler(cmds[1]).map( h -> {
-					StringJoiner join = new StringJoiner(",");
-					for( int a=2;a<cmds.length;a++ )
-						join.add(cmds[a]);
-					h.addHistory(join.toString());
-					return cmds[1]+"  added "+join;
-				}).orElse("No such client: "+cmds[1]);
+				return doAddCmd( cmds );
 			case "clear":
 				return getHandler(cmds[1]).map( h -> {
 					h.clearRequests();
@@ -359,54 +338,84 @@ public class TcpServer implements StreamListener, Commandable {
 					return "Defaults reloaded";
 				return "Reload failed";
 			case "alter":
-				if( hOpt.isEmpty() )
-					return "Invalid id";
-				if( cmds.length<3)
-					return "Not enough arguments: trans:alter,id,ref:value";
-				String ref = cmds[2].substring(0,cmds[2].indexOf(":"));
-				String value =  cmds[2].substring(cmds[2].indexOf(":")+1);
-				switch (ref) {
-					case "label" -> {
-						hOpt.get().setLabel(value);
-						return "Altered label to " + value;
-					}
-					case "id" -> {
-						hOpt.get().setID(value);
-						return "Altered id to " + value;
-					}
-					default -> {
-						return "Nothing called " + ref;
-					}
-				}
+				return doAlterCmd(cmds,hOpt.orElse(null));
 			case "trans" :
 				if( cmds.length!=2)
 					return "Not enough arguments, need trans:id";
 				cmds[1]="forward"+cmds[1];
 			case "forward":
-				if( cmds.length==1)
-					return "No enough parameters given, needs ts:forward,id";
-
-				if( defaults.containsKey(cmds[1]) || hOpt.isPresent() ) {
-					if (!targets.containsKey(cmds[1])) {
-						targets.put(cmds[1], new ArrayList<>());
-					}
-					var list = targets.get(cmds[1]);
-
-					if( !list.contains(wr)){// no exact match
-						list.removeIf(Objects::isNull); // Remove invalid ones
-						list.removeIf( w -> w.id().equalsIgnoreCase(wr.id()));// Remove id match
-						list.add(wr);
-					}
-				}
-				return hOpt.map( h -> {
-					h.addTarget(wr);
-					return "Added to target for "+cmds[1];
-				}).orElse(cmds[1]+" not active yet, but recorded request");
+				return doForwardCmd( cmds,hOpt.orElse(null),wr );
 			case "": case "list": 
 				return "Server running on port "+serverPort+"\r\n"+getClientList();
 			default:
 				return "! No such subcommand in "+cmd+": "+args;
 		}
+	}
+	private String doCmdHelp( boolean html ){
+		StringJoiner j = new StringJoiner("\r\n");
+		j.add( "TCP server to act as alternative to the telnet interface");
+		j.add("General")
+				.add( "ts:store,id/index<,newid> -> Store the session in the xml, optional id")
+				.add( "ts:add,id/index,cmd -> Add the cmd to the id/index")
+				.add( "ts:clear,id/index -> Clear all cmds from the client id/index")
+				.add( "ts:list -> List of all the connected clients")
+				.add( "ts:defaults -> List of all the defaults")
+				.add( "ts:alter,id,ref:value -> Alter some settings")
+				.add( "ts:forward,id -> Forward data received on the trans to the issuer of the command")
+				.add( "ts:reload -> Reload the xml settings.");
+		return LookAndFeel.formatCmdHelp(j.toString(),html);
+	}
+	private String doAddCmd( String[] cmds ){
+		return getHandler(cmds[1]).map( h -> {
+				StringJoiner join = new StringJoiner(",");
+				for( int a=2;a<cmds.length;a++ )
+					join.add(cmds[a]);
+
+				h.addHistory(join.toString());
+				return cmds[1]+"  added "+join;
+			}).orElse("No such client: "+cmds[1]);
+	}
+	private String doAlterCmd( String[] cmds, TransHandler th){
+		if( th==null )
+			return "Invalid id";
+		if( cmds.length<3)
+			return "Not enough arguments: trans:alter,id,ref:value";
+		String ref = cmds[2].substring(0,cmds[2].indexOf(":"));
+		String value =  cmds[2].substring(cmds[2].indexOf(":")+1);
+		switch (ref) {
+			case "label" -> {
+				th.setLabel(value);
+				return "Altered label to " + value;
+			}
+			case "id" -> {
+				th.setID(value);
+				return "Altered id to " + value;
+			}
+			default -> {
+				return "Nothing called " + ref;
+			}
+		}
+	}
+	private String doForwardCmd(String[] cmds, TransHandler th, Writable wr){
+		if( cmds.length==1)
+			return "No enough parameters given, needs ts:forward,id";
+
+		if( defaults.containsKey(cmds[1]) || th!=null ) {
+			if (!targets.containsKey(cmds[1])) {
+				targets.put(cmds[1], new ArrayList<>());
+			}
+			var list = targets.get(cmds[1]);
+
+			if( !list.contains(wr)){// no exact match
+				list.removeIf(Objects::isNull); // Remove invalid ones
+				list.removeIf( w -> w.id().equalsIgnoreCase(wr.id()));// Remove id match
+				list.add(wr);
+			}
+		}
+		return Optional.ofNullable(th).map( h -> {
+			h.addTarget(wr);
+			return "Added to target for "+cmds[1];
+		}).orElse(cmds[1]+" not active yet, but recorded request");
 	}
 	public String payloadCommand( String cmd, String args, Object payload){
 		return "! No such cmds in "+cmd;

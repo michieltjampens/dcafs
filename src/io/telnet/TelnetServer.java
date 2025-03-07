@@ -15,6 +15,7 @@ import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -153,13 +154,7 @@ public class TelnetServer implements Commandable {
             String reg=html?"":TelnetCodes.TEXT_DEFAULT;
             switch (cmds[0]) {
                 case "?" -> {
-                    var join = new StringJoiner("\r\n");
-                    join.add(TelnetCodes.TEXT_GREEN + "telnet:broadcast,message " + reg + "-> Broadcast the message to all active telnet sessions at info level.")
-                            .add(TelnetCodes.TEXT_GREEN + "telnet:broadcast,!message " + reg + "-> Broadcast the message to all active telnet sessions at error level.")
-                            .add(TelnetCodes.TEXT_GREEN + "telnet:broadcast,level,message " + reg + "-> Broadcast the message to all active telnet sessions at the given level. (info,warn,error)")
-                            .add(TelnetCodes.TEXT_GREEN + "telnet:bt " + reg + "-> Get the broadcast target count")
-                            .add(TelnetCodes.TEXT_GREEN + "telnet:nb or nb " + reg + "-> Disable showing broadcasts");
-                    return join.toString();
+                    return doCmdHelp();
                 }
                 case "error" -> {
                     if (cmds.length < 2)
@@ -170,24 +165,7 @@ public class TelnetServer implements Commandable {
                     return "";
                 }
                 case "broadcast" -> {
-                    String send;
-                    if (cmds.length < 2)
-                        return "! Not enough arguments, telnet:broadcast,level,message or telnet:broadcast,message for info level";
-                    switch (cmds[1]) {
-                        case "warn" -> send = TelnetCodes.TEXT_ORANGE + args.substring(15);
-                        case "error" -> send = TelnetCodes.TEXT_RED + args.substring(16);
-                        case "info" -> send = TelnetCodes.TEXT_GREEN + args.substring(15);
-                        default -> {
-                            var d = args.substring(10);
-                            if (d.startsWith("!")) {
-                                send = TelnetCodes.TEXT_RED + d.substring(1);
-                            } else {
-                                send = TelnetCodes.TEXT_GREEN + d;
-                            }
-                        }
-                    }
-                    writables.removeIf(w -> !w.writeLine(send + TelnetCodes.TEXT_DEFAULT));
-                    return "Broadcasted";
+                    return doBroadCastCmd(cmds,args);
                 }
                 case "write" -> {
                     var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
@@ -205,6 +183,36 @@ public class TelnetServer implements Commandable {
                 }
             }
         }
+    }
+    private String doCmdHelp(){
+        var join = new StringJoiner("\r\n");
+        join.add("Commands for the telnet interface");
+        join.add("telnet:broadcast,message -> Broadcast the message to all active telnet sessions at info level.")
+                .add("telnet:broadcast,!message -> Broadcast the message to all active telnet sessions at error level.")
+                .add("telnet:broadcast,level,message -> Broadcast the message to all active telnet sessions at the given level. (info,warn,error)")
+                .add("telnet:bt -> Get the broadcast target count")
+                .add("telnet:nb or nb -> Disable showing broadcasts");
+        return LookAndFeel.formatCmdHelp(join.toString(),false);
+    }
+    private String doBroadCastCmd( String[] cmds, String args){
+        String send;
+        if (cmds.length < 2)
+            return "! Not enough arguments, telnet:broadcast,level,message or telnet:broadcast,message for info level";
+        switch (cmds[1]) {
+            case "warn" -> send = TelnetCodes.TEXT_ORANGE + args.substring(15);
+            case "error" -> send = TelnetCodes.TEXT_RED + args.substring(16);
+            case "info" -> send = TelnetCodes.TEXT_GREEN + args.substring(15);
+            default -> {
+                var d = args.substring(10);
+                if (d.startsWith("!")) {
+                    send = TelnetCodes.TEXT_RED + d.substring(1);
+                } else {
+                    send = TelnetCodes.TEXT_GREEN + d;
+                }
+            }
+        }
+        writables.removeIf(w -> !w.writeLine(send + TelnetCodes.TEXT_DEFAULT));
+        return "Broadcasted";
     }
     public String payloadCommand( String cmd, String args, Object payload){
         return "! No such cmds in "+cmd;

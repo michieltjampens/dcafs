@@ -9,6 +9,7 @@ import io.forward.FilterForward;
 import io.matrix.MatrixClient;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.cmds.AdminCmds;
 import util.cmds.HistoryCmds;
 import util.data.StoreCmds;
@@ -16,7 +17,6 @@ import util.tools.TimeTools;
 import util.tools.Tools;
 import worker.Datagram;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -383,10 +383,11 @@ public class CommandPool {
 
 		return switch (spl[0]) {
 			case "?" -> {
-				StringJoiner join = new StringJoiner(eol);
-				join.add(TelnetCodes.TEXT_GREEN+"upgrade:tmscript,tm id"+TelnetCodes.TEXT_DEFAULT+" -> Try to update the given taskmanagers script")
-						.add(TelnetCodes.TEXT_GREEN+"upgrade:settings"+TelnetCodes.TEXT_DEFAULT+" -> Try to update the settings.xml");
-				yield join.toString();
+				StringJoiner join = new StringJoiner("\r\n");
+				join.add("Allows to update a script or the main settings file");
+				join.add("upgrade:tmscript,tm id -> Try to update the given taskmanagers script")
+						.add("upgrade:settings -> Try to update the settings.xml");
+				yield LookAndFeel.formatCmdHelp(join.toString(),false);
 			}
 			case "tmscript" -> doUpgradeOfTaskManagerScript(spl[1],wr); // fe. update:tmscript,tmid
 			case "settings" -> doUpgradeOfSettingsFile();

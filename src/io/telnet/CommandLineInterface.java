@@ -44,10 +44,8 @@ public class CommandLineInterface {
                 if( data[a]==91){
                     a++;
                     switch (data[a]) {
-                        case 65 -> // Arrow Up
-                                sendHistory(-1);
-                        case 66 -> // Arrow Down
-                                sendHistory(1);
+                        case 65 -> sendHistory(-1);// Arrow Up
+                        case 66 -> sendHistory(1);// Arrow Down
                         case 67 -> { // Arrow Right
                             // Only move to the right if current space is used
                             if (buffer.getByte(buffer.writerIndex()) != 0) {
@@ -66,46 +64,54 @@ public class CommandLineInterface {
             }else if( b == '\n'){ //LF
                 writeByte(b); // echo LF
             }else if( b == '\r' || b==19 || b==27 ) { // CR or CTRL+S or ESC
-                writeByte((byte)13); // echo CR
-                if(b==27) // 27 = ESC
-                    insertByte((byte)27);
-                if( b==19 || b==27 ) // If CTRL+S or ESC, insert a 0
-                    insertByte((byte)0);
-
-                // When in the middle of altering text, the writer index isn't pointing to the last
-                // char, so find the index of the actual end
-                int wi = buffer.writerIndex();
-                if( buffer.capacity() > wi ) { // If writer index is at the end of the buffer, no use searching
-                    while (buffer.getByte(wi) != 0)
-                        wi++;
-                }
-                rec = readBuffer(wi);
+                rec = doCarriageReturn(b);
             }else if( b == 126){// delete
-                writeString(TelnetCodes.CURSOR_RIGHT);
-                if( buffer.getByte(buffer.writerIndex()+1)!=0x00){
-                    buffer.setIndex( buffer.readerIndex(),buffer.writerIndex()+1);
-                    shiftLeft();
-                }else{
-                    writeByte((byte)127);// do backspace
-                    buffer.setByte(buffer.writerIndex(),0x00); // delete current value in buffer
-                }
+                doDeleteCmd();
             }else if( b == 127 || b == 8 ){ // Backspace
-                if( buffer.getByte(buffer.writerIndex())!=0x00){
-                    shiftLeft();
-                }else{
-                    writeByte((byte)8);
-                    writeByte((byte)' ');
-                    writeByte((byte)8);
-                    buffer.setByte(buffer.writerIndex()-1,0x00);
-                    buffer.setIndex( buffer.readerIndex(),buffer.writerIndex()-1);
-                }
+                doBackspaceCmd();
             }else if( b!=0 ){
                 insertByte(b);
             }
         }
         return Optional.ofNullable(rec);
     }
+    private void doDeleteCmd(){
+        writeString(TelnetCodes.CURSOR_RIGHT);
+        if( buffer.getByte(buffer.writerIndex()+1)!=0x00){
+            buffer.setIndex( buffer.readerIndex(),buffer.writerIndex()+1);
+            shiftLeft();
+        }else{
+            writeByte((byte)127);// do backspace
+            buffer.setByte(buffer.writerIndex(),0x00); // delete current value in buffer
+        }
+    }
+    private void doBackspaceCmd(){
+        if( buffer.getByte(buffer.writerIndex())!=0x00){
+            shiftLeft();
+        }else{
+            writeByte((byte)8);
+            writeByte((byte)' ');
+            writeByte((byte)8);
+            buffer.setByte(buffer.writerIndex()-1,0x00);
+            buffer.setIndex( buffer.readerIndex(),buffer.writerIndex()-1);
+        }
+    }
+    private byte[] doCarriageReturn(byte b){
+        writeByte((byte)13); // echo CR
+        if(b==27) // 27 = ESC
+            insertByte((byte)27);
+        if( b==19 || b==27 ) // If CTRL+S or ESC, insert a 0
+            insertByte((byte)0);
 
+        // When in the middle of altering text, the writer index isn't pointing to the last
+        // char, so find the index of the actual end
+        int wi = buffer.writerIndex();
+        if( buffer.capacity() > wi ) { // If writer index is at the end of the buffer, no use searching
+            while (buffer.getByte(wi) != 0)
+                wi++;
+        }
+        return readBuffer(wi);
+    }
     /**
      * Read the cmd from the buffer and add it to the cmd history
      * @param wi Index in the buffer of last useful data
@@ -158,13 +164,10 @@ public class CommandLineInterface {
      */
     private void insertByte( byte b ){
 
-        if (buffer.writerIndex() > 2 && b == 0) {
-            if (buffer.getByte(buffer.writerIndex() - 1) == 0)
-                return;
-        }
+        if (buffer.writerIndex() > 2 && b == 0 && buffer.getByte(buffer.writerIndex() - 1) == 0)
+            return;
 
         int start = buffer.writerIndex(); // Position to start from
-
         int max = buffer.capacity()-1; // Highest allowed index
         int end = 0;
 

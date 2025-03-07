@@ -125,7 +125,6 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
     }
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
         // We don't close the channel because we can keep serving requests.
        Logger.error( cause );
     }
