@@ -369,30 +369,9 @@ public class Tools {
      * @return The resulting byte array
      */
     public static byte[] fromBaseToBytes(int base, String[] numbers) {
-
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-        for (int a = 0; a < numbers.length; a++) {
-            try {
-                if( numbers[a].isEmpty()) // skip empty strings
-                    continue;
-                if (base == 16) {
-                    numbers[a] = numbers[a].replace("0x", "");
-                } else if (base == 2) {
-                    numbers[a] = numbers[a].replace("0b", "");
-                }
-                int result = Integer.parseInt(numbers[a], base);
-                if (result <= 0xFF) {
-                    out.write((byte) result);
-                } else {
-                    out.write((byte) (result >> 8));
-                    out.write((byte) (result % 256));
-                }
-            } catch (java.lang.NumberFormatException e) {
-                Logger.error("Bad number format: " + numbers[a]);
-                return new byte[0];
-            }
-        }
+        for (String number : numbers)
+            fromBaseToByte(base, number).ifPresent(out::write);
         return out.toByteArray();
     }
     /**
@@ -444,6 +423,11 @@ public class Tools {
      * @return The found MAC or empty string if not found
      */
     public static String getMAC(String displayname) {
+        return loopNetworkInterfaces(displayname,false,"MAC");
+    }
+
+    private static String loopNetworkInterfaces(String displayname, boolean ipv4, String what ){
+        var join = new StringJoiner("\r\n");
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements()) {
@@ -451,17 +435,50 @@ public class Tools {
                 // filters out 127.0.0.1 and inactive interfaces
                 if (iface.isLoopback() || !iface.isUp())
                     continue;
-                String mac = Tools.fromBytesToHexString(iface.getHardwareAddress()).replace(" ", ":");
-                mac = mac.replace("0x", "");
-                if (iface.getDisplayName().equalsIgnoreCase(displayname))
+
+                if(what.equalsIgnoreCase("MAC")) {
+                    var mac = getMACfromInterface(iface, displayname);
+                    if (mac.isEmpty())
+                        continue;
                     return mac;
+                }else if( what.equalsIgnoreCase("ip")){
+                    join.add( getIPfromInterface(iface,displayname,ipv4) );
+                }
             }
         } catch (SocketException e) {
             System.err.println("Socket error while getting MAC");
         }
+        return join.toString();
+    }
+    private static String getMACfromInterface( NetworkInterface iface, String displayname ) throws SocketException {
+        String mac = Tools.fromBytesToHexString(iface.getHardwareAddress()).replace(" ", ":");
+        mac = mac.replace("0x", "");
+        if (iface.getDisplayName().equalsIgnoreCase(displayname))
+            return mac;
         return "";
     }
+    private static String getIPfromInterface( NetworkInterface iface, String displayName,boolean ipv4 ) throws SocketException {
+        var join = new StringJoiner("\r\n");
+        Enumeration<InetAddress> addresses = iface.getInetAddresses();
+        while (addresses.hasMoreElements()) {
+            InetAddress addr = addresses.nextElement();
+            String p = addr.getHostAddress();
+            String mac;
+            if (displayName.isEmpty()) {
+                mac = Tools.fromBytesToHexString(iface.getHardwareAddress()).replace(" ", ":");
+                mac = mac.replace("0x", "");
 
+                if ((p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
+                    join.add(iface.getDisplayName() + " -> " + p + " [" + mac + "]");
+            } else {
+                if (iface.getDisplayName().equalsIgnoreCase(displayName)) {
+                    if ((p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
+                        return p;
+                }
+            }
+        }
+        return join.toString();
+    }
     /**
      * Retrieve the IP address of an network interface based on the displayName. If
      * displayName is "" then all info from all interfaces will be returned
@@ -472,36 +489,7 @@ public class Tools {
      * @return The found IP or empty string if not found
      */
     public static String getIP(String displayName, boolean ipv4) {
-        StringJoiner join = new StringJoiner("\r\n");
-        try {
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface iface = interfaces.nextElement();
-                // filters out 127.0.0.1 and inactive interfaces
-                if (iface.isLoopback() || !iface.isUp())
-                    continue;
-
-                Enumeration<InetAddress> addresses = iface.getInetAddresses();
-                while (addresses.hasMoreElements()) {
-                    InetAddress addr = addresses.nextElement();
-                    String p = addr.getHostAddress();
-                    if (displayName.isEmpty()) {
-                        String mac = Tools.fromBytesToHexString(iface.getHardwareAddress()).replace(" ", ":");
-                        mac = mac.replace("0x", "");
-                        if ((p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
-                            join.add(iface.getDisplayName() + " -> " + p + " [" + mac + "]");
-                    } else {
-                        if (iface.getDisplayName().equalsIgnoreCase(displayName)) {
-                            if ((p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
-                                return p;
-                        }
-                    }
-                }
-            }
-        } catch (SocketException e) {
-            throw new RuntimeException(e);
-        }
-        return join.toString();
+        return loopNetworkInterfaces(displayName,ipv4,"ip");
     }
     public static List<String[]> parseKeyValue(String data, boolean distinct){
         var pairs = new ArrayList<String>();
@@ -616,26 +604,12 @@ public class Tools {
      */
     public static String convertCoordinates(String[] coordinates){
 
-        BigDecimal bd60 = BigDecimal.valueOf(60);
         StringBuilder b = new StringBuilder();
         ArrayList<Double> degrees = new ArrayList<>();
 
-        for( String item : coordinates ){
-            String[] nrs = item.split(" ");
-            if( nrs.length == 1){//meaning degrees!
-                degrees.add(Tools.parseDouble(nrs[0], 0));
-            }else if( nrs.length == 3){//meaning degrees minutes seconds!
-                double degs = Tools.parseDouble(nrs[0], 0);
-                double mins = Tools.parseDouble(nrs[1], 0);
-                double secs = Tools.parseDouble(nrs[2], 0);
+        for( String item : coordinates )
+            degrees.add(GisTools.convertStringToDegrees(item));
 
-                BigDecimal deg = BigDecimal.valueOf(degs);
-                BigDecimal sec = BigDecimal.valueOf(secs);
-                BigDecimal min = sec.divide(bd60, 7, RoundingMode.HALF_UP).add(BigDecimal.valueOf(mins));
-                deg = deg.add(min.divide(bd60,7, RoundingMode.HALF_UP));
-                degrees.add(deg.doubleValue());
-            }
-        }
         if( degrees.size()%2 == 0 ){ //meaning an even number of values
             for( int a=0;a<degrees.size();a+=2){
                 double la = degrees.get(a);
