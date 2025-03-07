@@ -1,16 +1,24 @@
 package io.stream;
 
 import io.Writable;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
+import util.xml.XMLtools;
 import worker.Datagram;
 
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledFuture;
@@ -290,6 +298,44 @@ public abstract class BaseStream {
         }
         TriggerAction(String trigger, String command){
             this(convertTrigger(trigger),command);
+        }
+    }
+    /* ************************************** */
+    protected boolean connectIPSock(Bootstrap bootstrap, InetSocketAddress ipsock ){
+        if( ipsock == null ){
+            Logger.error("No proper ipsock");
+            return false;
+        }
+        var f = bootstrap.connect(ipsock).awaitUninterruptibly();
+        f.addListener((FutureListener<Void>) future -> {
+            if (!f.isSuccess()) {
+                String cause = String.valueOf(future.cause());
+                Logger.error( id+" -> Failed to connect: "+cause.substring(cause.indexOf(":")+1));
+            }
+        });
+        if (f.isCancelled()) {
+            return false;
+        }
+        return f.isSuccess();
+    }
+    protected Bootstrap createBootstrap(){
+        var bootstrap = new Bootstrap();
+        bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
+                .option(ChannelOption.SO_KEEPALIVE, true)
+                .option(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
+        return bootstrap;
+    }
+    protected Optional<InetSocketAddress> readIPsockFromElement( Element stream ){
+        String address = XMLtools.getChildStringValueByTag( stream, "address", "");
+
+        if( !address.contains(":") ){
+            Logger.error(id+" -> Not proper ip:port for "+id+" -> "+address);
+            return Optional.empty();
+        }else{
+            var ipsock = new InetSocketAddress( address.substring(0,address.lastIndexOf(":")),
+                    Tools.parseInt( address.substring(address.lastIndexOf(":")+1) , -1) );
+            return Optional.of(ipsock);
         }
     }
 }

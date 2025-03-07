@@ -112,15 +112,10 @@ public class UdpStream extends BaseStream implements Writable {
     @Override
     protected boolean readExtraFromXML(Element stream) {
         // Process the address
-        String address = XMLtools.getChildStringValueByTag( stream, "address", "");
-
-        if( !address.contains(":") ){
-            Logger.error("Not proper ip:port for "+id+" -> "+address);
+        var opt = readIPsockFromElement(stream);
+        if(opt.isEmpty())
             return false;
-        }else{
-            ipsock = new InetSocketAddress( address.substring(0,address.lastIndexOf(":")),
-                                                Tools.parseInt( address.substring(address.lastIndexOf(":")+1) , -1) );
-        }
+        ipsock = opt.get();
         
         // Alter eol
         if( eol.isEmpty() ){

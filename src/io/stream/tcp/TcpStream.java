@@ -44,11 +44,7 @@ public class TcpStream extends BaseStream implements Writable {
                 Logger.error(id+" -> No eventloopgroup yet");
                 return null;
             }
-            bootstrap = new Bootstrap();
-            bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
-                    .option(ChannelOption.SO_KEEPALIVE, true)
-                    .option(ChannelOption.TCP_NODELAY, true)
-                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
+            bootstrap = createBootstrap();
         }else{
             this.bootstrap=strap;
         }
@@ -72,13 +68,8 @@ public class TcpStream extends BaseStream implements Writable {
             return false;
         }
         Logger.info(id+" -> Trying to connect");
-        if( bootstrap == null ){
-            bootstrap = new Bootstrap();
-            bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
-                    .option(ChannelOption.SO_KEEPALIVE, true)
-                    .option(ChannelOption.TCP_NODELAY, true)
-                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
-        }
+        if( bootstrap == null )
+            bootstrap = createBootstrap();
 
         connectionAttempts++;
 
@@ -115,22 +106,10 @@ public class TcpStream extends BaseStream implements Writable {
                 }
             }
         });
-        if( ipsock == null ){
-            Logger.error(id+" -> No proper ipsock");
-            return false;
-        }
-        f = bootstrap.connect(ipsock).awaitUninterruptibly();
-        f.addListener((FutureListener<Void>) future -> {
-            if (!f.isSuccess()) {
-                String cause = String.valueOf(future.cause());
-                Logger.error( id+" -> Failed to connect: "+cause.substring(cause.indexOf(":")+1));
-            }
-        });
-        if (f.isCancelled()) {
-            return false;
-        }
-        return f.isSuccess();
+        return connectIPSock(bootstrap,ipsock);
     }
+
+
     /**
      * Disconnect the stream
       * @return True if disconnected
@@ -158,14 +137,10 @@ public class TcpStream extends BaseStream implements Writable {
     @Override
     public boolean readExtraFromXML(Element stream) {
         // Address
-        String address = XMLtools.getChildStringValueByTag( stream, "address", "");
-        if( !address.contains(":") ){
-            Logger.error(id+" -> Not proper ip:port -> "+address);
+        var opt = readIPsockFromElement(stream);
+        if(opt.isEmpty())
             return false;
-        }else{
-            ipsock = new InetSocketAddress( address.substring(0,address.lastIndexOf(":")),
-                                                Tools.parseInt( address.substring(address.lastIndexOf(":")+1) , -1) );
-        }
+        ipsock = opt.get();
 
         // Alter eol
         if( eol.isEmpty() ){

@@ -42,19 +42,14 @@ public class ModbusTCPStream extends TcpStream{
     @Override
     public boolean connect() {
         ChannelFuture f;
-        Logger.info("Trying to connect to tcp stream");
+        Logger.info(id+" -> Trying to connect to tcp stream");
 
         if( eventLoopGroup==null){
-            Logger.error("Event loop group still null");
+            Logger.error(id+" -> Event loop group still null");
             return false;
         }
-        if( bootstrap == null ){
-            bootstrap = new Bootstrap();
-            bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
-                    .option(ChannelOption.SO_KEEPALIVE, true)
-                    .option(ChannelOption.TCP_NODELAY, true)
-                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
-        }
+        if( bootstrap == null )
+            bootstrap = createBootstrap();
 
         connectionAttempts++;
 
@@ -75,30 +70,12 @@ public class ModbusTCPStream extends TcpStream{
                     handler.setEventLoopGroup(eventLoopGroup);
                     ch.pipeline().addLast( handler );
                 }catch( io.netty.channel.ChannelPipelineException e ){
-                    Logger.error("Issue trying to use handler for "+id);
+                    Logger.error(id+" -> Issue trying to use handler for "+id);
                     Logger.error( e );
                 }
             }
         });
-        if( ipsock == null ){
-            Logger.error("No proper ipsock");
-            return false;
-        }
-        f = bootstrap.connect(ipsock).awaitUninterruptibly();
-        f.addListener((FutureListener<Void>) future -> {
-            if (!f.isSuccess()) {
-                String cause = String.valueOf(future.cause());
-                Logger.error( "Failed to connect to "+id+" : "+cause.substring(cause.indexOf(":")+1));
-            }
-        });
-        if (f.isCancelled()) {
-            return false;
-        } else if (!f.isSuccess()) {
-            Logger.error( "Failed to connect to "+id );
-        } else {
-            return true;
-        }
-        return false;
+        return connectIPSock(bootstrap,ipsock);
     }
 
 }
