@@ -1,5 +1,6 @@
 package io.forward;
 
+import das.Paths;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.StoreCmds;
@@ -17,7 +18,7 @@ public class PathCmds {
 
     private static final String[] FILTERS = {"start","nostart","end","items","contain","c_start","c_end","minlength","maxlength","nmea","regex","math"};
 
-    public static String replyToCommand(String request, boolean html, Path settingsPath ){
+    public static String replyToCommand(String request, boolean html ){
 
         var cmds= request.split(",");
         String id = cmds[0];
@@ -26,7 +27,7 @@ public class PathCmds {
             return getCmdHelp(html);
 
         // Prepare the digger
-        var dig = XMLdigger.goIn(settingsPath,"dcafs");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
         if( !dig.hasPeek("paths")) { // If no paths node, add it
             XMLfab.alterDigger(dig).ifPresent(fab->fab.addChild("paths").build());
         }
@@ -36,7 +37,7 @@ public class PathCmds {
 
         dig.digDown("path","id",id);
         if( dig.isInvalid() ) {
-            return createPath( cmds,settingsPath,id );
+            return createPath( cmds,Paths.settings(),id );
         }else if( cmds[1].equalsIgnoreCase("new")
                     || cmds[1].equalsIgnoreCase("xml")){
             return "! Already a path with that id, pick something else?";
@@ -47,7 +48,7 @@ public class PathCmds {
         if( fabOpt.isEmpty())
             return "! No valid fab created";
 
-        return processCommand( cmds, request, dig, fabOpt.get(), settingsPath);
+        return processCommand( cmds, request, dig, fabOpt.get() );
     }
     /* ***************************** H E L P *********************************************************** */
     private static String getCmdHelp(boolean html){
@@ -119,7 +120,7 @@ public class PathCmds {
         };
     }
     /* ************************************************************************************************* */
-    private static String processCommand( String[] cmds, String request, XMLdigger dig, XMLfab fab, Path settingsPath){
+    private static String processCommand( String[] cmds, String request, XMLdigger dig, XMLfab fab ){
         return switch( cmds[1]) {
             /* Commands that affect the path */
             case "delimiter", "delim" -> {
@@ -162,7 +163,7 @@ public class PathCmds {
             case "addeditor", "adde" -> addEditorBranch(cmds,request,dig,fab );
             case "addmath", "addm" -> addMathBranch(cmds,dig,fab );
             case "addcmd", "addc" -> addCmdBranch(cmds,dig,fab );
-            case "store" -> doStoreBranch(cmds,settingsPath);
+            case "store" -> doStoreBranch(cmds);
             default ->  "unknown command: pf:"+request;
         };
     }
@@ -295,15 +296,15 @@ public class PathCmds {
         fab.build();
         return "Cmd added";
     }
-    private static String doStoreBranch( String[] cmds, Path settingsPath ){
+    private static String doStoreBranch( String[] cmds ){
             if (cmds.length == 3) {
                 if (cmds[2].equals("?")) { // So request for info?
-                    var res = StoreCmds.replyToCommand("?", false, settingsPath);
+                    var res = StoreCmds.replyToCommand("?", false );
                     return res.replace("store:streamid,", "pf:" + cmds[0] + ",store,");
                 }
             }
             if( cmds.length < 4 )
                 return "! Not enough arguments, need at least 4: pf:pathid,store,cmd,value(s)";
-            return StoreCmds.replyToPathCmd(cmds[0]+","+cmds[2]+","+cmds[3]+(cmds.length>4?","+cmds[4]:""),settingsPath);
+            return StoreCmds.replyToPathCmd(cmds[0]+","+cmds[2]+","+cmds[3]+(cmds.length>4?","+cmds[4]:""),Paths.settings());
         }
 }

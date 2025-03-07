@@ -1,6 +1,7 @@
 package util.data;
 
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import io.forward.AbstractForward;
 import io.telnet.TelnetCodes;
@@ -29,17 +30,12 @@ public class RealtimeValues implements Commandable {
 	private final ConcurrentHashMap<String, FlagVal> flagVals = new ConcurrentHashMap<>(); 		 // booleans
 	private final HashMap<String,DynamicUnit> units = new HashMap<>();
 
-	/* General settings */
-	private final Path settingsPath;
-
 	/* Other */
 	private final BlockingQueue<Datagram> dQueue; // Used to issue triggered cmd's
 
-	public RealtimeValues( Path settingsPath,BlockingQueue<Datagram> dQueue ){
-		this.settingsPath=settingsPath;
+	public RealtimeValues( BlockingQueue<Datagram> dQueue ){
 		this.dQueue=dQueue;
-
-		readFromXML( XMLdigger.goIn(settingsPath,"dcafs","rtvals") );
+		readFromXML( XMLdigger.goIn(Paths.settings(),"dcafs","rtvals") );
 	}
 
 	/* ************************************ X M L ****************************************************************** */
@@ -179,7 +175,7 @@ public class RealtimeValues implements Commandable {
 	public void removeStoreVal( AbstractVal val ){
 		if( val == null)
 			return;
-		var dig = XMLdigger.goIn(settingsPath,"dcafs","rtvals");
+		var dig = XMLdigger.goIn(Paths.settings(),"dcafs","rtvals");
 		if(dig.hasPeek("group","id",val.group()) ){ // this group is in the general pool
 			dig.usePeek();
 		}else{ // Group not in general node, safe to remove
@@ -555,7 +551,7 @@ public class RealtimeValues implements Commandable {
 				}else{
 					yield "! Not enough arguments, "+cmd+":id,new or "+cmd+":name,new,group";
 				}
-				var fab = XMLfab.withRoot(settingsPath,"dcafs");
+				var fab = XMLfab.withRoot(Paths.settings(),"dcafs");
 				fab.digRoot("rtvals");
 				fab.selectOrAddChildAsParent("group","id",group);
 				if(cmd.startsWith("r")){ // So real
@@ -701,7 +697,7 @@ public class RealtimeValues implements Commandable {
 					return join.toString();
 				}
 				case "reload" -> {
-					readFromXML(XMLdigger.goIn(settingsPath, "dcafs", "rtvals"));
+					readFromXML(XMLdigger.goIn(Paths.settings(), "dcafs", "rtvals"));
 					dQueue.add(Datagram.system("pf:reload"));
 					dQueue.add(Datagram.system("dbm:reload"));
 					return "Reloaded rtvals and paths, databases (because might be affected).";

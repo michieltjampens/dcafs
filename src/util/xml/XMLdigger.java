@@ -213,7 +213,6 @@ public class XMLdigger {
         peekAt(tag,attr,value);
         return hasValidPeek();
     }
-
     /**
      * Make the peeked element the active element, which means the following peeks/digs are going to start from it.
      * @return This object

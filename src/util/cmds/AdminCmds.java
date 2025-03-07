@@ -1,6 +1,7 @@
 package util.cmds;
 
 import das.Commandable;
+import das.Paths;
 import io.email.Email;
 import io.email.EmailSending;
 import io.hardware.gpio.InterruptPins;
@@ -18,7 +19,7 @@ import java.util.Comparator;
 import java.util.StringJoiner;
 
 public class AdminCmds {
-    public static String doADMIN(String args, EmailSending sendEmail, Commandable tmCmd, String workPath, boolean html ){
+    public static String doADMIN(String args, EmailSending sendEmail, Commandable tmCmd,boolean html ){
         String nl = html?"<br":"\r\n";
         String[] cmds = args.split(",");
         switch (cmds[0]) {
@@ -50,15 +51,15 @@ public class AdminCmds {
             case "getlogs" -> {
                 if (sendEmail != null) {
                     sendEmail.sendEmail(Email.toAdminAbout("Statuslog").subject("File attached (probably)")
-                            .attachment(Path.of(workPath, "logs", "info.log")));
+                            .attachment(Paths.storage().resolve("logs").resolve("info.log")));
                     sendEmail.sendEmail(Email.toAdminAbout("Errorlog").subject("File attached (probably)")
-                            .attachment(Path.of(workPath, "logs", "errors.log")));
+                            .attachment(Paths.storage().resolve( "logs").resolve( "errors.log")));
                     return "Sending logs (info,errors) to admin...";
                 }
                 return "No email functionality active.";
             }
             case "getlastraw" -> {
-                Path it = Path.of(workPath, "raw", TimeTools.formatUTCNow("yyyy-MM"));
+                Path it = Paths.storage().resolve("raw").resolve(TimeTools.formatUTCNow("yyyy-MM"));
                 if (sendEmail == null)
                     return "! No email functionality active.";
                 try (var list = Files.list(it)) {
@@ -154,8 +155,7 @@ public class AdminCmds {
                 return "! Never gonna happen?";
             }
             case "addstatuscheck" -> {
-                var xml = Path.of(workPath).resolve("settings.xml");
-                var fab = XMLfab.withRoot(xml,"dcafs","settings","statuscheck");
+                var fab = XMLfab.withRoot(Paths.settings(),"dcafs","settings","statuscheck");
                 fab.addChild("interval").content("1h");
                 fab.addChild("email").content("admin");
                 fab.addChild("matrix");

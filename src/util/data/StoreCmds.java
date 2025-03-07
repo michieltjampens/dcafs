@@ -1,5 +1,6 @@
 package util.data;
 
+import das.Paths;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import util.tools.Tools;
@@ -17,7 +18,7 @@ public class StoreCmds {
 
     private static final ArrayList<String> VALS = new ArrayList<>(List.of("real","int","text","flag"));
     private static final ArrayList<String> VAL_ATTR = new ArrayList<>(List.of("unit","group","options","def","op"));
-    public static String replyToCommand(String request, boolean html, Path settingsPath ){
+    public static String replyToCommand(String request, boolean html ){
 
         var cmds =request.split(",");
         String id = cmds[0];
@@ -69,7 +70,7 @@ public class StoreCmds {
                 return "! Not enough arguments, probably missing group?";
         }
 
-        var dig = XMLdigger.goIn(settingsPath,"dcafs");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
         if( !id.equalsIgnoreCase("global")){
             dig.digDown("streams");
             if( dig.isInvalid())
@@ -98,7 +99,7 @@ public class StoreCmds {
             request=String.join(",",cmds);
         }
         // At this point 'store' certainly exists in memory and dig is pointing to it
-        return doCmd("store:id,",request,fab,dig,settingsPath);
+        return doCmd("store:id,",request,fab,dig,Paths.settings());
     }
     public static String replyToPathCmd(String request, Path xmlPath ){
 

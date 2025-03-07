@@ -1,7 +1,8 @@
 package util.gis;
 
 import das.Commandable;
-import io.telnet.TelnetCodes;
+import das.Paths;
+import util.LookAndFeel;
 import util.data.RealVal;
 import io.Writable;
 import org.tinylog.Logger;
@@ -22,26 +23,23 @@ import java.util.concurrent.TimeUnit;
 
 public class Waypoints implements Commandable {
 
-    private HashMap<String,Waypoint> wps = new HashMap<>();
-    private HashMap<String,GeoQuad> quads = new HashMap<>();
-
-    private Path settingsPath;
+    private final HashMap<String,Waypoint> wps = new HashMap<>();
+    private final HashMap<String,GeoQuad> quads = new HashMap<>();
 
     private RealVal latitude;
     private RealVal longitude;
     private RealVal sog;
 
-    private ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduler;
     final static int CHECK_INTERVAL = 20;
-    private BlockingQueue<Datagram> dQueue;
+    private final BlockingQueue<Datagram> dQueue;
     private ScheduledFuture<?> checkTravel;
     private ScheduledFuture<?> checkThread=null;
     private OffsetDateTime lastCheck;
     private Instant lastThreadCheck;
 
     /* *************************** C O N S T R U C T O R *********************************/
-    public Waypoints(Path settingsPath, ScheduledExecutorService scheduler, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
-        this.settingsPath=settingsPath;
+    public Waypoints(ScheduledExecutorService scheduler, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
         this.scheduler=scheduler;
         this.dQueue=dQueue;
 
@@ -85,7 +83,7 @@ public class Waypoints implements Commandable {
     /* ****************************** X M L  *************************************** */
     private boolean readFromXML( RealtimeValues rtvals ){
 
-        if( settingsPath == null){
+        if( Paths.settings() == null){
             Logger.warn("(wpts) -> Reading Waypoints failed because invalid XML.");
             return false;
         }
@@ -93,7 +91,7 @@ public class Waypoints implements Commandable {
         quads.clear();
 
         // Get the waypoints node
-        var dig = XMLdigger.goIn(settingsPath,"dcafs","waypoints");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","waypoints");
 
         if( dig.isInvalid() ) // If no node, quit
             return false;
@@ -137,11 +135,11 @@ public class Waypoints implements Commandable {
      * @return True if successful
      */
     private boolean storeInXML( ){
-        if( settingsPath==null){
+        if( Paths.settings()==null){
             Logger.error("(wpts) -> XML not defined yet.");
             return false;
         }
-        var fab = XMLfab.withRoot(settingsPath,"dcafs","waypoints");
+        var fab = XMLfab.withRoot(Paths.settings(),"dcafs","waypoints");
         fab.clearChildren();
 
         //Adding the waypoints and geoquads
@@ -323,126 +321,112 @@ public class Waypoints implements Commandable {
     public String replyToCommand(String cmd,String args, Writable wr, boolean html) {
         
         String[] cmds = args.split(",");
-        String cyan = html?"": TelnetCodes.TEXT_CYAN;
-        String green=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 
-        switch (cmds[0]) {
-            case "?" -> {
-                StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
-                b.add(cyan + "Add/remove/alter waypoints")
-                        .add(green + "wpts:add,<id,<lat>,<lon>,<range> " + reg + "-> Create a new waypoint with the name and coords lat and lon in decimal degrees")
-                        .add(green + "wpts:addblank" + reg + "-> Add a blank waypoints node with a single empty waypoint node inside")
-                        .add(green + "wpts:addtravel,waypoint,bearing,name" + reg + " -> Add travel to a waypoint.")
-                        .add(green + "wpts:cleartemps " + reg + "-> Clear temp waypoints")
-                        .add(green + "wpts:remove,<name> " + reg + "-> Remove a waypoint with a specific name")
-                        .add(green + "wpts:update,id,lat,lon " + reg + "-> Update the waypoint coordinates lat and lon in decimal degrees")
-                        .add(cyan + "Get waypoint info")
-                        .add(green + "wpts:list " + reg + "-> Get a listing of all waypoints with travel.")
-                        .add(green + "wpts:states " + reg + "-> Get a listing  of the state of each waypoint.")
-                        .add(green + "wpts:exists,id " + reg + "-> Check if a waypoint with the given id exists")
-                        .add(green + "wpts:nearest " + reg + "-> Get the id of the nearest waypoint")
-                        .add(green + "wpts:reload " + reg + "-> Reloads the waypoints from the settings file.");
-                return b.toString();
-            }
-            case "list" -> {
-                return getWaypointList(html ? "<br>" : "\r\n");
-            }
-            case "exists" -> {
-                return wpExists(cmds[1]) ? "Waypoint exists" : "No such waypoint";
-            }
+        return switch (cmds[0]) {
+            case "?" -> doCmdHelp( html );
+            case "list" ->  getWaypointList(html ? "<br>" : "\r\n");
+            case "exists" -> wpExists(cmds[1]) ? "Waypoint exists" : "No such waypoint";
             case "cleartemps" -> {
                 clearTempWaypoints();
-                return "Temp waypoints cleared";
+                yield "Temp waypoints cleared";
             }
             case "distanceto" -> {
                 if (cmds.length == 1)
-                    return "! No id given, must be wpts:distanceto,id";
+                    yield "! No id given, must be wpts:distanceto,id";
                 var d = distanceTo(cmds[1]);
-                if (d == -1)
-                    return "! No such waypoint";
-                return "Distance to " + cmds[1] + " is " + d + "m";
+                yield (d == -1)
+                        ?"! No such waypoint"
+                        :"Distance to " + cmds[1] + " is " + d + "m";
             }
-            case "nearest" -> {
-                return "The nearest waypoint is " + getNearestWaypoint();
-            }
-            case "states" -> {
-                if (sog == null)
-                    return "! Can't determine state, no sog defined";
-                return getCurrentStates(false, sog.asDoubleValue());
-            }
-            case "store" -> {
-                if (this.storeInXML())
-                    return "Storing waypoints successful";
-                return "! Storing waypoints failed";
-            }
-            case "reload" -> {
-                if (readFromXML(null))
-                    return "Reloaded stored waypoints";
-                return "! Failed to reload waypoints";
-            }
-            case "addblank" -> {
-                XMLfab.withRoot(settingsPath, "dcafs", "settings")
-                        .addParentToRoot("waypoints", "Waypoints are listed here")
-                        .attr("lat", "lat_rtval")
-                        .attr("lon", "lon_rtval")
-                        .attr("sog", "sog_rtval")
-                        .addChild("waypoint")
-                        .attr("lat", 1)
-                        .attr("lon", 1)
-                        .attr("range", 50)
-                        .content("wp_id")
-                        .build();
-                return "Blank section added";
-            }
-            case "add" -> { //wpts:new,51.1253,2.2354,wrak
-                if (cmds.length < 4)
-                    return "! Not enough parameters given";
-                if (cmds.length > 5)
-                    return "! To many parameters given (fe. 51.1 not 51,1)";
-                double lat = GisTools.convertStringToDegrees(cmds[1]);
-                double lon = GisTools.convertStringToDegrees(cmds[2]);
-                String id = cmds[3];
-                double range = 50;
-                if (cmds.length == 5) {
-                    id = cmds[4];
-                    range = Tools.parseDouble(cmds[3], 50);
-                }
-                addWaypoint( Waypoint.build(id).coord(lat,lon).range(range) );
-                return "Added waypoint with id " + cmds[3] + " lat:" + lat + "°\tlon:" + lon + "°\tRange:" + range + "m";
-            }
-            case "update" -> {
-                if (cmds.length < 4)
-                    return "! Not enough parameters given wpts:update,id,lat,lon";
-                var wpOpt = wps.get(cmds[1]);
-                if (wpOpt != null) {
-                    wpOpt.updatePosition(Tools.parseDouble(cmds[2], -999), Tools.parseDouble(cmds[3], -999));
-                    return "Updated " + cmds[1];
-                }
-                return "! No such waypoint";
-            }
-            case "remove" -> {
-                if (removeWaypoint(cmds[1]))
-                    return "Waypoint removed";
-                return "! No waypoint found with the name.";
-            }
+            case "nearest" -> "The nearest waypoint is " + getNearestWaypoint();
+            case "states" -> sog == null
+                                  ? "! Can't determine state, no sog defined"
+                                  : getCurrentStates(false, sog.asDoubleValue());
+            case "store" -> this.storeInXML()
+                                ? "Storing waypoints successful"
+                                : "! Storing waypoints failed";
+            case "reload" -> readFromXML(null)
+                    ?"Reloaded stored waypoints"
+                    :"! Failed to reload waypoints";
+            case "addblank" -> addBlankNode();
+            case "add" -> doAddNewWaypoint(cmds);//wpts:new,51.1253,2.2354,wrak
+            case "update" -> doUpdateCmd(cmds);
+            case "remove" -> removeWaypoint(cmds[1])
+                            ? "Waypoint removed"
+                            : "! No waypoint found with the name.";
             case "addtravel" -> {
                 Waypoint way = wps.get(cmds[1]);
                 if (way == null)
-                    return "! No such waypoint: " + cmds[1];
+                    yield "! No such waypoint: " + cmds[1];
 
                 if (cmds.length != 6)
-                    return "! Incorrect amount of parameters";
+                    yield "! Incorrect amount of parameters";
                 way.addTravel(cmds[5], cmds[4], cmds[2]);
-                return "Added travel " + cmds[5] + " to " + cmds[1];
+                yield "Added travel " + cmds[5] + " to " + cmds[1];
             }
-            case "checktread" -> {
-                return checkThread() ? "Thread is fine" : "! Thread needed restart";
-            }
-            default -> {
-                return "! No such subcommand in " + cmd + ": " + cmds[0];
-            }
+            case "checktread" -> checkThread() ? "Thread is fine" : "! Thread needed restart";
+            default -> "! No such subcommand in " + cmd + ": " + cmds[0];
+        };
+    }
+    private String doCmdHelp( boolean html ){
+        StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
+        b.add("Waypoints can be used to trigger actions depending on the position received.");
+        b.add("Add/remove/alter waypoints")
+                .add("wpts:add,<id,<lat>,<lon>,<range> -> Create a new waypoint with the name and coords lat and lon in decimal degrees")
+                .add("wpts:addblank-> Add a blank waypoints node with a single empty waypoint node inside")
+                .add("wpts:addtravel,waypoint,bearing,name -> Add travel to a waypoint.")
+                .add("wpts:cleartemps -> Clear temp waypoints")
+                .add("wpts:remove,<name> -> Remove a waypoint with a specific name")
+                .add("wpts:update,id,lat,lon -> Update the waypoint coordinates lat and lon in decimal degrees")
+                .add("Get waypoint info")
+                .add("wpts:list -> Get a listing of all waypoints with travel.")
+                .add("wpts:states -> Get a listing  of the state of each waypoint.")
+                .add("wpts:exists,id -> Check if a waypoint with the given id exists")
+                .add("wpts:nearest -> Get the id of the nearest waypoint")
+                .add("wpts:reload -> Reloads the waypoints from the settings file.");
+        return LookAndFeel.formatCmdHelp(b.toString(),html);
+    }
+    private String addBlankNode(  ){
+        XMLfab.withRoot(Paths.settings(), "dcafs", "settings")
+                .addParentToRoot("waypoints", "Waypoints are listed here")
+                .attr("lat", "lat_rtval")
+                .attr("lon", "lon_rtval")
+                .attr("sog", "sog_rtval")
+                .addChild("waypoint")
+                .attr("lat", 1)
+                .attr("lon", 1)
+                .attr("range", 50)
+                .content("wp_id")
+                .build();
+        return "Blank section added";
+    }
+    private String doAddNewWaypoint( String[] args ){
+        if (args.length < 4)
+            return "! Not enough parameters given: wpts:add,<id,<lat>,<lon>,<range>";
+        if (args.length > 5)
+            return "! To many parameters given (fe. 51.1 not 51,1)";
+
+        double lat = GisTools.convertStringToDegrees(args[1]);
+        double lon = GisTools.convertStringToDegrees(args[2]);
+        String id = args[3];
+        double range = 50;
+
+        if (args.length == 5) {
+            id = args[4];
+            range = Tools.parseDouble(args[3], 50);
         }
+        addWaypoint( Waypoint.build(id).coord(lat,lon).range(range) );
+        return "Added waypoint with id " + args[3] + " lat:" + lat + "°\tlon:" + lon + "°\tRange:" + range + "m";
+    }
+    private String doUpdateCmd( String[] args ){
+        if (args.length < 4)
+            return "! Not enough parameters given wpts:update,id,lat,lon";
+        var wpOpt = wps.get(args[1]);
+        if (wpOpt != null) {
+            wpOpt.updatePosition(Tools.parseDouble(args[2], -999), Tools.parseDouble(args[3], -999));
+            return "Updated " + args[1];
+        }
+        return "! No such waypoint";
     }
     public String payloadCommand( String cmd, String args, Object payload){
         return "! No such cmds in "+cmd;

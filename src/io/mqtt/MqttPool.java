@@ -1,5 +1,6 @@
 package io.mqtt;
 
+import das.Paths;
 import io.Writable;
 import io.telnet.TelnetCodes;
 import das.Commandable;
@@ -20,12 +21,10 @@ import java.util.concurrent.BlockingQueue;
 public class MqttPool implements Commandable {
 
     Map<String, MqttWorker> mqttWorkers = new HashMap<>();
-    Path settingsFile;
     RealtimeValues rtvals;
     BlockingQueue<Datagram> dQueue;
 
-    public MqttPool(Path settingsFile, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue ){
-        this.settingsFile=settingsFile;
+    public MqttPool( RealtimeValues rtvals, BlockingQueue<Datagram> dQueue ){
         this.rtvals=rtvals;
         this.dQueue=dQueue;
 
@@ -66,7 +65,7 @@ public class MqttPool implements Commandable {
         mqttWorkers.values().forEach( worker -> worker.clear(rtvals));
         mqttWorkers.clear(); // Clear to start fresh
 
-        var dig = XMLdigger.goIn(settingsFile,"dcafs","mqtt");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","mqtt");
         if( dig.isInvalid())
             return false;
 
@@ -206,7 +205,7 @@ public class MqttPool implements Commandable {
         if( mqttWorkers.containsKey(cmds[1]))
             return "ID already in use";
 
-        var fab = XMLfab.withRoot(settingsFile,"dcafs","mqtt");
+        var fab = XMLfab.withRoot(Paths.settings(),"dcafs","mqtt");
         fab.addParentToRoot("broker").attr("id",cmds[1]); // make broker root
         fab.addChild("address",cmds[2]);
         fab.addChild("roottopic",cmds[3]);
@@ -219,7 +218,7 @@ public class MqttPool implements Commandable {
         if( worker == null)
             return "! Not a valid id: "+args[0];
 
-        var dig = XMLdigger.goIn(settingsFile,"dcafs","mqtt");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","mqtt");
         XMLfab fab;
         if( dig.hasPeek("broker","id",args[0]) ) {
             dig.usePeek();

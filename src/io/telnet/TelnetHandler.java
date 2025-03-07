@@ -1,16 +1,15 @@
 package io.telnet;
 
+import das.Paths;
 import io.Writable;
 import io.netty.channel.*;
 import io.netty.handler.codec.TooLongFrameException;
 import org.tinylog.Logger;
-import org.w3c.dom.Node;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.net.Inet4Address;
@@ -39,7 +38,6 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	protected ArrayList<String> ignoreIP= new ArrayList<>();	// List of IP's to ignore, not relevant for StreamHandler, but is for the telnet implementation
 	protected boolean log=true;	// Flag that determines if raw data needs to be logged
 
-	private final Path settingsPath;
 	private final HashMap<String,String> macros = new HashMap<>();
 	private ArrayList<String> hist;
  	String repeat = "";
@@ -60,11 +58,10 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	 * @param dQueue the queue from the @see BaseWorker
 	 * @param ignoreIPlist list of ip's to ignore (meaning no logging)
 	 */
-    public TelnetHandler(BlockingQueue<Datagram> dQueue, String ignoreIPlist, Path settingsPath){
+    public TelnetHandler(BlockingQueue<Datagram> dQueue, String ignoreIPlist){
 		this.dQueue = dQueue;
 		ignoreIP.addAll(Arrays.asList(ignoreIPlist.split(";")));
 		ignoreIP.trimToSize();
-		this.settingsPath=settingsPath;
 	}
 	public void addOneTime(String mess){
 		onetime.add(mess);
@@ -88,21 +85,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			}else{
 				Logger.debug("IPv6: "+((Inet6Address)remote.getAddress()));
 			}
-			if( dQueue != null ) {
-				XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet")
-						.selectChildAsParent("client", "host", remote.getHostName())
-						.ifPresent(f -> {
-							id = XMLtools.getStringAttribute(f.getCurrentElement(),"id",id);
-							start = f.getChild("start").map(Node::getTextContent).orElse("");
-							for (var c : f.getChildren("macro")) {
-								macros.put(c.getAttribute("ref"), c.getTextContent());
-							}
-						});
-
-				id = XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet")
-						.selectChildAsParent("client", "host", remote.getHostName())
-						.map(f -> f.getCurrentElement().getAttribute("id")).orElse(id);
-			}
+			readXMLsettings();
 		}else{
 			Logger.error( "Channel.remoteAddress is null in channelActive method");
 		}
@@ -110,25 +93,15 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		cli = new CommandLineInterface(channel); // Start the cli
 		cli.setHistory(hist);
 		if( dQueue !=null ) {
-			writeString(TelnetCodes.TEXT_RED + "Welcome to " + title + "!\r\n" + TelnetCodes.TEXT_RESET);
-			writeString(TelnetCodes.TEXT_GREEN + "It is " + new Date() + " now.\r\n" + TelnetCodes.TEXT_RESET);
-			writeString(TelnetCodes.TEXT_BRIGHT_BLUE + "> Common Commands: [h]elp,[st]atus, rtvals, exit...\r\n");
-			if( !onetime.isEmpty() ) {
-				writeLine(TelnetCodes.TEXT_RED);
-				writeLine("");
-				writeLine("ERRORS DETECTED DURING STARTUP");
-				onetime.forEach(this::writeLine);
-				onetime.clear();
-			}
-			writeString(TelnetCodes.TEXT_DEFAULT + ">");
-			channel.flush();
-			if (!start.isEmpty()) {
+			showWelcomeMessage();
+
+			if (!start.isEmpty()) { // Send the init cmds
 				dQueue.add( Datagram.build(start).label(LABEL).writable(this).origin("telnet:" + channel.remoteAddress().toString()).toggleSilent() );
 			}
 		}else{
 			writeLine(TelnetCodes.TEXT_RED + "Issue in settings.xml, can't start up properly! Please fix! " + TelnetCodes.TEXT_ORANGE);
 			writeLine( ">>> LAST 15ish lines of the errors log<<<<");
-			var data = FileTools.readLastLines( settingsPath.getParent()
+			var data = FileTools.readLastLines(Paths.storage()
 									.resolve("logs")
 									.resolve("errors_"+ TimeTools.formatUTCNow("yyMMdd") +".log"),15);
 			boolean wait = true;
@@ -142,7 +115,36 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			}
 			writeLine("Press <enter> to shut down dcafs...");
 		}
-	}    
+	}
+	private void readXMLsettings( ){
+		var dig = XMLdigger.goIn( Paths.settings(),"dcafs","settings","telnet");
+		if( dig.hasPeek("client","host",remote.getHostName()) ){
+			dig.usePeek(); // Because we want to go down the level
+			id = dig.attr("id",id); // fetch the id attribute
+			if( dig.hasPeek("start")) // Check if there's a start node
+				start = dig.value(""); // If so fetch the content
+
+			for( var macro: dig.digOut("macro")){
+				var ref = macro.attr("ref","");
+				if( !ref.isEmpty())
+					macros.put( ref,macro.value(""));
+			}
+		}
+	}
+	private void showWelcomeMessage(){
+		writeString(TelnetCodes.TEXT_RED + "Welcome to " + title + "!\r\n" + TelnetCodes.TEXT_RESET);
+		writeString(TelnetCodes.TEXT_GREEN + "It is " + new Date() + " now.\r\n" + TelnetCodes.TEXT_RESET);
+		writeString(TelnetCodes.TEXT_BRIGHT_BLUE + "> Common Commands: [h]elp,[st]atus, rtvals, exit...\r\n");
+		if( !onetime.isEmpty() ) {
+			writeLine(TelnetCodes.TEXT_RED);
+			writeLine("");
+			writeLine("ERRORS DETECTED DURING STARTUP");
+			onetime.forEach(this::writeLine);
+			onetime.clear();
+		}
+		writeString(TelnetCodes.TEXT_DEFAULT + ">");
+		channel.flush();
+	}
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) {   
 		Logger.debug("Not implemented yet - channelRegistered");
@@ -191,113 +193,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			}
 			return;
 		}else if( d.getData().startsWith(">>")) {
-			var split = new String[2];
-			String[] cmds={"prefix","ts","ds","id?","es"};
-
-			String cmd = d.getData().substring(2);
-			if(cmd.startsWith(">")) // If three are used
-				cmd=cmd.substring(1);
-
-			if( !d.getData().contains(":") && !Arrays.asList(cmds).contains(cmd)){
-				writeLine("Missing ':'");
-				return;
-			}
-
-			if( cmd.contains(":")) {
-				split[0] = cmd.substring(0, cmd.indexOf(":"));
-				split[1] = cmd.substring(split[0].length() + 1);
-			}else{
-				split[0]=cmd;
-				split[1]="";
-			}
-
-			switch (split[0]) {
-				case "id?" -> {
-					if( id.equalsIgnoreCase("telnet")){
-						writeLine("No id set yet");
-					}else{
-						writeLine("Current id: "+id);
-					}
-				}case "id" -> {
-					id = split[1];
-					var dig = XMLdigger.goIn(settingsPath,"dcafs","settings","telnet");
-					if( dig.isInvalid() ) {
-						writeString("! No telnet node yet");
-						return;
-					}
-					if( dig.peekAt("client","id",id).hasValidPeek()){
-						writeLine("ID already in use");
-					}else{
-						var fabOpt = XMLfab.alterDigger(dig);
-						fabOpt.ifPresent( x-> {
-							x.addChild("client").attr("id",id).attr("host",remote.getHostName());
-							x.build();
-						});
-						writeLine("ID set to "+id);
-					}
-					return;
-				}
-				case "talkto" -> {
-					writeString("Talking to " + split[1] + ", send !! to stop\r\n>");
-					repeat = "telnet:write," + split[1] + ",";
-				}
-				case "start" -> {
-					if (id.isEmpty() || id.equalsIgnoreCase("telnet")) {
-						writeLine("Please set an id first with >>id:newid");
-					}else {
-						start = split[1];
-						writeLine("Startup command has been set to '" + start + "'");
-						writeLine( XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
-								.map(f -> {
-									f.addChild("start", split[1]);
-									f.build();
-									return "Result of "+split[1] + " will be shown on log in.\r\n>";
-								}).orElse("Couldn't find the node?"));
-					}
-				}
-				case "color" -> {
-					default_text_color = TelnetCodes.colorToCode(split[1],default_text_color);
-					writeString(default_text_color+"Color changed...?\r\n>");
-				}
-				case "macro" -> {
-					if (!split[1].contains("->")) {
-						writeLine("Missing ->");
-					}else {
-						var ma = split[1].split("->");
-						writeString(XMLfab.withRoot(settingsPath, "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
-								.map(f -> {
-									f.addChild("macro", ma[1]).attr("ref", ma[0]).build();
-									macros.put(ma[0], ma[1]);
-									return "Macro " + ma[0] + " replaced with " + ma[1] + "\r\n>";
-								}).orElse("Couldn't find the node\r\n>"));
-					}
-				}
-				case "ts" -> {
-					ts = !ts;
-					if( !split[1].isEmpty()){
-						format=split[1];
-					}else{
-						format="HH:mm:ss.SSS";
-					}
-					writeLine("Time stamping " + (ts ? "enabled" : "disabled"));
-				}
-				case "ds" -> {
-					ds = !ds;
-					writeLine("Date stamping " + (ds ? "enabled" : "disabled"));
-				}
-				case "es" -> {
-					es = !es;
-					writeLine("Elapsed time stamping " + (es ? "enabled" : "disabled"));
-				}
-
-				case "prefix" -> {
-					prefix = !prefix;
-					writeLine("Prefix " + (prefix ? "enabled" : "disabled"));
-				}
-				case "clearhistory","clrh" -> cli.clearHistory();
-				default -> 	writeLine("Unknown telnet command: " + d.getData());
-
-			}
+			doCmds(d);
 			return;
 		}else{
 			d.setData(repeat+d.getData());
@@ -312,6 +208,105 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
         } else {
 			dQueue.add( d );
         }
+	}
+	private void doChangeIdCmd( String id ){
+		var dig = XMLdigger.goIn(Paths.settings(),"dcafs","settings","telnet");
+		if( dig.isInvalid() ) {
+			writeString("! No telnet node yet");
+			return;
+		}
+		if( dig.peekAt("client","id",id).hasValidPeek()){
+			writeLine("ID already in use");
+		}else{
+			var fabOpt = XMLfab.alterDigger(dig);
+			fabOpt.ifPresent( x-> {
+				x.addChild("client").attr("id",id).attr("host",remote.getHostName());
+				x.build();
+			});
+			writeLine("ID set to "+id);
+		}
+	}
+	private void doCmds( Datagram d ){
+		var split = new String[2];
+		String[] cmds={"prefix","ts","ds","id?","es"}; // Cmds that don't require arguments
+
+		String cmd = d.getData().substring(2);
+		if(cmd.startsWith(">")) // If three are used
+			cmd=cmd.substring(1);
+
+		if( !d.getData().contains(":") && !Arrays.asList(cmds).contains(cmd) ){
+			writeLine("Missing ':'");
+			return;
+		}
+
+		if( cmd.contains(":")) {
+			split[0] = cmd.substring(0, cmd.indexOf(":"));
+			split[1] = cmd.substring(split[0].length() + 1);
+		}else{
+			split[0]=cmd;
+			split[1]="";
+		}
+
+		switch (split[0]) {
+			case "id?" -> writeLine( id.equalsIgnoreCase("telnet")?"No id set yet":"Current id: "+id);
+			case "id" -> doChangeIdCmd(split[1]);
+			case "talkto" -> {
+				writeString("Talking to " + split[1] + ", send !! to stop\r\n>");
+				repeat = "telnet:write," + split[1] + ",";
+			}
+			case "start" -> doStartCmd(split[1]);
+			case "color" -> {
+				default_text_color = TelnetCodes.colorToCode(split[1],default_text_color);
+				writeString(default_text_color+"Color changed...?\r\n>");
+			}
+			case "macro" -> doMacroCmd(split[1]);
+			case "ts" -> {
+				ts = !ts;
+				format = split[1].isEmpty()?"HH:mm:ss.SSS":split[1];
+				writeLine("Time stamping " + (ts ? "enabled" : "disabled"));
+			}
+			case "ds" -> {
+				ds = !ds;
+				writeLine("Date stamping " + (ds ? "enabled" : "disabled"));
+			}
+			case "es" -> {
+				es = !es;
+				writeLine("Elapsed time stamping " + (es ? "enabled" : "disabled"));
+			}
+			case "prefix" -> {
+				prefix = !prefix;
+				writeLine("Prefix " + (prefix ? "enabled" : "disabled"));
+			}
+			case "clearhistory","clrh" -> cli.clearHistory();
+			default -> 	writeLine("Unknown telnet command: " + d.getData());
+		}
+	}
+	private void doStartCmd(String cmd){
+		if (id.isEmpty() || id.equalsIgnoreCase("telnet")) {
+			writeLine("Please set an id first with >>id:newid");
+		}else {
+			start = cmd;
+			writeLine("Startup command has been set to '" + start + "'");
+			writeLine( XMLfab.withRoot(Paths.settings(), "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
+					.map(f -> {
+						f.addChild("start", cmd);
+						f.build();
+						return "Result of " + cmd + " will be shown on log in.\r\n>";
+					}).orElse("Couldn't find the node?"));
+		}
+	}
+	private void doMacroCmd( String macro ){
+		if (!macro.contains("->")) {
+			writeLine("Missing ->");
+		}else {
+			var ma = macro.split("->");
+			writeString(XMLfab.withRoot(Paths.settings(), "dcafs", "settings", "telnet").selectChildAsParent("client", "id", id)
+					.map(f -> {
+						f.addChild("macro", ma[1]).attr("ref", ma[0]).build();
+						macros.put(ma[0], ma[1]);
+						return "Macro " + ma[0] + " replaced with " + ma[1] + "\r\n>";
+					}).orElse("Couldn't find the node\r\n>"));
+		}
 	}
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {

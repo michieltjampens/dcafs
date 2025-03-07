@@ -64,13 +64,13 @@ public class SQLiteDB extends SQLDB{
      * @param dbe The element with the setup info
      * @return Returns an optional sqliteDB
      */
-    public static Optional<SQLiteDB> readFromXML( Element dbe, String workPath ){
+    public static Optional<SQLiteDB> readFromXML( Element dbe, Path workPath ){
         if( dbe == null )
             return Optional.empty();
 
         var dig = XMLdigger.goIn(dbe);
         String id = dig.attr("id","");
-        var path = dig.attr("path",null,Path.of(workPath));
+        var path = dig.attr("path",null,workPath);
 
         if( path.isEmpty() )
             return Optional.empty();

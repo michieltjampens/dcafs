@@ -1,6 +1,7 @@
 package io.matrix;
 
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import io.forward.MathForward;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -73,7 +74,6 @@ public class MatrixClient implements Writable, Commandable {
     MathForward math;
     boolean downloadAll=true;
     Path dlFolder=Path.of("downloads");
-    Path settingsFile;
     private final HashMap<String,String> macros = new HashMap<>();
 
     static final long RETRY_MAX = 90;
@@ -86,9 +86,8 @@ public class MatrixClient implements Writable, Commandable {
     private static final String ROOM_ID_REGEX = "^[!][a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
     private static final String EVENT_ID_REGEX = "^\\$[a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
 
-    public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, Path settingsFile ){
+    public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
         this.dQueue=dQueue;
-        this.settingsFile=settingsFile;
         math = new MathForward(null,rtvals);
         readFromXML();
     }
@@ -97,7 +96,7 @@ public class MatrixClient implements Writable, Commandable {
      * Reads the settings from the global settingsfile
      */
     private void readFromXML( ){
-        var dig = XMLdigger.goIn(settingsFile,"dcafs","matrix");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","matrix");
 
         String user = dig.attr("user","");
         if( user.isEmpty()) {
@@ -489,7 +488,7 @@ public class MatrixClient implements Writable, Commandable {
             HttpRequest request = HttpRequest.newBuilder(finalUri)
                     .build();
 
-            var p = settingsFile.getParent().resolve(dlFolder).resolve(id);
+            var p = Paths.storage().resolve(dlFolder).resolve(id);
             Files.createDirectories(p.getParent());
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofFile(p))
                     .thenApply( res -> {
@@ -833,13 +832,13 @@ public class MatrixClient implements Writable, Commandable {
                 }
             }
             case "addblank" -> {
-                MatrixClient.addBlankElement(settingsFile,cmds);
+                MatrixClient.addBlankElement(Paths.settings(),cmds);
                 return "Blank matrix node added";
             }
             case "addmacro" -> {
                 if (cmds.length < 2)
                     return "! Not enough arguments: matrix:addmacro,key,value";
-                var f = XMLfab.withRoot(settingsFile, "dcafs", "settings", "matrix");
+                var f = XMLfab.withRoot(Paths.settings(), "dcafs", "settings", "matrix");
                 f.addChild("macro", cmds[2]).attr("key", cmds[1]);
                 macros.put(cmds[1], cmds[2]);
                 return "Macro added to xml";

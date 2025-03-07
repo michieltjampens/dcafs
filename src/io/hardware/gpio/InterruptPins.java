@@ -4,6 +4,7 @@ import com.diozero.api.*;
 import com.diozero.api.function.DeviceEventConsumer;
 import com.diozero.sbc.LocalSystemInfo;
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
 import util.data.IntegerVal;
@@ -22,15 +23,13 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
     private final HashMap<String,DigitalInputDevice> inputs = new HashMap<>();
     private final HashMap<Integer,ArrayList<IsrAction>> isrs = new HashMap<>();
     private final BlockingQueue<Datagram> dQueue;
-    private final Path settings;
     private final CustomBoard board;
     private final RealtimeValues rtvals;
 
-    public InterruptPins(BlockingQueue<Datagram> dQueue, Path settings, RealtimeValues rtvals){
+    public InterruptPins(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
         this.dQueue=dQueue;
-        this.settings=settings;
         this.rtvals=rtvals;
-        board = new CustomBoard(LocalSystemInfo.getInstance(),settings);
+        board = new CustomBoard(LocalSystemInfo.getInstance(), Paths.settings());
 
         readFromXml();
     }
@@ -38,7 +37,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
         return board;
     }
     private void readFromXml(){
-        var dig = XMLdigger.goIn(settings,"dcafs","gpios");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","gpios");
         if( dig.isValid() ){
             for( var isrDig: dig.digOut("gpio")){
                 int pin = isrDig.attr("nr",-1);

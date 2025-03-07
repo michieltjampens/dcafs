@@ -1,6 +1,7 @@
 package io.collector;
 
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -24,13 +25,12 @@ public class CollectorPool implements Commandable, CollectorFuture {
 
     private final Map<String, FileCollector> fileCollectors = new HashMap<>();
 
-    private final Path workPath;
     private final BlockingQueue<Datagram> dQueue;
     private final EventLoopGroup nettyGroup;
     private final RealtimeValues rtvals;
 
-    public CollectorPool(Path workpath, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, RealtimeValues rtvals ){
-        this.workPath=workpath;
+    public CollectorPool(BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, RealtimeValues rtvals ){
+
         this.dQueue=dQueue;
         this.nettyGroup=nettyGroup;
         this.rtvals=rtvals;
@@ -69,11 +69,11 @@ public class CollectorPool implements Commandable, CollectorFuture {
     private void loadFileCollectors(){
         fileCollectors.clear();
         FileCollector.createFromXml(
-                        XMLdigger.goIn(workPath.resolve("settings.xml"),"dcafs","collectors")
+                        XMLdigger.goIn(Paths.storage().resolve("settings.xml"),"dcafs","collectors")
                                 .peekOut("file"),
                         nettyGroup,
                         dQueue,
-                        workPath.toString() )
+                        Paths.storage().toString() )
                 .forEach( this::addFileCollector );
     }
 
@@ -173,25 +173,24 @@ public class CollectorPool implements Commandable, CollectorFuture {
         if (cmds.length < 4)
             return "! Not enough arguments given: fc:addnew,id,src,path";
 
-        FileCollector.addBlankToXML(XMLfab.withRoot(workPath.resolve("settings.xml"), "dcafs"), cmds[1], cmds[2], cmds[3]);
+        FileCollector.addBlankToXML(XMLfab.withRoot(Paths.settings(), "dcafs"), cmds[1], cmds[2], cmds[3]);
         var fc = createFileCollector(cmds[1]);
         fc.addSource(cmds[2]);
         if (Path.of(cmds[3]).isAbsolute()) {
             fc.setPath(Path.of(cmds[3]));
         } else {
-            fc.setPath(Path.of(workPath.toString()).resolve(cmds[3]));
+            fc.setPath(Paths.storage().resolve(cmds[3]));
         }
         return "FileCollector " + cmds[1] + " created and added to xml.";
     }
     /* ********************************** G E N E R A L  C O M M A N D S ******************************************* */
     private String doGeneralCommands( String[] cmds, FileCollector fco ){
-        var settingsPath = workPath.resolve("settings.xml");
 
-        var fab = XMLfab.withRoot(settingsPath, "dcafs", "collectors")
-                .selectOrAddChildAsParent("file", "id", fco.id());
+        var fab = Paths.fabInSettings("collectors")
+                    .selectOrAddChildAsParent("file", "id", fco.id());
 
         return switch (cmds[1]) {
-            case "addrollover" ->  doRollOverCmd( fco,cmds,settingsPath );
+            case "addrollover" ->  doRollOverCmd( fco,cmds,Paths.settings() );
             case "addheader" -> {
                 if (cmds.length < 3)
                     yield "! Wrong amount of arguments -> fc:addheader,id,header";
@@ -209,7 +208,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
                 yield "Size limit added to " + fco.id();
             }
             case "path" -> {
-                fco.setPath(Path.of(cmds[2]), workPath.toString());
+                fco.setPath(Path.of(cmds[2]), Paths.storage().toString());
                 fab.alterChild("path", cmds[2]).build();
                 yield "Altered the path";
             }
@@ -228,14 +227,14 @@ public class CollectorPool implements Commandable, CollectorFuture {
                 yield alterAttribute(fab,cmds[1],cmds[2]);
             }
             case "reload" -> {
-                var opt = XMLfab.withRoot(settingsPath, "dcafs", "collectors")
+                var opt = XMLfab.withRoot(Paths.settings(), "dcafs", "collectors")
                         .getChild("file", "id", cmds[1]);
 
                 if( opt.isEmpty() )
                     yield "! Couldn't find file";
 
                 fco.flushNow();
-                fco.readFromXML(XMLdigger.goIn(opt.get()), workPath.toString());
+                fco.readFromXML(XMLdigger.goIn(opt.get()), Paths.storage().toString());
                 yield "Reloaded";
             }
             case "perms" -> {

@@ -27,20 +27,12 @@ public class CommandPool {
 
 	private final ArrayList<Commandable> stopCommandable = new ArrayList<>(); // the ones that 'stop' sending data
 	private final HashMap<String,Commandable> commandables = new HashMap<>(); // The regular ones
-	private final String workPath; // Working path for dcafs
-	private final Path settingsPath; // Path to the settings.xml
 	static final String UNKNOWN_CMD = "unknown command"; // Default reply if the requested cmd doesn't exist
 	private EmailSending sendEmail = null; // Object to send emails
 	private String shutdownReason=""; // The reason given for shutting down
 
 
 	/* ******************************  C O N S T R U C T O R *********************************************************/
-
-	public CommandPool(String workPath ){
-		this.workPath = workPath;
-		settingsPath = Path.of(workPath,"settings.xml");
-		Logger.info("CommandPool started with workpath: "+workPath);
-	}
 	/**
 	 * Add an implementation of the Commandable interface
 	 * @param id The first part of the command (so whatever is in front of the : )
@@ -219,7 +211,7 @@ public class CommandPool {
 		if( result.contains("matrix")){
 			if( subCmd.startsWith("add")) {
 				// TODO: Passwords that contain a , ...?
-				if( MatrixClient.addBlankElement(settingsPath, subCmd.split(",")) ) {
+				if( MatrixClient.addBlankElement(Paths.settings(), subCmd.split(",")) ) {
 					result = "Matrix element added to settings.xml.";
 				}else{
 					result = "! No valid settings.xml?";
@@ -234,7 +226,7 @@ public class CommandPool {
 	private String createEmailNodeIfAsked( String result, String subCmd){
 		if( result.contains("email")){
 			if( subCmd.equals("add")) {
-				if( EmailWorker.addBlankElement(settingsPath,true,false) ) {
+				if( EmailWorker.addBlankElement(Paths.settings(),true,false) ) {
 					result = "Blank email element added to settings.xml, go fill it in!";
 				}else{
 					result = "! No valid settings.xml?";
@@ -255,7 +247,7 @@ public class CommandPool {
 	private String checkLocalCommandables(String[] split, Writable wr,boolean html){
 		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
 		return switch (split[0]) { // check if it's a built-in cmd instead of a commandable one
-			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"),workPath, html);
+			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"), html);
 			case "help", "h", "?" -> doHelp(split, eol);
 			case "upgrade" -> doUPGRADE(split, wr, eol);
 			case "retrieve" -> doRETRIEVE(split, wr, eol);
@@ -263,7 +255,7 @@ public class CommandPool {
 			case "serialports" -> Tools.getSerialPorts(html);
 			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
 			case "store" -> doStoreCommands( split[1], wr, html );
-			case "history" -> HistoryCmds.replyToCommand(split[1],html,settingsPath.getParent());
+			case "history" -> HistoryCmds.replyToCommand(split[1],html,Paths.settings().getParent());
 			case "log" -> doTinyLogCommands( split[1] );
 			case "", "stop", "nothing" -> {
 				stopCommandable.forEach(c -> c.replyToCommand("","", wr, false));
@@ -347,7 +339,7 @@ public class CommandPool {
 	 * @return The result of the command
 	 */
 	private String doStoreCommands( String subCmd, Writable wr, boolean html ){
-		var ans = StoreCmds.replyToCommand( subCmd, html, settingsPath );
+		var ans = StoreCmds.replyToCommand( subCmd, html );
 		if( !subCmd.startsWith("?")) {
 			if( subCmd.equalsIgnoreCase("global")) {
 				doCmd("rtvals","reload",wr);// reload the global rtvals
@@ -408,7 +400,7 @@ public class CommandPool {
 
 		Path p = Path.of(ori);
 		Path to = Path.of(ori.replace(".xml", "") + "_" + TimeTools.formatUTCNow("yyMMdd_HHmm") + ".xml");
-		Path refr = Path.of(workPath, "attachments", subCmd);
+		Path refr = Paths.storage().resolve( "attachments").resolve(subCmd);
 
 		try {
 			if (Files.exists(p) && Files.exists(refr)) {
@@ -427,9 +419,9 @@ public class CommandPool {
 		}
 	}
 	private String doUpgradeOfSettingsFile(){
-		Path p = Path.of(workPath, "settings.xml");
-		Path to = Path.of(workPath, "settings_" + TimeTools.formatNow("yyMMdd_HHmm") + ".xml");
-		Path refr = Path.of(workPath, "attachments" + File.separator + "settings.xml");
+		Path p = Paths.settings();
+		Path to = Paths.storage().resolve( "settings_" + TimeTools.formatNow("yyMMdd_HHmm") + ".xml");
+		Path refr = Paths.storage().resolve( "attachments" ).resolve("settings.xml");
 
 		try {
 			if (Files.exists(p) && Files.exists(refr)) {
@@ -485,13 +477,13 @@ public class CommandPool {
 		return "Tried sending " + spl[1] + " to " + spl[2];
 	}
 	private String doRetrieveOfSettingsFile( String[] spl ){
-		Path set = Path.of(workPath, "settings.xml");
-		if (Files.notExists(set)) {
-			return "! No such file: " + set;
+
+		if (Files.notExists(Paths.settings())) {
+			return "! No such file: " + Paths.settings();
 		}
 		if (spl.length != 2)
 			return "! Not enough arguments, expected retrieve:setup,email/ref";
-		sendEmail.sendEmail(Email.to(spl[1]).subject("Requested file: settings.xml").content("Nothing to say").attachment(workPath + File.separator + "settings.xml"));
+		sendEmail.sendEmail(Email.to(spl[1]).subject("Requested file: settings.xml").content("Nothing to say").attachment(Paths.settings()));
 		return "Tried sending settings.xml to " + spl[1];
 	}
 	/* *******************************************************************************/

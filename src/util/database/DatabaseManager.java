@@ -1,6 +1,7 @@
 package util.database;
 
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import io.collector.StoreCollector;
 import io.forward.*;
@@ -29,19 +30,15 @@ public class DatabaseManager implements QueryWriting, Commandable {
     private final Map<String, SQLDB> sqls = new HashMap<>();            // Store the SQL databases
     private static final int CHECK_INTERVAL=5;                          // How often to check the state
     private final ScheduledExecutorService scheduler;                   // Scheduler for the request data action
-    private final String workPath;                                            // dcafs workpath
-    private final Path settingsPath;                                          // Path to dcafs settings.xml
     private final RealtimeValues rtvals;                                 // Reference to the realtime data
     private static final String[] DBTYPES = {"mssql","mysql","mariadb","sqlite","postgresql"};
 
     /**
      * Create a manager that uses its own scheduler
      */
-    public DatabaseManager( String workPath, RealtimeValues rtvals) {
-        this.workPath=workPath;
-        this.rtvals=rtvals;
+    public DatabaseManager( RealtimeValues rtvals) {
 
-        settingsPath = Path.of(workPath,"settings.xml");
+        this.rtvals=rtvals;
         scheduler = Executors.newScheduledThreadPool(1); // create a scheduler with a single thread
 
         readFromXML();  // Read the settings from the xml
@@ -79,7 +76,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
             Logger.error(id+"(dbm) -> No valid db object, aborting add.");
             return null;
         }
-        db.setWorkPath(settingsPath.getParent());
+        db.setWorkPath(Paths.settings().getParent());
         if (lites.isEmpty() && sqls.isEmpty())
             scheduler.scheduleAtFixedRate(new CheckQueryAge(), 2L*CHECK_INTERVAL, CHECK_INTERVAL, TimeUnit.SECONDS);
         sqls.put(id.toLowerCase(), db);
@@ -137,12 +134,12 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * Read the databases' setup from the settings.xml
      */
     private void readFromXML() {
-        XMLdigger.goIn(settingsPath,"dcafs","databases")
+        XMLdigger.goIn( Paths.settings(),"dcafs","databases")
                 .peekOut("sqlite").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
-                .forEach( db -> SQLiteDB.readFromXML(db,workPath).ifPresent( d -> addSQLiteDB(db.getAttribute("id"),d)) );
+                .forEach( db -> SQLiteDB.readFromXML(db,Paths.storage()).ifPresent( d -> addSQLiteDB(db.getAttribute("id"),d)) );
 
-        XMLdigger.goIn(settingsPath,"dcafs","databases")
+        XMLdigger.goIn(Paths.settings(),"dcafs","databases")
                 .peekOut("server").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
                 .forEach( db -> addSQLDB(db.getAttribute("id"), SQLDB.readFromXML(db)));
@@ -154,10 +151,10 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * @return The database reloaded
      */
     public Optional<Database> reloadDatabase( String id ){
-        var dig = XMLdigger.goIn(settingsPath,"dcafs","databases");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","databases");
         if( dig.hasPeek("sqlite","id",id)){
             var d = dig.usePeek().currentTrusted();
-            return SQLiteDB.readFromXML( d,workPath).map(sqLiteDB -> addSQLiteDB(id, sqLiteDB));
+            return SQLiteDB.readFromXML( d,Paths.storage()).map(sqLiteDB -> addSQLiteDB(id, sqLiteDB));
         }else if( dig.hasPeek("server","id",id)){
             var d = dig.usePeek().currentTrusted();
             return Optional.ofNullable(addSQLDB(id, SQLDB.readFromXML(d) ));
@@ -260,15 +257,14 @@ public class DatabaseManager implements QueryWriting, Commandable {
 
     /**
      * Add a blank table node to the given database (can be both server or sqlite)
-     * @param settings The path to the settings file
      * @param id The id of the database the table belongs to
      * @param table The name of the table
      * @param format The format of the table
      * @return True if build
      */
-    public static boolean addBlankTableToXML( Path settings, String id, String table, String format){
+    public static boolean addBlankTableToXML( String id, String table, String format){
 
-        var dig = XMLdigger.goIn(settings,"dcafs","databases");
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","databases");
         if( dig.hasPeek("sqlite","id",id) || dig.hasPeek("server","id",id)){ // it's a server
             dig.usePeek();
         }else{
@@ -413,11 +409,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 dbName+=".sqlite";
             Path p = Path.of(dbName);
             if( !p.isAbsolute())
-                p = Path.of(workPath).resolve(p);
+                p = Paths.storage().resolve(p);
             var sqlite = SQLiteDB.createDB( id, p );
             if( sqlite.connect(false) ){
                 addSQLiteDB(id,sqlite);
-                sqlite.writeToXml( XMLfab.withRoot(settingsPath,"dcafs","databases") );
+                sqlite.writeToXml( XMLfab.withRoot(Paths.settings(),"dcafs","databases") );
                 return "Created SQLite at "+dbName+" and wrote to settings.xml";
             }
             return "! Failed to create SQLite";
@@ -435,7 +431,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
             db.setID(id);
             if( db.connect(false) ){
                 db.getCurrentTables(false);
-                db.writeToXml( XMLfab.withRoot(settingsPath,"dcafs","databases"));
+                db.writeToXml( XMLfab.withRoot(Paths.settings(),"dcafs","databases"));
                 addSQLDB(id,db);
                 return "Connected to "+cmds[0]+" database and stored in xml as id "+id;
             }
@@ -449,7 +445,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
         if (!cmds[3].contains(":"))
             return "! Needs to be columtype:columnname";
 
-        var dig = XMLdigger.goIn(settingsPath,"dcafs")
+        var dig = XMLdigger.goIn(Paths.settings(),"dcafs")
                 .digDown("databases"); // Go into the database node
         dig.hasPeek("sqlite","id",cmds[0]);
         if( dig.hasValidPeek() ){
@@ -526,7 +522,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
         return switch (cmds[1]) {
             case "tablexml" -> {
                 // Select the correct server node
-                var fab = XMLfab.withRoot(settingsPath, "dcafs", "databases");
+                var fab = XMLfab.withRoot(Paths.settings(), "dcafs", "databases");
                 if (fab.selectChildAsParent("server", "id", cmds[0]).isEmpty())
                     fab.selectChildAsParent("sqlite", "id", cmds[0]);
                 if (fab.hasChild("table", "name", cmds[2]).isPresent())
@@ -544,14 +540,14 @@ public class DatabaseManager implements QueryWriting, Commandable {
                     var sql =  ((SQLiteDB) db).setRollOver(cmds[4],rollCount, unit);
                     if( sql==null)
                         yield "! Bad arguments given, probably format?";
-                    sql.writeToXml(XMLfab.withRoot(settingsPath, "dcafs", "databases"));
+                    sql.writeToXml(XMLfab.withRoot(Paths.settings(), "dcafs", "databases"));
                     ((SQLiteDB) db).forceRollover();
                     yield "Rollover added";
                 }
                 yield "! " + cmds[0] + " is not an SQLite";
             }
             case "addtable" -> {
-                if (DatabaseManager.addBlankTableToXML(settingsPath,cmds[0], cmds[2], cmds.length == 4 ? cmds[3] : "")) {
+                if (DatabaseManager.addBlankTableToXML(cmds[0], cmds[2], cmds.length == 4 ? cmds[3] : "")) {
                     if (cmds.length == 4)
                         yield "Added a partially setup table to " + cmds[0] + " in the settings.xml, edit it to set column names etc";
                     yield "Created tablenode for " + cmds[0] + " inside the db node";
@@ -637,13 +633,14 @@ public class DatabaseManager implements QueryWriting, Commandable {
                     process = pb.start();
                     process.waitFor();
                     // zip it?
-                    if (Files.exists(Path.of(workPath, cmds[2]))) {
-                        if (FileTools.zipFile(Path.of(workPath, cmds[2])) == null) {
+                    var dump = Paths.storage().resolve(cmds[2]);
+                    if (Files.exists( dump )) {
+                        if (FileTools.zipFile(dump) == null) {
                             Logger.error("Dump of " + cmds[1] + " created, but zip failed");
                             yield "! Dump created, failed zipping.";
                         }
                         // Delete the original file
-                        Files.deleteIfExists(Path.of(workPath, cmds[2]));
+                        Files.deleteIfExists(dump);
                     } else {
                         Logger.error("Dump of " + cmds[1] + " failed.");
                         yield "! No file created...";

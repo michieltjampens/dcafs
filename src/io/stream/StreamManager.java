@@ -1,6 +1,7 @@
 package io.stream;
 
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import io.collector.CollectorFuture;
 import io.collector.ConfirmCollector;
@@ -13,7 +14,6 @@ import io.stream.tcp.TcpServerStream;
 import io.stream.tcp.TcpStream;
 import io.stream.udp.UdpServer;
 import io.stream.udp.UdpStream;
-import io.telnet.TelnetCodes;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -58,7 +58,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	private final LinkedHashMap<String,BaseStream> streams = new LinkedHashMap<>();
 
-	private Path settingsPath = Path.of("settings.xml"); // Path to the xml file
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // scheduler for the connection attempts
 
 	private final RealtimeValues rtvals;
@@ -344,13 +343,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String reloadStream( String id ) {
 
-		Logger.info("Reloading "+id+ " from "+ settingsPath.toAbsolutePath());
-		if(Files.notExists(settingsPath)){
-			Logger.error("Failed to read xml file at "+ settingsPath.toAbsolutePath());
+		Logger.info("Reloading "+id+ " from "+ Paths.settings().toAbsolutePath());
+		if(Files.notExists(Paths.settings())){
+			Logger.error("Failed to read xml file at "+ Paths.settings().toAbsolutePath());
 			return "! Failed to read xml";
 		}
 
-		var streamDig = XMLdigger.goIn(settingsPath,"dcafs","streams");
+		var streamDig = XMLdigger.goIn(Paths.settings(),"dcafs","streams");
 		streamDig.peekAt("stream","id",id);
 		if( !streamDig.hasValidPeek())
 			return "! No stream named "+id+" found, so can't reload.";
@@ -382,7 +381,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public boolean reloadStore( String id ){
 		// meaning reloading an existing one
-		var streamDig = XMLdigger.goIn(settingsPath,"dcafs","streams");
+		var streamDig = XMLdigger.goIn(Paths.settings(),"dcafs","streams");
 		streamDig.digDown("stream","id",id);
 		streamDig.digDown("store");
 		if( streamDig.isValid() && getStream(id).isPresent()){
@@ -394,15 +393,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	/**
 	 * Add the streams by reading the settings.xml
-	 *
-	 * @param settingsPath The path to the settings.xml
 	 */
-	public void readSettingsFromXML( Path settingsPath ) {
+	public void readSettingsFromXML( ) {
 
-		if( XMLtools.readXML(settingsPath).isEmpty())
+		if( XMLtools.readXML(Paths.settings()).isEmpty())
 			return;
-
-		this.settingsPath=settingsPath;
 
 		if( !streams.isEmpty()){
 			streams.values().forEach(BaseStream::disconnect);
@@ -411,7 +406,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		stores.forEach( st -> st.getStore().ifPresent( s -> s.removeRealtimeValues(rtvals)));
 		streams.clear(); // Clear out before the reread
 
-		XMLdigger dig = XMLdigger.goIn(settingsPath,"dcafs","streams");
+		XMLdigger dig = XMLdigger.goIn(Paths.settings(),"dcafs","streams");
 		if( !dig.isValid())
 			return;
 
@@ -664,7 +659,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		String[] cmds = request.split(",");
 		// Prepare the digger
-		var dig = XMLdigger.goIn(settingsPath,"dcafs");
+		var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
 		if( !dig.hasPeek("streams")) {
 			XMLfab.alterDigger(dig).ifPresent( x->x.addChild("streams").build());
 		}
@@ -681,7 +676,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		return switch (cmd) {
 			case "?" -> getCmdHelp(html);
 			case "reload" -> {
-				readSettingsFromXML(settingsPath);
+				readSettingsFromXML();
 				yield "Settings reloaded.";
 			}
 			case "buffers" ->  getConfirmBuffers();

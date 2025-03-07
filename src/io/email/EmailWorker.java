@@ -1,6 +1,7 @@
 package io.email;
 
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import io.collector.BufferCollector;
 import io.collector.CollectorFuture;
@@ -96,17 +97,14 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	private ScheduledFuture<?> slowCheck = null;
 	private ScheduledFuture<?> fastCheck = null;
 	private ScheduledFuture<?> clear = null;
-	final Path settingsPath;
 	private boolean ready=false;
 	/**
 	 * Constructor for this class
-	 * 
-	 * @param settingsPath the path to the xml with the settings
+	 *
 	 * @param dQueue the queue processed by a @see BaseWorker
 	 */
-	public EmailWorker(Path settingsPath, BlockingQueue<Datagram> dQueue) {
+	public EmailWorker( BlockingQueue<Datagram> dQueue) {
 		this.dQueue = dQueue;
-		this.settingsPath=settingsPath;
 		if( readFromXML() )
 			init();
 	}
@@ -158,7 +156,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 		mailSession = null;
 
-		XMLdigger xml = XMLdigger.goIn(settingsPath,"dcafs").digDown("settings").digDown("email");
+		XMLdigger xml = XMLdigger.goIn(Paths.settings(),"dcafs","settings","email");
 
 		if( !xml.isValid() )
 			return false;
@@ -272,8 +270,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	}
 
 	private boolean writePermits(){
-		if( settingsPath != null ){
-			var fab = XMLfab.withRoot(settingsPath,"dcafs","settings","email");
+		if( Paths.settings() != null ){
+			var fab = XMLfab.withRoot(Paths.settings(),"dcafs","settings","email");
 			fab.selectOrAddChildAsParent("permits");
 			fab.clearChildren();
 			for( var permit : permits ){
@@ -390,14 +388,14 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
 
 		if( args.equalsIgnoreCase("addblank") ){
-			if( EmailWorker.addBlankElement(  settingsPath, true,true) )
+			if( EmailWorker.addBlankElement(  Paths.settings(), true,true) )
 				return "Adding default email settings";
 			return "! Failed to add default email settings";
 		}
 
 		if( !ready ){
 			if(args.equals("reload")
-					&& XMLfab.withRoot(settingsPath, "dcafs","settings").getChild("email").isPresent() ){
+					&& XMLfab.withRoot(Paths.settings(), "dcafs","settings").getChild("email").isPresent() ){
 				if( !readFromXML() )
 					return "! No proper email node yet";
 			}else{
@@ -567,7 +565,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 			if( hasAttachment ){
 				try {
-					var safe = settingsPath.getParent().toAbsolutePath().toString();
+					var safe = Paths.settings().getParent().toAbsolutePath().toString();
 					var zip = Path.of(email.attachment+".zip").normalize().toAbsolutePath();
 					if( zip.toString().startsWith(safe) )
 						Files.deleteIfExists(zip);
@@ -686,8 +684,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		}
 
 		Path path = Path.of(attach).normalize().toAbsolutePath();
-		if( !path.startsWith(settingsPath.getParent().toAbsolutePath().toString()) ) {
-			Logger.error("Attach at "+path+ " didn't reside in "+settingsPath.getParent());
+		if( !path.startsWith(Paths.storage().toAbsolutePath().toString()) ) {
+			Logger.error("Attach at "+path+ " didn't reside in "+Paths.storage());
 			return false;
 		}
 
@@ -934,7 +932,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 							if ( part != null && Part.ATTACHMENT.equalsIgnoreCase( part.getDisposition() )) {
 								Logger.info("Attachment found:"+part.getFileName());
 								Path p = Path.of("attachments",part.getFileName()).normalize().toAbsolutePath();
-								if( p.toString().startsWith(settingsPath.getParent().toAbsolutePath().toString())) {
+								if( p.toString().startsWith( Paths.storage().toAbsolutePath().toString())) {
 									Files.createDirectories(p.getParent());
 
 									part.saveFile(p.toFile());

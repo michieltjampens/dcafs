@@ -1,6 +1,7 @@
 package io.telnet;
 
 import das.Commandable;
+import das.Paths;
 import io.Writable;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -43,18 +44,16 @@ public class TelnetServer implements Commandable {
     
     BlockingQueue<Datagram> dQueue;
     ArrayList<Writable> writables = new ArrayList<>();
-    private final Path settingsPath;
     private final ArrayList<String> messages=new ArrayList<>();
     private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
     private final HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
     private long maxAge=3600;
     private Path tinylogPath;
 
-    public TelnetServer( BlockingQueue<Datagram> dQueue, Path settingsPath, EventLoopGroup eventGroup ) {
+    public TelnetServer( BlockingQueue<Datagram> dQueue, EventLoopGroup eventGroup ) {
         this.dQueue=dQueue;
         this.workerGroup = eventGroup;
-        this.settingsPath = settingsPath;
-        tinylogPath = settingsPath.getParent();
+        tinylogPath = Paths.storage();
         readSettingsFromXML();
     }
     public String getTitle(){
@@ -66,7 +65,7 @@ public class TelnetServer implements Commandable {
 
     public void readSettingsFromXML( ) {
         if( dQueue != null ) {
-            var dig = XMLdigger.goIn(settingsPath,"dcafs","settings","telnet");
+            var dig = Paths.digInSettings("settings").digDown("telnet");
             if( dig.isValid()){
                 port = dig.attr("port",2323);
                 title = dig.attr( "title", "DCAFS");
@@ -75,14 +74,14 @@ public class TelnetServer implements Commandable {
                 dig.goUp();
                 maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
                 var pth = dig.peekAt("tinylog").value("");
-                tinylogPath = pth.isEmpty()?settingsPath.getParent():Path.of(pth);
+                tinylogPath = pth.isEmpty()?Paths.storage():Path.of(pth);
             }else {
-                addBlankTelnetToXML(settingsPath);
+                addBlankTelnetToXML();
             }
         }
     }
-    public static void addBlankTelnetToXML(Path xmlPath ){
-        XMLfab.withRoot(xmlPath,"dcafs", "settings")
+    public static void addBlankTelnetToXML( ){
+        Paths.fabInSettings("settings")
                 .addParentToRoot("telnet", "Settings related to the telnet server").attr("title", "DCAFS").attr("port", 2323)
                 .addChild("textcolor","lightgray")
                 .build();
@@ -101,7 +100,7 @@ public class TelnetServer implements Commandable {
                                 .addLast( new ReadTimeoutHandler(1800) );// close connection after set time without traffic
 
                         // and then business logic.
-                        TelnetHandler handler = new TelnetHandler( dQueue,ignore,settingsPath ) ;
+                        TelnetHandler handler = new TelnetHandler( dQueue,ignore ) ;
                         handler.setTitle(title);
                         var remoteIp = ch.remoteAddress().getAddress().toString().substring(1);
                         cmdHistory.computeIfAbsent(remoteIp, k -> new ArrayList<>());

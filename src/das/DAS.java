@@ -10,6 +10,7 @@ import io.hardware.i2c.I2CWorker;
 import io.matrix.MatrixClient;
 import io.mqtt.MqttPool;
 import io.stream.StreamManager;
+import util.LookAndFeel;
 import util.gis.Waypoints;
 import util.tools.FileMonitor;
 import io.stream.tcp.TcpServer;
@@ -43,8 +44,6 @@ public class DAS implements Commandable{
 
     private static final String version = "2.13.1";
 
-    private Path settingsPath; // Path to the settings.xml
-    private String workPath; // Path to the working dir of dcafs
     private String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
 
@@ -86,12 +85,6 @@ public class DAS implements Commandable{
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
 
-    /* Formatting */
-    final String ERROR_COLOR = TelnetCodes.TEXT_RED;
-    final String INFO_COLOR = TelnetCodes.TEXT_GREEN;
-    final String WARN_COLOR = TelnetCodes.TEXT_ORANGE;
-
-
     public DAS() {
 
         figureOutPaths();   // This needs to be done before tinylog is used because it sets the paths
@@ -99,18 +92,18 @@ public class DAS implements Commandable{
             return;
         Logger.info("Program booting");
 
-        var digger = XMLdigger.goIn(settingsPath,"dcafs"); // Use digger to go through settings.xml
+        var digger = XMLdigger.goIn( Paths.settings(),"dcafs"); // Use digger to go through settings.xml
 
         digForSettings( digger );   // Dig for the settings node
 
         /* CommandPool */
-        commandPool = new CommandPool( workPath );
+        commandPool = new CommandPool( );
         addCommandable(this,"st"); // add the commands found in this file
 
         addRtvals();            // Add Realtimevalues
 
         /* Database manager */
-        dbManager = new DatabaseManager(workPath,rtvals);
+        dbManager = new DatabaseManager(rtvals);
         addCommandable(dbManager,"dbm","myd");
 
         addLabelWorker();       // Add Label worker
@@ -123,7 +116,7 @@ public class DAS implements Commandable{
             addTransServer(); // and if so, set it up
 
         /* Waypoints */
-        var waypoints = new Waypoints(settingsPath,nettyGroup,rtvals,dQueue);
+        var waypoints = new Waypoints(nettyGroup,rtvals,dQueue);
         addCommandable(waypoints,"wpts");
 
         digForCollectors(digger);   // Add FileCollectors
@@ -148,50 +141,31 @@ public class DAS implements Commandable{
     }
     private void figureOutPaths(){
         // Determine working dir based on the classpath
-        var classPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
-        classPath = classPath.replace("%20"," ");
-        System.out.println("Checking for workpath at : "+classPath);
 
-        if( classPath.startsWith("/") && SystemUtils.IS_OS_WINDOWS ) // for some reason this gets prepended
-            classPath=classPath.substring(1);
-
-        Path p=Path.of(classPath); // Convert to path
-
-        if (classPath.endsWith("classes/")) { //meaning from ide
-            p = p.getParent(); // get parent to get out of the classes
+        tinylogPath = Paths.storage().toString();
+        if( Files.exists(Paths.settings())){
+            var digger = XMLdigger.goIn(Paths.settings(),"dcafs","settings");
+            tinylogPath = digger.peekAt("tinylog").value(Paths.storage().toString());
         }
 
-        workPath = p.getParent().toString();
-        if( workPath.matches(".*lib$")) { // Meaning used as a lib
-            workPath = Path.of(workPath).getParent().toString();
-        }else if( workPath.contains("repository")){
-            workPath = Path.of("").toAbsolutePath().toString();
-        }
-        settingsPath = Path.of(workPath, "settings.xml");
-        tinylogPath = workPath;
-        if( Files.exists(settingsPath)){
-            var digger = XMLdigger.goIn(settingsPath,"dcafs","settings");
-            tinylogPath = digger.peekAt("tinylog").value(workPath);
-        }
-
-        System.out.println("Workpath lib: "+workPath); // System because logger isn't initiated yet
+        System.out.println("Workpath lib: "+Paths.storage()); // System because logger isn't initiated yet
         System.out.println("Workpath tinylog: "+tinylogPath); // System because logger isn't initiated yet
         if( System.getProperty("tinylog.directory") == null ) { // don't overwrite this
             // Re set the paths for the file writers to use the same path as the rest of the program
             System.setProperty("tinylog.directory", tinylogPath); // Set work path as system property
         }
 
-        Logger.info("Used settingspath: "+settingsPath);
+        Logger.info("Used settingspath: "+Paths.settings());
     }
     private boolean checkSettingsFile(){
-        if (Files.notExists(settingsPath)) { // Check if the settings.xml exists
+        if (Files.notExists(Paths.settings())) { // Check if the settings.xml exists
             Logger.warn("No Settings.xml file found, creating new one. Searched path: "
-                    + settingsPath.toFile().getAbsolutePath());
+                    + Paths.settings().toFile().getAbsolutePath());
             createXML(); // doesn't exist so create it
         }
 
-        if( !XMLtools.checkXML(settingsPath).isEmpty() ){// Check if the reading resulted in a proper xml
-            Logger.error("Issue in current settings.xml, aborting: " + settingsPath);
+        if( !XMLtools.checkXML(Paths.settings()).isEmpty() ){// Check if the reading resulted in a proper xml
+            Logger.error("Issue in current settings.xml, aborting: " + Paths.settings());
             addTelnetServer(); // Even if settings.xml is bad, start the telnet server anyway to inform user
             return false;
         }
@@ -221,13 +195,13 @@ public class DAS implements Commandable{
         }
     }
     private void addRtvals(){
-        rtvals = new RealtimeValues( settingsPath, dQueue );
+        rtvals = new RealtimeValues( dQueue );
         addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text;flag");
         addCommandable(rtvals,"rtval","rtvals");
         addCommandable(rtvals,"stop");
     }
     private void prepareForwards(){
-        var pathPool = new PathPool(dQueue, settingsPath, rtvals, nettyGroup,dbManager);
+        var pathPool = new PathPool(dQueue, rtvals, nettyGroup,dbManager);
         addCommandable(pathPool,"paths","path","pf","paths");
         addCommandable(pathPool, ""); // empty cmd is used to stop data requests
     }
@@ -238,7 +212,7 @@ public class DAS implements Commandable{
     private void digForMatrix( XMLdigger digger ){
         if( digger.hasPeek("matrix") ){
             Logger.info("Reading Matrix info from settings.xml");
-            matrixClient = new MatrixClient( dQueue, rtvals, settingsPath );
+            matrixClient = new MatrixClient( dQueue, rtvals );
             addCommandable(matrixClient,"matrix");
         }else{
             statusMatrixRoom="";
@@ -252,7 +226,7 @@ public class DAS implements Commandable{
     private void digForFileMonitor( XMLdigger digger ){
         if( digger.hasPeek("monitor") ) {
             // Monitor files for changes
-            FileMonitor fileMonitor = new FileMonitor(settingsPath.getParent(), dQueue);
+            FileMonitor fileMonitor = new FileMonitor( Paths.storage(), dQueue);
             addCommandable(fileMonitor,"fm","fms");
         }
     }
@@ -274,7 +248,7 @@ public class DAS implements Commandable{
      */
     private void digForCollectors( XMLdigger digger ) {
         if (digger.hasPeek("collectors")) {
-            collectorPool = new CollectorPool(settingsPath.getParent(), dQueue, nettyGroup, rtvals);
+            collectorPool = new CollectorPool( dQueue, nettyGroup, rtvals);
             addCommandable(collectorPool, "fc");
             addCommandable(collectorPool, "mc");
         } else {
@@ -288,7 +262,7 @@ public class DAS implements Commandable{
     private void digForGPIOs( XMLdigger digger ) {
         if (digger.hasPeek("gpios")) {
             Logger.info("Reading interrupt gpio's from settings.xml");
-            isrs = new InterruptPins(dQueue, settingsPath, rtvals);
+            isrs = new InterruptPins(dQueue, rtvals);
             addCommandable(isrs, "gpios", "isr");
         }
     }
@@ -297,22 +271,6 @@ public class DAS implements Commandable{
      * @return The version nr in format x.y.z
      */
     public String getVersion(){return version;}
-
-    /**
-     * Get the path to parent folder of the settings.xml
-     * @return Path of the parent folder of the settings.xml
-     */
-    public Path getWorkPath(){
-        return Path.of(workPath);
-    }
-
-    /**
-     * Get the path of the settings.xml
-     * @return Path of the settings.xml
-     */
-    public Path getSettingsPath(){
-        return settingsPath;
-    }
 
     /**
      * Get the period that dcafs has been active
@@ -341,7 +299,7 @@ public class DAS implements Commandable{
      * Create the base settings.xml
      */
     private void createXML() {
-       XMLfab.withRoot(settingsPath, "dcafs")
+       XMLfab.withRoot( Paths.settings(), "dcafs")
                 .addParentToRoot("settings")
                     .addChild("maxrawage").content("1h")
                 .addParentToRoot("streams")
@@ -363,7 +321,7 @@ public class DAS implements Commandable{
      */
     private void addTaskManager() {
 
-        taskManagerPool = new TaskManagerPool(workPath, rtvals, commandPool);
+        taskManagerPool = new TaskManagerPool(rtvals, commandPool);
 
         if (streamManager != null)
             taskManagerPool.setStreamPool(streamManager);
@@ -384,7 +342,7 @@ public class DAS implements Commandable{
        addCommandable(streamManager,"raw","stream"); // getting data from a stream
        addCommandable(streamManager,""); // stop sending data
 
-       streamManager.readSettingsFromXML(settingsPath);
+       streamManager.readSettingsFromXML();
        streamManager.getStreamIDs().forEach( id -> addCommandable(streamManager,id) );
     }
     public Optional<Writable> getStreamWritable( String id ){
@@ -409,7 +367,7 @@ public class DAS implements Commandable{
      * Add the pool that handles the mqtt connections
      */
     private void addMqttPool(){
-        mqttPool = new MqttPool(settingsPath,rtvals,dQueue);
+        mqttPool = new MqttPool(rtvals,dQueue);
         addCommandable( mqttPool,"mqtt");
     }
     /* *****************************************  T R A N S S E R V E R ***************************************** */
@@ -419,7 +377,7 @@ public class DAS implements Commandable{
     private void addTransServer() {
 
         Logger.info("Adding TransServer");
-        trans = new TcpServer(settingsPath, nettyGroup);
+        trans = new TcpServer(nettyGroup);
         trans.setDataQueue(dQueue); // Uses the same queue for datagrams like StreamManager etc
 
         addCommandable(trans,"ts","trans"); // Add ts/trans commands to CommandPool
@@ -431,7 +389,7 @@ public class DAS implements Commandable{
      */
     private void addEmailWorker() {
         Logger.info("Adding EmailWorker");
-        emailWorker = new EmailWorker(settingsPath, dQueue);
+        emailWorker = new EmailWorker(dQueue);
         addCommandable(emailWorker,"email");
         commandPool.setEmailSender(emailWorker);
     }
@@ -441,10 +399,10 @@ public class DAS implements Commandable{
      */
     private void addTelnetServer() {
         if( bootOK) {
-            telnet = new TelnetServer(dQueue, settingsPath, nettyGroup);
+            telnet = new TelnetServer(dQueue, nettyGroup);
             addCommandable(telnet, "telnet", "nb");
         }else{
-            telnet = new TelnetServer(null, settingsPath, nettyGroup);
+            telnet = new TelnetServer(null, nettyGroup);
         }
     }
 
@@ -461,7 +419,7 @@ public class DAS implements Commandable{
             return;
         }
         Logger.info("Adding I2CWorker.");
-        i2cWorker = new I2CWorker(settingsPath,nettyGroup,rtvals,dQueue);
+        i2cWorker = new I2CWorker(nettyGroup,rtvals,dQueue);
         addCommandable(i2cWorker,"i2c","i_c");
         addCommandable(i2cWorker,"stop");
         i2cWorker.getUartIds().forEach( id -> addCommandable(i2cWorker,id) );
@@ -640,25 +598,25 @@ public class DAS implements Commandable{
         addDcafsStatus(report,html);  // General program status like memory etc
 
         if (streamManager != null) {
-            report.append( formatStatusTitle("Streams",html));
-            formatStatusText( streamManager.getStatus(),report,html );
+            report.append( LookAndFeel.formatStatusTitle("Streams",html));
+            LookAndFeel.formatStatusText( streamManager.getStatus(),report,html );
         }
         if( i2cWorker != null && i2cWorker.getDeviceCount()!=0){
-            report.append( formatStatusTitle("Devices",html));
-            formatStatusText( i2cWorker.getStatus("\r\n"),report,html );
+            report.append( LookAndFeel.formatStatusTitle("Devices",html));
+            LookAndFeel.formatStatusText( i2cWorker.getStatus("\r\n"),report,html );
         }
         if( isrs != null ){
-            report.append( formatStatusTitle( "GPIO Isr",html));
-            formatStatusText( isrs.getStatus("\r\n"),report,html);
+            report.append( LookAndFeel.formatStatusTitle( "GPIO Isr",html));
+            LookAndFeel.formatStatusText( isrs.getStatus("\r\n"),report,html);
         }
         if (mqttPool != null && !mqttPool.getMqttWorkerIDs().isEmpty()) {
-            report.append( formatStatusTitle("MQTT",html));
-            formatStatusText( mqttPool.getMqttBrokersInfo(),report,html);
+            report.append( LookAndFeel.formatStatusTitle("MQTT",html));
+            LookAndFeel.formatStatusText( mqttPool.getMqttBrokersInfo(),report,html);
         }
 
         // Buffer status
-        report.append( formatStatusTitle("Buffers",html));
-        formatStatusText( getQueueSizes(),report,html);
+        report.append( LookAndFeel.formatStatusTitle("Buffers",html));
+        LookAndFeel.formatStatusText( getQueueSizes(),report,html);
 
         addDBMstatus(report,html); // Database Manager status
 
@@ -674,13 +632,13 @@ public class DAS implements Commandable{
     private void addDcafsStatus( StringBuilder report, boolean html ){
 
         final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_WARN = html?"":WARN_COLOR;
+        final String TEXT_WARN = html?"":TelnetCodes.TEXT_ORANGE;
 
-        report.append( formatStatusTitle( "DCAFS Status at "+TimeTools.formatNow("HH:mm:ss"),html) );
-        formatSplitStatusText( "DCAFS Version: "+version+" (jvm:"+System.getProperty("java.version")+")", report, html );
-        formatSplitStatusText( "Uptime: "+getUptime(), report, html );
+        report.append( LookAndFeel.formatStatusTitle( "DCAFS Status at "+TimeTools.formatNow("HH:mm:ss"),html) );
+        LookAndFeel.formatSplitStatusText( "DCAFS Version: "+version+" (jvm:"+System.getProperty("java.version")+")", report, html );
+        LookAndFeel.formatSplitStatusText( "Uptime: "+getUptime(), report, html );
         addMemoryInfo( report, html );
-        formatSplitStatusText( "IP: "+Tools.getLocalIP(), report, html);
+        LookAndFeel.formatSplitStatusText( "IP: "+Tools.getLocalIP(), report, html);
 
         if( streamManager.getStreamCount()==0 ) { // No streams so no raw data
             report.append(TEXT_DEFAULT).append("Raw Age: ").append(TEXT_WARN).append("No streams yet.");
@@ -696,7 +654,7 @@ public class DAS implements Commandable{
             var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
             rawAge = (age>maxRawAge?"!! ":"") + "Raw Age: "+convert+"["+max+"]";
         }
-        formatSplitStatusText( rawAge, report, html );
+        LookAndFeel.formatSplitStatusText( rawAge, report, html );
     }
     private void addMemoryInfo( StringBuilder report, boolean html ){
         double totalMem = (double)Runtime.getRuntime().totalMemory();
@@ -706,7 +664,7 @@ public class DAS implements Commandable{
         usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
 
         var memStatus = (usedMem>70?"!! ":"") + "Memory: " + usedMem + "/" + totalMem;
-        formatStatusText(memStatus,report,html);
+        LookAndFeel.formatStatusText(memStatus,report,html);
     }
     /**
      * Prepare the status information about the Database Manager
@@ -714,89 +672,15 @@ public class DAS implements Commandable{
      * @param html Whether to format in html
      */
     private void addDBMstatus(StringBuilder report, boolean html){
-        report.append( formatStatusTitle("Databases",html) );
+        report.append( LookAndFeel.formatStatusTitle("Databases",html) );
         if ( !dbManager.hasDatabases()){
             report.append("None yet").append( html ? "<br>" : "\r\n" );
             return;
         }
 
         for( String line : dbManager.getStatus().split("\r\n") ){
-            formatSplitStatusText( line.replace(workPath+File.separator,""),report,"->", html );
+            LookAndFeel.formatSplitStatusText( line.replace(Paths.storage()+File.separator,""),report,"->", html );
         }
-    }
-    /**
-     * Format a title for the status report
-     * @param title The title to format
-     * @param html Whether to use html
-     * @return The formatted title
-     */
-    private String formatStatusTitle(String title, boolean html ){
-        if (html) {
-            return "<br><b>"+title+"</b><br>";
-        }
-        // If telnet
-        return TelnetCodes.TEXT_CYAN+"\r\n"+title+"\r\n"+TelnetCodes.TEXT_DEFAULT+TelnetCodes.UNDERLINE_OFF;
-    }
-
-    /**
-     * Format a portion of text for the status report, applying color is an error is marked with !!
-     * @param lines The lines to format
-     * @param report This holds the rest of  the status
-     * @param html Whether formatting is html or not
-     */
-    private void formatStatusText(String lines , StringBuilder report, boolean html ){
-        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_ERROR = html?"":ERROR_COLOR;
-        final String TEXT_WARN = html?"":WARN_COLOR;
-
-        for (String line : lines.split("\r\n") ) {
-            if (line.startsWith("!!")) {
-                report.append(TEXT_ERROR);
-            }else if (line.startsWith("(NC)")) {
-                report.append(TEXT_WARN);
-            }
-            report.append(line).append(TEXT_DEFAULT);
-            report.append(html ? "<br>" : "\r\n");
-        }
-    }
-
-    /**
-     * Formats a line that contains the sequence subject:value
-     * @param line The line to format
-     * @param report The builder to write it to
-     * @param html Whether formatting is html
-     */
-    private void formatSplitStatusText( String line, StringBuilder report, String delimit, boolean html ){
-        final String TEXT_DEFAULT = html?"":TelnetCodes.TEXT_DEFAULT;
-        final String TEXT_ERROR = html?"":ERROR_COLOR;
-        final String TEXT_INFO = html?"":INFO_COLOR;
-        final String TEXT_WARN = html?"":WARN_COLOR;
-
-        int index = line.indexOf(delimit)+delimit.length();
-        var before = line.substring( 0, index );
-        var after = line.substring( index );
-
-        report.append(TEXT_DEFAULT).append(before);
-
-        if (line.startsWith("!!")) {
-            report.append(TEXT_ERROR);
-        }else if (line.startsWith("(NC)")) {
-            report.append(TEXT_WARN);
-        }else{
-            report.append(TEXT_INFO);
-        }
-        report.append(after).append(TEXT_DEFAULT);
-        report.append(html ? "<br>" : "\r\n");
-    }
-
-    /**
-     * Format a split status text that uses a ':' for splitting
-     * @param line The line with the data
-     * @param report The rest of the report
-     * @param html Whether to use html formating or not (and thus telnet)
-     */
-    private void formatSplitStatusText( String line, StringBuilder report, boolean html ){
-        formatSplitStatusText(line,report,":",html);
     }
     /**
      * Get a status update of the various queues, mostly to verify that they are

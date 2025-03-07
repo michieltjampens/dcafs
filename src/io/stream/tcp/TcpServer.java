@@ -1,5 +1,6 @@
 package io.stream.tcp;
 
+import das.Paths;
 import io.stream.BaseStream;
 import io.stream.StreamListener;
 import io.Writable;
@@ -33,8 +34,6 @@ public class TcpServer implements StreamListener, Commandable {
 	private int serverPort = 5542; // The port the server is active on default is 5542
 	private ChannelFuture serverFuture;
 
-	private final Path xmlPath;
-
 	private final HashMap<String,TransDefault> defaults = new HashMap<>();
 
 	private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
@@ -45,9 +44,8 @@ public class TcpServer implements StreamListener, Commandable {
 
 	private boolean active;
 
-	public TcpServer(Path xml, EventLoopGroup workerGroup) {
+	public TcpServer(EventLoopGroup workerGroup) {
 		this.workerGroup = workerGroup;
-		xmlPath = xml;
 		active = readSettingsFromXML();
 	}
 	public boolean isActive(){
@@ -83,7 +81,7 @@ public class TcpServer implements StreamListener, Commandable {
 	 * @return True if no hiccups
 	 */
 	private boolean readSettingsFromXML( ) {
-		var dig = XMLdigger.goIn(xmlPath,"dcafs","transserver");
+		var dig = XMLdigger.goIn(Paths.settings(),"dcafs","transserver");
 
 		if (dig.isValid()) {
 			Logger.info("Settings for the TransServer found.");
@@ -107,7 +105,7 @@ public class TcpServer implements StreamListener, Commandable {
 	public void alterXML() {
 		Logger.warn("Altering the XML");
 
-		XMLfab fab = XMLfab.withRoot(xmlPath, "settings", "transserver").clearChildren().attr("port", this.serverPort);
+		XMLfab fab = XMLfab.withRoot(Paths.settings(), "settings", "transserver").clearChildren().attr("port", this.serverPort);
 
 		// Adding the clients
 		for (Entry<String,TransDefault> cip : defaults.entrySet()) {
@@ -250,7 +248,7 @@ public class TcpServer implements StreamListener, Commandable {
 	 * @param wr The writable that issued the command
 	 */
 	public void storeHandler( TransHandler handler, Writable wr ){
-		XMLfab fab = XMLfab.withRoot(xmlPath, "settings", "transserver");
+		XMLfab fab = XMLfab.withRoot(Paths.settings(), "settings", "transserver");
 
 		fab.selectOrAddChildAsParent("default","id",handler.id());
 		fab.attr("address",handler.getIP());

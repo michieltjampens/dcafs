@@ -4,6 +4,7 @@ import com.diozero.api.DeviceAlreadyOpenedException;
 import com.diozero.api.DeviceBusyException;
 import com.diozero.api.I2CDevice;
 import com.diozero.api.RuntimeIOException;
+import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
@@ -25,19 +26,16 @@ import java.util.concurrent.BlockingQueue;
 
 public class I2CWorker implements Commandable {
     private final HashMap<String, I2cDevice> devices = new HashMap<>();
-    private final Path scriptsPath; // Path to the scripts
-    private final Path settingsPath; // Path to the settingsfile
+    private final Path scriptsPath = Paths.storage().resolve("i2cscripts"); // Path to the scripts
     private final EventLoopGroup eventloop; // Executor to run the opsets
     private final RealtimeValues rtvals;
     private final BlockingQueue<Datagram> dQueue;
     private final ArrayList<I2cBus> busses = new ArrayList<>();
 
-    public I2CWorker(Path settings, EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
-        this.settingsPath=settings;
+    public I2CWorker( EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
         this.rtvals=rtvals;
         this.eventloop=eventloop;
         this.dQueue=dQueue;
-        scriptsPath = settings.getParent().resolve("i2cscripts");
         readFromXML();
     }
     /* ************************* READ XML SETTINGS *******************************************/
@@ -50,7 +48,7 @@ public class I2CWorker implements Commandable {
         devices.clear(); // Remove any existing ones
 
         int cnt=0;
-        var dig = XMLdigger.goIn(settingsPath,"dcafs","i2c");
+        var dig = Paths.digInSettings("i2c");
 
         if( dig.isValid() ){
             Logger.info("Found settings for a I2C bus");
@@ -305,7 +303,7 @@ public class I2CWorker implements Commandable {
 
                 devices.put(cmds[1],opper);
 
-                var fab = XMLfab.withRoot(settingsPath, "dcafs").digRoot("i2c");
+                var fab = Paths.fabInSettings("i2c");
                 fab.selectOrAddChildAsParent("bus","controller",cmds[2]);
                 fab.selectOrAddChildAsParent("device").attr("id",cmds[1]);
                 fab.addChild("address").content(cmds[3]);
