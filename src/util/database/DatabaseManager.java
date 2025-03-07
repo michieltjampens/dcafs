@@ -5,6 +5,7 @@ import io.Writable;
 import io.collector.StoreCollector;
 import io.forward.*;
 import org.apache.commons.lang3.math.NumberUtils;
+import util.LookAndFeel;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
 import util.tools.FileTools;
@@ -307,7 +308,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
         if( cmds.length == 1){
             return doOneArgCmd( cmds,html );
         }else if( cmds[0].startsWith("add")){ // So the addmssql, addmysql, addmariadb and addsqlite
-               return doAddCmd(cmds,cmds[1]);
+            return doAddCmd(cmds,cmds[1]);
         }else{
             var dbOpt = getDatabase(cmds[0]);
             if( dbOpt.isEmpty() ) {
@@ -360,7 +361,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
         };
     }
     private String doCmdHelp( boolean html ){
-        var join = new StringJoiner(html?"<br>":"html");
+        var join = new StringJoiner(html?"<br>":"\r\n");
         join.add("The databasemanager connects to databases, handles queries and fetches table information.");
         join.add("Connect to a database")
                 .add("dbm:addmssql,id,db name,ip:port,user:pass -> Adds a MSSQL server on given ip:port with user:pass")
@@ -371,7 +372,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 .add("Working with tables")
                 .add("dbm:id,addtable,tablename -> Adds a table to the given database id")
                 .add("dbm:id,addcol,tablename,columntype:columnname<:rtval> -> Add a column to the given table")
-                .add("        - columntypes: r(eal),t(ime)s(tamp),i(nteger),t(ext), utc(now), ltc")
+                .add("- columntypes: r(eal),t(ime)s(tamp),i(nteger),t(ext), utc(now), ltc")
                 .add("dbm:id,tablexml,tablename -> Write the table in memory to the xml file, use * as tablename for all")
                 .add("dbm:id,tables -> Get info about the given id (tables etc)")
                 .add("dbm:id,fetch -> Read the tables from the database directly, not overwriting stored ones.")
@@ -385,7 +386,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 .add("dbm:prep -> Get total amount of queries executed with prepared statements")
                 .add("dbm:clearerrors -> Reset the error count.")
                 .add("st -> Show the current status of the databases (among other things)");
-        return join.toString();
+        return LookAndFeel.formatCmdHelp(join.toString(),html);
     }
     private String doAddCmd( String[] cmds, String id){
         cmds[0] = cmds[0].substring(3);

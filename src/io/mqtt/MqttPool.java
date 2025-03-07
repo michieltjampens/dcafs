@@ -3,6 +3,7 @@ package io.mqtt;
 import io.Writable;
 import io.telnet.TelnetCodes;
 import das.Commandable;
+import util.LookAndFeel;
 import util.data.AbstractVal;
 import util.data.RealtimeValues;
 import org.tinylog.Logger;
@@ -138,184 +139,193 @@ public class MqttPool implements Commandable {
     @Override
     public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
         String[] cmds = args.split(",");
-        String nl = html ? "<br>" : "\r\n";
-
-        String cyan = html?"":TelnetCodes.TEXT_CYAN;
-        String green=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_DEFAULT+TelnetCodes.UNDERLINE_OFF;
 
         if( cmds.length==1 ) {
-            switch (cmds[0]) {
-                case "?" -> {
-                    StringJoiner join = new StringJoiner(nl);
-                    join.add(TelnetCodes.TEXT_RED + "Purpose" + reg);
-                    join.add("The MQTT manager manages the workers that connect to brokers").add("");
-                    join.add("Terminology info: https://www.freertos.org/mqtt/mqtt_terminology.html");
-                    join.add(cyan + "General" + reg)
-                            .add(green + "   mqtt:?" + reg + " -> Show this message")
-                            .add(green + "   mqtt:addbroker,id,address,topic " + reg + "-> Add a new broker with the given id found at the address")
-                            .add(green + "   mqtt:brokers " + reg + "-> Get a listing of the current registered brokers")
-                            .add(green + "   mqtt:id,reload " + reg + "-> Reload the settings for the broker from the xml.");
-                    join.add(cyan + "Subscriptions" + reg)
-                            .add(green + "   mqtt:brokerid,subscribe,topic " + reg + "-> Subscribe to a topic with given label on given broker. Mqtt wildcard is #.")
-                            .add(green + "   mqtt:brokerid,unsubscribe,topic " + reg + "-> Unsubscribe from a topic on given broker")
-                            .add(green + "   mqtt:brokerid,unsubscribe,all " + reg + "-> Unsubscribe from all topics on given broker");
-                    join.add(cyan + "Rtvals" + reg)
-                            .add(green + "   mqtt:brokerid,provide,rtval<,topic> " + reg + "-> Provide a certain rtval to the broker, topic is group/name by default.")
-                            .add(green + "   mqtt:brokerid,store,type,topic<,rtval> " + reg + "-> Store a certain topic as a rtval, if no rtval is specified topic is used as rtval id")
-                            .add(green + "   mqtt:brokerid,stores "+ reg +"-> Get info on all the active sub to val links")
-                            .add(green + "   mqtt:brokerid,generate,topic "+reg+"-> Generate store entries based on received messages after subscribing to topic.");
-                    join.add(cyan + "Send & Receive" + reg)
-                            .add(green + "   mqtt:id " + reg + "-> Forwards the data received from the given broker to the issuing writable")
-                            .add(green + "   mqtt:id,send,topic:value " + reg + "-> Sends the value to the topic of the brokerid");
-                    return join.toString();
-                }
-                case "brokers" -> {
-                    return getMqttBrokersInfo();
-                }
-                case "reload" -> {
-                    if (readXMLsettings())
-                        return "Settings reloaded.";
-                    return "! Failed to reload settings.";
-                }
-                case "test" -> {
-                    mqttWorkers.values().forEach( w -> w.addWork("dice/d20","10") );
-                    return "Testing";
-                }
-                default -> {
-                    var worker = mqttWorkers.get(cmds[0]);
-                    if (worker == null)
-                        return "! Not a valid id or command: " + cmds[0];
-                    if (wr == null) {
-                        Logger.error("Not a valid writable asking for " + cmds[0]);
-                        return "! Not a valid writable asking for " + cmds[0];
-                    }
-                    worker.registerWritable(wr);
-                    return "Sending data from " + cmds[0] + " to " + wr.id();
-                }
-            }
+            return doNoArgCmds(cmds[0],wr,html);
         }else if( cmds[0].equalsIgnoreCase("addbroker")){
-            if (cmds.length != 4)
-                return "! Wrong amount of arguments -> mqtt:addbroker,id,address,deftopic";
-            if( mqttWorkers.containsKey(cmds[1]))
-                return "ID already in use";
-
-            var fab = XMLfab.withRoot(settingsFile,"dcafs","mqtt");
-            fab.addParentToRoot("broker").attr("id",cmds[1]); // make broker root
-            fab.addChild("address",cmds[2]);
-            fab.addChild("roottopic",cmds[3]);
-            fab.build();
-            readXMLsettings();
-            return "Broker added";
+            return doAddCmd( cmds );
         }else{
-            var worker = mqttWorkers.get(cmds[0]);
-            if( worker == null)
-                return "! Not a valid id: "+cmds[0];
-
-            var dig = XMLdigger.goIn(settingsFile,"dcafs","mqtt");
-            XMLfab fab;
-            if( dig.hasPeek("broker","id",cmds[0]) ) {
-                dig.usePeek();
-                var fabOpt = XMLfab.alterDigger(dig);
-                if( fabOpt.isEmpty())
-                    return "! Failed to create fab?";
-                fab =fabOpt.get();
-            }else{
-                return "! No valid broker found in xml";
+            return doArgCmds( cmd, cmds );
+        }
+    }
+    private String doNoArgCmds( String cmd, Writable wr, boolean html ){
+        switch (cmd) {
+            case "?" -> {
+                return getCmdHelp(html);
             }
-
-            switch (cmds[1]) {
-                case "subscribe" -> {
-                    if (cmds.length != 3)
-                        return "! Wrong amount of arguments -> mqtt:brokerid,subscribe,topic";
-                    int res = worker.addSubscription(cmds[2]);
-                    if(  res != 0 ) {
-                        fab.addChild("subscribe").content(cmds[2]);
-                        if( fab.build() )
-                            return "Subscription added";
-                        return "! Failed to add subscription to xml";
-                    }
-                    return "! Failed to add subscription";
+            case "brokers" -> {
+                return getMqttBrokersInfo();
+            }
+            case "reload" -> {
+                if (readXMLsettings())
+                    return "Settings reloaded.";
+                return "! Failed to reload settings.";
+            }
+            case "test" -> {
+                mqttWorkers.values().forEach( w -> w.addWork("dice/d20","10") );
+                return "Testing";
+            }
+            default -> {
+                var worker = mqttWorkers.get(cmd);
+                if (worker == null)
+                    return "! Not a valid id or command: " + cmd;
+                if (wr == null) {
+                    Logger.error("Not a valid writable asking for " + cmd);
+                    return "! Not a valid writable asking for " + cmd;
                 }
-                case "unsubscribe" -> {
-                    if (cmds.length != 3)
-                        return "! Wrong amount of arguments -> mqtt:brokerid,unsubscribe,topic";
-                    if( worker.removeSubscription(cmds[2])) {
-                        if( fab.removeChild("subscribe",cmds[2])){
-                            fab.build();
-                            return "Subscription removed";
-                        }
-                        return "! Failed to remove subscription from xml.";
-                    }
-                    return "! Failed to remove subscription, probably typo?";
-                }
-                case "send" -> {
-                    if (cmds.length != 3)
-                        return "! Wrong amount of arguments -> mqtt:id,send,topic:value";
-                    if (!cmds[2].contains(":"))
-                        return "! No proper topic:value given, got " + cmds[2] + " instead.";
-
-                    String[] topVal = cmds[2].split(":");
-                    double val = rtvals.getReal(topVal[1], -999);
-                    worker.addWork(topVal[0], String.valueOf(val));
-                    return "Data send to " + cmds[0];
-                }
-                case "provide" ->{
-                    if (cmds.length < 3)
-                        return "! Wrong amount of arguments -> mqtt:id,provide,rtval<,topic>";
-                    var val = rtvals.getAbstractVal(cmds[2]);
-                    if( val.isEmpty() )
-                        return "! No such rtval: "+cmds[2];
-                    var topic = cmds.length==4?cmds[3]:"";
-
-                    fab.alterChild("provide").down();
-                    fab.addChild("rtval").content(cmds[2]);
-                    if( !topic.isEmpty() )
-                        fab.attr("topic",topic);
-                    fab.build();
-                    return "Provide added";
-                }
-                case "generate" -> {
-                    if (cmds.length < 3)
-                        return "! Wrong amount of arguments -> mqtt:id,generate,topic";
-                    //cmds[2] += cmds[2].endsWith("#")?"":"#"; // Make sure it ends on the wildcard
-                    fab.alterChild("store").attr("generate",cmds[2]).build();
-                    worker.setGenerateStore(cmds[2]);
-                    if( cmds[2].endsWith("#"))
-                        return "Generating store on receiving topic updates.";
-                    return "Generating store on receiving topic updates, Note: no wildcard in topic!";
-                }
-                case "stores" -> {
-                    return worker.getSubStoreInfo();
-                }
-                case "store" ->{
-                    if (cmds.length < 4)
-                        return "! Wrong amount of arguments -> mqtt:id,store,type,rtval<,topic>";
-
-                    var topic = cmds.length==5?cmds[4]:cmds[3].replace("_","/");
-                    var group = cmds[3].contains("_")?cmds[3].substring(0,cmds[3].indexOf("_")):"";
-                    var name =  cmds[3].contains("_")?cmds[3].substring(cmds[3].indexOf("_")+1):cmds[3];
-
-                    fab.alterChild("store").down();
-                    fab.selectOrAddChildAsParent("group","id",group);
-                    fab.addChild(cmds[2]).attr("name",name).down();
-                    fab.addChild("topic",topic);
-                    fab.build();
-                    return "Store added";
-                }
-                case "debug" -> {
-                    if (cmds.length == 2)
-                        return "Debug enabled: "+worker.isDebugging();
-                    var deb = Tools.parseBool(cmds[2],false);
-                    worker.setDebug(deb);
-                    return "Changing debug to "+(deb?"enabled":"disabled");
-                }
-                default -> {
-                    Logger.error("(mqtt) -> No such command "+ cmd + ": " + cmds[0]);
-                    return "! No such subcommand in " + cmd + ": " + cmds[0];
-                }
+                worker.registerWritable(wr);
+                return "Sending data from " + cmd + " to " + wr.id();
             }
         }
+    }
+    private String getCmdHelp( boolean html ){
+        StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
+        join.add("The MQTT manager manages the workers that connect to brokers").add("");
+        join.add( "General" )
+                .add("mqtt:? -> Show this message")
+                .add("mqtt:addbroker,id,address,topic -> Add a new broker with the given id found at the address")
+                .add("mqtt:brokers -> Get a listing of the current registered brokers")
+                .add("mqtt:id,reload -> Reload the settings for the broker from the xml.");
+        join.add( "Subscriptions" )
+                .add("mqtt:brokerid,subscribe,topic -> Subscribe to a topic with given label on given broker. Mqtt wildcard is #.")
+                .add("mqtt:brokerid,unsubscribe,topic -> Unsubscribe from a topic on given broker")
+                .add("mqtt:brokerid,unsubscribe,all -> Unsubscribe from all topics on given broker");
+        join.add( "Rtvals" )
+                .add("mqtt:brokerid,provide,rtval<,topic> -> Provide a certain rtval to the broker, topic is group/name by default.")
+                .add("mqtt:brokerid,store,type,topic<,rtval> -> Store a certain topic as a rtval, if no rtval is specified topic is used as rtval id")
+                .add("mqtt:brokerid,stores " +"-> Get info on all the active sub to val links")
+                .add("mqtt:brokerid,generate,topic -> Generate store entries based on received messages after subscribing to topic.");
+        join.add( "Send & Receive" )
+                .add("mqtt:id -> Forwards the data received from the given broker to the issuing writable")
+                .add("mqtt:id,send,topic:value -> Sends the value to the topic of the brokerid");
+        return LookAndFeel.formatCmdHelp(join.toString(),html);
+    }
+    private String doAddCmd( String[] cmds ){
+        if (cmds.length != 4)
+            return "! Wrong amount of arguments -> mqtt:addbroker,id,address,deftopic";
+        if( mqttWorkers.containsKey(cmds[1]))
+            return "ID already in use";
+
+        var fab = XMLfab.withRoot(settingsFile,"dcafs","mqtt");
+        fab.addParentToRoot("broker").attr("id",cmds[1]); // make broker root
+        fab.addChild("address",cmds[2]);
+        fab.addChild("roottopic",cmds[3]);
+        fab.build();
+        readXMLsettings();
+        return "Broker added";
+    }
+    private String doArgCmds( String cmd, String[] args ){
+        var worker = mqttWorkers.get(args[0]);
+        if( worker == null)
+            return "! Not a valid id: "+args[0];
+
+        var dig = XMLdigger.goIn(settingsFile,"dcafs","mqtt");
+        XMLfab fab;
+        if( dig.hasPeek("broker","id",args[0]) ) {
+            dig.usePeek();
+            var fabOpt = XMLfab.alterDigger(dig);
+            if( fabOpt.isEmpty())
+                return "! Failed to create fab?";
+            fab =fabOpt.get();
+        }else{
+            return "! No valid broker found in xml";
+        }
+
+        return switch (args[1]) {
+            case "subscribe" -> doSubscribeCmd(args,worker,fab);
+            case "unsubscribe" -> doUnsubscribeCmd(args,worker,fab);
+            case "send" -> doSendCmd( args, worker );
+            case "provide" -> doProvideCmd(args, fab);
+            case "generate" -> doGenerateCmd(args,worker,fab);
+            case "stores" -> worker.getSubStoreInfo();
+            case "store" -> doStoreCmd( args,fab );
+            case "debug" -> {
+                if (args.length == 2)
+                    yield "Debug enabled: "+worker.isDebugging();
+                var deb = Tools.parseBool(args[2],false);
+                worker.setDebug(deb);
+                yield "Changing debug to "+(deb?"enabled":"disabled");
+            }
+            default -> {
+                Logger.error("(mqtt) -> No such command "+ cmd + ": " + args[0]);
+                yield "! No such subcommand in " + cmd + ": " + args[0];
+            }
+        };
+    }
+    private String doSubscribeCmd( String[] args,MqttWorker worker, XMLfab fab ){
+        if (args.length != 3)
+            return "! Wrong amount of arguments -> mqtt:brokerid,subscribe,topic";
+        int res = worker.addSubscription(args[2]);
+        if(  res != 0 ) {
+            fab.addChild("subscribe").content(args[2]);
+            if( fab.build() )
+                return "Subscription added";
+            return "! Failed to add subscription to xml";
+        }
+        return "! Failed to add subscription";
+    }
+    private String doUnsubscribeCmd( String[] args,MqttWorker worker,XMLfab fab ){
+        if (args.length != 3)
+            return "! Wrong amount of arguments -> mqtt:brokerid,unsubscribe,topic";
+        if( worker.removeSubscription(args[2])) {
+            if( fab.removeChild("subscribe",args[2])){
+                fab.build();
+                return "Subscription removed";
+            }
+            return "! Failed to remove subscription from xml.";
+        }
+        return "! Failed to remove subscription, probably typo?";
+    }
+    private String doSendCmd( String[] args, MqttWorker worker ){
+        if (args.length != 3)
+            return "! Wrong amount of arguments -> mqtt:id,send,topic:value";
+        if (!args[2].contains(":"))
+            return "! No proper topic:value given, got " + args[2] + " instead.";
+
+        String[] topVal = args[2].split(":");
+        double val = rtvals.getReal(topVal[1], -999);
+        worker.addWork(topVal[0], String.valueOf(val));
+        return "Data send to " + args[0];
+    }
+    private String doProvideCmd( String[] args, XMLfab fab ){
+        if (args.length < 3)
+            return "! Wrong amount of arguments -> mqtt:id,provide,rtval<,topic>";
+        var val = rtvals.getAbstractVal(args[2]);
+        if( val.isEmpty() )
+            return "! No such rtval: "+args[2];
+        var topic = args.length==4?args[3]:"";
+
+        fab.alterChild("provide").down();
+        fab.addChild("rtval").content(args[2]);
+        if( !topic.isEmpty() )
+            fab.attr("topic",topic);
+        fab.build();
+        return "Provide added";
+    }
+    private String doGenerateCmd(String[] args, MqttWorker worker,XMLfab fab){
+        if (args.length < 3)
+            return "! Wrong amount of arguments -> mqtt:id,generate,topic";
+        //cmds[2] += cmds[2].endsWith("#")?"":"#"; // Make sure it ends on the wildcard
+        fab.alterChild("store").attr("generate",args[2]).build();
+        worker.setGenerateStore(args[2]);
+        if( args[2].endsWith("#"))
+            return "Generating store on receiving topic updates.";
+        return "Generating store on receiving topic updates, Note: no wildcard in topic!";
+    }
+    private String doStoreCmd( String[] args, XMLfab fab ){
+        if (args.length < 4)
+            return "! Wrong amount of arguments -> mqtt:id,store,type,rtval<,topic>";
+
+        var topic = args.length==5?args[4]:args[3].replace("_","/");
+        var group = args[3].contains("_")?args[3].substring(0,args[3].indexOf("_")):"";
+        var name =  args[3].contains("_")?args[3].substring(args[3].indexOf("_")+1):args[3];
+
+        fab.alterChild("store").down();
+        fab.selectOrAddChildAsParent("group","id",group);
+        fab.addChild(args[2]).attr("name",name).down();
+        fab.addChild("topic",topic);
+        fab.build();
+        return "Store added";
     }
     public String payloadCommand( String cmd, String args, Object payload){
         return "! No such cmds in "+cmd;

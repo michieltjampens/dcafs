@@ -13,17 +13,22 @@ public class LookAndFeel {
         String green = html?"":TelnetCodes.TEXT_GREEN;
         String reg = html?"":TelnetCodes.TEXT_DEFAULT;
 
-        var colored = new StringJoiner("\r\n" );
+        var colored = new StringBuilder();
         boolean first=true;
         for( var line : lines.split("\r\n") ){
             if( line.contains(" -> ") ){
                 var before = line.substring(0,line.indexOf(" -> "));
                 var after = line.substring(line.indexOf(" -> ")+4);
-                colored.add(green).add("   ").add(before).add(reg).add(after);
+                colored.append(green).append("   ").append(before).append(reg).append(" -> ").append(after);
+            }else if( line.startsWith("-")) {
+                colored.append("        ").append(line);
             }else{
-                colored.add(first?magenta:cyan).add(line).add(reg);
+                if( !first )
+                    colored.append(html?"<br>":"\r\n");
+                colored.append(first?magenta:cyan).append(line).append(reg);
                 first=false;
             }
+            colored.append(html?"<br>":"\r\n");
         }
         return colored.toString();
     }

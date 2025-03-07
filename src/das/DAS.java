@@ -139,11 +139,12 @@ public class DAS implements Commandable{
 
         /* Build the stores in the sqltables, needs to be done at the end */
         dbManager.buildStores(rtvals);
+        bootOK = true;
 
         addTelnetServer();  // Add Telnet Server
 
         attachShutDownHook();
-        bootOK = true;
+
     }
     private void figureOutPaths(){
         // Determine working dir based on the classpath

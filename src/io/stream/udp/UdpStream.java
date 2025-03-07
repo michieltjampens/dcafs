@@ -14,6 +14,7 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -42,7 +43,7 @@ public class UdpStream extends BaseStream implements Writable {
     public Bootstrap setBootstrap( Bootstrap strap ){
         if( strap == null ){
             if(group==null){
-                Logger.error("No eventloopgroup yet");
+                Logger.error(id+" -> No eventloopgroup yet");
                 return null;
             }
             bootstrapUDP = new Bootstrap();
@@ -90,8 +91,10 @@ public class UdpStream extends BaseStream implements Writable {
             if (f.isSuccess()) {
                 Logger.info("Operation complete");
             } else {
-                String cause = String.valueOf(future.cause());
-                Logger.error( "ISSUE TRYING TO CONNECT to "+id+" : "+cause);
+                if(LookAndFeel.isNthAttempt(connectionAttempts)) {
+                    String cause = String.valueOf(future.cause());
+                    Logger.error(id + " -> Failed to connect: " + cause.substring(cause.indexOf(":") + 1));
+                }
             }
         });
         return true;

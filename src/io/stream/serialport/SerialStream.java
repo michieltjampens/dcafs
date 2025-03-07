@@ -7,6 +7,7 @@ import io.stream.BaseStream;
 import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
@@ -73,7 +74,8 @@ public class SerialStream extends BaseStream implements Writable {
             Logger.info("Connected to serial port " + serialPort.getSystemPortName());
             listeners.forEach( l -> l.notifyOpened(id) );
         } else {
-            Logger.info("FAILED connection to serial port " + serialPort.getSystemPortName());
+            if(LookAndFeel.isNthAttempt(connectionAttempts))
+                Logger.info("FAILED connection to serial port " + serialPort.getSystemPortName());
             return false;
         }
         return true;

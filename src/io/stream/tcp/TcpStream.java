@@ -17,6 +17,7 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -67,7 +68,8 @@ public class TcpStream extends BaseStream implements Writable {
             Logger.error(id+ " -> Event loop group still null, can't connect");
             return false;
         }
-        Logger.info(id+" -> Trying to connect");
+        if(LookAndFeel.isNthAttempt(connectionAttempts))
+            Logger.info(id+" -> Trying to connect");
         if( bootstrap == null )
             bootstrap = createBootstrap();
 

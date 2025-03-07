@@ -124,7 +124,7 @@ public class RealVal extends NumberVal<Double>{
     public void defValue(Double defVal){
         if( !Double.isNaN(defVal) ) { // If the given value isn't NaN
             this.defVal = defVal;
-            if( Double.isNaN(value))
+            if( value==null||Double.isNaN(value))
                 value=defVal;
         }
     }

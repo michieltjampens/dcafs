@@ -1,7 +1,7 @@
 package io.forward;
 
-import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.data.StoreCmds;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -23,7 +23,7 @@ public class PathCmds {
         String id = cmds[0];
 
         if( id.equalsIgnoreCase("?"))
-            return getHelp(html);
+            return getCmdHelp(html);
 
         // Prepare the digger
         var dig = XMLdigger.goIn(settingsPath,"dcafs");
@@ -50,28 +50,25 @@ public class PathCmds {
         return processCommand( cmds, request, dig, fabOpt.get(), settingsPath);
     }
     /* ***************************** H E L P *********************************************************** */
-    private static String getHelp(boolean html){
-        String cyan = html?"": TelnetCodes.TEXT_CYAN;
-        String green=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
+    private static String getCmdHelp(boolean html){
 
         StringJoiner join = new StringJoiner("\r\n");
-
-        join.add("").add(cyan+"Add/edit a path"+reg)
-                .add(green+" pf:pathid,new,src "+reg+"-> Create a new path with the given id and src")
-                .add(green+" pf:pathid,xml,src "+reg+"-> Add a path file with the given id and src (in default path folder)")
-                .add(green+" pf:pathid,delete "+reg+"-> Delete this path completely")
-                .add(green+" pf:pathid,clear "+reg+"-> Remove all the steps");
-        join.add("").add(cyan+"Add new steps"+reg)
-                .add(green+" pf:pathid,addfilter/addf,type:rule "+reg+"-> Add a filter, with the given rule")
-                .add(green+" pf:pathid,addeditor/adde,type:value "+reg+"-> Add an editor,with the given edit")
-                .add(green+" pf:pathid,addmath/addm,operation "+reg+"-> Add a math, with given operation")
-                .add(green+" pf:pathid,addcmd/addc,operation "+reg+"-> Add a cmd, with given cmd")
-                .add(green+" pf:pathid,store,cmds "+reg+"-> Add/edit a store");
-        join.add("").add(cyan+"Alter attributes"+reg)
-                .add(green+" pf:pathid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter")
-                .add(green+" pf:pathid,src,newsrc "+reg+"-> Alter the src");
-        return join.toString();
+        join.add("PathForward allows applying processing steps to received data.");
+        join.add("Add/edit a path")
+                .add("pf:pathid,new,src -> Create a new path with the given id and src")
+                .add("pf:pathid,xml,src -> Add a path file with the given id and src (in default path folder)")
+                .add("pf:pathid,delete -> Delete this path completely")
+                .add("pf:pathid,clear -> Remove all the steps");
+        join.add("Add new steps")
+                .add("pf:pathid,addfilter/addf,type:rule -> Add a filter, with the given rule")
+                .add("pf:pathid,addeditor/adde,type:value -> Add an editor,with the given edit")
+                .add("pf:pathid,addmath/addm,operation -> Add a math, with given operation")
+                .add("pf:pathid,addcmd/addc,operation -> Add a cmd, with given cmd")
+                .add("pf:pathid,store,cmds -> Add/edit a store");
+        join.add("Alter attributes")
+                .add("pf:pathid,delimiter/delim,newdelimiter -> Change the delimiter")
+                .add("pf:pathid,src,newsrc -> Alter the src");
+        return LookAndFeel.formatCmdHelp(join.toString(),html);
     }
     /* ***************************** C R E A T E  P A T H ********************************************** */
     private static String createPath( String[] cmds, Path settingsPath, String id){

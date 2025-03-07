@@ -12,6 +12,7 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLtools;
 import worker.Datagram;
@@ -42,12 +43,15 @@ public class ModbusTCPStream extends TcpStream{
     @Override
     public boolean connect() {
         ChannelFuture f;
-        Logger.info(id+" -> Trying to connect to tcp stream");
 
         if( eventLoopGroup==null){
             Logger.error(id+" -> Event loop group still null");
             return false;
         }
+        if(LookAndFeel.isNthAttempt(connectionAttempts))
+            Logger.info(id+" -> Trying to connect to tcp stream");
+
+
         if( bootstrap == null )
             bootstrap = createBootstrap();
 

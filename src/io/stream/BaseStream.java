@@ -9,6 +9,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -309,8 +310,10 @@ public abstract class BaseStream {
         var f = bootstrap.connect(ipsock).awaitUninterruptibly();
         f.addListener((FutureListener<Void>) future -> {
             if (!f.isSuccess()) {
-                String cause = String.valueOf(future.cause());
-                Logger.error( id+" -> Failed to connect: "+cause.substring(cause.indexOf(":")+1));
+                if(LookAndFeel.isNthAttempt(connectionAttempts)) {
+                    String cause = String.valueOf(future.cause());
+                    Logger.error(id + " -> Failed to connect: " + cause.substring(cause.indexOf(":") + 1));
+                }
             }
         });
         if (f.isCancelled()) {

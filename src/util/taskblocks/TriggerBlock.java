@@ -150,10 +150,9 @@ public class TriggerBlock extends AbstractBlock{
         if(future==null) // can't do anything without a future
             return;
 
-        if (Objects.requireNonNull(trigType) == TYPE.WAITFOR) {
-            if (tries == -1) // if infinite tries, keep going
-                return;
-        }
+        if (Objects.requireNonNull(trigType) == TYPE.WAITFOR && tries == -1) // if infinite tries, keep going
+            return;
+
         if( tries >= 1){
             tries--;
             Logger.warn("Check failed, "+tries+" retries left");
