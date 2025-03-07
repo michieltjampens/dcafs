@@ -20,15 +20,19 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MatrixClient implements Writable, Commandable {
 
@@ -79,6 +83,9 @@ public class MatrixClient implements Writable, Commandable {
     private final ArrayList<String[]> failedMessages = new ArrayList<>();
     private String filterID="";
 
+    private static final String ROOM_ID_REGEX = "^[!][a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
+    private static final String EVENT_ID_REGEX = "^\\$[a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
+
     public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, Path settingsFile ){
         this.dQueue=dQueue;
         this.settingsFile=settingsFile;
@@ -113,8 +120,6 @@ public class MatrixClient implements Writable, Commandable {
 
         for( var macro : dig.peekOut("macro") )
             macros.put(macro.getAttribute("id"),macro.getTextContent());
-
-
 
         for( var rm : dig.digOut("room") ){
             var rs = Room.withID( rm.attr("id",""),this )
@@ -407,6 +412,14 @@ public class MatrixClient implements Writable, Commandable {
      * @param eventID The id of the event
      */
     public void confirmRead(String room, String eventID){
+        if( !isValidRoomId(room)){
+            Logger.error("Can't send matrix message because room id is invalid.");
+            return;
+        }
+        if( !isValidEventId(eventID)){
+            Logger.error("Can't send matrix message because event id is invalid.");
+            return;
+        }
         asyncPOST( roomsBaseUrl +room+"/receipt/m.read/"+eventID,new JSONObject(),
                 res -> {
                     if(res.statusCode()==200){
@@ -416,7 +429,11 @@ public class MatrixClient implements Writable, Commandable {
                     return false;
                 });
     }
-
+    public static boolean isValidEventId(String eventId) {
+        Pattern pattern = Pattern.compile(EVENT_ID_REGEX);
+        Matcher matcher = pattern.matcher(eventId);
+        return matcher.matches();
+    }
     /**
      * Upload a file to the repository
      * @param roomid The room to use (id)
@@ -424,6 +441,10 @@ public class MatrixClient implements Writable, Commandable {
      */
     public void sendFile( String roomid, Path path, Writable wr){
 
+        if( !isValidRoomId(roomid)){
+            Logger.error("Can't send matrix message because room id is invalid.");
+            return;
+        }
         try{
             String url=server+media + "upload";
             if( !accessToken.isEmpty())
@@ -460,11 +481,14 @@ public class MatrixClient implements Writable, Commandable {
             return false;
 
         try{
-            String url = server+media+"download"+mxc.substring(5);
-            if( !accessToken.isEmpty())
-                url+="?access_token="+accessToken;
-            var request = HttpRequest.newBuilder(new URI(url))
+            StringBuilder urlBuilder = new StringBuilder(server).append(media).append("download").append(mxc.substring(5));
+            if (!accessToken.isEmpty()) {
+                urlBuilder.append("?access_token=").append(URLEncoder.encode(accessToken, StandardCharsets.UTF_8));
+            }
+            URI finalUri = new URI(urlBuilder.toString());
+            HttpRequest request = HttpRequest.newBuilder(finalUri)
                     .build();
+
             var p = settingsFile.getParent().resolve(dlFolder).resolve(id);
             Files.createDirectories(p.getParent());
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofFile(p))
@@ -482,7 +506,14 @@ public class MatrixClient implements Writable, Commandable {
                                 sendMessage(originRoom,"Download failed.");
                         }
                         return 0;
-                    } );
+                    } )
+                    .exceptionally(e -> {
+                        Logger.error(e);
+                        if (!originRoom.isEmpty()) {
+                            sendMessage(originRoom, "Error when trying to download the file.");
+                        }
+                        return 0;
+                    });;
         } catch (URISyntaxException | IOException e) {
             Logger.error(e);
             if( !originRoom.isEmpty())
@@ -491,7 +522,10 @@ public class MatrixClient implements Writable, Commandable {
         return true;
     }
     public void shareFile( String room, String mxc, String filename ){
-
+        if( !isValidRoomId(room)){
+            Logger.error("Can't send matrix message because room id is invalid.");
+            return;
+        }
         var j = new JSONObject()
                 .put("body",filename)
                 .put("url",mxc)
@@ -527,6 +561,11 @@ public class MatrixClient implements Writable, Commandable {
             Logger.error("Can't send matrix message if httpClient is null");
             return;
         }
+        if( !isValidRoomId(room)){
+            Logger.error("Can't send matrix message because room id is invalid.");
+            return;
+        }
+
         message=message.replace("\r","");
         String nohtml = message.replace("<br>","\n");
         nohtml = nohtml.replaceAll("<.?b>|<.?u>",""); // Alter bold
@@ -542,7 +581,7 @@ public class MatrixClient implements Writable, Commandable {
                                 .put("format","org.matrix.custom.html");
 
         try {
-            String url = server+ roomsBaseUrl +room+"/send/m.room.message/"+ Instant.now().toEpochMilli()+"?access_token="+accessToken;
+            String url = server + roomsBaseUrl +room+"/send/m.room.message/"+ Instant.now().toEpochMilli()+"?access_token="+accessToken;
             var request = HttpRequest.newBuilder(new URI(url))
                     .PUT(HttpRequest.BodyPublishers.ofString( j.toString()))
                     .build();
@@ -563,6 +602,11 @@ public class MatrixClient implements Writable, Commandable {
         } catch (URISyntaxException e) {
             Logger.error(e);
         }
+    }
+    public static boolean isValidRoomId(String roomId) {
+        Pattern pattern = Pattern.compile(ROOM_ID_REGEX);
+        Matcher matcher = pattern.matcher(roomId);
+        return matcher.matches();
     }
     /* ******** Helper methods ****** */
     private void processError( HttpResponse<String> res ){
