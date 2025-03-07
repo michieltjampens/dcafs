@@ -697,12 +697,12 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				message.setContent(email.content, "text/html");
 				message.setSubject( message.getSubject() + " [attachment not found!]"); // Notify the receiver that is should have had an attachment
 				return false;
-			} else if (Files.size(path) > doZipFromSizeMB * megaByte && ) { // If the attachment is larger than the zip limit
+			} else if (Files.size(path) > doZipFromSizeMB * megaByte ) { // If the attachment is larger than the zip limit
 				FileTools.zipFile(path); // zip it
 				attach += ".zip"; // rename attachment
 				Logger.info("File zipped because of size larger than " + doZipFromSizeMB + "MB. Zipped size:" + Files.size(path) / megaByte + "MB");
 				path = Path.of(attach);// Changed the file to archive, zo replace file
-				if (Files.size(path) > maxSizeMB * megaByte) { // If the zip file it to large to send, maybe figure out way to split?
+				if (Files.size(path) > maxSizeMB * megaByte) { // If the zip file it too large to send, maybe figure out way to split?
 					email.attachment = "";
 					message.setContent(email.content, "text/html");
 					message.setSubject(message.getSubject() + " [ATTACHMENT REMOVED because size constraint!]");

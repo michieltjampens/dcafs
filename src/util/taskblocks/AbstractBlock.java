@@ -36,7 +36,7 @@ public abstract class AbstractBlock implements TaskBlock{
 
         if( srcBlock ){
             sharedMem = new ArrayList<>();
-        }else{
+        }else if( parent != null ){
             sharedMem = parent.getSharedMem();
         }
         return this;
@@ -47,7 +47,7 @@ public abstract class AbstractBlock implements TaskBlock{
     public Optional<TaskBlock> getSourceBlock(){
         if( srcBlock )
             return Optional.of(this);
-        return parentBlock.map(pb->pb.getSourceBlock()).orElse(Optional.empty());
+        return parentBlock.flatMap(TaskBlock::getSourceBlock);
     }
     public TaskBlock getLastNext(){
         if(next.isEmpty())

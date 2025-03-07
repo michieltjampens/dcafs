@@ -4,10 +4,10 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 
-import java.sql.Time;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -109,13 +109,13 @@ public class TriggerBlock extends AbstractBlock{
             return false;
         }
         if(tries==-1||tries>1){ // repeating infinite or finite
-            future = scheduler.scheduleAtFixedRate(()->doNext(),delay_ms,interval_ms, TimeUnit.MILLISECONDS);
+            future = scheduler.scheduleAtFixedRate(this::doNext,delay_ms,interval_ms, TimeUnit.MILLISECONDS);
             return true;
         }else if(tries==1){ // one shot
             if( interval_ms==0) {
                 next.forEach( n -> scheduler.submit(()->n.start(this)));
             }else {
-                scheduler.schedule(() -> doNext(), interval_ms, time==null?TimeUnit.MILLISECONDS:TimeUnit.SECONDS);
+                scheduler.schedule(this::doNext, interval_ms, time==null?TimeUnit.MILLISECONDS:TimeUnit.SECONDS);
             }
             return true;
         }
@@ -150,11 +150,9 @@ public class TriggerBlock extends AbstractBlock{
         if(future==null) // can't do anything without a future
             return;
 
-        switch(trigType){
-            case WAITFOR:
-                if( tries == -1) // if infinite tries, keep going
-                    return;
-                break;
+        if (Objects.requireNonNull(trigType) == TYPE.WAITFOR) {
+            if (tries == -1) // if infinite tries, keep going
+                return;
         }
         if( tries >= 1){
             tries--;
@@ -162,7 +160,7 @@ public class TriggerBlock extends AbstractBlock{
         }
         if( tries==1 && trigType==TYPE.WHILE){ // If there's one try left
              var tb = next.get(0);
-             if( tb instanceof CheckBlock && trigType==TYPE.WHILE ){ // negate the results of a CheckBlock
+             if( tb instanceof CheckBlock ){ // negate the results of a CheckBlock
                 ((CheckBlock)tb).setNegate(false);
                 Logger.info("One check left, undoing the negate");
              }
