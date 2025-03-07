@@ -122,11 +122,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 			history.add(msg);
 		}
 		if(msg.endsWith("!!")){
-			if( msg.length()==2){
-				repeat="";
-			}else{
-				repeat = msg.substring(0,msg.length()-2);
-			}
+			repeat = msg.length()==2?"":msg.substring(0,msg.length()-2);
 			return;
 		}
 
@@ -140,6 +136,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
    }
 	private String handleCmds( String msg ){
 		msg = msg.substring(3);
+
 		String[] cmds = msg.split(":");
 		if (msg.startsWith("label:")) {
 			label = msg.substring(6);
@@ -151,38 +148,20 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 		}else if (msg.startsWith("store")) {
 			// Somehow save to xml?
 			writeLine("Stored setup to xml (and no longer recording history)");
-			if( cmds.length==2){
-				msg = "ts:store," + id()+","+cmds[1];
-			}else{
-				msg = "ts:store," + id();
-			}
 			keepHistory=false;
-			return msg;
+			if( cmds.length==2)
+				return "ts:store," + id()+","+cmds[1];
+			return "ts:store," + id();
 		}else if (msg.startsWith("record")) {
 			keepHistory=true;
 			writeLine("Recording history");
 		}else if (msg.startsWith("forget")) {
 			history.clear();
-		}else {
+		}else{
 			switch (msg) {
-				case "?" -> {
-					StringJoiner join = new StringJoiner("\r\n");
-					join.add(">>>? -> Returns this message");
-					join.add(">>>label:newlabel  -> Change the label to the new label");
-					join.add(">>>id:newid  -> Change the id to the new id");
-					join.add(">>>store(:newid)   -> Store the session as default, including recorded history");
-					join.add(">>>record -> Commands send are stored in the history, which will be default on store");
-					join.add(">>>forget -> Clears the current history");
-					join.add(">>>id? -> returns the current id");
-					join.add(">>>label? -> returns the current label");
-					writeLine(join.toString());
-				}
-				case "id?" -> {
-					writeLine("id is " + id);
-				}
-				case "label?" -> {
-					writeLine("label is " + label);
-				}
+				case "?" -> writeLine( doHelpCmd() );
+				case "id?" -> writeLine("id is " + id);
+				case "label?" -> writeLine("label is " + label);
 				default -> {
 					Logger.warn("Unknown message " + msg + " from " + id);
 					writeLine("Unknown command, try >>>? for a list");
@@ -190,6 +169,19 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 			}
 		}
 		return "";
+	}
+
+	private static String doHelpCmd() {
+		StringJoiner join = new StringJoiner("\r\n");
+		join.add(">>>? -> Returns this message");
+		join.add(">>>label:newlabel  -> Change the label to the new label");
+		join.add(">>>id:newid  -> Change the id to the new id");
+		join.add(">>>store(:newid)   -> Store the session as default, including recorded history");
+		join.add(">>>record -> Commands send are stored in the history, which will be default on store");
+		join.add(">>>forget -> Clears the current history");
+		join.add(">>>id? -> returns the current id");
+		join.add(">>>label? -> returns the current label");
+		return join.toString();
 	}
 
 	/**

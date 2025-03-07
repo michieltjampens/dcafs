@@ -165,7 +165,7 @@ public class GeoQuad {
         boolean nowInside = isInside( Coordinate.at(lon,lat));
         if( inside == nowInside ) // Stayed the same
             return new ArrayList<>();
-        if( inside && !nowInside ) { // was inside is now outside
+        if( inside ) { // was inside is now outside
             inside=false;
             return leaveCmds;
         }

@@ -190,56 +190,65 @@ public class PathPool implements Commandable {
         if (args.length < 2)
             return "Not enough arguments";
 
-        var pp = paths.get(args[0]);
-        var dig = Paths.digInSettings("paths");
+        var pf = paths.get(args[0]);
 
         switch (args[1]) {
             case "debug" -> {
-                if( args.length==2)
-                    return pp.debugStep("*", wr);
-                if (args.length != 3)
-                    return "! Incorrect number of arguments, needs to be pf:id,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
-                if (pp == null)
-                    return "! No such path: " + args[0];
-                int nr = NumberUtils.toInt(args[2], -2);
-                if (wr == null)
-                    return "! No valid writable";
-
-                if (nr == -2)
-                    return pp.debugStep(args[2], wr);
-                return pp.debugStep(nr, wr);
+                return doDebugCmd(args,wr,pf);
             }
             case "reload" -> { // Reload the given path
+                var dig = Paths.digInSettings("paths");
                 if ( !dig.hasPeek("path","id",args[0]))
                     return "! No such path " + args[0];
                 var result = paths.get(args[1]).readFromXML( dig.usePeek().currentTrusted(), Paths.storage() );
                 return result.isEmpty() ? "Path reloaded" : result;
             }
             case "list" -> {
-                return pp == null
+                return pf == null
                             ? "! No such path: " + args[0]
-                            : "Path: " + pp.id() + (html ? "<br>" : "\r\n") + pp;
+                            : "Path: " + pf.id() + (html ? "<br>" : "\r\n") + pf;
             }
             default -> {
-                var res = PathCmds.replyToCommand( cmd, html );
-                if( res.startsWith("Table added with ")){
-                    dQueue.add( Datagram.system( res.substring( res.indexOf("dbm") )) );
-                }else if( !res.startsWith("!") ){ // If the command worked
-                    if (res.startsWith("Deleted ")) { // meaning the path was removed from xml, remove it from paths
-                        paths.remove(args[0]);
-                    }else{ // Reload after the changes
-                        if ( !dig.hasPeek("path","id",args[0]))
-                            return "! No such path: " + args[0] ;
-                        if (!paths.containsKey(args[0])) // Exists in xml but not in map
-                            paths.put( args[0], new PathForward(rtvals, dQueue, nettyGroup, qw) );
-                        var rep = paths.get(args[0]).readFromXML(dig.currentTrusted(), Paths.storage() );
-                        if (!rep.isEmpty() && !res.startsWith("path ")) // empty is good, starting means new so not full
-                            res = rep;
-                    }
-                }
-                return res;
+                return doRequest(args,cmd,html);
             }
         }
+    }
+    private String doDebugCmd( String[] args, Writable wr, PathForward pf){
+        if (pf == null)
+            return "! No such path: " + args[0];
+        if (wr == null)
+            return "! No valid writable";
+
+        if( args.length==2)
+            return pf.debugStep("*", wr);
+
+        if (args.length != 3)
+            return "! Incorrect number of arguments, needs to be pf:id,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
+
+        int nr = NumberUtils.toInt(args[2], -2);
+        if (nr == -2)
+            return pf.debugStep(args[2], wr);
+        return pf.debugStep(nr, wr);
+    }
+    private String doRequest( String[] args, String cmd, boolean html){
+        var res = PathCmds.replyToCommand( cmd, html );
+        if( res.startsWith("Table added with ")){
+            dQueue.add( Datagram.system( res.substring( res.indexOf("dbm") )) );
+        }else if( !res.startsWith("!") ){ // If the command worked
+            if (res.startsWith("Deleted ")) { // meaning the path was removed from xml, remove it from paths
+                paths.remove(args[0]);
+            }else{ // Reload after the changes
+                var dig = Paths.digInSettings("paths");
+                if ( !dig.hasPeek("path","id",args[0]))
+                    return "! No such path: " + args[0] ;
+                if (!paths.containsKey(args[0])) // Exists in xml but not in map
+                    paths.put( args[0], new PathForward(rtvals, dQueue, nettyGroup, qw) );
+                var rep = paths.get(args[0]).readFromXML(dig.currentTrusted(), Paths.storage() );
+                if (!rep.isEmpty() && !res.startsWith("path ")) // empty is good, starting means new so not full
+                    res = rep;
+            }
+        }
+        return res;
     }
     private void clearStores(){
         paths.values().forEach(PathForward::clearStores);

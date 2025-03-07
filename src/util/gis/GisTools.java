@@ -145,8 +145,9 @@ public class GisTools {
         double sinAlpha, C;
         do {
             double sinLambda = Math.sin(lambda), cosLambda = Math.cos(lambda);
+            double v = cosU1 * sinU2 - sinU1 * cosU2 * cosLambda;
             sinSigma = Math.sqrt((cosU2 * sinLambda) * (cosU2 * sinLambda)
-                    + (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) * (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda));
+                    + v * v);
             if (sinSigma == 0)
                 return result; // co-incident points
             cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda;
@@ -203,9 +204,7 @@ public class GisTools {
      * @return UTM coordinates East, North
      */
     public static double[] GDC_To_UTM(double lat, double lon) {
-        double N;
-
-        double E;
+        double N,E;
 
         double A = 6367449.145882298;
         double B = -16038.508613916465;
