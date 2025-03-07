@@ -49,9 +49,9 @@ public class SQLiteDB extends SQLDB{
         try {
             Files.createDirectories(Path.of(getPath()).getParent());
         } catch (IOException e) {
-            Logger.error( getID() + " -> Issue trying to create "+dbPath.getParent().toString()+" -> "+e.getMessage());
+            Logger.error( id() + " -> Issue trying to create "+dbPath.getParent().toString()+" -> "+e.getMessage());
         } catch (NullPointerException e ){
-            Logger.error( getID() + " -> Issue trying to create db, path is null");
+            Logger.error( id() + " -> Issue trying to create db, path is null");
         }
     }
 
@@ -181,7 +181,7 @@ public class SQLiteDB extends SQLDB{
         try {
             Class.forName("org.sqlite.JDBC"); 
 		} catch (ClassNotFoundException ex) {
-            Logger.error( getID() + " -> Driver issue with SQLite!" );	        	
+            Logger.error( id() + " -> Driver issue with SQLite!" );
         	return false;
         }
 
@@ -192,14 +192,14 @@ public class SQLiteDB extends SQLDB{
             state = STATE.CON_BUSY;
             con = DriverManager.getConnection(irl, user, pass);
             con.setAutoCommit(false); //Changed
-            Logger.info( getID() + " -> Connection: "+con+ " irl:"+irl);
+            Logger.info( id() + " -> Connection: "+con+ " irl:"+irl);
             state=STATE.HAS_CON;
     	} catch ( SQLException ex) {              
             String message = ex.getMessage();
             int eol = message.indexOf("\n");
             if( eol != -1 )
                 message = message.substring(0,eol);          
-            Logger.error( getID() + " -> Failed to make connection to SQLite database! "+message );
+            Logger.error( id() + " -> Failed to make connection to SQLite database! "+message );
             state=STATE.NEED_CON;
             return false;
         }    
@@ -226,12 +226,12 @@ public class SQLiteDB extends SQLDB{
                 }
                 tables.get(tableName).flagAsReadFromDB();
             } catch (SQLException e) {
-                Logger.error( getID() + " -> Error during table read: "+e.getErrorCode());
+                Logger.error( id() + " -> Error during table read: "+e.getErrorCode());
             }
         });
         for( SqlTable table : tables.values() ){
             if( table.isReadFromDB() ){// Don't overwrite existing info
-                Logger.debug( getID() + " -> The table "+table.getName()+" has already been setup, not adding the columns");
+                Logger.debug( id() + " -> The table "+table.getName()+" has already been setup, not adding the columns");
                 continue;
             }
             readTableInfo(table);
@@ -343,7 +343,7 @@ public class SQLiteDB extends SQLDB{
                     return false;
 
                 if( hasRecords() ){
-                    Logger.info(getID()+" has queries, flushing those first");
+                    Logger.info(id()+" has queries, flushing those first");
                     state = STATE.FLUSH_REQ;
                     try {
                         checkState(0);
@@ -382,7 +382,7 @@ public class SQLiteDB extends SQLDB{
                 currentForm = ldt.format(format);
             }
         }catch( java.time.temporal.UnsupportedTemporalTypeException f ){
-            Logger.error( getID() + " -> Format given is unsupported! Database creation cancelled.");
+            Logger.error( id() + " -> Format given is unsupported! Database creation cancelled.");
             return;
         }
         //with rollover and on a specific position

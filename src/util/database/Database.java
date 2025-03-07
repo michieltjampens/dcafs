@@ -50,7 +50,7 @@ public abstract class Database{
      * 
      * @return the id given to this database
      */
-    public String getID() {
+    public String id() {
         return id;
     }
     public String getLastError(){

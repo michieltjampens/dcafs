@@ -725,7 +725,7 @@ public class SQLDB extends Database implements TableInsert{
                 if (!hasRecords()) {
                     idleCount += secondsPassed;
                     if (idleCount > idleTime && idleTime > 0) {
-                        Logger.info(getID() + "(id) -> Connection closed because idle: " + id + " for " + TimeTools.convertPeriodtoString(idleCount, TimeUnit.SECONDS) + " > " +
+                        Logger.info(id() + "(id) -> Connection closed because idle: " + id + " for " + TimeTools.convertPeriodtoString(idleCount, TimeUnit.SECONDS) + " > " +
                                 TimeTools.convertPeriodtoString(idleTime, TimeUnit.SECONDS));
                         disconnect();
                         state = STATE.IDLE;
@@ -790,7 +790,7 @@ public class SQLDB extends Database implements TableInsert{
                 action.accept(rs);
 
         } catch (SQLException e) {
-            Logger.error(getID() + " -> Error during table read: " + e.getErrorCode());
+            Logger.error(id() + " -> Error during table read: " + e.getErrorCode());
             return false;
         }
         return true;
@@ -823,7 +823,7 @@ public class SQLDB extends Database implements TableInsert{
                             temp.set(a,""); // Don't care about this error, clear the entry
                         }else if( e.getMessage().contains("syntax error") || e.getMessage().contains("no such ")
                                 || e.getMessage().contains("has no ") || e.getMessage().contains("PRIMARY KEY constraint")){ //sql errors
-                            Logger.tag("SQL").error(getID()+"\t"+temp.get(a)); // Bad query, log it
+                            Logger.tag("SQL").error(id()+"\t"+temp.get(a)); // Bad query, log it
                             Logger.info(id+" (db)-> Error code: "+e.getErrorCode());
                             temp.set(a,"");
                         }else{
@@ -887,7 +887,7 @@ public class SQLDB extends Database implements TableInsert{
                         } else if (!first) {
                             first = true;
                             Logger.error("Error: " + g.getMessage());
-                            Logger.error(getID() + " -> Bad query: " + queries.get(x));
+                            Logger.error(id() + " -> Bad query: " + queries.get(x));
                             queries.set(x, "");
                         }
                     }
@@ -932,15 +932,15 @@ public class SQLDB extends Database implements TableInsert{
                                         }
                                     } catch (BatchUpdateException e) {
                                         // One or multiple queries in the batch failed
-                                        Logger.error(getID()+" (db)-> Batch error, clearing batched:"+e.getMessage());
+                                        Logger.error(id()+" (db)-> Batch error, clearing batched:"+e.getMessage());
                                         insertErrors++;
                                         Logger.error(e.getErrorCode());
-                                        Logger.error(getID()+" (db)-> Removed bad records: "+t.clearRecords( id, e.getLargeUpdateCounts() )); // just drop the data or try one by one?
+                                        Logger.error(id()+" (db)-> Removed bad records: "+t.clearRecords( id, e.getLargeUpdateCounts() )); // just drop the data or try one by one?
                                     } catch (SQLException e) {
                                         errors++;
                                         insertErrors++;
                                         if( e.getMessage().contains("no such table") && SQLDB.this instanceof SQLiteDB){
-                                            Logger.error(getID()+"(db) -> Got no such sqlite table error, trying to resolve...");
+                                            Logger.error(id()+"(db) -> Got no such sqlite table error, trying to resolve...");
                                             try {
                                                 var c = con.createStatement();
                                                 c.execute(t.create());
@@ -951,11 +951,11 @@ public class SQLDB extends Database implements TableInsert{
                                             }
                                         }
                                         if( errors>10) {
-                                            Logger.error(getID()+" -(db)> 10x SQL Error:"+e.getMessage() );
+                                            Logger.error(id()+" -(db)> 10x SQL Error:"+e.getMessage() );
                                             Logger.error( "Errorcode:" +e.getErrorCode() );
                                             if( e.getErrorCode()==8 && !t.server && errors<30 ){
                                                 connect(true);
-                                                Logger.warn(getID()+ "->Errorcode 8 detected for sqlite, trying to reconnect.");
+                                                Logger.warn(id()+ "->Errorcode 8 detected for sqlite, trying to reconnect.");
                                             }else{
                                                 t.dumpData(id, workPath );
                                             }
@@ -963,7 +963,7 @@ public class SQLDB extends Database implements TableInsert{
                                         }
                                     } catch (Exception e) {
                                         insertErrors++;
-                                        Logger.error(getID()+"(db) -> General Error:"+e);
+                                        Logger.error(id()+"(db) -> General Error:"+e);
                                         Logger.error(e);
                                         ok=false;
                                     }
