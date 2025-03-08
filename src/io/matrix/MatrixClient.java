@@ -572,9 +572,7 @@ public class MatrixClient implements Writable, Commandable {
         if(message.toLowerCase().startsWith("unknown command"))
             message = "Either you made a typo or i lost that cmd... ;)";
         final String mes = message;
-        var j = new JSONObject().put("body",message).put("msgtype", "m.text");
-
-            j = new JSONObject().put("body",nohtml)
+        var j = new JSONObject().put("body",nohtml)
                                 .put("msgtype", "m.text")
                                 .put("formatted_body", message.replace("\n","<br>"))
                                 .put("format","org.matrix.custom.html");
