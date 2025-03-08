@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 public abstract class AbstractBlock implements TaskBlock{
-    ArrayList<NumericVal> sharedMem;
+    ArrayList<NumericVal> sharedMem = new ArrayList<>();
     ArrayList<TaskBlock> next = new ArrayList<>();
     String ori;
     Optional<TaskBlock> parentBlock=Optional.empty();
@@ -23,7 +23,7 @@ public abstract class AbstractBlock implements TaskBlock{
         sharedMem=mem;
     }
     public boolean hasSharedMem(){
-        return sharedMem!=null;
+        return !sharedMem.isEmpty();
     }
     public ArrayList<NumericVal> getSharedMem(){
         return sharedMem;

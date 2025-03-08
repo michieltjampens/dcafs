@@ -513,7 +513,7 @@ public class Tools {
         }
         return splits;
     }
-    public static String parseExpression( String op ){
+    public static String mapExpressionToSymbols(String op ){
         op=op.replace("->"," through");
 
         op = op.replace(" and "," && ");
