@@ -22,6 +22,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class MathForward extends AbstractForward {
 
@@ -84,80 +85,124 @@ public class MathForward extends AbstractForward {
      */
     @Override
     public boolean readFromXML(Element math) {
-        parsedOk=true;
+
         var dig = XMLdigger.goIn(math);
-        if( !readBasicsFromXml(dig) )
+        if (!readBasicsFromXml(dig)) // Read the basic parameters that are the same in all forwards
             return false;
 
-        // Reset the references
-        if( referencedNums!=null)
-            referencedNums.clear();
-
-        highestI=-1;
-        suffix = dig.attr("suffix","");
+        // Reset everything that will be altered
+        parsedOk = true;
+        referencedNums.clear();
+        temps.clear();
+        highestI = -1;
         ops.clear();
+
+        suffix = dig.attr("suffix", "");
         String content = dig.value("");
 
         // Check if it Has content but no child elements, so a single op
-        if( content != null && dig.peekOut("*").isEmpty() ){
-            if( findReferences(content) ){ // Figure out the used references to vals and determine highest used index/i
-                var op = addStdOperation(
-                        content,
-                        dig.attr("scale",-1),
-                        dig.attr("cmd","")
-                );
-                if(op.isEmpty()){ // If no op could be parsed from the expression
-                    parsedOk=false;
-                    Logger.error(id+"(mf) -> No valid operation found in: "+content);
-                    return false;
-                }else{ // Processing ok, can stop here
-                    return true;
-                }
-            }
-            // Failed to find or parse references to real/int/flagvals
-            Logger.error(id +"(mf) -> Failed to process references in "+content);
-            parsedOk=false;
-            return false;
+        if (content != null && dig.peekOut("*").isEmpty()) {
+            return procSingleOp(dig, content);
         }
 
         // Check for other subnodes besides 'op' those will be considered def's to reference in the op
-        dig.peekOut("*")
-                .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
-                        .forEach( def -> {
-                            var val = def.getTextContent().replace(",",".");
-                            if( def.getTagName().equalsIgnoreCase("def")){
-                                defines.put( def.getAttribute("ref"),val);
-                            }else{
-                                defines.put( def.getTagName(),val);
-                            }
-                        });
+        digForFixedOperands(dig);
 
-        boolean oldValid=valid; // Store the current state of valid
+        boolean oldValid = valid; // Store the current state of valid
+
         // First go through all the ops and to find all references to real/int/flag and determine highest i(ndex) used
-        for( var ops : dig.peekOut("op") ){
-            // Find all the temps, and prep space for them
-            var ts = Pattern.compile("t[0-9]{1,2}")
-                    .matcher(ops.getTextContent())
-                    .results()
-                    .map(MatchResult::group)
-                    .distinct()
-                    .toArray(String[]::new);
-            for( var t : ts) {
-                try {
-                    int pos = Integer.parseInt(t.substring(1));
-                    while( pos >= temps.size())
-                        temps.add(BigDecimal.ZERO);
-                }catch(NumberFormatException e){
-                    Logger.error(id+"(mf) -> Bad temp number: "+t);
-                }
-            }
-            // Find all the references
-            if( !findReferences(ops.getTextContent())) {
-                parsedOk=false; //Parsing failed, so set the flag and return
+        if (!digForMaxTempIndex(dig)) {
+            return false;
+        }
+        // Find all the references to realtime values
+        for (var ops : dig.peekOut("op")){
+            if (!findRtvals(ops.getTextContent())) {
+                parsedOk = false; //Parsing failed, so set the flag and return
                 return false;
             }
         }
         // Go through the op's again to actually process the expression
+        digForOpsProcessing(dig);
+
+        if( !oldValid && valid )// If math specific things made it valid
+            sources.forEach( source -> dQueue.add( Datagram.system( source ).writable(this) ) );
+        referencedNums.trimToSize(); // Won't be changed after this, so trime excess space
+        return true;
+    }
+    private boolean procSingleOp( XMLdigger dig, String content ){
+        if( findRtvals(content) ){ // Figure out the used references to vals and determine the highest used index/i
+            var op = addStdOperation(
+                    content,
+                    dig.attr("scale",-1),
+                    dig.attr("cmd","")
+            );
+            if(op.isEmpty()){ // If no op could be parsed from the expression
+                parsedOk=false;
+                Logger.error(id+"(mf) -> No valid operation found in: "+content);
+                return false;
+            }
+            // Processing ok, can stop here
+            return true;
+        }
+        // Failed to find or parse references to real/int/flagvals
+        Logger.error(id +"(mf) -> Failed to process references in "+content);
+        parsedOk=false;
+        return false;
+    }
+
+    /**
+     * Check the node for references to static values and odd those to the collection
+     * @param dig A digger pointing to the MathForward
+     */
+    private void digForFixedOperands(XMLdigger dig ){
+        dig.peekOut("*")
+                .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
+                .forEach( def -> {
+                    var val = def.getTextContent().replace(",","."); // unify decimal separator
+                    if( def.getTagName().equalsIgnoreCase("def")){
+                        defines.put( def.getAttribute("ref"),val); // <def ref="A1">12.5</def>
+                    }else{
+                        defines.put( def.getTagName(),val);             // <A1>12.5</A1>
+                    }
+                });
+    }
+
+    /**
+     * Go through the op's and find any reference to temporary values designated with tx then prepare the temps
+     * collection to hold that many elements
+     * @param dig A digger pointing to the MathForward
+     */
+    private boolean digForMaxTempIndex(XMLdigger dig ){
+        var pattern = Pattern.compile("t[0-9]{1,2}");
+        try {
+            for (var opNode : dig.peekOut("op")) {
+                // Find all the temp indexes
+                var maxIndex = pattern
+                        .matcher(opNode.getTextContent())// Apply the pattern to the text content
+                        .results() // Get the results of the pattern applied
+                        .map(m -> m.group().substring(1)) // Remove the t at the start (i.e., extract the number)
+                        .filter(t -> {
+                            boolean isValid = NumberUtils.isCreatable(t); // Check if it's a valid number
+                            if (!isValid)
+                                throw new IllegalArgumentException("Invalid temp index found: " + t);
+                            return true; // Only allow valid indexes through
+                        })
+                        .mapToInt(NumberUtils::toInt) // Convert valid strings to integers
+                        .max() // Find the maximum index
+                        .orElse(0); // Default to 0 if no valid indexes are found
+
+                // Increase the temp collection so all will fit
+                while (maxIndex >= temps.size())
+                    temps.add(BigDecimal.ZERO); // Fill in zero for the future temp
+            }
+        }catch( IllegalArgumentException e ){
+            Logger.error(id + "(mf) -> "+e.getMessage() );
+            parsedOk=false; //Parsing failed, so set the fla
+            return false;
+        }
+        return true;
+    }
+    private void digForOpsProcessing(XMLdigger dig ){
         dig.digOut("op").forEach( ops -> {
             try {
                 var type= fromStringToOPTYPE(ops.attr( "type", "complex"));
@@ -180,10 +225,6 @@ public class MathForward extends AbstractForward {
                 Logger.error(id+" (mf)-> Number format Exception "+e.getMessage());
             }
         });
-        if( !oldValid && valid )// If math specific things made it valid
-            sources.forEach( source -> dQueue.add( Datagram.build( source ).label("system").writable(this) ) );
-        referencedNums.trimToSize(); // Won't be changed after this, so trime excess space
-        return true;
     }
     /**
      * Give data to this forward for processing
@@ -199,83 +240,42 @@ public class MathForward extends AbstractForward {
             return true;
         }
 
-        String[] split = data.split(delimiter); // Split the data according to the delimiter
+        // Split the data according to the delimiter
+        String[] split = data.split(delimiter);
 
-        // Then make sure there's enough items in split
-        if( split.length < highestI+1){ // Need at least one more than the highestI (because it starts at 0)
-            showError("Need at least "+(highestI+1)+" items after splitting: "+data+ ", got "+split.length+" (bad:"+badDataCount+")");
-            return true; // Stop processing
-        }
-        // Convert the split data to bigdecimals and add references and temps
-        BigDecimal[] bds = buildBDArray(split);
-        if( bds==null){
+        // Then make sure there's enough items in split, need at least one more than the highestI (because it starts at 0)
+        if( !checkDataLength( data, split.length, highestI )) return true;
+
+        // Convert to BigDecimals and do some checks
+        var bdsOpt = convertToBigDecimals(data,split);
+        if( bdsOpt.isEmpty()) { // Something failed, abort
+            badDataCount++;
             return true;
         }
+        var bds = bdsOpt.get(); // Nothing failed, unpack
 
-        // First do a global check, if none of the items is a number, no use to keep trying
-        if( bds.length==0 ){
-            showError("No valid numbers in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
-            return true;
-        }
-        // We know that the 'highest needed index' needs to actually be a number
-        if( bds[highestI]==null){
-            showError("No valid highest I value in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
+        // After doing all possible initial tests, do the math
+        if( !applyOperations(bds,data) ){
+            badDataCount++;
             return true;
         }
 
-        // After doing all possible initial test, do the math
-        int cnt=0;
-        for( var op : ops ){
-            var res = op.solve(bds);
-            if (res == null) {
-                cnt++;
-                showError(cnt==1,"Failed to process " + data + " for "+op.ori);
-            }
-        }
-        if( cnt > 0 ) {
-            return true;
-        }
-        // If we got to this point, processing went fine so reset badcounts
-        if( badDataCount !=0 )
+        // Insert the BigDecimals in the received data and apply any requested suffix
+        final String finalData = insertBigDecimalsInData(bds,split);
+
+        // If we got to this point, processing went fine so reset badDataCount
+        if( badDataCount != 0 )
             Logger.info(id+" (mf) -> Executed properly after previous issues, resetting bad count" );
         badDataCount=0;
 
-        var join = joinBddata(bds,split);
+        // Use multithreading so the Writable's don't have to wait for the whole process
+        nextSteps.parallelStream().forEach( ns -> ns.writeLine(id(),finalData));
+        targets.parallelStream().forEach( wr -> wr.writeLine(id(),finalData));
 
-        // append suffix
-        String result = switch( suffix ){
-                            case "" -> join.toString();
-                            case "nmea" -> join+"*"+MathUtils.getNMEAchecksum(join.toString());
-                            default -> {
-                                Logger.error(id+" (mf)-> No such suffix "+suffix);
-                                yield join.toString();
-                            }
-        };
+        logResult(data,finalData);
 
-        if( debug ){ // extra info given if debug is active
-            Logger.info(id()+" -> Before: "+data);   // how the data looked before
-            Logger.info(id()+" -> After:  "+result); // after applying the operations
-        }
-
-        // Use multithreading so the writables don't have to wait for the whole process
-        nextSteps.parallelStream().forEach( ns -> ns.writeLine(id(),result));
-        targets.parallelStream().forEach( wr -> wr.writeLine(id(),result));
-
-        if( log )
-            Logger.tag("RAW").info( id() + "\t" + result);
-        if( store!=null) {
-            for( int a=0;a<store.size();a++){
-                if( bds.length > a && bds[a] != null){
-                    store.setValueAt(a,bds[a]);
-                }else{
-                    store.setValueAt(a,split[a]);
-                }
-            }
-
-            for( var dbInsert:store.dbInsertSets())
-                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
-            store.doCalVals();
-        }
+        // Potentially store the data in memory and databases
+        storeData(bds,split);
 
         if( !cmds.isEmpty())
             cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
@@ -283,7 +283,95 @@ public class MathForward extends AbstractForward {
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         return !noTargets() || log || store != null;
     }
+    /**
+     * Checks if the length of the provided data (split by the delimiter) is sufficient
+     * to match the required number of items, based on the highest index needed.
+     *
+     * @param data The original data string being processed.
+     * @param receivedCount The array of strings obtained by splitting the data.
+     * @param minCount The length of the split array, used to check if it meets the necessary condition.
+     * @return {@code true} if the data has enough items to proceed, {@code false} otherwise.
+     */
+    private boolean checkDataLength( String data, int receivedCount, int minCount ){
+        if( receivedCount <= minCount ) {
+            showError("Need at least " + (minCount+1) + " items after splitting: " + data + ", got " + receivedCount + " (bad:" + badDataCount + ")");
+            badDataCount++;
+            return false; // Stop processing
+        }
+        return true;
+    }
+    /**
+     * Converts the provided data (split by delimiter) into an array of {@link BigDecimal} values.
+     * This method checks that the data contains valid numerical values, and ensures that
+     * the required "highest index" is a valid number before returning the result.
+     *
+     * @param data The original data string that is being processed.
+     * @param split The array of strings obtained by splitting the data.
+     * @return An {@link Optional} containing the array of {@link BigDecimal} values if the conversion is successful,
+     *         or {@link Optional#empty()} if any validation or conversion fails.
+     */
+    private Optional<BigDecimal[]> convertToBigDecimals( String data, String[] split ){
+        // Convert the split data to BigDecimals and add references and temps
+        BigDecimal[] bds = buildBDArray(split);
+        if( bds==null){
+            return Optional.empty();
+        }
 
+        // Check if none of the items is a valid number
+        if( bds.length==0 ){
+            showError("No valid numbers in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
+            return Optional.empty();
+        }
+        // Ensure the 'highest needed index' is a valid number
+        if( bds[highestI]==null){
+            showError("No valid highest I value in the data: "+data+" after split on "+delimiter+ " "+ " (bad:"+badDataCount+")");
+            return Optional.empty();
+        }
+        return Optional.of(bds);
+    }
+    private boolean applyOperations(BigDecimal[] bigDecimals, String data) {
+        int errorCount = 0;
+        for (var op : ops) {
+            if (op.solve(bigDecimals) == null) {
+                errorCount++;
+                showError(errorCount == 1, "Failed to process " + data + " for " + op.ori);
+            }
+        }
+        return errorCount>0;
+    }
+    private String appendSuffix( String data ){
+       return switch( suffix ) {
+           case "" -> data;
+           case "nmea" -> data + "*" + MathUtils.getNMEAchecksum(data);
+           default -> {
+               Logger.error(id + " (mf)-> No such suffix " + suffix);
+               yield data;
+           }
+       };
+    }
+    private void storeData(BigDecimal[] bds, String[] split){
+        if( store!=null) {
+            for( int a=0;a<store.size();a++){
+                if( bds.length > a && bds[a] != null){
+                    store.setValueAt(a,bds[a]);
+                }else if(split!=null){
+                    store.setValueAt(a,split[a]);
+                }
+            }
+            for( var dbInsert:store.dbInsertSets())
+                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
+            store.doCalVals();
+        }
+    }
+    private void logResult(String data, String finalData){
+        if( debug ){ // extra info given if debug is active
+            Logger.info( id + "(mf) -> Before: "+data);   // how the data looked before
+            Logger.info( id + "(mf) -> After:  "+finalData); // after applying the operations
+        }
+
+        if( log )
+            Logger.tag("RAW").info( id() + "\t" + finalData);
+    }
     private void showError(String error){
         showError(true,error);
     }
@@ -309,79 +397,67 @@ public class MathForward extends AbstractForward {
     }
 
     /**
-     * Alternative addData method that takes integers and just does the math.
+     * Alternative addData method that takes doubles and just does the math.
      * @param numbers The number to apply the ops to
      * @return An optional Double array with the results
      */
     public ArrayList<Double> addData( ArrayList<Double> numbers ){
         // First check if the operations are actually valid
-        if( !readOk ){
+        if( !parsedOk ){
             showError("Not processing data because the operations aren't valid");
             return new ArrayList<>();
         }
+        // Concatenate the values for error messages etc
+        var data = numbers.stream().map(String::valueOf).collect(Collectors.joining(","));
 
         // Then make sure there's enough items in split
-        if( numbers.size() < highestI+1){ // Need at least one more than the highestI (because it starts at 0)
-            showError("Need at least "+(highestI+1)+" items, got "+numbers.size() );
-            return new ArrayList<>();
-        }
+        if( !checkDataLength( data, numbers.size(), highestI )) return new ArrayList<>();
 
-        // Convert the split data to bigdecimals and add references and temps
-        BigDecimal[] bds = new BigDecimal[numbers.size()];
-        try {
-            for( int a=0;a<numbers.size();a++)
-                bds[a]= BigDecimal.valueOf(numbers.get(a));
-            var refOpt = buildRefBdArray();
-            if( refOpt.isEmpty()) {
-                Logger.error(id + "(mf) -> Failed to build ref bds");
-                return new ArrayList<>();
-            }
-            bds = ArrayUtils.addAll(bds,refOpt.get());
-        }catch(Exception e){
-            Logger.error(id+"(mf) -> "+e.getMessage());
+        // Convert the split data to BigDecimals and add references and temps
+        var bdsOpt = convertDoublesToBigDecimal(numbers);
+        if( bdsOpt.isEmpty()){
+            badDataCount++;
+            Logger.error(id+"(mf) -> Failed to convert to BigDecimals");
             return new ArrayList<>();
         }
+        var bds = bdsOpt.get();
 
         // After doing all possible initial test, do the math
-        int cnt=0;
-        for( var op : ops ){
-            if (op.solve(bds) == null) {
-                cnt++;
-                showError(cnt==1,"(mf) -> Failed to process " + numbers + " for "+op.ori);
-            }
-        }
-        if( cnt > 0 ) {
+        if( !applyOperations(bds, data ) ){
             Logger.error(id+"(mf) -> Issues during math, returning empty array");
             return new ArrayList<>();
         }
+
         // If we got to this point, processing went fine so reset badcounts
         if( badDataCount !=0 )
             Logger.info(id+" (mf) -> Executed properly after previous issues, resetting bad count" );
         badDataCount=0;
 
-        if( debug ){ // extra info given if debug is active
-            Logger.info(id()+" -> Before: "+numbers);   // how the data looked before
-            Logger.info(id()+" -> After:  "+Arrays.toString(bds)); // after applying the operations
-        }
+        logResult(data,Arrays.stream(bds).map(BigDecimal::toPlainString).collect(Collectors.joining(",")));
 
-        if( log )
-            Logger.tag("RAW").info( id() + "\t" + Arrays.toString(bds));
+        // Potentially store the data in memory and databases
+        storeData(bds,null);
 
-        ArrayList<Double> results = new ArrayList<>();
-        for (BigDecimal bd : bds)
-            results.add(bd.doubleValue());
-
-        if( store!=null) {
-            for( int a=0;a<store.size();a++){
-                if( bds.length > a && bds[a] != null){
-                    store.setValueAt(a,bds[a]);
-                }
+        // Convert the resulting BigDecimals back to doubles and into an arraylist
+        return Arrays.stream(bds).map(BigDecimal::doubleValue).collect(Collectors.toCollection(ArrayList::new));
+    }
+    private Optional<BigDecimal[]> convertDoublesToBigDecimal(ArrayList<Double> numbers){
+        BigDecimal[] bds;
+        try {
+            bds =numbers.stream().map(BigDecimal::valueOf).toArray(BigDecimal[]::new);
+            var refOpt = buildRefBdArray();
+            if( refOpt.isEmpty()) {
+                Logger.error(id + "(mf) -> Failed to build ref bds");
+                badDataCount++;
+                return Optional.empty();
             }
-            for( var dbInsert:store.dbInsertSets())
-                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
-            store.doCalVals();
+            bds = ArrayUtils.addAll(bds,refOpt.get());
+        }catch(Exception e){
+            Logger.error(id+"(mf) -> "+e.getMessage());
+            badDataCount++;
+            return Optional.empty();
         }
-        return results;
+        return Optional.of(bds);
     }
     /* ************************************** ADDING OPERATIONS **************************************************** */
     /**
@@ -392,70 +468,40 @@ public class MathForward extends AbstractForward {
      */
     public Optional<Operation> addStdOperation( String expression, int scale, String cmd ){
 
-        // Support ++ and --
-        expression = expression.replace("++","+=1")
-                               .replace("--","-=1")
-                               .replace(" ",""); //remove spaces
+        // Remove spaces and replace ++ with +=1 etc
+        expression = normalizeExpression(expression);
 
-        if( !expression.contains("=") ) {// If this doesn't contain a '=' it's no good
-            if(expression.matches("i[0-9]{1,3}")){ // unless the expression is a reference?
-                var op = new Operation( expression, NumberUtils.toInt(expression.substring(1),-1));
-                op.setCmd(cmd);
-                op.setScale(scale);
-                rulesString.add(new String[]{"complex", String.valueOf(NumberUtils.toInt(expression.substring(1))),expression});
-                addOp(op);
-                return Optional.of(op);
-            }else {
-                Logger.error(id+ "(mf) -> Not a valid expression: "+expression);
-                return Optional.empty();
-            }
-        }
-        String exp = expression;
+        if( !expression.contains("=") ) // If this doesn't contain a '=' it's no good
+            return handleSingleIndexOp(expression,cmd,scale);
+
+        //String exp = expression;
         var split = expression.split("[+-/*^]?="); // split into result and operation (i0 = i1+2 -> [i0][i1+2]
 
-        // The expression might be a simple i0 *= 2, so replace such with i0=i0*2 because of the way it's processed
-        // A way to know this is the case, is that normally the summed length of the split items is one lower than
-        // the length of the original expression (because the = ), if not that means an operand was in front of '='
-        if( split[0].length()+split[1].length()+1 != exp.length()){ // Support += -= *= and /= fe. i0+=1
-            String[] spl = exp.split("="); //[0]:i0+ [1]:1
-            split[1]=spl[0]+split[1]; // split[1]=i0+1
-        }
+        handleCompoundAssignment(split, expression);
 
-        var dest = split[0].split(",");  // It's allowed that the result is written to more than one destination
-        int index = Tools.parseInt(dest[0].substring(1),-1); // Check if it's in the first or only position
-        if( index == -1 && dest.length==2){ // if not and there's a second one
-            index = Tools.parseInt(dest[1].substring(1),-1); //check if it's in the second one
-        }else if(dest.length==2){
-            expression=expression.replace(split[0],dest[1]+","+dest[0]); //swap the {d to front
-        }
-        // Fix index if targeting a temp?
-        if( dest[0].startsWith("t")){
-            index += highestI+1;
-        }
+        // Process destination references (like i0, i1, t0, etc.)
+        var dest = split[0].split(",");
+        var map = getDestinationIndex(split, dest, expression );
+        int index = map.getKey();
+        expression = map.getValue();
+
         // Check if the destination is a realval or integerval and not an i
         if( (dest[0].toLowerCase().startsWith("{d") || dest[0].toLowerCase().startsWith("{r")) && dest.length==1) {
             if( split[1].matches("i[0-9]{1,3}")){ // the expression is only reference to an i
-                var op = new Operation( expression, NumberUtils.toInt(split[1].substring(1),-1));
-                op.setCmd(cmd);
-                op.setScale(scale);
-
-                if( addOp(op) )
-                    rulesString.add(new String[]{"complex", String.valueOf(NumberUtils.toInt(split[1].substring(1))),expression});
-                return Optional.of(op);
+                return Optional.of(addOp( NumberUtils.toInt(split[1].substring(1),-1), expression,cmd,scale ));
             }else{
-                index = -2;
+                index= -2;
             }
-
         }
-        exp = split[1];
+
+        var exp = split[1];
 
         if( index == -1 ){
             Logger.warn(id + " -> Bad/No index given in "+expression);
         }
 
-        for( var entry : defines.entrySet() ){ // Check for the defaults and replace
+        for( var entry : defines.entrySet() ) // Check for the defaults and replace
             exp = exp.replace(entry.getKey(),entry.getValue());
-        }
 
         exp = replaceTemps(exp); // replace the tx's with ix's
         exp = replaceReferences(exp); // Replace the earlier found references with i's
@@ -478,13 +524,52 @@ public class MathForward extends AbstractForward {
                 return Optional.empty(); // If not, return empty
             }
         }
-        op.setScale(scale);
-        op.setCmd(cmd);
+        op.scale(scale).cmd(cmd);
 
         ops.add(op);
-
         rulesString.add(new String[]{"complex", String.valueOf(index),expression});
-        return Optional.ofNullable(ops.get(ops.size()-1)); // return the one that was added last
+        return Optional.of(op); // return the one that was added last
+    }
+    private String normalizeExpression( String expression ){
+        // Support ++ and --
+        return expression.replace("++","+=1")
+                .replace("--","-=1")
+                .replace(" ",""); //remove spaces
+    }
+    private Optional<Operation> handleSingleIndexOp( String expression, String cmd, int scale ){
+        if(expression.matches("i[0-9]{1,3}")){ // unless the expression is a reference?
+            return Optional.of(addOp( NumberUtils.toInt(expression.substring(1),-1),expression,cmd,scale));
+        }else {
+            Logger.error(id+ "(mf) -> Not a valid expression: "+expression);
+            return Optional.empty();
+        }
+    }
+    private void handleCompoundAssignment(String[] split, String exp){
+        // The expression might be a simple i0 *= 2, so replace such with i0=i0*2 because of the way it's processed
+        // A way to know this is the case, is that normally the summed length of the split items is one lower than
+        // the length of the original expression (because the = ), if not that means an operand was in front of '='
+        int lengthAfterSplit = split[0].length()+split[1].length();
+        if( lengthAfterSplit+1 != exp.length()){ // Support += -= *= and /= fe. i0+=1
+            String[] spl = exp.split("="); //[0]:i0+ [1]:1
+            split[1]=spl[0]+split[1]; // split[1]=i0+1
+        }
+    }
+    private Map.Entry<Integer,String> getDestinationIndex(String[] split, String[] dest, String expression ){
+          // It's allowed that the result is written to more than one destination
+        int index = Tools.parseInt(dest[0].substring(1),-1); // Check if it's in the first or only position
+        if( dest.length==2){
+            if( index == -1){ // if not and there's a second one
+                index = Tools.parseInt(dest[1].substring(1),-1); //check if it's in the second one
+            }else{
+                expression = expression.replace(split[0],dest[1]+","+dest[0]); //swap the {d to front
+            }
+        }
+
+        // Fix index if targeting a temp?
+        if( dest[0].startsWith("t")){
+            index += highestI+1;
+        }
+        return new AbstractMap.SimpleEntry<>(index,expression);
     }
 
     public void addOperation(String index, int scale, OP_TYPE type, String cmd , String expression  ){
@@ -550,13 +635,20 @@ public class MathForward extends AbstractForward {
 
         if( scale != -1){ // Check if there's a scale op needed
             Function<BigDecimal[],BigDecimal> proc = x -> x[NumberUtils.toInt(index)].setScale(scale, RoundingMode.HALF_UP);
-            var p = new Operation( expression, proc, NumberUtils.toInt(index)).setCmd(cmd);
+            var p = new Operation( expression, proc, NumberUtils.toInt(index)).cmd(cmd);
             if( addOp( p ))
                 rulesString.add(new String[]{type.toString().toLowerCase(), index,"scale("+expression+", "+scale+")"});
         }else{
-            op.setCmd(cmd);
+            op.cmd(cmd);
             rulesString.add(new String[]{type.toString().toLowerCase(), index,expression});
         }
+    }
+    private Operation addOp( int index, String expression, String cmd, int scale ){
+        var op = new Operation( expression, index );
+        op.cmd(cmd).scale(scale);
+        if( addOp(op) )
+            rulesString.add(new String[]{"complex", String.valueOf(index),expression});
+        return op;
     }
     private boolean addOp( Operation op ){
         if( op == null ) {
@@ -607,7 +699,7 @@ public class MathForward extends AbstractForward {
             return "";
         }
         ops.forEach( op -> op.solve(bds) );
-        return joinBddata(bds,split).toString();
+        return insertBigDecimalsInData(bds,split);
     }
 
     /**
@@ -617,7 +709,7 @@ public class MathForward extends AbstractForward {
      */
     public double solveOp( String op ){
         ops.clear();rulesString.clear();
-        findReferences("i0="+op);
+        findRtvals("i0="+op);
         var opt = addStdOperation("i0="+op,-1,"");
         if( opt.isEmpty())
             return Double.NaN;
@@ -680,7 +772,7 @@ public class MathForward extends AbstractForward {
      * @param exp The expression to check
      * @return True if everything went ok and all references were found
      */
-    private boolean findReferences(String exp){
+    private boolean findRtvals(String exp){
 
         // Find all the double/int/flag pairs
         var pairs = Tools.parseKeyValue(exp,true);
@@ -782,16 +874,32 @@ public class MathForward extends AbstractForward {
         }
         return exp;
     }
-    private StringJoiner joinBddata( BigDecimal[] bds, String[] split ){
+    /**
+     * Inserts BigDecimal values into the provided data array, replacing original data where applicable.
+     * This method takes in a set of BigDecimal values and the corresponding original data (as strings),
+     * and inserts the BigDecimal values into the data at the specified indices, where they are available.
+     * For indices greater than the highest valid index, the original string data is retained.
+     * If no BigDecimal value is found at a given index, the original string data is used as a fallback.
+     *
+     * @param bds An array of BigDecimal values to insert into the data. Each element corresponds to
+     *            an index in the `split` array.
+     * @param split An array of original string data that will be processed. If no BigDecimal value is
+     *              available for a particular index, the original string data will be retained.
+     * @return A string containing the modified data, with BigDecimal values inserted where available.
+     */
+    private String insertBigDecimalsInData(BigDecimal[] bds, String[] split ){
         StringJoiner join = new StringJoiner(delimiter); // prepare a joiner to rejoin the data
+        int validHighestIndex = (highestI == -1) ? 0 : highestI; // Determine the valid highest index
         for( int a=0;a<split.length;a++){
-            if( a <= (highestI==-1?0:highestI) ) {
-                join.add(bds[a] != null ? bds[a].toPlainString() : split[a]); // if no valid bd is found, use the original data
+            if( a <= validHighestIndex ) {
+                // Add BigDecimal value if available, else use original data from split
+                join.add(bds[a] != null ? bds[a].toPlainString() : split[a]);
             }else{
+                // For indices greater than the highest, add original split data
                 join.add(split[a]);
             }
         }
-        return join;
+        return appendSuffix( join.toString() );
     }
 
     /* ************************************* O P E R A T I O N ***************************************************** */
@@ -858,10 +966,11 @@ public class MathForward extends AbstractForward {
         public boolean isValid(){
             return op!=null || fab!=null;
         }
-        public void setScale( int scale ){
+        public Operation scale(int scale ){
             this.scale=scale;
+            return this;
         }
-        public Operation setCmd(String cmd){
+        public Operation cmd(String cmd){
             if( cmd.isEmpty())
                 return this;
             this.cmd=cmd;
@@ -881,36 +990,17 @@ public class MathForward extends AbstractForward {
         public BigDecimal solve( BigDecimal[] data ){
             BigDecimal bd;
             boolean changeIndex=true;
-            if( op != null ) {
-                if (data.length <= index){
-                    showError(false,"(mf) -> Tried to do an op with to few elements in the array (data=" + data.length + " vs index=" + index);
+            if( op != null ) { // If there's an op, use it
+                var bdOpt = solveWithOp(data);
+                if( bdOpt.isEmpty())
                     return null;
-                }
-                try {
-                    bd = op.apply(data);
-                } catch (NullPointerException e) {
-                    if (showError(false,"(mf) -> Null pointer when processing for " + ori)){
-                        StringJoiner join = new StringJoiner(", ");
-                        Arrays.stream(data).map(String::valueOf).forEach(join::add);
-                        Logger.error(id() + "(mf) -> Data: " + join);
-                    }
+                bd = bdOpt.get();
+            }else if(fab!=null){ // If no op, but a fab, use it
+                var bdOpt = solveWithFab(data);
+                if( bdOpt.isEmpty())
                     return null;
-                }
-            }else if(fab!=null){
-                fab.setDebug(debug);
-                fab.setShowError( showError(false,""));
-                try {
-                    var bdOpt = fab.solve(data);
-                    if( bdOpt.isEmpty() ){
-                        showError(false,"(mf) -> Failed to solve the received data");
-                        return null;
-                    }
-                    bd=bdOpt.get();
-                }catch ( ArrayIndexOutOfBoundsException | ArithmeticException | NullPointerException e){
-                    showError(false,e.getMessage());
-                    return null;
-                }
-            }else if( directSet!= null ){
+                bd = bdOpt.get();
+            }else if( directSet!= null ){ // Might be just direct set
                 bd = directSet;
             }else if(index!=-1){
                 if( data[index]==null){
@@ -937,6 +1027,37 @@ public class MathForward extends AbstractForward {
             if(debug)
                 Logger.info("Result of op: "+bd.toPlainString());
             return bd;
+        }
+        private Optional<BigDecimal> solveWithOp(BigDecimal[] data){
+            if (data.length <= index){
+                showError(false,"(mf) -> Tried to do an op with to few elements in the array (data=" + data.length + " vs index=" + index);
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(op.apply(data));
+            } catch (NullPointerException e) {
+                if (showError(false,"(mf) -> Null pointer when processing for " + ori)){
+                    StringJoiner join = new StringJoiner(", ");
+                    Arrays.stream(data).map(String::valueOf).forEach(join::add);
+                    Logger.error(id() + "(mf) -> Data: " + join);
+                }
+                return Optional.empty();
+            }
+        }
+        private Optional<BigDecimal> solveWithFab( BigDecimal[] data){
+            fab.setDebug(debug);
+            fab.setShowError( showError(false,""));
+            try {
+                var bdOpt = fab.solve(data);
+                if( bdOpt.isEmpty() ){
+                    showError(false,"(mf) -> Failed to solve the received data");
+                    return Optional.empty();
+                }
+                return bdOpt;
+            }catch ( ArrayIndexOutOfBoundsException | ArithmeticException | NullPointerException e){
+                showError(false,e.getMessage());
+                return Optional.empty();
+            }
         }
     }
     @Override
