@@ -21,85 +21,83 @@ public class MathUtils {
     final static int DIV_SCALE = 8;
     static final String[] ORDERED_OPS={"°","°","^","^","*","/","%","%","+","-"};
     static final String[] COMPARES={"<","<=","==","!=",">=",">"};
-    static final String OPS_REGEX="[+\\-\\/*<>^=%~!°]+[=]?";
+    static final String OPS_REGEX= "[+\\-/*<>^=%~!°]+=?";
     static final Pattern es = Pattern.compile("\\de[+-]?\\d");
     /**
-     * Splits a simple expression of the type i1+125 etc into distinct parts i1,+,125
+     * Splits a simple expression of the type i1+125 etc. into distinct parts i1,+,125
      * @param expression The expression to split
      * @param indexOffset The offset to apply to the index
      * @param debug Give extra debug information
      * @return The result of the splitting, so i1+125 => {"i1","+","125"}
      */
     public static List<String[]> splitExpression(String expression, int indexOffset, boolean debug ){
-        var result = new ArrayList<String[]>();
 
-        expression=expression.replace("+-","-"); // adding a negative number is the same as subtractingression=expression.replace("-o","-1*o");
+        var oriExpression=expression;
+        // adding a negative number is the same as subtracting
+        expression=expression.replace("+-","-");
+        // Split it in parts: numbers,ix and operands
         var parts = extractParts(expression);
 
-        if( debug ){
-            Logger.info("-> Splitting: "+expression);
+        if( debug ) Logger.info("-> Splitting: "+expression);
+
+        var result = new ArrayList<String[]>();
+
+        indexOffset++; // For some reason this is done here
+        if (parts.size() == 3) { // If there are only three parts, this is a single operation
+            result.add( simplifyTriple( parts.get(0),parts.get(1),parts.get(2),debug) );
+            return result;
         }
-        indexOffset++;
+        // There are more or less than three parts...
         try {
-            if (parts.size() == 3) {
-                if( NumberUtils.isCreatable(parts.get(0))&&NumberUtils.isCreatable(parts.get(2))){
-                    var bd1 = NumberUtils.createBigDecimal(parts.get(0));
-                    var bd2 = NumberUtils.createBigDecimal(parts.get(2));
-                    var bd3 = calcBigDecimalsOp(bd1,bd2,parts.get(1));
-                    result.add(new String[]{bd3==null?"":bd3.toPlainString(),"0","+"});
-                }else {
-                    if (debug) {
-                        Logger.info("  Sub: " + "o" + indexOffset + "=" + expression);
+            int oIndex = indexOffset;
+            for (int a = 0; a < ORDERED_OPS.length; a += 2) {
+                // Calculate the index of the current operands
+                int opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
+                // Process the expression till the operand is no longer found
+                while (opIndex != -1) {
+                    if( parts.size()<=opIndex+1) {
+                        Logger.error("Not enough data in parts -> Expression'"+expression+"' Parts:"+parts.size()+" needed "+(opIndex+1) );
+                        return result;
                     }
-                    result.add(new String[]{parts.get(0), parts.get(2), parts.get(1)});
-                }
-            } else {
-                int oIndex = indexOffset;
-                for (int a = 0; a < ORDERED_OPS.length; a += 2) {
-
-                    int opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
-
-                    while (opIndex != -1) {
-                        if( parts.size()<=opIndex+1) {
-                            Logger.error("Not enough data in parts -> Expression'"+expression+"' Parts:"+parts.size()+" needed "+(opIndex+1) );
-                            return result;
-                        }
-                        // Check if this isn't a formula that can already be processed
-                        if( NumberUtils.isCreatable(parts.get(opIndex-1))&&NumberUtils.isCreatable(parts.get(opIndex+1))){
-                            var bd1 = NumberUtils.createBigDecimal(parts.get(opIndex-1));
-                            var bd2 = NumberUtils.createBigDecimal(parts.get(opIndex+1));
-                            var bd3 = calcBigDecimalsOp(bd1,bd2,parts.get(opIndex));
-
-                            parts.remove(opIndex);  // remove the operand
-                            parts.remove(opIndex);  // remove the top part
-                            parts.set(opIndex - 1, bd3==null?"":bd3.toPlainString()); // replace the bottom one
-                            opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
-                            continue;
-                        }
-
-                        String res = parts.get(opIndex - 1) + parts.get(opIndex) + parts.get(opIndex + 1);
-                        result.add(new String[]{parts.get(opIndex - 1), parts.get(opIndex + 1), parts.get(opIndex)});
-                        parts.remove(opIndex);  // remove the operand
-                        parts.remove(opIndex);  // remove the top part
-                        parts.set(opIndex - 1, "o" + oIndex); // replace the bottom one
-
+                    // Check if this isn't a formula that can already be processed
+                    String replacement;
+                    if( NumberUtils.isCreatable(parts.get(opIndex-1))&&NumberUtils.isCreatable(parts.get(opIndex+1))){
+                        var bd = calcBigDecimalsOp(parts.get(opIndex-1),parts.get(opIndex+1),parts.get(opIndex));
+                        replacement = bd.toPlainString(); // replace the bottom one
+                    }else{
+                        result.add( new String[]{parts.get(opIndex - 1), parts.get(opIndex + 1), parts.get(opIndex)} );
+                        replacement = "o" + oIndex; // replace the bottom one
+                        oIndex++;
                         if (debug) {
-                            Logger.info("  Sub: " + "o" + oIndex + "=" + res);
+                            Logger.info("  Sub: " + "o" + oIndex + "="
+                                    + parts.get(opIndex - 1) + parts.get(opIndex) + parts.get(opIndex + 1));
                         }
-                        expression = expression.replace(res, "o" + oIndex++);
-                        opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
                     }
+                    var sub = parts.get(opIndex - 1) + parts.get(opIndex) + parts.get(opIndex + 1);
+                    expression = expression.replace(sub, replacement);
+
+                    parts.remove(opIndex);  // remove the operand
+                    parts.remove(opIndex);  // remove the top part
+                    parts.set(opIndex - 1,replacement); // replace the bottom one
+                    opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
                 }
             }
         }catch( IndexOutOfBoundsException e){
-            Logger.error("Index issue while processing "+expression);
-            Logger.error(e);
+            Logger.error("Index issue while processing "+oriExpression+" at "+expression,e);
         }
         if( result.isEmpty())
             result.add(new String[]{parts.get(0),"0","+"});
         return result;
     }
-
+    private static String[] simplifyTriple( String bd1, String operand, String bd2, boolean debug){
+        // Check if both sides are numbers, if so, simplify the formula
+        if( NumberUtils.isCreatable(bd1)&&NumberUtils.isCreatable(bd2)){
+            var bd = calcBigDecimalsOp(bd1,bd2,operand);
+            return new String[]{bd==null?"":bd.toPlainString(),"0","+"};
+        }else { // If not copy directly
+            return new String[]{bd1, bd2, operand};
+        }
+    }
     private static int getIndexOfOperand( List<String> data, String op1, String op2){
         int op1Index = data.indexOf(op1);
         int op2Index = data.indexOf(op2);
@@ -593,6 +591,9 @@ public class MathUtils {
             default:Logger.error("Unknown operand: "+op); break;
         }
         return proc;
+    }
+    public static BigDecimal calcBigDecimalsOp(String bd1, String bd2, String op ){
+        return calcBigDecimalsOp(NumberUtils.createBigDecimal(bd1),NumberUtils.createBigDecimal(bd2),op);
     }
     public static BigDecimal calcBigDecimalsOp(BigDecimal bd1, BigDecimal bd2, String op ){
 
