@@ -222,43 +222,39 @@ public class TimeTools {
         period = period.toUpperCase().replace("SEC", "S").replace("MIN", "M");
         period = period.replace("DAY","D").replace("DAYS","D");
         period = period.replace(" ",""); // remove spaces
-        int d = period.indexOf("D");
-        int h = period.indexOf("H");
-    	int m = period.indexOf("M");
-        int s = period.indexOf("S");
-        int ms = period.indexOf("MS");
+
         long total=0;
         
     	try {
-            if( d != -1 ){ // If D is present in the string
-                total += Tools.parseInt( period.substring(0, d), 0 ); // get the number in front and multiply for h->s
-                d+=1;// increment the index to skip te letter
-            }else{
-                d=0; // No h found, so change the index to 0 to mimic it
+            int dIndex = period.indexOf("D");
+            if( dIndex != -1 ){ // If D is present in the string
+                total = Tools.parseInt( period.substring(0, dIndex), 0 )*24L; // get the number in front
+                period = period.substring(dIndex+1); // Remove the used part
             }
-            total *= 24L; // Go from days to hours
-	    	if( h != -1 ){ // If H is present in the string
-	    		total += Tools.parseInt( period.substring(d, h), 0 ); // get the number in front and multiply for h->s
-	    		h+=1;// increment the index to skip te letter
-	    	}else{
-	    		h=d; // No h found, so change the index to 0 to mimic it
+            total *= 60L; // Go from days to hours
+            int hIndex = period.indexOf("H");
+	    	if( hIndex != -1 ){ // If H is present in the string
+	    		total += Tools.parseInt( period.substring(0, hIndex), 0 ); // get the number in front
+                period = period.substring(hIndex+1);// Remove the used part
 	    	}
 	    	total *= 60L; // Go from hours to minutes
-	    	if( m !=- 1 && m != ms){ // if M for minute found and the M is not part of ms
-	    		total += Tools.parseInt(period.substring(h, m), 0);
-	    		m+=1;// increment the index to skip te letter
-	    	}else{
-	    		m=h; // no M found so last was h (e.g. 1h10s)
+
+            int mIndex = period.indexOf("M");
+            int msIndex = period.indexOf("MS");
+	    	if( mIndex !=- 1 && mIndex != msIndex){ // if M for minute found and the M is not part of ms
+	    		total += Tools.parseInt(period.substring(0, mIndex), 0);
+                period = period.substring(mIndex+1);// Remove the used part
 	    	}
             total *= 60L; // Go from minutes to seconds
-	    	if( s!= -1 && s!=ms+1){ // If S for second found but not as part of ms
-	    		total += Tools.parseInt( period.substring(m, s), 0 );
-            }else{
-                s=m;
+            int sIndex = period.indexOf("S");
+            msIndex = period.indexOf("MS");
+	    	if( sIndex!= -1 && sIndex!=msIndex+1){ // If S for second found but not as part of ms
+	    		total += Tools.parseInt( period.substring(0, sIndex), 0 );
+                period = period.substring(sIndex+1);// Remove the used part
             }
 	    	// Now total should contain the converted part in seconds, millis not yet included
-            if( ms!= -1){
-                int millis = Tools.parseInt( period.substring(s, ms), 0 );
+            if( msIndex!= -1){
+                int millis = Tools.parseInt( period.substring(sIndex, msIndex), 0 );
                 if( unit == TimeUnit.SECONDS ){
                     total += millis/1000;   // Users asked seconds, so add rounded
                 }else if (unit == TimeUnit.MILLISECONDS ){
@@ -293,55 +289,59 @@ public class TimeTools {
      * @param unit The time unit of the amount
      * @return The string formatted period
      */
-	public static String convertPeriodtoString( long amount, TimeUnit unit ){		
-
-		if( unit == TimeUnit.MILLISECONDS ){
-			if( amount < 5000 ){
-                if( amount%1000==0)
-                    return amount/1000+"s";
-				return amount+"ms";
-			}
-			amount /= 1000; //seconds
-			unit = TimeUnit.SECONDS;
-		}
-		if( unit == TimeUnit.SECONDS ){
-			if( amount < 90 ){
-				return amount+"s";
-			}else if( amount < 3600 ){
-				return (amount-amount%60)/60+"m"+(amount%60==0?"":amount%60+"s");
-			}
-            var round = amount % 60 > 30;
-			amount /= 60; //minutes
-			if(round)
-				amount++;
-			unit = TimeUnit.MINUTES;
-		}
-		long min=0;
-		if( unit == TimeUnit.MINUTES ){
-			if( amount < 120 ){
-				return amount+" min";
-			}else if( amount < 1440 ){
-				return (amount-amount%60)/60+"h"+(amount%60==0?"":amount%60+"m");
-			}
-            var round = amount % 60 > 30;
-			min=amount%60;
-			amount /= 60;
-			if(round)
-				amount++;
-			unit = TimeUnit.HOURS;
-		}
-		if( unit == TimeUnit.HOURS ){
-            if( amount > 24*7 || amount%24==0){
-                return amount/24+" days";
-            }else if( amount > 24 ){
-				return amount/24+"d "+amount%24+"h";
-			}else if( amount > 12){
-				return amount+" hours";
-			}else{
-                return amount+" h "+min+"m";
-            }
-		}
-		return amount+"h";
+    public static String convertPeriodToString(long amount, TimeUnit unit) {
+        return switch (unit) {
+            case MILLISECONDS -> convertMilliseconds(amount);
+            case SECONDS -> convertSeconds(amount);
+            case MINUTES -> convertMinutes(amount);
+            case HOURS -> convertHours(amount, 0);
+            default -> amount + "h"; // Fallback if unit is not handled
+        };
+    }
+    private static String convertMilliseconds( long amount ){
+        if( amount < 5000 ){
+            if( amount%1000==0)
+                return amount/1000+"s";
+            return amount+"ms";
+        }
+        amount /= 1000; //seconds
+        return convertSeconds(amount);
+    }
+    private static String convertSeconds( long amount ){
+        if( amount < 90 ){
+            return amount+"s";
+        }else if( amount < 3600 ){
+            return (amount-amount%60)/60+"m"+(amount%60==0?"":amount%60+"s");
+        }
+        var round = amount % 60 > 30;
+        amount /= 60; //minutes
+        if(round)
+            amount++;
+        return convertMinutes(amount);
+    }
+    private static String convertMinutes( long amount ){
+        if( amount < 120 ){
+            return amount+" min";
+        }else if( amount < 1440 ){
+            return (amount-amount%60)/60+"h"+(amount%60==0?"":amount%60+"m");
+        }
+        var round = amount % 60 > 30;
+        var min=amount%60;
+        amount /= 60;
+        if(round)
+            amount++;
+        return convertHours(amount,min);
+    }
+    private static String convertHours( long amount,long min ){
+        if( amount > 24*7 || amount%24==0){
+            return amount/24+" days";
+        }else if( amount > 24 ){
+            return amount/24+"d "+amount%24+"h";
+        }else if( amount > 12){
+            return amount+" hours";
+        }else{
+            return amount+" h "+min+"m";
+        }
     }
     /* ********************** C A L C U L A T I O N S ****************************************** */
     /**
@@ -367,39 +367,32 @@ public class TimeTools {
         int count = init?0:rollCount;
 
         if(rollUnit == ChronoUnit.MINUTES ){
-            if( init ) {
-                rolloverTimestamp = rolloverTimestamp.minusMinutes( rolloverTimestamp.getMinute()%rollCount );//make sure it's not zero
-            }else{
-                int min = rollCount-rolloverTimestamp.getMinute()%rollCount; // So that 'every 5 min is at 0 5 10 15 etc
-                rolloverTimestamp = rolloverTimestamp.plusMinutes(min == 0 ? rollCount : min);//make sure it's not zero
-            }
-        }else{
-            rolloverTimestamp = rolloverTimestamp.withMinute(0);
-            if(rollUnit== ChronoUnit.HOURS){
-                rolloverTimestamp = rolloverTimestamp.plusHours( count );
-            }else{
-                rolloverTimestamp = rolloverTimestamp.withHour(0);
-                if(rollUnit== ChronoUnit.DAYS ){
-                    rolloverTimestamp = rolloverTimestamp.plusDays( count );
-                }else{
-                    if(rollUnit== ChronoUnit.WEEKS){
-                        rolloverTimestamp = rolloverTimestamp.minusDays(rolloverTimestamp.getDayOfWeek().getValue()-1);
-                        rolloverTimestamp = rolloverTimestamp.plusWeeks(count);
-                    }else{
-                        rolloverTimestamp = rolloverTimestamp.withDayOfMonth(1);
-                        if(rollUnit== ChronoUnit.MONTHS){
-                            rolloverTimestamp=rolloverTimestamp.plusMonths(count);
-                        }else{
-                            rolloverTimestamp = rolloverTimestamp.withMonth(1);
-                            if(rollUnit== ChronoUnit.YEARS){
-                                rolloverTimestamp=rolloverTimestamp.plusMonths(count);
-                            }
-                        }
-                    }
-                }
-            }
+            if( init )
+                return rolloverTimestamp.minusMinutes( rolloverTimestamp.getMinute()%rollCount );//make sure it's not zero
+            int min = rollCount-rolloverTimestamp.getMinute()%rollCount; // So that 'every 5 min is at 0 5 10 15 etc
+            return rolloverTimestamp.plusMinutes(min == 0 ? rollCount : min);//make sure it's not zero
         }
-        Logger.debug(" -> Next rollover date: "+ rolloverTimestamp.format(TimeTools.LONGDATE_FORMATTER));
+
+        rolloverTimestamp = rolloverTimestamp.withMinute(0);
+        if(rollUnit== ChronoUnit.HOURS)
+            return rolloverTimestamp.plusHours( count );
+
+        rolloverTimestamp = rolloverTimestamp.withHour(0);
+        if(rollUnit== ChronoUnit.DAYS )
+            return rolloverTimestamp.plusDays( count );
+
+        if(rollUnit== ChronoUnit.WEEKS){
+            rolloverTimestamp = rolloverTimestamp.minusDays(rolloverTimestamp.getDayOfWeek().getValue()-1);
+            return rolloverTimestamp.plusWeeks(count);
+        }
+        rolloverTimestamp = rolloverTimestamp.withDayOfMonth(1);
+        if(rollUnit== ChronoUnit.MONTHS)
+            return rolloverTimestamp.plusMonths(count);
+
+        rolloverTimestamp = rolloverTimestamp.withMonth(1);
+        if(rollUnit== ChronoUnit.YEARS)
+            rolloverTimestamp=rolloverTimestamp.plusMonths(count);
+
         return rolloverTimestamp;
     }
 
