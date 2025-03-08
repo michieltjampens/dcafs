@@ -178,7 +178,9 @@ public class ValTools {
                 line = replaceTime( p[0],line,rtvals );
             }
         }
-        if( line.toLowerCase().matches(".*[{][drfi]:.*") && !pairs.isEmpty()){
+        var lower = line.toLowerCase();
+        if ((lower.contains("{d:") || lower.contains("{r:") ||
+                lower.contains("{f:") || lower.contains("{i:")) && !pairs.isEmpty()) {
             Logger.warn("Found a {*:*}, might mean parsing a section of "+line+" failed");
         }
         return line;
