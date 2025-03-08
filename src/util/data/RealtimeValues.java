@@ -7,16 +7,17 @@ import io.forward.AbstractForward;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A storage class
@@ -65,64 +66,68 @@ public class RealtimeValues implements Commandable {
 	 */
 	public Optional<AbstractVal> processRtvalElement(Element rtval, String group ){
 		return switch (rtval.getTagName()) {
-			case "double", "real" -> {
-				var r = RealVal.build(rtval,group);
-				if( r.isPresent() ){
-					var rr = r.get();
-					rr.enableTriggeredCmds(dQueue);
-					for( var unit : units.values() ){
-						if( unit.matchesRegex(rr.name) ){
-							if( rr.unit().isEmpty())
-								rr.unit(unit.base);
-							if( rr.scale()!=-1 && unit.baseScale()!=-1)
-								rr.scale(unit.baseScale());
-							break;
-						}
-					}
-					realVals.put(rr.id(),rr);
-					yield Optional.of(rr);
-				}
-				yield Optional.empty();
-			}
-			case "integer", "int" -> {
-				var i = IntegerVal.build(rtval,group);
-				if( i.isPresent() ){
-					var ii = i.get();
-					ii.enableTriggeredCmds(dQueue);
-					for( var unit : units.values() ){
-						if( unit.matchesRegex(ii.name) ){
-							if( ii.unit().isEmpty())
-								ii.unit(unit.base);
-							break;
-						}
-					}
-					integerVals.put(ii.id(),ii);
-					yield Optional.of(ii);
-				}
-				yield Optional.empty();
-			}
-			case "flag" -> {
-				var f = FlagVal.build(rtval, group);
-				if( f.isPresent()){
-					var ff =f.get();
-					ff.enableTriggeredCmds(dQueue);
-					flagVals.put(ff.id(), ff);
-					yield Optional.of(ff);
-				}
-				yield Optional.empty();
-			}
-			case "text" -> {
-				var t = TextVal.build(rtval, group);
-				if( t.isPresent()){
-					var tt = t.get();
-					tt.enableTriggeredCmds(dQueue);
-					textVals.put(tt.id(), tt);
-					yield Optional.of(tt);
-				}
-				yield Optional.empty();
-			}
+			case "double", "real" -> processReal(rtval,group);
+			case "integer", "int" -> processInteger(rtval,group);
+			case "flag" -> processFlag( rtval,group );
+			case "text" -> processText( rtval,group );
 			default -> Optional.empty();
 		};
+	}
+	private Optional<AbstractVal> processReal( Element rtval, String group ){
+		var r = RealVal.build(rtval,group);
+		if( r.isPresent() ){
+			var rr = r.get();
+			rr.enableTriggeredCmds(dQueue);
+			for( var unit : units.values() ){
+				if( unit.matchesRegex(rr.name) ){
+					if( rr.unit().isEmpty())
+						rr.unit(unit.base);
+					if( rr.scale()!=-1 && unit.baseScale()!=-1)
+						rr.scale(unit.baseScale());
+					break;
+				}
+			}
+			realVals.put(rr.id(),rr);
+			return Optional.of(rr);
+		}
+		return Optional.empty();
+	}
+	private Optional<AbstractVal> processInteger( Element rtval, String group ){
+		var i = IntegerVal.build(rtval,group);
+		if( i.isPresent() ){
+			var ii = i.get();
+			ii.enableTriggeredCmds(dQueue);
+			for( var unit : units.values() ){
+				if( unit.matchesRegex(ii.name) ){
+					if( ii.unit().isEmpty())
+						ii.unit(unit.base);
+					break;
+				}
+			}
+			integerVals.put(ii.id(),ii);
+			return Optional.of(ii);
+		}
+		return Optional.empty();
+	}
+	private Optional<AbstractVal> processFlag( Element rtval, String group ) {
+		var f = FlagVal.build(rtval, group);
+		if (f.isPresent()) {
+			var ff = f.get();
+			ff.enableTriggeredCmds(dQueue);
+			flagVals.put(ff.id(), ff);
+			return Optional.of(ff);
+		}
+		return Optional.empty();
+	}
+	private Optional<AbstractVal> processText( Element rtval, String group ){
+		var t = TextVal.build(rtval, group);
+		if( t.isPresent()){
+			var tt = t.get();
+			tt.enableTriggeredCmds(dQueue);
+			textVals.put(tt.id(), tt);
+			return Optional.of(tt);
+		}
+		return Optional.empty();
 	}
 	private void processUnitElement(XMLdigger dig ){
 
@@ -166,54 +171,6 @@ public class RealtimeValues implements Commandable {
 		}else if( val instanceof  TextVal ){
 			textVals.remove( val.id());
 		}
-	}
-
-	/**
-	 * Removes the given val from the collection if it's been declared in a store and not the general node
-	 * @param val The val to look for
-	 */
-	public void removeStoreVal( AbstractVal val ){
-		if( val == null)
-			return;
-		var dig = XMLdigger.goIn(Paths.settings(),"dcafs","rtvals");
-		if(dig.hasPeek("group","id",val.group()) ){ // this group is in the general pool
-			dig.usePeek();
-		}else{ // Group not in general node, safe to remove
-			removeVal(val);
-			return;
-		}
-
-		if( val instanceof RealVal ){
-			if( notInGeneralPool(dig,val,"real"))
-				realVals.remove(val.id());
-		}else if( val instanceof IntegerVal ){
-			if( notInGeneralPool(dig,val,"int"))
-				integerVals.remove(val.id());
-		}else if( val instanceof  FlagVal ){
-			if( notInGeneralPool(dig,val,"flag"))
-				flagVals.remove( val.id());
-		}else if( val instanceof  TextVal ){
-			if( notInGeneralPool(dig,val,"text"))
-				textVals.remove( val.id());
-		}
-	}
-
-	/**
-	 * Checks if the given val isn't declared in the general rtvals pool.
-	 * @param dig The digger pointing to the group
-	 * @param val The val to find
-	 * @param type The type of val (real,int,flag,text)
-	 * @return True if it's not found
-	 */
-	private boolean notInGeneralPool( XMLdigger dig, AbstractVal val, String type){
-		boolean attr= dig.hasPeek(type,"name",val.name()) || dig.hasPeek(type,"id",val.name());
-		if( attr ) // Meaning found it based on attributes
-			return false; // So it's in general pool
-		for( var d : dig.digOut(type) ){
-			if( d.value("").equals(val.name()))
-				return false;
-		}
-		return true;
 	}
 	/* ************************************ R E A L V A L ***************************************************** */
 	/**
@@ -470,39 +427,21 @@ public class RealtimeValues implements Commandable {
 		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 		String ora = html?"":TelnetCodes.TEXT_ORANGE;
 
-		String result;
-		switch (cmd) {
-			case "rv", "reals" -> {
-				if( args.equals("?"))
-					return green + "  rv:update,id,value" + reg + " -> Update an existing real, do nothing if not found";
-				result = replyToNumericalCmd(cmd,args);
-			}
-			case "iv", "integers" -> {
-				if( args.equals("?"))
-					return green + "  iv:update,id,value" + reg + " -> Update an existing int, do nothing if not found";
-				result = replyToNumericalCmd(cmd,args);
-			}
-			case "texts", "tv" -> {
-				result = replyToTextsCmd(args);
-			}
-			case "flags", "fv" -> {
-				result = replyToFlagsCmd(args, html);
-			}
-			case "rtvals", "rvs" -> {
-				result = replyToRtvalsCmd(args, html);
-			}
+		var result=switch (cmd) {
+			case "rv", "reals","iv", "integers" ->  replyToNumericalCmd(cmd,args);
+			case "texts", "tv" ->  replyToTextsCmd(args);
+			case "flags", "fv" ->  replyToFlagsCmd(args, html);
+			case "rtvals", "rvs" -> replyToRtvalsCmd(args, html);
 			case "rtval", "real", "int", "integer","text","flag" -> {
 				int s = addRequest(wr, cmd, args);
-				result = s != 0 ? "Request added to " + args : "Request failed";
+				yield s != 0 ? "Request added to " + args : "Request failed";
 			}
 			case "" -> {
 				removeWritable(wr);
-				return "";
+				yield "";
 			}
-			default -> {
-				return "! No such subcommand in rtvals: "+args;
-			}
-		}
+			default ->  "! No such subcommand in rtvals: "+args;
+		};
 		if( result.startsWith("!"))
 			return ora+result+reg;
 		return green+result+reg;
@@ -514,137 +453,139 @@ public class RealtimeValues implements Commandable {
 
 		var cmds = args.split(",");
 
-		NumericVal val;
+		if( cmds.length==1 && args.equalsIgnoreCase("?")) {
+			if(args.startsWith("i"))
+				return "iv:update,id,value -> Update an existing int, do nothing if not found";
+			return "rv:update,id,value -> Update an existing real, do nothing if not found";
+		}
 
 		return switch(cmds[1]){
-			case "update","def" -> {
-				if (cmds.length < 3)
-					yield "! Not enough arguments, "+cmd+":id,"+cmds[1]+",expression";
-				if( cmd.startsWith("r")){ // so real, rv
-					var rOpt = getRealVal(cmds[0]);
-					if( rOpt.isEmpty() )
-						yield "! No such real yet";
-					val = rOpt.get();
-				}else{ // so int,iv
-					var iOpt = getIntegerVal(cmds[0]);
-					if( iOpt.isEmpty() )
-						yield "! No such int yet";
-					val = iOpt.get();
-				}
-				var result = ValTools.processExpression(cmds[2], this);
-				if (Double.isNaN(result))
-					yield "! Unknown id(s) in the expression " + cmds[2];
-				val.updateValue(result);
-				yield val.id()+" updated to " + result;
-			}
-			case "new" -> {
-				// Split in group & name
-				String group,name;
-				if( cmds.length==3){
-					group=cmds[2];
-					name=cmds[0];
-				}else if(cmds.length==2){
-					if( !cmds[0].contains("_") )
-						yield "! No underscore in the id, can't split between group and name";
-					group = cmds[0].substring(0, cmds[0].indexOf("_"));
-					name = cmds[0].substring(group.length()+1); //skip the group and underscore
-				}else{
-					yield "! Not enough arguments, "+cmd+":id,new or "+cmd+":name,new,group";
-				}
-				var fab = XMLfab.withRoot(Paths.settings(),"dcafs");
-				fab.digRoot("rtvals");
-				fab.selectOrAddChildAsParent("group","id",group);
-				if(cmd.startsWith("r")){ // So real
-					if( hasReal(group+"_"+name) )
-						yield "! Already such real";
-					fab.addChild("real").attr("name",name);
-					addRealVal( RealVal.newVal(group,name));
-				}else if(cmd.startsWith("i")){
-					if( hasInteger(group+"_"+name) )
-						yield "! Already such int";
-					fab.addChild("int").attr("name",name);
-					addIntegerVal(IntegerVal.newVal(group,name));
-				}else{
-					yield "! Invalid type";
-				}
-				fab.build();
-				yield "Val added.";
-			}
+			case "update","def" -> doUpdateNumCmd( cmd, cmds );
+			case "new" -> doNewNumCmd(cmd,cmds);
 			default -> "! No such subcommand in "+cmd+": "+cmds[0];
 		};
 	}
-	public String replyToFlagsCmd( String args, boolean html ){
+	private String doUpdateNumCmd( String cmd, String[] args ){
+		if (args.length < 3)
+			return "! Not enough arguments, "+cmd+":id,"+args[1]+",expression";
+		NumericVal val;
 
-		var cmds = args.split(",");
-
-		if( cmds[0].equals("?")){
-			String cyan = html?"":TelnetCodes.TEXT_CYAN;
-			String green=html?"":TelnetCodes.TEXT_GREEN;
-			String ora = html?"":TelnetCodes.TEXT_ORANGE;
-			String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-
-			var join = new StringJoiner(html?"<br>":"\r\n");
-			join.setEmptyValue("None yet");
-			join.add(ora + "Note: both fv and flags are valid starters" + reg)
-					.add(cyan + " Update" + reg)
-					.add(green + "  fv:id,raise/set" + reg + " or " + green + "flags:set,id" + reg + " -> Raises the flag/Sets the bit, created if new")
-					.add(green + "  fv:id,lower/clear" + reg + " or " + green + "flags:clear,id" + reg + " -> Lowers the flag/Clears the bit, created if new")
-					.add(green + "  fv:id,toggle" + reg + " -> Toggles the flag/bit, not created if new")
-					.add(green + "  fv:id,update,state" + reg + " -> Update  the state of the flag")
-					.add(green + "  fv:id,match,refid" + reg + " -> The state of the flag becomes the same as the ref flag")
-					.add(green + "  fv:id,negated,refid" + reg + " -> The state of the flag becomes the opposite of the ref flag");
-			return join.toString();
+		if( args[0].startsWith("r")){ // so real, rv
+			var rOpt = getRealVal(args[0]);
+			if( rOpt.isEmpty() )
+				return "! No such real yet";
+			val = rOpt.get();
+		}else{ // so int,iv
+			var iOpt = getIntegerVal(args[0]);
+			if( iOpt.isEmpty() )
+				return "! No such int yet";
+			val = iOpt.get();
 		}
+		var result = ValTools.processExpression(args[2], this);
+		if (Double.isNaN(result))
+			return "! Unknown id(s) in the expression " + args[2];
+		val.updateValue(result);
+		return val.id()+" updated to " + result;
+	}
+	private String doNewNumCmd( String cmd, String[] cmds ){
+
+		// Split in group & name
+		String group,name;
+		if( cmds.length==3){
+			group=cmds[2];
+			name=cmds[0];
+		}else if(cmds.length==2){
+			if( !cmds[0].contains("_") )
+				return "! No underscore in the id, can't split between group and name";
+			group = cmds[0].substring(0, cmds[0].indexOf("_"));
+			name = cmds[0].substring(group.length()+1); //skip the group and underscore
+		}else{
+			return "! Not enough arguments, "+cmd+":id,new or "+cmd+":name,new,group";
+		}
+
+		if( hasAbstractVal(group+"_"+name) ){
+			return "! Already an rtval with that id";
+		}
+
+		// Build the node
+		var fab = Paths.fabInSettings("rtvals")
+						.selectOrAddChildAsParent("group","id",group);
+		if(cmd.startsWith("r")){ // So real
+			fab.addChild("real").attr("name",name);
+			addRealVal( RealVal.newVal(group,name) );
+		}else if(cmd.startsWith("i")){
+			fab.addChild("int").attr("name",name);
+			addIntegerVal(IntegerVal.newVal(group,name) );
+		}
+		fab.build();
+		return "Val added.";
+	}
+	public String replyToFlagsCmd( String cmd, boolean html ){
+
+		if( cmd.equals("?"))
+			return doFlagHelpCmd(html);
 
 		FlagVal flag;
-		if( cmds.length<2 )
+		var args = cmd.split(",");
+		if( args.length<2 )
 			return "! Not enough arguments, at least: fv:id,cmd";
 
-		var flagOpt = getFlagVal(cmds[0]);
+		var flagOpt = getFlagVal(args[0]);
 		if( flagOpt.isEmpty() ) {
-			Logger.error("No such flag: "+cmds[0]);
+			Logger.error("No such flag: "+args[0]);
 			return "! No such flag yet";
 		}
-		flag=flagOpt.get();
 
-		switch (cmds[1]) {
-			case "raise", "set" -> {
-				flag.value(true);
-				return "Flag raised";
+		flag=flagOpt.get();
+		if( args.length == 2){
+			switch (args[1]) {
+				case "raise", "set" -> {
+					flag.value(true);
+					return "Flag raised";
+				}
+				case "lower", "clear" -> {
+					flag.value(false);
+					return "Flag lowered";
+				}
+				case "toggle" -> {
+					flag.toggleState();
+					return "Flag toggled";
+				}
 			}
-			case "lower", "clear" -> {
-				flag.value(false);
-				return  "Flag lowered";
-			}
-			case "toggle" -> {
-				flag.toggleState();
-				return "Flag toggled";
-			}
-			case "update" -> {
-				if (cmds.length < 3)
-					return "! Not enough arguments, fv:id,update,state";
-				if( flag.parseValue(cmds[2]) )
-					return "Flag updated";
-				return "! Failed to parse state: "+cmds[2];
-			}
-			case "match" -> {
-				if (cmds.length < 3)
-					return "! Not enough arguments, fv:id,match,targetflag";
-				if (!hasFlag(cmds[2]))
-					return "! No such flag: " + cmds[2];
-				getFlagVal(cmds[2]).ifPresent(to -> flag.value(to.state));
-				return "Flag matched accordingly";
-			}
-			case "negated" -> {
-				if (cmds.length < 3)
-					return "Not enough arguments, fv:id,negated,targetflag";
-				if (!hasFlag(cmds[2]))
-					return "! No such flag: " + cmds[2];
-				getFlagVal(cmds[2]).ifPresent(to -> flag.value(!to.state));
-				return "Flag negated accordingly";
+		}else if( args.length==3 ){
+			switch(args[1]) {
+                case "update" -> {
+                    return flag.parseValue(args[2]) ? "Flag updated" : "! Failed to parse state: " + args[2];
+                }
+                case "match" -> {
+					if (!hasFlag(args[2]))
+						return "! No such flag: " + args[2];
+					getFlagVal(args[2]).ifPresent(to -> flag.value(to.state));
+					return "Flag matched accordingly";
+				}
+				case "negated" -> {
+					if (!hasFlag(args[2]))
+						return "! No such flag: " + args[2];
+					getFlagVal(args[2]).ifPresent(to -> flag.value(!to.state));
+					return "Flag negated accordingly";
+				}
 			}
 		}
-		return "! No such subcommand in fv: "+cmds[0];
+		return "! No such subcommand in fv: "+args[1]+" or incorrect number of arguments.";
+	}
+	private String doFlagHelpCmd( boolean html ){
+
+		var join = new StringJoiner("\r\n");
+		join.add("Commands that interact with the collection of flags.");
+		join.add( "Note: both fv and flags are valid starters")
+				.add("Update")
+				.add("fv:id,raise/set -> Raises the flag/Sets the bit, created if new")
+				.add("fv:id,lower/clear -> Lowers the flag/Clears the bit, created if new")
+				.add("fv:id,toggle -> Toggles the flag/bit, not created if new")
+				.add("fv:id,update,state -> Update  the state of the flag")
+				.add("fv:id,match,refid -> The state of the flag becomes the same as the ref flag")
+				.add("fv:id,negated,refid  -> The state of the flag becomes the opposite of the ref flag");
+		return LookAndFeel.formatCmdHelp(join.toString(),html);
 	}
 	public String replyToTextsCmd( String args ){
 
@@ -681,20 +622,15 @@ public class RealtimeValues implements Commandable {
 		if( cmds.length==1 ){
 			switch (cmds[0]) {
 				case "?" -> {
-					String cyan = html?"":TelnetCodes.TEXT_CYAN;
-					String green=html?"":TelnetCodes.TEXT_GREEN;
-					String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-
-					var join = new StringJoiner(html?"<br>":"\r\n");
-					join.add(cyan + " Interact with XML" + reg)
-						.add(green + "  rtvals:reload" + reg + " -> Reload all rtvals from XML")
-						.add("")
-						.add(cyan + " Get info" + reg)
-						.add(green + "  rtvals" + reg + " -> Get a listing of all rtvals")
-						.add(green + "  rtvals:groups" + reg + " -> Get a listing of all the available groups")
-						.add(green + "  rtvals:group,groupid" + reg + " -> Get a listing of all rtvals belonging to the group")
-						.add(green + "  rtvals:resetgroup,groupid" + reg + " -> Reset the values in the group to the defaults");
-					return join.toString();
+					var join = new StringJoiner("\r\n");
+					join.add("Interact with XML")
+						.add("rtvals:reload -> Reload all rtvals from XML")
+						.add("Get info")
+						.add("rtvals -> Get a listing of all rtvals")
+						.add("rtvals:groups -> Get a listing of all the available groups")
+						.add("rtvals:group,groupid -> Get a listing of all rtvals belonging to the group")
+						.add("rtvals:resetgroup,groupid -> Reset the values in the group to the defaults");
+					return LookAndFeel.formatCmdHelp(join.toString(),html);
 				}
 				case "reload" -> {
 					readFromXML(XMLdigger.goIn(Paths.settings(), "dcafs", "rtvals"));
@@ -726,45 +662,19 @@ public class RealtimeValues implements Commandable {
 		}
 		return "! No such subcommand in rtvals: "+args;
 	}
-	public String getNameVals( String regex){
-		var join = new StringJoiner("\r\n");
-		for( var val : realVals.values() ) {
-			if (val.name.matches(regex))
-				join.add(val.group+"_"+val.name+" : "+val.stringValue());
-		}
-		for( var val : integerVals.values() ) {
-			if (val.name.matches(regex))
-				join.add(val.group+"_"+val.name+" : "+val.stringValue());
-		}
-		for( var val : flagVals.values() ) {
-			if (val.name.matches(regex))
-				join.add(val.group+"_"+val.name+" : "+val.stringValue());
-		}
-		for( var val : textVals.values() ) {
-			if (val.name.matches(regex) && !val.group.equals("dcafs"))
-				join.add(val.group+"_"+val.name+" : "+val.stringValue());
-		}
-		return join.toString();
+	public String getNameVals( String regex ){
+		return Stream.of(realVals, integerVals, flagVals, textVals)
+							.flatMap(map -> map.values().stream()) // Flatten all the values from the maps
+							.filter(val -> val.name.matches(regex)
+										&& (!val.group.equals("dcafs") || !(val instanceof TextVal))) // Filter by group
+							.map( val -> val.group+"_"+val.name+" : "+val.stringValue())
+							.collect(Collectors.joining("\r\n"));
 	}
 	public ArrayList<AbstractVal> getGroupVals( String group ){
-		var vals = new ArrayList<AbstractVal>();
-		for( var val : realVals.values() ) {
-			if (val.group().equalsIgnoreCase(group))
-				vals.add(val);
-		}
-		for( var val : integerVals.values() ) {
-			if (val.group().equalsIgnoreCase(group))
-				vals.add(val);
-		}
-		for( var val : flagVals.values() ) {
-			if (val.group().equalsIgnoreCase(group))
-				vals.add(val);
-		}
-		for( var val : textVals.values() ) {
-			if (val.group().equalsIgnoreCase(group))
-				vals.add(val);
-		}
-		return vals;
+		return Stream.of(realVals, integerVals, flagVals, textVals)
+				.flatMap(map -> map.values().stream()) // Flatten all the values from the maps
+				.filter(val -> val.group().equalsIgnoreCase(group)) // Filter by group
+				.collect(Collectors.toCollection(ArrayList::new)); // Collect the results into a List
 	}
 	/**
 	 * Get a listing of all stored variables that belong to a certain group
@@ -773,7 +683,7 @@ public class RealtimeValues implements Commandable {
 	 * @return The listing
 	 */
 	public String getRTValsGroupList(String group, boolean showReals, boolean showFlags, boolean showTexts, boolean showInts, boolean html) {
-		String eol = html ? "<br>" : "\r\n";
+
 		String title;
 		if( group.isEmpty()){
 			title = html ? "<b>Ungrouped</b>" : TelnetCodes.TEXT_CYAN + "Ungrouped" + TelnetCodes.TEXT_YELLOW;
@@ -781,41 +691,38 @@ public class RealtimeValues implements Commandable {
 			title = html ? "<b>Group: " + group + "</b>" : TelnetCodes.TEXT_CYAN + "Group: " + group + TelnetCodes.TEXT_YELLOW;
 		}
 
-		StringJoiner join = new StringJoiner(eol, title + eol, "");
-		join.setEmptyValue("None yet");
-		var list = new ArrayList<String>();
+
 		ArrayList<NumericVal> nums = new ArrayList<>();
-		if (showReals){
+		if (showReals)
 			nums.addAll(realVals.values().stream().filter(rv -> rv.group().equalsIgnoreCase(group)).toList());
-		}
-		if( showInts ){
+		if( showInts )
 			nums.addAll(integerVals.values().stream().filter(rv -> rv.group().equalsIgnoreCase(group)).toList());
-		}
+
+		var list = new ArrayList<String>();
 		if( !nums.isEmpty()){
 			nums.stream()
 					.sorted((nv1, nv2) -> {
-						if (nv1.order() != nv2.order()) {
+						if (nv1.order() != nv2.order())
 							return Integer.compare(nv1.order(), nv2.order());
-						} else {
-							return nv1.name().compareTo(nv2.name());
-						}
+						return nv1.name().compareTo(nv2.name());
 					})
-					.map(nv -> {
-
-						return "  "+ nv.name() + " : "+applyUnit(nv);
-					} ) // change it to strings
+					.map(nv ->  "  "+ nv.name() + " : "+applyUnit(nv)) // change it to strings
 					.forEach(list::add);
 		}
-		if( showTexts ) {
+		if( showTexts )
 			textVals.values().stream().filter( v -> v.group().equalsIgnoreCase(group))
 					.map(v -> "  " + v.name() + " : " + (v.value().isEmpty()?"<empty>":v.value()) )
 					.sorted().forEach(list::add);
-		}
-		if( showFlags ) {
+
+		if( showFlags )
 			flagVals.values().stream().filter(fv -> fv.group().equalsIgnoreCase(group))
 					.map(v -> "  " + v.name() + " : " + v) //Change it to strings
 					.sorted().forEach(list::add); // Then add the sorted the strings
-		}
+
+
+		String eol = html ? "<br>" : "\r\n";
+		StringJoiner join = new StringJoiner(eol, title + eol, "");
+		join.setEmptyValue("None yet");
 		boolean toggle=false;
 		for( var line : list ){
 			if( !line.contains("Group:") ){
@@ -880,32 +787,12 @@ public class RealtimeValues implements Commandable {
 	 * @return The list of the groups
 	 */
 	public List<String> getGroups(){
-
-		var groups = realVals.values().stream()
-				.map(RealVal::group)
+		return  Stream.of(realVals, integerVals, flagVals, textVals)
+				.flatMap(map -> map.values().stream()) // Flatten all the values from the maps
+				.map(AbstractVal::group) // Get the group instead
+				.filter( val -> !val.isEmpty() && !val.equals("dcafs"))
 				.distinct()
-				.filter(group -> !group.isEmpty())
-				.collect(Collectors.toList());
-
-		integerVals.values().stream()
-				.map(IntegerVal::group)
-				.filter(group -> !group.isEmpty() )
-				.distinct()
-				.forEach(groups::add);
-
-		textVals.values().stream()
-				.map( TextVal::group)
-				.filter(group -> !group.isEmpty() )
-				.distinct()
-				.forEach(groups::add);
-
-		flagVals.values().stream()
-				.map(FlagVal::group)
-				.filter(group -> !group.isEmpty() )
-				.distinct()
-				.forEach(groups::add);
-		groups.remove("dcafs"); // This group contains system variables, don't show it.
-		return groups.stream().distinct().sorted().toList();
+				.toList();
 	}
 	/* ******************************** D Y N A M I C  U N I T **************************************************** */
 
@@ -951,53 +838,58 @@ public class RealtimeValues implements Commandable {
 			subs.add( new SubUnit(unit,mul,min,max,scale));
 		}
 		public String apply( double total, String curUnit, int scale ){
+			return switch(type){
+				case STEP -> processStep(total);
+				case LEVEL -> processLevel(total,scale,curUnit);
+			};
+		}
+		private String processStep( double total ){
 			StringBuilder result= new StringBuilder();
-			if( type==TYPE.STEP ){
-				var amount = (int)Math.rint(total);
-				String unit = base;
-				for( int a=0;a<subs.size();a++ ){
-					var sub = subs.get(a);
-					if( amount > sub.div){ // So first sub applies...
-						result.insert(0, (amount % sub.div) + unit); // Add the first part
-						amount = amount/sub.div; // Change to next unit
-					}else{ // Sub doesn't apply
-						result.insert(0, amount + unit); // Add it
-						return result.toString(); // Finished
-					}
-					unit = sub.unit;
-					if( a==subs.size()-1){ // If this is the last step
-						result.insert(0, amount + unit); // Add it
-						return result.toString(); // Finished
-					}
+			var amount = (int)Math.rint(total);
+			String unit = base;
+			for( int a=0;a<subs.size();a++ ){
+				var sub = subs.get(a);
+				if( amount > sub.div){ // So first sub applies...
+					result.insert(0, (amount % sub.div) + unit); // Add the first part
+					amount = amount/sub.div; // Change to next unit
+				}else{ // Sub doesn't apply
+					result.insert(0, amount + unit); // Add it
+					return result.toString(); // Finished
 				}
-			}else if( type==TYPE.LEVEL ){
-				int index;
-				for( index=0;index<subs.size();index++){
-					if( subs.get(index).unit.equalsIgnoreCase(curUnit))
-						break;
+				unit = sub.unit;
+				if( a==subs.size()-1){ // If this is the last step
+					result.insert(0, amount + unit); // Add it
+					return result.toString(); // Finished
 				}
-				if( index == subs.size() ) {
-					Logger.warn("Couldn't find corresponding unit in list: "+curUnit);
-					return total + curUnit;
-				}
-				// Check lower limit
-				while( subs.get(index).min!=0 && total <= subs.get(index).min && index!=0){
-					if( !subs.get(index).unit.equals(subs.get(index-1).unit))
-						total*=subs.get(index).div;
-					index--;
-				}
-				while( subs.get(index).max!=0 && total > subs.get(index).max && index!=subs.size()-1){
-					if( !subs.get(index).unit.equals(subs.get(index+1).unit))
-						total/=subs.get(index).div;
-					index++;
-				}
-				if( subs.get(index).scale!=-1) // -1 scale is ignored by round double, but cleaner this way?
-					total = Tools.roundDouble(total,subs.get(index).scale);
-				if( scale>0) // Apply scaling if any
-					total = Tools.roundDouble(total,scale);
-				return total + subs.get(index).unit;
 			}
 			return total+base;
+		}
+		private String processLevel(double total, int scale, String curUnit){
+			int index;
+			for( index=0;index<subs.size();index++){
+				if( subs.get(index).unit.equalsIgnoreCase(curUnit))
+					break;
+			}
+			if( index == subs.size() ) {
+				Logger.warn("Couldn't find corresponding unit in list: "+curUnit);
+				return total + curUnit;
+			}
+			// Check lower limit
+			while( subs.get(index).min!=0 && total <= subs.get(index).min && index!=0){
+				if( !subs.get(index).unit.equals(subs.get(index-1).unit))
+					total*=subs.get(index).div;
+				index--;
+			}
+			while( subs.get(index).max!=0 && total > subs.get(index).max && index!=subs.size()-1){
+				if( !subs.get(index).unit.equals(subs.get(index+1).unit))
+					total/=subs.get(index).div;
+				index++;
+			}
+			if( subs.get(index).scale!=-1) // -1 scale is ignored by round double, but cleaner this way?
+				total = Tools.roundDouble(total,subs.get(index).scale);
+			if( scale>0) // Apply scaling if any
+				total = Tools.roundDouble(total,scale);
+			return total + subs.get(index).unit;
 		}
 		public static class SubUnit{
 			String unit;
