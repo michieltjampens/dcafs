@@ -1,6 +1,5 @@
 package util.math;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.Tools;
@@ -30,7 +29,7 @@ public class MathUtils {
      * @param debug Give extra debug information
      * @return The result of the splitting, so i1+125 => {"i1","+","125"}
      */
-    public static List<String[]> splitExpression(String expression, int indexOffset, boolean debug ){
+    public static List<String[]> splitAndProcessExpression(String expression, int indexOffset, boolean debug ){
 
         var oriExpression=expression;
         // adding a negative number is the same as subtracting
@@ -59,26 +58,30 @@ public class MathUtils {
                         Logger.error("Not enough data in parts -> Expression'"+expression+"' Parts:"+parts.size()+" needed "+(opIndex+1) );
                         return result;
                     }
+                    var leftOperand = parts.get(opIndex-1);
+                    var rightOperand = parts.get(opIndex + 1);
+                    var operator = parts.get(opIndex);
+                    var subExpression = leftOperand + operator + rightOperand;
+
                     // Check if this isn't a formula that can already be processed
                     String replacement;
-                    if( NumberUtils.isCreatable(parts.get(opIndex-1))&&NumberUtils.isCreatable(parts.get(opIndex+1))){
-                        var bd = calcBigDecimalsOp(parts.get(opIndex-1),parts.get(opIndex+1),parts.get(opIndex));
+                    if( NumberUtils.isCreatable(leftOperand) && NumberUtils.isCreatable(rightOperand)){
+                        var bd = calcBigDecimalsOp( leftOperand,rightOperand,operator);
                         replacement = bd.toPlainString(); // replace the bottom one
                     }else{
-                        result.add( new String[]{parts.get(opIndex - 1), parts.get(opIndex + 1), parts.get(opIndex)} );
+                        result.add( new String[]{ leftOperand, rightOperand,operator } );
                         replacement = "o" + oIndex; // replace the bottom one
                         oIndex++;
                         if (debug) {
-                            Logger.info("  Sub: " + "o" + oIndex + "="
-                                    + parts.get(opIndex - 1) + parts.get(opIndex) + parts.get(opIndex + 1));
+                            Logger.info("  Sub: " + "o" + oIndex + "=" +subExpression);
                         }
                     }
-                    var sub = parts.get(opIndex - 1) + parts.get(opIndex) + parts.get(opIndex + 1);
-                    expression = expression.replace(sub, replacement);
+
+                    expression = expression.replace(subExpression, replacement);
 
                     parts.remove(opIndex);  // remove the operand
                     parts.remove(opIndex);  // remove the top part
-                    parts.set(opIndex - 1,replacement); // replace the bottom one
+                    parts.set(opIndex - 1, replacement); // replace the bottom one
                     opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
                 }
             }
@@ -124,28 +127,9 @@ public class MathUtils {
             Logger.warn("Tried to extract parts from empty formula");
             return new ArrayList<>();
         }
-        // The problem with scientific notation is that they can be mistaken for a combination of a word and numbers
-        // especially the negative one can be seen as an operation instead
-        var ee = es.matcher(formula) // find the numbers with scientific notation
-                .results()
-                .map(MatchResult::group)
-                .distinct().toList();
-
-        for( String el : ee ){ // Replace those with uppercase so they all use the same format
-            formula = formula.replace(el,el.toUpperCase());
-        }
-        // Replace the negative ones with a e and the positive ones with E to remove the sign
-        String alt = formula.replace("E-","e");
-        alt = alt.replace("E+","E");
-
-        String[] spl = alt.split(OPS_REGEX); // now split the string base on operands, this now won't split scientific
-
-        String ops = alt.replaceAll("[a-zA-Z0-9_:]", "");// To get the ops, just remove all other characters
-        ops=ops.replace(".","");// and the dots (special regex character)
-        // The above replace all doesn't handle it properly if the formula starts with a - (fe. -5*i1)
-        // So if this is the case, remove it from the ops line
-        if( ops.startsWith("-")&&formula.startsWith("-"))
-            ops=ops.substring(1);
+        var alt = normalizeScientificNotation( formula );
+        String ops = extractOperands( alt );
+        String[] spl = alt.split(OPS_REGEX); // now split the string based on operands, this now won't split scientific
 
         var full = new ArrayList<String>();
         int b=0;
@@ -175,6 +159,41 @@ public class MathUtils {
         return full;
     }
 
+    /**
+     * The problem with scientific notation is that they can be mistaken for a combination of a word and numbers
+     * especially the negative one can be seen as an operation instead.
+     * @param expression The expression to fix
+     * @return Expression that has numbers with negative exp use e and positive use E instead
+     */
+    private static String normalizeScientificNotation( String expression ){
+        var ee = es.matcher(expression) // find the numbers with scientific notation
+                .results()
+                .map(MatchResult::group)
+                .distinct().toList();
+
+        for( String el : ee ){ // Replace those with uppercase so they all use the same format
+            expression = expression.replace(el,el.toUpperCase());
+        }
+        // Replace the negative ones with a e and the positive ones with E to remove the sign
+        String alt = expression.replace("E-","e");
+        return alt.replace("E+","E");
+    }
+
+    /**
+     * Extract all the used operands in order from the expression accounting for the possibility of a negative number in
+     * front
+     * @param expression The expression to process
+     * @return A string containing all the operands from the expression
+     */
+    private static String extractOperands( String expression ){
+        var ops = expression.replaceAll("[a-zA-Z0-9_:]", "");// To get the ops, just remove all other characters
+        ops=ops.replace(".","");// and the dots (special regex character)
+        // The above replaceAll doesn't handle it properly if the formula starts with a - (fe. -5*i1)
+        // So if this is the case, remove it from the ops line
+        if( ops.startsWith("-")&&expression.startsWith("-"))
+            ops=ops.substring(1);
+        return ops;
+    }
     /**
      * Convert the comparison sign to a compare function that accepts a double array
      * @param comp The comparison fe. < or >= etc
@@ -596,121 +615,133 @@ public class MathUtils {
         return calcBigDecimalsOp(NumberUtils.createBigDecimal(bd1),NumberUtils.createBigDecimal(bd2),op);
     }
     public static BigDecimal calcBigDecimalsOp(BigDecimal bd1, BigDecimal bd2, String op ){
-
-        switch( op ){
-            case "+":
-                return bd1.add(bd2);
-            case "-":
-                return bd1.subtract(bd2);
-            case "*":
-                return bd1.multiply(bd2);
-
-            case "/": // i0/25
-                return bd1.divide(bd2, DIV_SCALE, RoundingMode.HALF_UP);
-            case "%": // i0%25
-                return bd1.remainder(bd2);
-            case "^": // i0/25
-                return bd1.pow(bd2.intValue());
-            case "~": // i0~25 -> ABS(i0-25)
-                return bd1.min(bd2).abs();
-            case "scale": // i0/25
-                return bd1.setScale(bd2.intValue(),RoundingMode.HALF_UP);
-            case "°":
-                switch( bd1.intValue() ){
-                    case 1: //cosd,sin
-                        return BigDecimal.valueOf(Math.cos(Math.toRadians(bd2.doubleValue())));
-                    case 2: //cosr
-                        return BigDecimal.valueOf(Math.cos(bd2.doubleValue()));
-                    case 3: //sind,sin
-                        return BigDecimal.valueOf(Math.sin(Math.toRadians(bd2.doubleValue())));
-                    case 4: //sinr
-                        return BigDecimal.valueOf(Math.sin(bd2.doubleValue()));
-                    case 5: //abs
-                        return bd2.abs();
-                }
-                break;
-            default:Logger.error("Unknown operand: "+op); break;
-        }
-        return null;
+        return switch( op ){
+            case "+" -> bd1.add(bd2);
+            case "-" -> bd1.subtract(bd2);
+            case "*" -> bd1.multiply(bd2);
+            case "/" -> bd1.divide(bd2, DIV_SCALE, RoundingMode.HALF_UP);
+            case "%" -> bd1.remainder(bd2);
+            case "^" -> bd1.pow(bd2.intValue());
+            case "~" -> bd1.min(bd2).abs();
+            case "scale" -> bd1.setScale(bd2.intValue(),RoundingMode.HALF_UP);
+            case "°" -> switch( bd1.intValue() ){
+                                case 1 -> BigDecimal.valueOf(Math.cos(Math.toRadians(bd2.doubleValue()))); //cosd,sin
+                                case 2 -> BigDecimal.valueOf(Math.cos(bd2.doubleValue())); //cosr
+                                case 3 -> BigDecimal.valueOf(Math.sin(Math.toRadians(bd2.doubleValue()))); //sind,sin
+                                case 4 -> BigDecimal.valueOf(Math.sin(bd2.doubleValue())); //sinr
+                                case 5 -> bd2.abs();
+                                default -> BigDecimal.ZERO;
+                            };
+            default ->{
+                Logger.error("Unknown operand: "+op);
+                yield BigDecimal.ZERO;
+            }
+        };
+    }
+    public static double calcDoublesOp(String d1, String d2, String op ){
+        return calcDoublesOp( NumberUtils.toDouble(d1),NumberUtils.toDouble(d2),op);
+    }
+    public static double calcDoublesOp(double d1, double d2, String op ){
+        return switch( op ){
+            case "+" -> d1+d2;
+            case "-" -> d1-d2;
+            case "*" -> d1*d2;
+            case "/" -> d1/d2;
+            case "%" -> d1%d2;
+            case "^" -> Math.pow(d1,d2);
+            case "~" -> Math.abs(d1-d2);
+            case "scale" -> Tools.roundDouble(d1,(int)d2);
+            case "°" -> switch( (int)d1 ){
+                case 1 -> Math.cos(Math.toRadians(d2)); //cosd,sin
+                case 2 -> Math.cos(d2); //cosr
+                case 3 -> Math.sin(Math.toRadians(d2)); //sind,sin
+                case 4 -> Math.sin(d2); //sinr
+                case 5 -> Math.abs(d2);
+                default -> Double.NaN;
+            };
+            default ->{
+                Logger.error("Unknown operand: "+op);
+                yield Double.NaN;
+            }
+        };
     }
     /**
-     * Process a simple formula that only contains numbers and no references
-     * @param formula The formula to parse and calculate
-     * @param error The value to return on an error
-     * @param debug True will return extra debug information
-     * @return The result or the error if something went wrong
+     * Performs a simple mathematical calculation based on a given expression.
+     * <p>
+     * The method splits the expression into parts (numbers and operators), processes it by applying mathematical
+     * operations in the correct order of precedence, and returns the calculated result. If an error occurs, it will
+     * return the provided error value.
+     * </p>
+     *
+     * @param expression The mathematical expression to be evaluated. The expression can contain numbers, operators
+     *                   (e.g., +, -, *, /), and the special operator (e.g., scale). The operands should be valid numbers
+     *                   or references that can be evaluated.
+     * @param error The value to return in case of an error or invalid expression. This allows the caller to specify the
+     *              error value based on the context of the calculation.
+     * @param debug A flag indicating whether debug information should be logged during the calculation process. If set
+     *              to true, the method will log additional information about the operation at each step.
+     * @return The result of the calculation as a double. If an error occurs (e.g., invalid expression or operands), the
+     *         method will return the provided error value.
      */
-    public static double simpleCalculation( String formula,double error, boolean debug ){
-        ArrayList<Function<Double[],Double>> steps = new ArrayList<>();
+    public static double simpleCalculation(String expression,double error, boolean debug ){
 
-        // First check if the amount of brackets is correct
-        int opens = StringUtils.countMatches(formula,"(");
-        int closes = StringUtils.countMatches(formula,")");
+        var oriExpression=expression;
+        // adding a negative number is the same as subtracting
+        expression=expression.replace("+-","-");
+        // Split it in parts: numbers,ix and operands
+        var parts = extractParts(expression);
 
+        if( debug ) Logger.info("-> Calculating: "+expression);
 
-        if( opens != closes ){
-            Logger.error("Brackets don't match, (="+opens+" and )="+closes);
-            return error;
+        if (parts.size() == 3) { // If there are only three parts, this is a single operation
+            var result = calcDoublesOp(parts.get(0),parts.get(1),parts.get(2) );
+            return Double.isNaN(result)?error:result;
         }
-        formula= "("+formula+")";// Make sure it has surrounding brackets
-
-        formula=formula.replace(" ",""); // But doesn't contain any spaces
-
-        // Next go through the brackets from left to right (inner)
-        var subFormulas = new ArrayList<String[]>(); // List to contain all the subformulas
-
-        while( formula.contains("(") ){ // Look for an opening bracket
-            int close = formula.indexOf(")"); // Find the first closing bracket
-            int look = close-1; // start looking from one position left of the closing bracket
-            int open = -1; // reset the open position to the not found value
-
-            while( look>=0 ){ // while we didn't traverse the full string
-                if( formula.charAt(look)=='(' ){ // is the current char an opening bracket?
-                    open = look; // if so, store this position
-                    break;// and quite the loop
-                }
-                look --;//if not, decrement the pointer
-            }
-            if( open !=-1 ){ // if the opening bracket was found
-                String part = formula.substring(open+1,close); // get the part between the brackets
-                int s = subFormulas.size();
-                subFormulas.addAll( MathUtils.splitExpression( part, subFormulas.size(),debug) );    // split that part in the subformulas
-                if( s==subFormulas.size() ){
-                    Logger.warn("SplitExpression of "+part+" from "+formula +" failed");
-                }
-                String piece = formula.substring(open,close+1); // includes the brackets
-                // replace the sub part in the original formula with a reference to the last subformula
-                formula=formula.replace(piece,"o"+(subFormulas.size()));
-                if( debug )
-                    Logger.info("=>Formula: "+formula);
-            }else{
-                Logger.error("Didn't find opening bracket");
-                return error;
-            }
-        }
-
-        for( String[] sub : subFormulas ){ // now convert the subformulas into lambda's
-            var x = MathUtils.decodeDoublesOp(sub[0],sub[1],sub[2],0);
-            if( x==null ){
-                Logger.error("Failed to convert "+formula);
-                return error;
-            }
-            steps.add( x ); // and add it to the steps list
-        }
-        Double[] result = new Double[subFormulas.size()+1];
-        int i=1;
+        // There are more or less than three parts...
         try {
-            for (var step : steps) {
-                result[i] = step.apply(result);
-                i++;
-            }
-        }catch( NullPointerException e ){
-            Logger.error( "Null pointer when processing "+formula+" on step "+i);
-            return error;
-        }
-        return result[i-1];
-    }
+            for (int a = 0; a < ORDERED_OPS.length; a += 2) {
+                // Calculate the index of the current operands
+                int opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
+                // Process the expression till the operand is no longer found
+                while (opIndex != -1) {
+                    if( parts.size()<=opIndex+1) {
+                        Logger.error("Not enough data in parts -> Expression'"+expression+"' Parts:"+parts.size()+" needed "+(opIndex+1) );
+                        return error;
+                    }
+                    var leftOperand = parts.get(opIndex - 1);
+                    var rightOperand = parts.get(opIndex + 1);
+                    var operator = parts.get(opIndex);
+                    var subExpression = leftOperand + operator + rightOperand;
 
+                    // Check if this isn't a formula that can already be processed, if not something is wrong
+                    if( !NumberUtils.isCreatable(leftOperand)&&NumberUtils.isCreatable(rightOperand)) {
+                        Logger.error("Either of these aren't doubles: "+leftOperand+" or "+rightOperand);
+                        return error;
+                    }
+                    var result = calcDoublesOp(leftOperand,rightOperand,operator);
+
+                    if( Double.isNaN(result)){
+                        Logger.error("Something went wrong trying to calculate "+subExpression);
+                        return error;
+                    }
+
+                    expression = expression.replace(subExpression, String.valueOf(result));
+
+                    parts.remove(opIndex);  // remove the operand
+                    parts.remove(opIndex);  // remove the top part
+                    parts.set(opIndex - 1,String.valueOf(result)); // replace the bottom one
+                    opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
+                }
+            }
+            if( parts.size()!=1){
+                Logger.error("Something went wrong processing "+oriExpression);
+            }
+            return NumberUtils.toDouble(parts.get(0));
+        }catch( IndexOutOfBoundsException e){
+            Logger.error("Index issue while processing "+oriExpression+" at "+expression,e);
+        }
+        return error;
+    }
     /**
      * Check if the brackets used in the formula are correct (meaning same amount of opening as closing and no closing
      * if there wasn't an opening one before
@@ -1054,15 +1085,6 @@ public class MathUtils {
 
     /**
      * Convert a delimited string to BigDecimals array where possible, fills in null if not
-     * @param list The delimited string
-     * @param delimiter The delimiter to use
-     * @return The resulting array
-     */
-    public static BigDecimal[] toBigDecimals(String list, String delimiter, int maxIndex ){
-        return toBigDecimals(list.split(delimiter),maxIndex);
-    }
-    /**
-     * Convert a delimited string to BigDecimals array where possible, fills in null if not
      * @param split The data splitted
      * @param maxIndex The highest required index
      * @return The resulting array
@@ -1089,32 +1111,7 @@ public class MathUtils {
         }
         return nulls==bds.length?null:bds;
     }
-    /**
-     * Convert a delimited string to an array of doubles, inserting null where conversion is not possible
-     * @param list The delimited string
-     * @param delimiter The delimiter to use
-     * @return The resulting array
-     */
-    public static Double[] toDoubles(String list, String delimiter ){
-        String[] split = list.split(delimiter);
-        var dbs = new Double[split.length];
-        int nulls=0;
 
-        for( int a=0;a<split.length;a++){
-            if( NumberUtils.isCreatable(split[a])) {
-                try {
-                    dbs[a] = NumberUtils.createDouble(split[a]);
-                }catch(NumberFormatException e) {
-                    // hex doesn't go wel to double...
-                    dbs[a] = NumberUtils.createBigInteger(split[a]).doubleValue();
-                }
-            }else{
-                dbs[a] = null;
-                nulls++;
-            }
-        }
-        return nulls==dbs.length?null:dbs;
-    }
     /**
      * Convert a 8bit value to an actual signed int
      * @param ori The value to convert

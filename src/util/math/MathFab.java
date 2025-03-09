@@ -144,7 +144,7 @@ public class MathFab {
             }
             if( open !=-1 ){ // if the opening bracket was found
                 String part = formula.substring(open+1,close); // get the part between the brackets
-                var res = MathUtils.splitExpression( part, subFormulas.size()-1,debug);
+                var res = MathUtils.splitAndProcessExpression( part, subFormulas.size()-1,debug);
                 if( res.isEmpty()) {
                     Logger.error("Failed to build because of issues during "+part);
                     return null;
