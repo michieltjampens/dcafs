@@ -1,18 +1,20 @@
 package util.task;
 
-import io.telnet.TelnetCodes;
-import util.data.RealtimeValues;
+import das.CommandPool;
+import io.collector.CollectorFuture;
 import io.email.Email;
 import io.email.EmailSending;
 import io.stream.StreamManager;
-import io.collector.CollectorFuture;
-import das.CommandPool;
+import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.data.RealtimeValues;
 import util.data.ValTools;
 import util.math.MathUtils;
-import util.task.Task.*;
+import util.task.Task.LINKTYPE;
+import util.task.Task.OUTPUT;
+import util.task.Task.TRIGGERTYPE;
 import util.taskblocks.CheckBlock;
 import util.tools.FileTools;
 import util.tools.TimeTools;
@@ -352,7 +354,7 @@ public class TaskManager implements CollectorFuture {
 				}else {
 					task.future = scheduler.scheduleAtFixedRate(new DelayedControl(task), delay,
 							task.interval, task.unit);
-					Logger.info(id + " -> Delay set to " + TimeTools.convertPeriodtoString(delay, TimeUnit.MILLISECONDS) + " for " + task.interval +" "+ task.unit + " interval");
+					Logger.info(id + " -> Delay set to " + TimeTools.convertPeriodToString(delay, TimeUnit.MILLISECONDS) + " for " + task.interval + " " + task.unit + " interval");
 				}
 				Logger.tag(TINY_TAG).info("[" + id + "] Scheduling task: " + task + " with delay/interval/unit:"
 						+ task.startDelay + ";" + task.interval + ";" + task.unit);
@@ -397,7 +399,7 @@ public class TaskManager implements CollectorFuture {
 				if (min != -1) {
 					task.future = scheduler.schedule(new DelayedControl(task), min, TimeUnit.SECONDS);
 					Logger.tag(TINY_TAG).info("[" + id + "] Scheduled sending " + task.value + " in "
-							+ TimeTools.convertPeriodtoString(min, TimeUnit.SECONDS) + ".");
+							+ TimeTools.convertPeriodToString(min, TimeUnit.SECONDS) + ".");
 				} else {
 					Logger.tag(TINY_TAG).error("[" + id + "] Something went wrong with calculating minutes...");
 					yield FAILREASON.ERROR;
@@ -416,7 +418,7 @@ public class TaskManager implements CollectorFuture {
 					task.future.cancel(true);
 				}
 				Logger.tag(TINY_TAG).debug("[" + id + "] Scheduled sending '" + task.value + "' in "
-						+ TimeTools.convertPeriodtoString(task.startDelay, task.unit) + " and need " + (task.reply.isEmpty() ? "no reply" : ("'" + task.reply + "' as reply")));
+						+ TimeTools.convertPeriodToString(task.startDelay, task.unit) + " and need " + (task.reply.isEmpty() ? "no reply" : ("'" + task.reply + "' as reply")));
 				task.future = scheduler.schedule(new DelayedControl(task), task.startDelay, task.unit);
 				yield FAILREASON.NONE;
 			}
@@ -536,10 +538,9 @@ public class TaskManager implements CollectorFuture {
 								"[" + id + "] Not executed, retries left:" + task.runs + " for " + task);
 					}
 				}
-				if (failure) {
-					if( set.getRunType()==RUNTYPE.STEP ) // If a step fails, then cancel the rest
-						runFailure(set,"Task in the set "+set.getID()+" failed, running failure");
-				}
+				if (failure && set.getRunType() == RUNTYPE.STEP) // If a step fails, then cancel the rest
+					runFailure(set, "Task in the set " + set.getID() + " failed, running failure");
+
 			}
 		}
 	}
@@ -848,7 +849,7 @@ public class TaskManager implements CollectorFuture {
 			task.future.cancel(true);
 			if( next > 0 ) {
 				task.future = scheduler.schedule( new DelayedControl(task), next, TimeUnit.SECONDS );
-				Logger.tag(TINY_TAG).info( "["+ id +"] Rescheduled to execute "+task.value +" in "+TimeTools.convertPeriodtoString(next, TimeUnit.SECONDS)+".");
+				Logger.tag(TINY_TAG).info("[" + id + "] Rescheduled to execute " + task.value + " in " + TimeTools.convertPeriodToString(next, TimeUnit.SECONDS) + ".");
 			}else{
 				Logger.tag(TINY_TAG).info( " Next is :"+next );
 				if( emailer != null) {
@@ -859,10 +860,9 @@ public class TaskManager implements CollectorFuture {
 			}
 		}
 		if( task.hasNext() ) { // If the next task in the set could be executed
-			TaskSet set = tasksets.get( task.getTaskset() );					
-			if( set != null && set.getRunType() == RUNTYPE.STEP ) {	// If the next task in the set should be executed
-
-				if( executed==FAILREASON.NONE && task.triggerType != TRIGGERTYPE.RETRY ){ // If the task was executed and isn't of the trigger:retry type
+			TaskSet set = tasksets.get( task.getTaskset() );
+			if (set != null && (set.getRunType() == RUNTYPE.STEP) &&    // If the next task in the set should be executed
+					executed == FAILREASON.NONE && task.triggerType != TRIGGERTYPE.RETRY) { // If the task was executed and isn't of the trigger:retry type
 					if( task.reply.isEmpty() ) {
 						Task t = set.getNextTask(task.getIndexInTaskset());
 						if (t != null) {
@@ -873,7 +873,6 @@ public class TaskManager implements CollectorFuture {
 					}else{
 						set.setLastIndexRun(task.getIndexInTaskset());
 					}
-				}
 			}
 		}
 		return executed;
