@@ -1,8 +1,8 @@
 package util.data;
 
 import das.Paths;
-import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
+import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -18,57 +18,29 @@ public class StoreCmds {
 
     private static final ArrayList<String> VALS = new ArrayList<>(List.of("real","int","text","flag"));
     private static final ArrayList<String> VAL_ATTR = new ArrayList<>(List.of("unit","group","options","def","op"));
+
     public static String replyToCommand(String request, boolean html ){
 
-        var cmds =request.split(",");
-        String id = cmds[0];
+        var args = request.split(",");
+        String id = args[0];
 
-        if( id.equalsIgnoreCase("?") ){
-            String cyan = html?"": TelnetCodes.TEXT_CYAN;
-            String green=html?"":TelnetCodes.TEXT_GREEN;
-            String ora = html?"":TelnetCodes.TEXT_ORANGE;
-            String reg=html?"":TelnetCodes.TEXT_DEFAULT;
+        if (id.equalsIgnoreCase("?"))
+            return doStoreCmdHelp(html);
 
-            StringJoiner join = new StringJoiner("\r\n");
-
-            join.add(TelnetCodes.TEXT_RESET+ora+"Notes"+reg)
-                    .add("- a / in the command means both options are valid.")
-                    .add("- after a command is processed, the store will be reloaded and changes applied, to reload manually ss:reloadstore,id")
-                    .add("- If no store exists yet, any command will create it first with default delimiter of ','")
-                    .add("- Regular mode works with indexes after split on the delimiter")
-                    .add("- Map is when the data consists of a key, value pair with the given delimiter");
-            join.add("").add(cyan+"Add new vals"+reg)
-                    .add(green+" store:streamid,addreal/addr,name<,index/group> "+reg+"-> Add a RealVal to the store, with optional index/group/key")
-                    .add(green+" store:streamid,addflag/addf,name<,index/group> "+reg+"-> Add a FlagVal to the store, with optional index/group/key")
-                    .add(green+" store:streamid,addtext/addt,name<,index/group> "+reg+"-> Add a TextVal to the store, with optional index/group/key")
-                    .add(green+" store:streamid,addint/addi,name<,index/group> "+reg+"-> Add a IntVal to the store, with optional index/group/key")
-                    .add(green+" store:streamid,addb/addblank "+reg+"-> Add a blank spot (if index isn't used but a item needs to be skipped)");
-            join.add("").add(cyan+"Alter attributes"+reg)
-                    .add(green+" store:streamid,delimiter/delim,newdelimiter "+reg+"-> Change the delimiter of the store")
-                    .add(green+" store:streamid,db,dbids:table "+reg+"-> Alter the database/table ")
-                    .add(green+" store:streamid,map,true/false "+reg+"-> Alter the map attribute")
-                    .add(green+" store:streamid,group,newgroup "+reg+"-> Alter the default group used");
-            join.add("").add(cyan+"Alter val attributes"+reg)
-                    .add(green+" store:streamid,alterval,valname,unit,value "+reg+"-> Set the unit attribute of the given val")
-                    .add(green+" store:streamid,alterval,valname,op,value "+reg+"-> Add an op to an integer/real val.");
-            join.add("").add(cyan+"Other"+reg)
-                    .add(green+" store:streamid,astable,dbid "+reg+"-> Create a table in the given db according to the store (wip)");
-            return join.toString();
-        }else if( id.isEmpty()){
+        if (id.isEmpty())
             return "! Empty id is not valid";
-        }
-        if( cmds.length<2 )
+
+        if (args.length < 2)
             return "! Not enough arguments, check store:?";
 
-        if( cmds.length<3 && !cmds[1].startsWith("addb"))
+        if (args.length < 3 && !args[1].startsWith("addb"))
             return "! Not enough arguments, check store:?";
 
         String tag = id.equalsIgnoreCase("global")?"rtvals":"store";
 
-        if( tag.equals("rtvals")){
-            if( cmds.length<4 )
-                return "! Not enough arguments, probably missing group?";
-        }
+        if (tag.equals("rtvals") && args.length < 4)
+            return "! Not enough arguments, probably missing group?";
+
 
         var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
         if( !id.equalsIgnoreCase("global")){
@@ -89,20 +61,47 @@ public class StoreCmds {
         fab.alterChild(tag).down(); // Go to store or make if not existing
         dig.digDown(tag);
 
-        if(  tag.equals("store")) {
-            if (!dig.current().get().hasAttribute("delimiter"))
+        if (tag.equals("store")) {
+            if (!dig.currentTrusted().hasAttribute("delimiter"))
                 fab.attr("delimiter", ",");
         }else{
-            fab.alterChild("group","id",cmds[3]).down();
+            fab.alterChild("group", "id", args[3]).down();
             dig = XMLdigger.goIn(fab.getCurrentElement());
-            cmds[3]=""; // clear the group, so it won't be added as attribute
-            request=String.join(",",cmds);
+            args[3] = ""; // clear the group, so it won't be added as attribute
+            request = String.join(",", args);
         }
         // At this point 'store' certainly exists in memory and dig is pointing to it
         return doCmd("store:id,",request,fab,dig,Paths.settings());
     }
-    public static String replyToPathCmd(String request, Path xmlPath ){
 
+    private static String doStoreCmdHelp(boolean html) {
+        StringJoiner join = new StringJoiner("\r\n");
+        join.add("Commands to create and edit the store nodes.");
+        join.add("Notes")
+                .add("- a / in the command means both options are valid.")
+                .add("- after a command is processed, the store will be reloaded and changes applied, to reload manually ss:reloadstore,id")
+                .add("- If no store exists yet, any command will create it first with default delimiter of ','")
+                .add("- Regular mode works with indexes after split on the delimiter")
+                .add("- Map is when the data consists of a key, value pair with the given delimiter");
+        join.add("Add new vals")
+                .add("store:streamid,addreal/addr,name<,index/group> -> Add a RealVal to the store, with optional index/group/key")
+                .add("store:streamid,addflag/addf,name<,index/group> -> Add a FlagVal to the store, with optional index/group/key")
+                .add("store:streamid,addtext/addt,name<,index/group> -> Add a TextVal to the store, with optional index/group/key")
+                .add("store:streamid,addint/addi,name<,index/group> -> Add a IntVal to the store, with optional index/group/key")
+                .add("store:streamid,addb/addblank -> Add a blank spot (if index isn't used but a item needs to be skipped)");
+        join.add("Alter attributes")
+                .add("store:streamid,delimiter/delim,newdelimiter -> Change the delimiter of the store")
+                .add("store:streamid,db,dbids:table -> Alter the database/table ")
+                .add("store:streamid,map,true/false -> Alter the map attribute")
+                .add("store:streamid,group,newgroup -> Alter the default group used");
+        join.add("Alter val attributes")
+                .add("store:streamid,alterval,valname,unit,value -> Set the unit attribute of the given val")
+                .add("store:streamid,alterval,valname,op,value -> Add an op to an integer/real val.");
+        join.add("Other")
+                .add("store:streamid,astable,dbid -> Create a table in the given db according to the store (wip)");
+        return LookAndFeel.formatCmdHelp(join.toString(), html);
+    }
+    public static String replyToPathCmd(String request, Path xmlPath ){
 
         String id = request.split(",")[0];
 
@@ -125,7 +124,7 @@ public class StoreCmds {
         var imp = dig.attr("import","");
         if( !imp.isEmpty() ){
             // It's an import, so the digger should actually be pointing to that?
-            var impPath =Path.of(imp);
+            var impPath = Path.of(imp);
             if( Files.notExists(impPath) ) // Doesn't exist, but should... so inform
                 return "! No such path file "+imp;
             dig = XMLdigger.goIn(impPath,"dcafs");
@@ -164,174 +163,140 @@ public class StoreCmds {
         var cmds = request.split(",");
         boolean map = dig.attr("map",false);
 
-        switch (cmds[1]) {
+        return switch (cmds[1]) {
             case "addblank", "addb" -> { // Adds an ignore node
-                fab.addChild("ignore");
-                fab.build();
-                return "Blank added";
+                fab.addChild("ignore").build();
+                yield "Blank added";
             }
-            case "addreal","addr" -> {
-                if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"addreal,name<,index/group>";
-                if( dig.hasPeek("real","name",cmds[2])
-                        || dig.peekAtContent("real",cmds[2]) )
-                    return "! Already a real with that id, try something else?";
-
-                fab.addChild("real",cmds[2]).attr("unit");
-                addIndexOrMap( fab, dig, cmds, map );
-                fab.build();
-                return "Real added";
-            }
-            case "addint","addi" -> {
-                if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"addint,name<,index/group>";
-
-                if( dig.hasPeek("int","name",cmds[2])
-                        || dig.peekAtContent("int",cmds[2]) )
-                    return "! Already an int with that id, try something else?";
-
-                fab.addChild("int",cmds[2]).attr("unit");
-                addIndexOrMap( fab, dig, cmds, map );
-                fab.build();
-                return "Int added";
-            }
-            case "addtext","addt" -> {
-                if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"addtext,name<,index/group>";
-                if( dig.hasPeek("text","name",cmds[2])
-                    || dig.peekAtContent("text",cmds[2]) )
-                    return "! Already a text with that id, try something else?";
-
-                fab.addChild("text",cmds[2]);
-                addIndexOrMap( fab, dig, cmds, map );
-                fab.build();
-                return "Text added";
-            }
-            case "addflag","addf" -> {
-                if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"addflag,name<,index/group>";
-                if( dig.hasPeek("flag","name",cmds[2])
-                    || dig.peekAtContent("flag",cmds[2]) )
-                    return "! Already a flag with that id, try something else?";
-
-                fab.addChild("flag",cmds[2]).attr("unit");
-                addIndexOrMap( fab, dig, cmds, map );
-                fab.build();
-                return "Flag added";
-            }
+            case "addreal", "addr" -> doAddValCmd(cmds, prefix, dig, fab, "real", map);
+            case "addint", "addi" -> doAddValCmd(cmds, prefix, dig, fab, "int", map);
+            case "addtext", "addt" -> doAddValCmd(cmds, prefix, dig, fab, "text", map);
+            case "addflag", "addf" -> doAddValCmd(cmds, prefix, dig, fab, "flag", map);
             case "delim", "delimiter" -> {
                 if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"delim,newdelimiter";
+                    yield "! Wrong amount of arguments -> " + prefix + "delim,newdelimiter";
                 var deli = cmds.length == 4 ? "," : cmds[2];
-                fab.attr("delimiter", deli);
-                fab.build();
-                return "Set the delimiter to '"+deli+"'";
+                fab.attr("delimiter", deli).build();
+                yield "Set the delimiter to '" + deli + "'";
             }
             case "map", "mapped" -> {
                 if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"map,true/false";
+                    yield "! Wrong amount of arguments -> " + prefix + "map,true/false";
                 if( !Tools.validBool(cmds[2])){
-                    return "! Not a valid boolean: "+cmds[2];
+                    yield "! Not a valid boolean: " + cmds[2];
                 }
-                fab.attr("map", cmds[2]);
-                fab.build();
-                return "Set map to '"+cmds[2]+"'";
+                fab.attr("map", cmds[2]).build();
+                yield "Set map to '" + cmds[2] + "'";
             }
             case "group" -> {
                 if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"group,newgroup";
-                fab.attr("group", cmds[2]);
-                fab.build();
-                return "Set the group to '"+cmds[2]+"'";
+                    yield "! Wrong amount of arguments -> " + prefix + "group,newgroup";
+                fab.attr("group", cmds[2]).build();
+                yield "Set the group to '" + cmds[2] + "'";
             }
             case "db" -> {
                 if (cmds.length < 3 || !cmds[2].contains(":"))
-                    return "! Wrong amount of arguments or missing table: "+prefix+"db,dbids:table";
+                    yield "! Wrong amount of arguments or missing table: " + prefix + "db,dbids:table";
                 int start = request.indexOf(",db,")+4;
-                fab.attr("db", request.substring(start));
-                fab.build();
-                return "Set the db for "+cmds[0]+" to "+request.substring(start);
+                fab.attr("db", request.substring(start)).build();
+                yield "Set the db for " + cmds[0] + " to " + request.substring(start);
             }
-            case "alterval" -> {
-                if (cmds.length < 5 && !( cmds.length==4 && request.endsWith(",")))
-                    return "! Wrong amount of arguments -> "+prefix+"alterval,valname,attr,value";
-                if( !VAL_ATTR.contains(cmds[3]))
-                    return "! Not a valid attribute, accepted: "+String.join(", ",VAL_ATTR);
-                // Find the val referenced?
-                for( var valtype : VALS){
-                    if( dig.hasPeek(valtype,"name",cmds[2]) ){
-                        dig.digDown(valtype,"name",cmds[2]);
-                    }else if( dig.peekAtContent(valtype,cmds[2]) ){
-                        dig.digDown(valtype,cmds[2]);
-                    }else{
-                        continue;
-                    }
-                    if( cmds[3].equals("op")){
-                        if( !dig.tagName("").equals("text")) {
-                            XMLfab.alterDigger(dig).ifPresent(x -> {
-                                x.attr("name",cmds[2])
-                                    .content("")
-                                    .removeChild("op")
-                                    .addChild("op",cmds[4])
-                                    .build();
-                            });
-                            return "Operation '"+cmds[4]+"' set to "+cmds[2];
-                        }
-                    }else {
-                        XMLfab.alterDigger(dig).ifPresent(x -> x.attr(cmds[3], cmds.length == 5 ? cmds[4] : "").build());
-                        return "Attribute altered";
-                    }
+            case "alterval" -> doAlterValCmd(cmds, dig, prefix, request);
+            case "astable" -> doAsTableCmd(cmds, prefix, dig, xml);
+            default -> "! No such subcommand in " + prefix + " : " + request;
+        };
+    }
 
-                }
-                return "! No such val found: "+cmds[2];
+    private static String doAddValCmd(String[] cmds, String prefix, XMLdigger dig, XMLfab fab, String numtype, boolean map) {
+        if (cmds.length < 3)
+            return "! Wrong amount of arguments -> " + prefix + "add" + numtype + ",name<,index/group>";
+        if (dig.hasPeek(numtype, "name", cmds[2]) || dig.peekAtContent(numtype, cmds[2]))
+            return "! Already a " + numtype + " with that id, try something else?";
+
+        fab.addChild(numtype, cmds[2]).attr("unit");
+        addIndexOrMap(fab, dig, cmds, map);
+        fab.build();
+        return numtype + " added";
+    }
+
+    private static String doAlterValCmd(String[] cmds, XMLdigger dig, String prefix, String request) {
+        if (cmds.length < 5 && !(cmds.length == 4 && request.endsWith(",")))
+            return "! Wrong amount of arguments -> " + prefix + "alterval,valname,attr,value";
+        if (!VAL_ATTR.contains(cmds[3]))
+            return "! Not a valid attribute, accepted: " + String.join(", ", VAL_ATTR);
+        // Find the val referenced?
+        for (var valtype : VALS) {
+            if (dig.hasPeek(valtype, "name", cmds[2])) {
+                dig.digDown(valtype, "name", cmds[2]);
+            } else if (dig.peekAtContent(valtype, cmds[2])) {
+                dig.digDown(valtype, cmds[2]);
+            } else {
+                continue;
             }
-            case "astable" -> {
-                if (cmds.length < 3)
-                    return "! Wrong amount of arguments -> "+prefix+"astable,dbid";
-                // First check if the database actually exists
-                var dbDig = XMLdigger.goIn(xml,"dcafs");
-                dbDig.digDown("databases");
-                if( dbDig.isInvalid()) // Any database?
-                    return "! No databases defined yet.";
-                // Now check for sqlite or server with the id...
-                if( dbDig.hasPeek("sqlite","id",cmds[2]) ){ // SQLite
-                    dbDig.usePeek();
-                }else if( dbDig.hasPeek("server","id",cmds[2]) ){// Server
-                    dbDig.usePeek();
-                }else{
-                    return "! No such database yet";
-                }
-                // Now check if the table already exists
-                dbDig.hasPeek("table","name",cmds[0]);
-                if( dbDig.hasValidPeek() )
-                    return "! Already a table with that name";
 
-                var dbFabOpt = XMLfab.alterDigger(dbDig); // fab is pointing to the database node
-                if( dbFabOpt.isEmpty() )
-                    return "! Failed to obtain fab from dig";
-                fab = dbFabOpt.get(); // reuse the name
-                // Everything ready for the import
-                // Create the table node
-                fab.addChild("table").attr("name",cmds[0]);
-                // Now copy the childnodes from the store?
-                fab.down();
-                int cols=0;
-                for( var ele : dig.currentSubs()){
-                    fab.addChild( ele.getTagName(),ele.getTextContent());
-                    cols++;
+            if (cmds[3].equals("op")) {
+                if (!dig.tagName("").equals("text")) {
+                    XMLfab.alterDigger(dig).ifPresent(x -> {
+                        x.attr("name", cmds[2])
+                                .content("")
+                                .removeChild("op")
+                                .addChild("op", cmds[4])
+                                .build();
+                    });
+                    return "Operation '" + cmds[4] + "' set to " + cmds[2];
                 }
-                if( cols==0)
-                    return "! Nothing imported, store still empty?";
-                fab.build(); // Make the nodes
-                // Maybe alter the store to refer to the db?
-                var fabOpt = XMLfab.alterDigger(dig);
-                if( fabOpt.isEmpty() )
-                    return "! No valid fab made based on path dig";
-                fabOpt.get().attr("db",cmds[2]+":"+cmds[0]).build();
-                return "Table added with "+cols+" columns, applied with dbm:"+cmds[2]+",reload";
+            } else {
+                XMLfab.alterDigger(dig).ifPresent(x -> x.attr(cmds[3], cmds.length == 5 ? cmds[4] : "").build());
+                return "Attribute altered";
             }
         }
-        return "! No such subcommand in "+prefix+" : "+request;
+        return "! No such val found: " + cmds[2];
+    }
+
+    private static String doAsTableCmd(String[] cmds, String prefix, XMLdigger dig, Path xml) {
+        if (cmds.length < 3)
+            return "! Wrong amount of arguments -> " + prefix + "astable,dbid";
+        // First check if the database actually exists
+        var dbDig = XMLdigger.goIn(xml, "dcafs");
+        dbDig.digDown("databases");
+        if (dbDig.isInvalid()) // Any database?
+            return "! No databases defined yet.";
+        // Now check for sqlite or server with the id...
+        if (dbDig.hasPeek("sqlite", "id", cmds[2])) { // SQLite
+            dbDig.usePeek();
+        } else if (dbDig.hasPeek("server", "id", cmds[2])) {// Server
+            dbDig.usePeek();
+        } else {
+            return "! No such database yet";
+        }
+        // Now check if the table already exists
+        dbDig.hasPeek("table", "name", cmds[0]);
+        if (dbDig.hasValidPeek())
+            return "! Already a table with that name";
+
+        var dbFabOpt = XMLfab.alterDigger(dbDig); // fab is pointing to the database node
+        if (dbFabOpt.isEmpty())
+            return "! Failed to obtain fab from dig";
+        var fab = dbFabOpt.get(); // reuse the name
+        // Everything ready for the import
+        // Create the table node
+        fab.addChild("table").attr("name", cmds[0]);
+        // Now copy the childnodes from the store?
+        fab.down();
+        int cols = 0;
+        for (var ele : dig.currentSubs()) {
+            fab.addChild(ele.getTagName(), ele.getTextContent());
+            cols++;
+        }
+        if (cols == 0)
+            return "! Nothing imported, store still empty?";
+        fab.build(); // Make the nodes
+        // Maybe alter the store to refer to the db?
+        var fabOpt = XMLfab.alterDigger(dig);
+        if (fabOpt.isEmpty())
+            return "! No valid fab made based on path dig";
+        fabOpt.get().attr("db", cmds[2] + ":" + cmds[0]).build();
+        return "Table added with " + cols + " columns, applied with dbm:" + cmds[2] + ",reload";
     }
     private static void addIndexOrMap( XMLfab fab, XMLdigger dig, String[] cmds, boolean map ){
         if( cmds.length==4 ) {
