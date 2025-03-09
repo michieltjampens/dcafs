@@ -1,10 +1,10 @@
 package io.forward;
 
 import io.telnet.TelnetCodes;
-import util.data.RealtimeValues;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.data.RealtimeValues;
 import util.data.ValTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -69,11 +69,7 @@ public class EditorForward extends AbstractForward{
         if( !cmds.isEmpty())
             cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
 
-        if( store !=null ) {
-            store.apply(data);
-            for( var dbInsert:store.dbInsertSets())
-                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
-        }
+        applyDataToStore(data);
         // If there are no targets, no label, this no longer needs to be a target
         if( noTargets() ){
             valid=false;

@@ -1,7 +1,5 @@
 package io.telnet;
 
-import java.util.regex.Matcher;
-
 public class TelnetCodes {
 
 	private TelnetCodes() {
@@ -84,21 +82,6 @@ public class TelnetCodes {
 	public static String cursorLeft( int steps ){
 		return ESCAPE + "["+steps+"D";
 	}
-	public static String colorNumbers( String defaultTextColor, String s) {
-    	StringBuilder b = new StringBuilder();
-    	for( String line : s.split("\r\n")) {
-    		int i = line.indexOf(":");
-    		if( i != -1 ) {
-    			b.append(defaultTextColor).append(line, 0, i+1);
-    			b.append(TEXT_GREEN).append(line.substring(i+1));
-    		}else {
-    			b.append(line);
-    		}
-    		b.append("\r\n"); 
-    	}
-    	
-    	return b.toString().replaceAll("-999.0", TEXT_RED+"-999"+TEXT_GREEN)+defaultTextColor;
-    }
 
 	/**
 	 * Convert a textual color to the telnet code for it
@@ -135,79 +118,37 @@ public class TelnetCodes {
 		input=input.replace("[tdc]","");
 		return input.replaceAll(ESCAPE+"\\[\\d(;)?\\d*(;)?\\d*(;)?\\d*(m)?","");
 	}
-	public static String colorText( String defaultTextColor, String s, String text) {
-		StringBuilder b = new StringBuilder();
-		for( String line : s.split("\r\n")) {
-			int i = line.indexOf(":");
-			if( i != -1 ) {
-				b.append(defaultTextColor).append(line, 0, i+1);
-				b.append(TEXT_GREEN).append(line.substring(i+1));
-			}else {
-				b.append(line);
-			}
-			b.append("\r\n");
-		}
-
-		return b.toString().replace(text, TEXT_RED+text+TEXT_GREEN)+defaultTextColor;
-	}
 	public static String toReadableIAC( byte b ) {
-		switch (b) {
+		return switch (b) {
 			// IAC Control
-			case (byte) 240:
-				return "SE";
-			case (byte) 241:
-				return "NOP";
-			case (byte) 242:
-				return "DM";
-			case (byte) 243:
-				return "BRK";
-			case (byte) 244:
-				return "IP";
-			case (byte) 245:
-				return "AO";
-			case (byte) 246:
-				return "AYT";
-			case (byte) 247:
-				return "EC";
-			case (byte) 248:
-				return "EL";
-			case (byte) 249:
-				return "GA";
-			case (byte) 250:
-				return "SB";
-			case (byte) 251:
-				return "WILL";
-			case (byte) 252:
-				return "WONT";
-			case (byte) 253:
-				return "DO";
-			case (byte) 254:
-				return "DONT";
-			case (byte) 255:
-				return "IAC";
+			case (byte) 240 -> "SE";
+			case (byte) 241 -> "NOP";
+			case (byte) 242 -> "DM";
+			case (byte) 243 -> "BRK";
+			case (byte) 244 -> "IP";
+			case (byte) 245 -> "AO";
+			case (byte) 246 -> "AYT";
+			case (byte) 247 -> "EC";
+			case (byte) 248 -> "EL";
+			case (byte) 249 -> "GA";
+			case (byte) 250 -> "SB";
+			case (byte) 251 -> "WILL";
+			case (byte) 252 -> "WONT";
+			case (byte) 253 -> "DO";
+			case (byte) 254 -> "DONT";
+			case (byte) 255 -> "IAC";
 			// Negotiations
-			case (byte) 1:
-				return "ECHO";
-			case (byte) 3:
-				return "SGA";
-			case (byte) 5:
-				return "STATUS";
-			case (byte) 6:
-				return "TimingMark";
-			case (byte) 24:
-				return "TermType";
-			case (byte) 31:
-				return "Window Size";
-			case (byte) 32:
-				return "Term Speed";
-			case (byte) 33:
-				return "Rem Flow Cont";
-			case (byte) 34:
-				return "LineMode";
-			case (byte) 36:
-				return "EnvVar";
-			default:
-				return "" + (int) b;
-		}
+			case (byte) 1 -> "ECHO";
+			case (byte) 3 -> "SGA";
+			case (byte) 5 -> "STATUS";
+			case (byte) 6 -> "TimingMark";
+			case (byte) 24 -> "TermType";
+			case (byte) 31 -> "Window Size";
+			case (byte) 32 -> "Term Speed";
+			case (byte) 33 -> "Rem Flow Cont";
+			case (byte) 34 -> "LineMode";
+			case (byte) 36 -> "EnvVar";
+			default -> "" + (int) b;
+		};
 	}
 }

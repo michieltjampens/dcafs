@@ -44,11 +44,7 @@ public class FilterForward extends AbstractForward {
             if( log )
                 Logger.tag("RAW").info( id() + "\t" + data);
 
-            if( store !=null ) {
-                store.apply(data);
-                for( var dbInsert:store.dbInsertSets())
-                    tableInserters.forEach(ti -> ti.insertStore(dbInsert));
-            }
+            applyDataToStore(data);
         }else{
             reversed.parallelStream().forEach( ns-> ns.writeLine(data) );
         }
