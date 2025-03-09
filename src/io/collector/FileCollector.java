@@ -23,7 +23,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.StringJoiner;
 import java.util.concurrent.*;
 
 public class FileCollector extends AbstractCollector{
@@ -522,27 +524,24 @@ public class FileCollector extends AbstractCollector{
         long next = Duration.between(LocalDateTime.now(ZoneOffset.UTC),rolloverTimestamp).toMillis();
         if( next > 100) {
             rollOverFuture = scheduler.schedule(new DoRollOver(true), next, TimeUnit.MILLISECONDS);
-            Logger.info(id+"(fc) -> Next rollover in "+TimeTools.convertPeriodtoString(rollOverFuture.getDelay(TimeUnit.SECONDS),TimeUnit.SECONDS));
+            Logger.info(id + "(fc) -> Next rollover in " + TimeTools.convertPeriodToString(rollOverFuture.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS));
         }else{
             Logger.error(id+"(fc) -> Bad rollover for "+rollCount+" counts and unit "+unit+" because next is "+next);
         }
         return true;
     }
     /**
-     * Update the filename of the database currently used
+     * Update the filename of the file currently used
      */
     public void updateFileName(LocalDateTime ldt){
         if( format==null)
             return;
         try{
-            if( ldt!=null ){
+            if (ldt != null)
                 currentForm = ldt.format(format);
-            }
         }catch( java.time.temporal.UnsupportedTemporalTypeException f ){
-            Logger.error( id() + " -> Format given is unsupported! Database creation cancelled.");
-            return;
+            Logger.error(id() + " -> Format given is unsupported! Creation cancelled.");
         }
-        Logger.info("Updated filename after rollover to "+getPath());
     }
     private class DoRollOver implements Runnable {
         boolean renew;

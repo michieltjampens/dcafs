@@ -342,6 +342,19 @@ public class XMLfab {
         return Optional.empty();
     }
 
+    public XMLfab selectOrAddChildAsParent(String tag, String attribute, String value) {
+
+        var opt = selectChildAsParent(tag, attribute, value);
+        if (opt.isPresent())
+            return opt.get();
+
+        addChild(tag);// Create the child
+        if (!attribute.isEmpty())
+            attr(attribute, value);
+        down(); // make it the last/parent
+
+        return this;
+    }
     /**
      * Checks the children of the active node for a specific tag and make that active and parent
      *
@@ -362,20 +375,7 @@ public class XMLfab {
     public XMLfab selectOrAddChildAsParent(String tag, String attribute, int value){
         return selectOrAddChildAsParent(tag,attribute, String.valueOf(value));
     }
-    public XMLfab selectOrAddChildAsParent(String tag, String attribute, String value){
-        Optional<Element> found = getChildren(tag).stream()
-                .filter( x -> x.getAttribute(attribute).matches(value)||attribute.isEmpty()).findFirst();
-        if( found.isPresent() ){
-            last = found.get();
-            parent = last;
-        }else{
-            addChild(tag);// Create the child
-            if( !attribute.isEmpty())
-                attr(attribute,value);
-            down(); // make it the last/parent
-        }
-        return this;
-    }
+
     /**
      * Select a child node for later alterations (eg. attributes etc) or create it if it doesn't exist
      * @param tag The tag of the child node to look for

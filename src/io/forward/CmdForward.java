@@ -33,11 +33,7 @@ public class CmdForward extends AbstractForward implements Writable {
             dQueue.add(Datagram.system(cmd.applyData(split)));
         });
         targets.forEach(t->t.writeLine(id(), data));
-        if( store!=null) {
-            store.apply(data);
-            for( var dbInsert:store.dbInsertSets())
-                tableInserters.forEach(ti -> ti.insertStore(dbInsert));
-        }
+        applyDataToStore(data);
         return true;
     }
 
