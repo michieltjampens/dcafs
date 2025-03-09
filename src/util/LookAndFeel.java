@@ -2,38 +2,44 @@ package util;
 
 import io.telnet.TelnetCodes;
 
-import java.util.StringJoiner;
-
 public class LookAndFeel {
     final static String ERROR_COLOR = TelnetCodes.TEXT_RED;
     final static String INFO_COLOR = TelnetCodes.TEXT_GREEN;
     final static String WARN_COLOR = TelnetCodes.TEXT_ORANGE;
 
     public static String formatCmdHelp(String lines, boolean html ){
-
         String magenta = html?"": TelnetCodes.TEXT_MAGENTA;
-        String cyan = html?"":TelnetCodes.TEXT_CYAN;
-        String green = html?"":TelnetCodes.TEXT_GREEN;
         String reg = html?"":TelnetCodes.TEXT_DEFAULT;
 
         var colored = new StringBuilder();
         boolean first=true;
         for( var line : lines.split("\r\n") ){
-            if( line.contains(" -> ") ){
-                var before = line.substring(0,line.indexOf(" -> "));
-                var after = line.substring(line.indexOf(" -> ")+4);
-                colored.append(green).append("   ").append(before).append(reg).append(" -> ").append(after);
-            }else if( line.startsWith("-")) {
-                colored.append("        ").append(line);
+            if (first) {
+                first = false;
+                colored.append(magenta).append(line).append(reg);
             }else{
-                if( !first )
-                    colored.append(html?"<br>":"\r\n");
-                colored.append(first?magenta:cyan).append(line).append(reg);
-                first=false;
+                formatHelpLine(line, html, colored);
             }
-            colored.append(html?"<br>":"\r\n");
         }
         return colored.toString();
+    }
+
+    private static void formatHelpLine(String line, boolean html, StringBuilder colored) {
+        String cyan = html ? "" : TelnetCodes.TEXT_CYAN;
+        String green = html ? "" : TelnetCodes.TEXT_GREEN;
+        String reg = html ? "" : TelnetCodes.TEXT_DEFAULT;
+
+        if (line.contains(" -> ")) {
+            var before = line.substring(0, line.indexOf(" -> "));
+            var after = line.substring(line.indexOf(" -> ") + 4);
+            colored.append(green).append("   ").append(before).append(reg).append(" -> ").append(after);
+        } else if (line.startsWith("-")) {
+            colored.append("        ").append(line);
+        } else {
+            colored.append(html ? "<br>" : "\r\n");
+            colored.append(cyan).append(line).append(reg);
+        }
+        colored.append(html ? "<br>" : "\r\n");
     }
     /**
      * Format a portion of text for the status report, applying color is an error is marked with !!

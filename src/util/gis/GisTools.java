@@ -230,20 +230,15 @@ public class GisTools {
         return new double[]{ Tools.roundDouble(E, 2), Tools.roundDouble(N, 2) };
     }
     public static Function<BigDecimal[],BigDecimal> procToUTM( String lat, String lon, Integer[] indexes ){
-        int latIndex = lat.startsWith("i")?  NumberUtils.toInt(lat.substring(1), -1) : -1;
-        int lonIndex = lon.startsWith("i")?  NumberUtils.toInt(lon.substring(1), -1) : -1;
+        int latIndex = findIndex(lat);
+        int lonIndex = findIndex(lon);
+        ;
 
         var latVal = lat.startsWith("i")? 0 : NumberUtils.toDouble(lat);
         var lonVal = lon.startsWith("i")? 0 : NumberUtils.toDouble(lon);
 
-        int eastIndex,northIndex;
-        if(indexes.length==2){
-            eastIndex=indexes[0]==-1?latIndex:indexes[0];
-            northIndex=indexes[1]==-1?lonIndex:indexes[1];
-        }else{
-            eastIndex = latIndex;
-            northIndex = lonIndex;
-        }
+        int eastIndex = findENIndex(latIndex, 0, indexes);
+        int northIndex = findENIndex(lonIndex, 1, indexes);
 
         return arr -> {
             var d = GDC_To_UTM( latIndex==-1?latVal:arr[latIndex].doubleValue(),lonIndex==-1?lonVal:arr[lonIndex].doubleValue());
@@ -253,6 +248,17 @@ public class GisTools {
                 arr[northIndex]=BigDecimal.valueOf(d[1]);
             return BigDecimal.ZERO;
         };
+    }
+
+    private static int findIndex(String val) {
+        return val.startsWith("i") ? NumberUtils.toInt(val.substring(1), -1) : -1;
+    }
+
+    private static int findENIndex(int lIndex, int pos, Integer[] indexes) {
+        int res = lIndex;
+        if (indexes.length == 2 && indexes[pos] != -1)
+            res = indexes[pos];
+        return res;
     }
     /**
      * Converts UTM coordinates to GDC equivalent
@@ -288,20 +294,14 @@ public class GisTools {
         return new double[]{ Tools.roundDouble(Math.toDegrees(lat), 7), Tools.roundDouble(Math.toDegrees(lon), 7) };
     }
     public static Function<BigDecimal[],BigDecimal> procToGDC( String east, String northing, Integer[] indexes ){
-        int eastIndex = east.startsWith("i")?  NumberUtils.toInt(east.substring(1), -1) : -1;
-        int northIndex = northing.startsWith("i")?  NumberUtils.toInt(northing.substring(1), -1) : -1;
+        int eastIndex = findIndex(east);
+        int northIndex = findIndex(northing);
 
         var eastVal = east.startsWith("i")? 0 : NumberUtils.toDouble(east);
         var northVal = northing.startsWith("i")? 0 : NumberUtils.toDouble(northing);
 
-        int latIndex,lonIndex;
-        if(indexes.length==2){
-            latIndex=indexes[0]==-1?eastIndex:indexes[0];
-            lonIndex=indexes[1]==-1?northIndex:indexes[1];
-        }else{
-            latIndex = eastIndex;
-            lonIndex = northIndex;
-        }
+        int latIndex = findENIndex(eastIndex, 0, indexes);
+        int lonIndex = findENIndex(northIndex, 1, indexes);
 
         return arr -> {
             var d = UTM_To_GDC( eastIndex==-1?eastVal:arr[eastIndex].doubleValue(),northIndex==-1?northVal:arr[northIndex].doubleValue());
