@@ -624,18 +624,21 @@ public class MathUtils {
             case "^" -> bd1.pow(bd2.intValue());
             case "~" -> bd1.min(bd2).abs();
             case "scale" -> bd1.setScale(bd2.intValue(),RoundingMode.HALF_UP);
-            case "°" -> switch( bd1.intValue() ){
-                                case 1 -> BigDecimal.valueOf(Math.cos(Math.toRadians(bd2.doubleValue()))); //cosd,sin
-                                case 2 -> BigDecimal.valueOf(Math.cos(bd2.doubleValue())); //cosr
-                                case 3 -> BigDecimal.valueOf(Math.sin(Math.toRadians(bd2.doubleValue()))); //sind,sin
-                                case 4 -> BigDecimal.valueOf(Math.sin(bd2.doubleValue())); //sinr
-                                case 5 -> bd2.abs();
-                                default -> BigDecimal.ZERO;
-                            };
+            case "°" -> handleAngleBigDecimalsOps(bd1,bd2);
             default ->{
                 Logger.error("Unknown operand: "+op);
                 yield BigDecimal.ZERO;
             }
+        };
+    }
+    private static BigDecimal handleAngleBigDecimalsOps( BigDecimal bd1, BigDecimal bd2 ){
+        return switch( bd1.intValue() ){
+            case 1 -> BigDecimal.valueOf(Math.cos(Math.toRadians(bd2.doubleValue()))); //cosd,sin
+            case 2 -> BigDecimal.valueOf(Math.cos(bd2.doubleValue())); //cosr
+            case 3 -> BigDecimal.valueOf(Math.sin(Math.toRadians(bd2.doubleValue()))); //sind,sin
+            case 4 -> BigDecimal.valueOf(Math.sin(bd2.doubleValue())); //sinr
+            case 5 -> bd2.abs();
+            default -> BigDecimal.ZERO;
         };
     }
     public static double calcDoublesOp(String d1, String d2, String op ){
@@ -651,18 +654,21 @@ public class MathUtils {
             case "^" -> Math.pow(d1,d2);
             case "~" -> Math.abs(d1-d2);
             case "scale" -> Tools.roundDouble(d1,(int)d2);
-            case "°" -> switch( (int)d1 ){
-                case 1 -> Math.cos(Math.toRadians(d2)); //cosd,sin
-                case 2 -> Math.cos(d2); //cosr
-                case 3 -> Math.sin(Math.toRadians(d2)); //sind,sin
-                case 4 -> Math.sin(d2); //sinr
-                case 5 -> Math.abs(d2);
-                default -> Double.NaN;
-            };
+            case "°" -> handleAngleDoublesOps(d1,d2);
             default ->{
                 Logger.error("Unknown operand: "+op);
                 yield Double.NaN;
             }
+        };
+    }
+    private static double handleAngleDoublesOps( double d1, double d2 ){
+        return switch( (int)d1 ){
+            case 1 -> Math.cos(Math.toRadians(d2)); //cosd,sin
+            case 2 -> Math.cos(d2); //cosr
+            case 3 -> Math.sin(Math.toRadians(d2)); //sind,sin
+            case 4 -> Math.sin(d2); //sinr
+            case 5 -> Math.abs(d2);
+            default -> Double.NaN;
         };
     }
     /**
