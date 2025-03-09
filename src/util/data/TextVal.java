@@ -1,6 +1,5 @@
 package util.data;
 
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
@@ -77,15 +76,8 @@ public class TextVal extends AbstractVal{
         if( !def.isEmpty())
             value=def;
 
-        String options = dig.attr( "options", "");
-        for (var opt : options.split(",")) {
-            var arg = opt.split(":");
-            switch (arg[0]) {
-                case "time" -> keepTime();
-                case "order" -> order(NumberUtils.toInt(arg[1], -1));
-                case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
-            }
-        }
+        digOptions(dig);
+
         for (var sub : dig.digOut( "*")) {
             switch( sub.tagName("") ){
                 case "cmd" -> {

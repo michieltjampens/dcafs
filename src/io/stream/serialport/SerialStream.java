@@ -1,10 +1,10 @@
 package io.stream.serialport;
 
 import com.fazecast.jSerialComm.*;
+import io.Writable;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.stream.BaseStream;
-import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
@@ -178,29 +178,7 @@ public class SerialStream extends BaseStream implements Writable {
             forwardData(data);
         }
     }
-    private void forwardData( byte[] data ){
-        Logger.info("Received: " + new String(data));
-        if (!targets.isEmpty()) {
-            try {
-                targets.forEach(dt -> eventLoopGroup.submit(() -> {
-                    try {
-                        if (dt.id().contains("telnet")) {
-                            dt.writeString(new String(data) + " ");
-                        } else {
-                            dt.writeBytes(data);
-                        }
-                    } catch (Exception e) {
-                        Logger.error(id + " -> Something bad while writeLine to " + dt.id());
-                        Logger.error(e);
-                    }
-                }));
-                targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
-            } catch (Exception e) {
-                Logger.error(id + " -> Something bad in serial port");
-                Logger.error(e);
-            }
-        }
-    }
+
     protected void processMessageEvent(byte[] data){
         String msg = new String(data).replace(eol, ""); // replace actually needed?
         if( readerIdle ){
@@ -227,20 +205,27 @@ public class SerialStream extends BaseStream implements Writable {
         timestamp = Instant.now().toEpochMilli(); // Store the timestamp of the received message
     }
     protected void forwardData( String message){
-        if( !targets.isEmpty() ){
+        forwardData(message.getBytes());
+    }
+
+    private void forwardData(byte[] data) {
+        Logger.info("Received: " + new String(data));
+        if (!targets.isEmpty()) {
             try {
-                targets.forEach(dt -> eventLoopGroup.submit(()-> {
+                targets.forEach(dt -> eventLoopGroup.submit(() -> {
                     try {
-                        dt.writeLine(id,message);
+                        if (dt.id().contains("telnet")) {
+                            dt.writeString(new String(data) + " ");
+                        } else {
+                            dt.writeBytes(data);
+                        }
                     } catch (Exception e) {
-                        Logger.error(id + " -> Something bad while writeLine to " + dt.id());
-                        Logger.error(e);
+                        Logger.error(id + " -> Something bad while writeLine to " + dt.id(), e);
                     }
                 }));
                 targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
-            }catch(Exception e){
-                Logger.error(id+" -> Something bad in serial port");
-                Logger.error(e);
+            } catch (Exception e) {
+                Logger.error(id + " -> Something bad in serial port: ", e);
             }
         }
     }

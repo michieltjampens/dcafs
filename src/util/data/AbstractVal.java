@@ -1,6 +1,7 @@
 package util.data;
 
 import io.Writable;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
@@ -185,5 +186,17 @@ public abstract class AbstractVal {
         var join = new StringJoiner(",");
         targets.forEach( wr -> join.add(wr.id()));
         return join.toString();
+    }
+
+    protected void digOptions(XMLdigger dig) {
+        var options = dig.attr("options", "");
+        for (var opt : options.split(",")) {
+            var arg = opt.split(":");
+            switch (arg[0]) {
+                case "time" -> keepTime();
+                case "order" -> order(NumberUtils.toInt(arg[1], -1));
+                case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
+            }
+        }
     }
 }

@@ -1,6 +1,5 @@
 package util.data;
 
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
@@ -62,15 +61,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
         state=defState; // Set the current state to the default
 
-        String options =  dig.attr("options", "");
-        for (var opt : options.split(",")) {
-            var arg = opt.split(":");
-            switch (arg[0]) {
-                case "time" -> keepTime();
-                case "order" -> order(NumberUtils.toInt(arg[1], -1));
-                case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
-            }
-        }
+        digOptions(dig);
 
         // Triggered Commands
         if ( dig.hasPeek("cmd") )
