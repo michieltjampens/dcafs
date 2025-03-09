@@ -41,7 +41,7 @@ public abstract class Database{
      * 
      * @param id The id given
      */
-    public void setID(String id) {
+    public void id(String id) {
         this.id = id;
     }
 

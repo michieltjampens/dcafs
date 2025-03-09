@@ -102,7 +102,7 @@ public class SQLDB extends Database implements TableInsert{
     /* ************************************************************************************************* */
     public String toString(){
         var age = getTimeSinceLastInsert();
-        var time = TimeTools.convertPeriodtoString( age,TimeUnit.SECONDS);
+        var time = TimeTools.convertPeriodToString(age, TimeUnit.SECONDS);
         var join = new StringJoiner("");
         if( age > maxInsertAge || getRecordsCount()>maxQueries || insertErrors!=0  || state == STATE.ACCESS_DENIED )
             join.add("!! ");
@@ -163,18 +163,10 @@ public class SQLDB extends Database implements TableInsert{
             }
         } catch (SQLException e) {
             Logger.error(id+" (db) -> "+e.getMessage());
-        }        
-       
-        try {
-            switch (type) { // Set the class according to the database, might not be needed anymore
-                case MSSQL -> Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-                case MYSQL, MARIADB -> Class.forName("org.mariadb.jdbc.Driver");
-                case POSTGRESQL -> Class.forName("org.postgresql.Driver");
-            }
-		} catch (ClassNotFoundException ex) {
-            Logger.error( id+"(db) -> Driver issue with SQLite!" );
-        	return false;
-        }                
+        }
+
+        if (!loadClass(type))
+            return false;
 
         try{
             con = DriverManager.getConnection(irl, user, pass);           
@@ -195,6 +187,20 @@ public class SQLDB extends Database implements TableInsert{
             return false;
         }       
     	return true;
+    }
+
+    private boolean loadClass(DBTYPE type) {
+        try {
+            switch (type) { // Set the class according to the database, might not be needed anymore
+                case MSSQL -> Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+                case MYSQL, MARIADB -> Class.forName("org.mariadb.jdbc.Driver");
+                case POSTGRESQL -> Class.forName("org.postgresql.Driver");
+            }
+        } catch (ClassNotFoundException ex) {
+            Logger.error(id + "(db) -> Driver issue with SQLite!");
+            return false;
+        }
+        return true;
     }
     @Override
     public boolean disconnect() {
@@ -342,24 +348,29 @@ public class SQLDB extends Database implements TableInsert{
         readTable(con,columnRequest+tblName+";", rs -> {
             try {
                 String name = rs.getString(1);
-                String colType=rs.getString(2).toLowerCase();
-                if( first[0] && (colType.equals("timestamp") || colType.equals("datetime"))){
-                    table.addUTCDateTime(name,"",true);
-                    first[0]=false;
-                }else if( name.equalsIgnoreCase("timestamp") && colType.equalsIgnoreCase("long") ){
-                    table.addEpochMillis(name);
-                }else if( colType.contains("text") || colType.contains("char") ){
-                    table.addText(name);
-                }else if( colType.equalsIgnoreCase("double") || colType.equalsIgnoreCase("decimal") || colType.startsWith("float")|| colType.equals("real")){
-                    table.addReal(name);
-                }else if( colType.contains("int") || colType.contains("bit") || colType.contains("boolean")) {
-                    table.addInteger(name);
-                }else if(colType.equalsIgnoreCase("timestamp") ){
-                    table.addLocalDateTime(name,"",false);
-                }else if(colType.equalsIgnoreCase("timestamptz") || colType.equalsIgnoreCase("datetime") ){
-                    table.addUTCDateTime(name,"",false);
-                }else{
-                    Logger.info(id+" -> Found unknown column type in "+table.getName()+": "+name+" -> "+colType);
+                String colType = rs.getString(2).toLowerCase();
+
+                // Check if it's the first column, regardless of type
+                if (first[0]) {
+                    first[0] = false;  // Mark that the first column has been processed
+                    if (colType.equals("timestamp")) {
+                        table.addUTCDateTime(name, "", true);  // Handle first timestamp/datetime column
+                        return;  // Exit early to prevent further processing for this row
+                    }
+                }
+
+                switch (colType) {
+                    case "text", "char" -> table.addText(name);
+                    case "double", "decimal", "float", "real" -> table.addReal(name);
+                    case "int", "integer", "bit", "boolean" -> table.addInteger(name);
+                    case "timestamp" -> table.addLocalDateTime(name, "", false);
+                    case "long" -> {
+                        if (name.equals("timestamp"))
+                            table.addEpochMillis(name);
+                    }
+                    case "timestamptz", "datetime" -> table.addUTCDateTime(name, "", false);
+                    default ->
+                            Logger.error(id + " -> Found unknown column type in " + table.getName() + ": " + name + " -> " + colType);
                 }
             } catch (SQLException e) {
                 Logger.error(id+"(db) -> Error during table read: "+e.getErrorCode());
@@ -381,36 +392,8 @@ public class SQLDB extends Database implements TableInsert{
                 return "No connection to "+id;
         }
         if( isValid(5) ){
-                // Create the tables
-                tables.values().forEach(tbl -> {
-                    Logger.debug(id+"(db) -> Checking to create "+tbl.getName()+" read from?"+tbl.isReadFromDB());
-                    if( !tbl.isServer() && !tbl.hasColumns() ) {
-                        lastError = "Note: Tried to create a table without columns, not allowed in SQLite.";
-                    }else if( !tbl.isReadFromDB() ){
-                        try( Statement stmt = con.createStatement() ){
-                            stmt.execute( tbl.create() );
-                            if( tables.get(tbl.getName())!=null && tbl.hasIfNotExists() ){
-                                Logger.warn(id+"(db) -> Already a table with the name "+tbl.getName()+" nothing done because 'IF NOT EXISTS'.");
-                            }
-                            tbl.flagAsReadFromDB(); // Created on database, so flag as read
-                        } catch (SQLException e) {
-                            Logger.error(id+"(db) -> Failed to create table with: "+tbl.create() );
-                            Logger.error(e.getMessage());
-                            tbl.setLastError(e.getMessage()+" when creating "+tbl.name+" for "+id);
-                        }
-                    }else{
-                        Logger.debug(id+"(db) -> Not creating "+tbl.getName()+" because already read from database...");
-                    }
-                });
-                // Create the views
-                views.forEach(
-                        x -> {
-                            try( Statement stmt = con.createStatement() ){
-                                stmt.execute( x );
-                            } catch (SQLException e) {
-                                Logger.error(e.getMessage());
-                            }
-                        });
+            createTables(); // Create the tables
+            createViews();  // Create the views
 
             try {
                 if( !con.getAutoCommit())
@@ -431,8 +414,42 @@ public class SQLDB extends Database implements TableInsert{
         }
         return "No valid connection";
     }
+
+    private void createTables() {
+        tables.values().forEach(tbl -> {
+            Logger.debug(id + "(db) -> Checking to create " + tbl.getName() + " read from?" + tbl.isReadFromDB());
+            if (!tbl.isServer() && !tbl.hasColumns()) {
+                lastError = "Note: Tried to create a table without columns, not allowed in SQLite.";
+            } else if (!tbl.isReadFromDB()) {
+                try (Statement stmt = con.createStatement()) {
+                    stmt.execute(tbl.create());
+                    if (tables.get(tbl.getName()) != null && tbl.hasIfNotExists()) {
+                        Logger.warn(id + "(db) -> Already a table with the name " + tbl.getName() + " nothing done because 'IF NOT EXISTS'.");
+                    }
+                    tbl.flagAsReadFromDB(); // Created on database, so flag as read
+                } catch (SQLException e) {
+                    Logger.error(id + "(db) -> Failed to create table with: " + tbl.create());
+                    Logger.error(e.getMessage());
+                    tbl.setLastError(e.getMessage() + " when creating " + tbl.name + " for " + id);
+                }
+            } else {
+                Logger.debug(id + "(db) -> Not creating " + tbl.getName() + " because already read from database...");
+            }
+        });
+    }
+
+    private void createViews() {
+        views.forEach(
+                x -> {
+                    try (Statement stmt = con.createStatement()) {
+                        stmt.execute(x);
+                    } catch (SQLException e) {
+                        Logger.error(e.getMessage());
+                    }
+                });
+    }
     /**
-     * Write a select query and then retrieve the content of a single column from it base on the (case insensitive) name
+     * Write a select query and then retrieve the content of a single column from it base on the (case-insensitive) name
      * @param query The query to execute
      * @return ArrayList with the data or an empty list if nothing found/something went wrong
      */
@@ -585,38 +602,32 @@ public class SQLDB extends Database implements TableInsert{
 
         var dbDig = XMLdigger.goIn(dbe);
         var id = dbDig.attr("id","");
+
         if( !dbDig.hasPeek("db") || !dbDig.hasPeek("address") ) {
             Logger.error(id+"(dbm) -> No db and/or address node found");
             return null;
         }
         dbDig.digDown("db");
-        var dbName = dbDig.value("");                         // The name of the database
-        String user = dbDig.attr("user", "");            // A username with writing rights
-        String pass =  dbDig.attr( "pass", "");          // The password for the earlier defined username
+        var dbName = dbDig.value("");                     // The name of the database
+        var user = dbDig.attr("user", "");            // A username with writing rights
+        var pass = dbDig.attr("pass", "");          // The password for the earlier defined username
         dbDig.goUp();
 
         var address = dbDig.peekAt("address").value("");			// Set the address of the server on which the DB runs (either hostname or IP)
 
-        SQLDB db;
         var type = dbDig.attr("type","").toLowerCase();
-        switch (type) { // Set the database type:mssql,mysql or mariadb
-            case "mssql" -> db = SQLDB.asMSSQL(address, dbName, user, pass);
-            case "mysql" -> db = SQLDB.asMYSQL(address, dbName, user, pass);
-            case "mariadb" -> db = SQLDB.asMARIADB(address, dbName, user, pass);
-            case "postgresql" -> db = SQLDB.asPOSTGRESQL(address, dbName, user, pass);
-            default -> {
-                Logger.error(id+"(dbm) -> Invalid database type: " + type);
-                return null;
-            }
-        }
+        var db = setupDatabase(type, address, dbName, user, pass);
 
-        db.id = dbDig.attr("id","");
+        if (db == null)
+            return null;
+
+        db.id(id);
         db.maxInsertAge = TimeTools.parsePeriodStringToSeconds(dbDig.peekAt("maxinsertage").value("1h"));
 
         /* Setup */
-        if( dbDig.hasPeek("flush")){
+        if (dbDig.hasPeek("flush"))
             db.readFlushSetup( dbDig.currentTrusted() );
-        }
+
         // How many seconds before the connection is considered idle (and closed)
         db.idleTime = (int)TimeTools.parsePeriodStringToSeconds( dbDig.peekAt("idleclose").value("5m") );
 
@@ -634,18 +645,30 @@ public class SQLDB extends Database implements TableInsert{
         return db;
     }
 
+    private static SQLDB setupDatabase(String type, String address, String dbName, String user, String pass) {
+        return switch (type) { // Set the database type:mssql,mysql or mariadb
+            case "mssql" -> SQLDB.asMSSQL(address, dbName, user, pass);
+            case "mysql" -> SQLDB.asMYSQL(address, dbName, user, pass);
+            case "mariadb" -> SQLDB.asMARIADB(address, dbName, user, pass);
+            case "postgresql" -> SQLDB.asPOSTGRESQL(address, dbName, user, pass);
+            default -> {
+                Logger.error("(dbm) -> Invalid database type: " + type);
+                yield null;
+            }
+        };
+    }
     /**
      * Write the setup of this database to the settings.xml
      * @param fab A fab pointing to the databases node
      */
     public void writeToXml(XMLfab fab){
 
-        String flush = TimeTools.convertPeriodtoString(maxAge, TimeUnit.SECONDS);
+        String flush = TimeTools.convertPeriodToString(maxAge, TimeUnit.SECONDS);
         String address = irl.substring( irl.indexOf("//")+2,irl.lastIndexOf("/"));
 
         String idle = "-1";
         if( idleTime!=-1)
-            idle = TimeTools.convertPeriodtoString(maxAge, TimeUnit.SECONDS);
+            idle = TimeTools.convertPeriodToString(maxAge, TimeUnit.SECONDS);
 
         fab.selectOrAddChildAsParent("server","id", id.isEmpty()?"remote":id).attr("type",type.toString().toLowerCase())
                 .alterChild("db",dbName).attr("user",user).attr("pass",pass)
@@ -707,83 +730,89 @@ public class SQLDB extends Database implements TableInsert{
      */
     public void checkState( int secondsPassed ) {
         switch (state) {
-            case FLUSH_REQ -> { // Required a flush
-                if (!simpleQueries.isEmpty()) {
-                    Logger.info(id + "(db) -> Flushing simple");
-                    flushSimple();
-                }
-                if (tables.values().stream().anyMatch(t -> t.getRecordCount() != 0)) { // If any table has records
-                    flushPrepared();
-                }
-                if (isValid(1)) { // If not valid, flush didn't work either
-                    state = STATE.HAS_CON; // If valid, the state is has_connection
-                } else {
-                    state = STATE.NEED_CON; // If invalid, need a connection
-                }
-            }
-            case HAS_CON -> { // If we have a connection, but not using it
-                if (!hasRecords()) {
-                    idleCount += secondsPassed;
-                    if (idleCount > idleTime && idleTime > 0) {
-                        Logger.info(id() + "(id) -> Connection closed because idle: " + id + " for " + TimeTools.convertPeriodtoString(idleCount, TimeUnit.SECONDS) + " > " +
-                                TimeTools.convertPeriodtoString(idleTime, TimeUnit.SECONDS));
-                        disconnect();
-                        state = STATE.IDLE;
-                    }
-                } else {
-                    Logger.debug(id + "(id) -> Waiting for max age to pass...");
-                    if (!simpleQueries.isEmpty()) {
-                        long age = (Instant.now().toEpochMilli() - firstSimpleStamp) / 1000;
-                        Logger.debug(id + "(id) -> Age of simple: " + age + "s versus max: " + maxAge);
-                        if (age > maxAge) {
-                            state = STATE.FLUSH_REQ;
-                            Logger.info(id + "(id) -> Requesting simple flush because of age");
-                        }
-                    }
-                    if (tables.values().stream().anyMatch(t -> t.getRecordCount() != 0)) {
-                        long age = (Instant.now().toEpochMilli() - firstPrepStamp) / 1000;
-                        Logger.debug(id + "(id) -> Age of prepared: " + age + "s");
-                        if (age > maxAge) {
-                            state = STATE.FLUSH_REQ;
-                        }
-                    }
-                    idleCount = 0;
-                }
-            }
-            case IDLE -> { // Database is idle
-                if (hasRecords()) { // If it has records
-                    if (connect(false)) { // try to connect but don't reconnect if connected
-                        state = STATE.HAS_CON; // connected
-                    } else {
-                        state = STATE.NEED_CON; // connection failed
-                    }
-                }
-            }
-            case NEED_CON -> { // Needs a connection
-                Logger.info(id + " -> Need con, trying to connect...");
-                if (connect(false)) {
-                    if (hasRecords()) { // If it is connected and has records
-                        state = STATE.HAS_CON;
-                        Logger.info(id + " -> Got a connection.");
-                    } else {  // Has a connection but doesn't need it anymore
-                        state = STATE.IDLE;
-                        Logger.info(id + " -> Got a connection, but don't need it anymore...");
-                    }
-                }
-            }
-            case ACCESS_DENIED -> {
-
-            }
+            case FLUSH_REQ -> doFlushReq(); // Required a flush
+            case HAS_CON -> doHas_Con(secondsPassed); // If we have a connection, but not using it
+            case IDLE -> doIdle(); // Database is idle
+            case NEED_CON -> doNeedCon(); // Needs a connection
+            case ACCESS_DENIED -> Logger.info("Todo ACCESS DENIED");
             default -> Logger.warn(id + "(db) -> Unknown state: " + state);
         }
     }
+
+    private void doFlushReq() {
+        if (!simpleQueries.isEmpty()) {
+            Logger.info(id + "(db) -> Flushing simple");
+            flushSimple();
+        }
+        if (tables.values().stream().anyMatch(t -> t.getRecordCount() != 0)) { // If any table has records
+            flushPrepared();
+        }
+        if (isValid(1)) { // If not valid, flush didn't work either
+            state = STATE.HAS_CON; // If valid, the state is has_connection
+        } else {
+            state = STATE.NEED_CON; // If invalid, need a connection
+        }
+    }
+
+    private void doHas_Con(int secondsPassed) {
+        if (!hasRecords()) {
+            idleCount += secondsPassed;
+            if (idleCount > idleTime && idleTime > 0) {
+                Logger.info(id() + "(id) -> Connection closed because idle: " + id + " for " + TimeTools.convertPeriodToString(idleCount, TimeUnit.SECONDS) + " > " +
+                        TimeTools.convertPeriodToString(idleTime, TimeUnit.SECONDS));
+                disconnect();
+                state = STATE.IDLE;
+            }
+        } else {
+            Logger.debug(id + "(id) -> Waiting for max age to pass...");
+            if (!simpleQueries.isEmpty()) {
+                long age = (Instant.now().toEpochMilli() - firstSimpleStamp) / 1000;
+                Logger.debug(id + "(id) -> Age of simple: " + age + "s versus max: " + maxAge);
+                if (age > maxAge) {
+                    state = STATE.FLUSH_REQ;
+                    Logger.info(id + "(id) -> Requesting simple flush because of age");
+                }
+            }
+            if (tables.values().stream().anyMatch(t -> t.getRecordCount() != 0)) {
+                long age = (Instant.now().toEpochMilli() - firstPrepStamp) / 1000;
+                Logger.debug(id + "(id) -> Age of prepared: " + age + "s");
+                if (age > maxAge) {
+                    state = STATE.FLUSH_REQ;
+                }
+            }
+            idleCount = 0;
+        }
+    }
+
+    private void doIdle() {
+        if (hasRecords()) { // If it has records
+            if (connect(false)) { // try to connect but don't reconnect if connected
+                state = STATE.HAS_CON; // connected
+            } else {
+                state = STATE.NEED_CON; // connection failed
+            }
+        }
+    }
+
+    private void doNeedCon() {
+        Logger.info(id + " -> Need con, trying to connect...");
+        if (connect(false)) {
+            if (hasRecords()) { // If it is connected and has records
+                state = STATE.HAS_CON;
+                Logger.info(id + " -> Got a connection.");
+            } else {  // Has a connection but doesn't need it anymore
+                state = STATE.IDLE;
+                Logger.info(id + " -> Got a connection, but don't need it anymore...");
+            }
+        }
+    }
     // @SuppressWarnings("SQLInjection")
-    protected boolean readTable(Connection con, String query, Consumer<ResultSet> action) {
+    protected void readTable(Connection con, String query, Consumer<ResultSet> action) {
         try (Statement stmt = con.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 
             if (rs == null) {
-                return false;
+                return;
             }
 
             while (rs.next())
@@ -791,9 +820,7 @@ public class SQLDB extends Database implements TableInsert{
 
         } catch (SQLException e) {
             Logger.error(id() + " -> Error during table read: " + e.getErrorCode());
-            return false;
         }
-        return true;
     }
     /**
      * Execute the simple queries one by one

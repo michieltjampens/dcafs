@@ -6,9 +6,9 @@ import io.Writable;
 import io.collector.StoreCollector;
 import io.forward.*;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
-import org.tinylog.Logger;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
@@ -428,7 +428,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
             if( db == null )
                 return "! Invalid db type: "+cmds[0];
             cmds[0]=cmds[0].toUpperCase();
-            db.setID(id);
+            db.id(id);
             if( db.connect(false) ){
                 db.getCurrentTables(false);
                 db.writeToXml( XMLfab.withRoot(Paths.settings(),"dcafs","databases"));
