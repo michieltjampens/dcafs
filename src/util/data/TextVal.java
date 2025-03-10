@@ -190,11 +190,9 @@ public class TextVal extends AbstractVal{
                    return true;
                }
             }
-            if( keepOrignal !=null){
-                if( value.matches(keepOrignal)) {
-                    value(value);
-                    return true;
-                }
+            if (keepOrignal != null && value.matches(keepOrignal)) {
+                value(value);
+                return true;
             }
             Logger.error(id() +" -> Failed to (regex) parse "+value);
             return false;

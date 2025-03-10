@@ -1,12 +1,12 @@
 package io.forward;
 
-import util.data.RealtimeValues;
-import util.data.RealVal;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.data.NumericVal;
+import util.data.RealVal;
+import util.data.RealtimeValues;
 import util.gis.GisTools;
 import util.math.Calculations;
 import util.math.MathFab;
@@ -387,8 +387,7 @@ public class MathForward extends AbstractForward {
             return true;
         }
         if( badDataCount % 60 == 0 ) {
-            if(badDataCount < 900 || badDataCount%600==0){
-                if( !error.isEmpty())
+            if ((badDataCount < 900 || badDataCount % 600 == 0) && !error.isEmpty()) {
                     Logger.error(id+" (mf) -> "+error);
             }
             return true;

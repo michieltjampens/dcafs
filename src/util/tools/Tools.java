@@ -471,10 +471,10 @@ public class Tools {
                 if ((p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
                     join.add(iface.getDisplayName() + " -> " + p + " [" + mac + "]");
             } else {
-                if (iface.getDisplayName().equalsIgnoreCase(displayName)) {
-                    if ((p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
+                if (iface.getDisplayName().equalsIgnoreCase(displayName) &&
+                        (p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
                         return p;
-                }
+
             }
         }
         return join.toString();

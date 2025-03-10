@@ -297,11 +297,9 @@ public class PathCmds {
         return "Cmd added";
     }
     private static String doStoreBranch( String[] cmds ){
-            if (cmds.length == 3) {
-                if (cmds[2].equals("?")) { // So request for info?
-                    var res = StoreCmds.replyToCommand("?", false );
-                    return res.replace("store:streamid,", "pf:" + cmds[0] + ",store,");
-                }
+        if (cmds.length == 3 && cmds[2].equals("?")) { // So request for info?
+            var res = StoreCmds.replyToCommand("?", false);
+            return res.replace("store:streamid,", "pf:" + cmds[0] + ",store,");
             }
             if( cmds.length < 4 )
                 return "! Not enough arguments, need at least 4: pf:pathid,store,cmd,value(s)";

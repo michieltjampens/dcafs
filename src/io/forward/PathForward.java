@@ -306,10 +306,8 @@ public class PathForward {
 
     public String toString(){
         var join = new StringJoiner("\r\n");
-        if( customs.isEmpty() ){
-            if( stepsForward==null||stepsForward.isEmpty())
-                return "Nothing in the path yet";
-        }
+        if (customs.isEmpty() && stepsForward == null || stepsForward.isEmpty())
+            return "Nothing in the path yet";
 
         customs.forEach(c->join.add(c.toString()));
         if(stepsForward!=null) {
@@ -545,7 +543,7 @@ public class PathForward {
             if( pathOrData!=null)
                 shortData = pathOrData.substring(0,pathOrData.length()>20?20:pathOrData.length()-1);
 
-            var interval = TimeTools.convertPeriodtoString(intervalMillis,TimeUnit.MILLISECONDS);
+            var interval = TimeTools.convertPeriodToString(intervalMillis, TimeUnit.MILLISECONDS);
             return switch( srcType ){
                 case REG,PLAIN,RTVALS -> "Shows "+shortData+" every "+interval;
                 case CMD -> "Show result of '"+shortData+"' every "+interval;

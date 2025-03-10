@@ -31,7 +31,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -233,10 +236,8 @@ public class MatrixClient implements Writable, Commandable {
                                 if (!first) {
                                     try {
                                         var b = body.getJSONObject("device_one_time_keys_count");
-                                        if (b != null) {
-                                            if (b.getInt("signed_curve25519") == 0) {
-                                                //  keyClaim();
-                                            }
+                                        if (b != null && b.getInt("signed_curve25519") == 0) {
+                                            //  keyClaim();
                                         }
                                         processRoomEvents(body);
                                     } catch (org.json.JSONException e) {

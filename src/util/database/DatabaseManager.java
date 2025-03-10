@@ -570,34 +570,32 @@ public class DatabaseManager implements QueryWriting, Commandable {
         String[] cmds = args.split(",");
         if( payload==null)
             return "! No valid payload given with "+cmd+":"+args;
-        if( cmds.length>=2) {
-            if (cmds[1].equals("tableinsert")) {
-                if (cmds.length < 3)
-                    return "! Not enough arguments, needs to be dbm:dbid,tableinsert,tableid";
-                var dbOpt = getDatabase(cmds[0]);
-                if( dbOpt.isEmpty() ) {
-                    Logger.error(cmd+":"+args+" -> Failed because no such database: "+cmds[0]);
-                    return "! No such database: " + cmds[0];
-                }
-                var db = dbOpt.get();
-                var tiOpt = db.getTableInsert(cmds[2]);
-                if( tiOpt.isEmpty()) {
-                    var id="";
-                    if( payload instanceof AbstractForward af ){
-                        id = af.id();
-                    }
-                    Logger.error( "dbm payload -> No table '"+cmds[2]+"' in "+cmds[0]+ " requested by "+id);
-                    return "! No such table id " + cmds[2] + " in " + cmds[0];
-                }
-                if( payload.getClass() == MathForward.class ||  payload.getClass() == EditorForward.class
-                        || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class ){
-                    ((AbstractForward)payload).addTableInsert(tiOpt.get());
-                    return "TableInsert added";
-                }else if( payload.getClass() == StoreCollector.class ){
-                    ((StoreCollector)payload).addTableInsert(tiOpt.get());
-                }
-                return "! Payload isn't the correct object type for "+cmd+":"+args;
+        if (cmds.length >= 2 && cmds[1].equals("tableinsert")) {
+            if (cmds.length < 3)
+                return "! Not enough arguments, needs to be dbm:dbid,tableinsert,tableid";
+            var dbOpt = getDatabase(cmds[0]);
+            if (dbOpt.isEmpty()) {
+                Logger.error(cmd + ":" + args + " -> Failed because no such database: " + cmds[0]);
+                return "! No such database: " + cmds[0];
             }
+            var db = dbOpt.get();
+            var tiOpt = db.getTableInsert(cmds[2]);
+            if (tiOpt.isEmpty()) {
+                var id = "";
+                if (payload instanceof AbstractForward af) {
+                    id = af.id();
+                }
+                Logger.error("dbm payload -> No table '" + cmds[2] + "' in " + cmds[0] + " requested by " + id);
+                return "! No such table id " + cmds[2] + " in " + cmds[0];
+            }
+            if (payload.getClass() == MathForward.class || payload.getClass() == EditorForward.class
+                    || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class) {
+                ((AbstractForward) payload).addTableInsert(tiOpt.get());
+                return "TableInsert added";
+            } else if (payload.getClass() == StoreCollector.class) {
+                ((StoreCollector) payload).addTableInsert(tiOpt.get());
+            }
+            return "! Payload isn't the correct object type for " + cmd + ":" + args;
         }
         return "! No such command " + cmd + ": " + args;
     }

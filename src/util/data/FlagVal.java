@@ -160,24 +160,16 @@ public class FlagVal extends AbstractVal implements NumericVal{
     @Override
     public boolean parseValue(String state) {
         state=state.toLowerCase();
-        if( TRUE.isEmpty() ){
-            if( !trueRegex.isEmpty() ) {
-                if (state.matches(trueRegex)) {
-                    value(true);
-                    return true;
-                }
-            }
+        if (TRUE.isEmpty() && !trueRegex.isEmpty() && state.matches(trueRegex)) {
+            value(true);
+            return true;
         }else if( TRUE.contains(state) ) {
             value(true);
             return true;
         }
-        if( FALSE.isEmpty() ){
-            if( !falseRegex.isEmpty() ) {
-                if (state.matches(falseRegex)) {
-                    value(false);
-                    return true;
-                }
-            }
+        if (FALSE.isEmpty() && !falseRegex.isEmpty() && state.matches(falseRegex)) {
+            value(false);
+            return true;
         }else if( FALSE.contains(state)) {
             value(false);
             return true;
