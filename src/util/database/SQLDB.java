@@ -37,6 +37,8 @@ public class SQLDB extends Database implements TableInsert{
 
     ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1); // Scheduler for queries
     Path workPath;
+
+    protected boolean doInserts = true;
     /**
      * Prepare connection to one of the supported databases
      * @param type The type of database
@@ -490,10 +492,18 @@ public class SQLDB extends Database implements TableInsert{
             return Optional.empty();
         return Optional.of( this );
     }
+
+    public void setDoInserts(boolean doInserts) {
+        this.doInserts = doInserts;
+        Logger.info(id() + "(dbm) -> Allowing inserts? " + doInserts);
+    }
     public void buildStores( RealtimeValues rtvals ){
         tables.values().forEach(x->x.buildStore(rtvals));
     }
     public synchronized boolean insertStore(String[] dbInsert ) {
+        if (!doInserts)
+            return true;
+
         if( !id.equalsIgnoreCase(dbInsert[0])) {
             Logger.warn(id+"(db) -> Mismatch between insert id and current db");
             return false;

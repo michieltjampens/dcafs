@@ -11,6 +11,7 @@ import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.tools.FileTools;
 import util.tools.TimeTools;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
@@ -373,6 +374,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 .add("dbm:id,tables -> Get info about the given id (tables etc)")
                 .add("dbm:id,fetch -> Read the tables from the database directly, not overwriting stored ones.")
                 .add("dbm:id,store,tableid -> Trigger a insert for the database and table given")
+                .add("dbm:id,doinserts,true/false -> Disable or enable inserts from stores.")
                 .add("Other")
                 .add("dbm:id,addrollover,period,pattern -> Add rollover with the given period to a SQLite database (period should be a single unit")
                 .add("dbm:id,coltypes,table -> Get a list of the columntypes in the table, only used internally")
@@ -563,6 +565,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
             }
             case "prep" -> buildPrep(cmds[0],cmds[2],Arrays.copyOfRange(cmds,3,cmds.length))?"Wrote record":"! Failed to write record";
             case "coltypes" ->  db.getTable(cmds[2]).map(SqlTable::getColumnTypes).orElse("! No such table: "+cmds[2]);
+            case "doinserts" -> {
+                var alter = Tools.parseBool(cmds[2], true);
+                db.setDoInserts(alter);
+                yield "Set do inserts for " + db.id() + " to " + alter;
+            }
             default -> "! No such subcommand in " + cmd + ": " + cmds[0];
         };
     }
