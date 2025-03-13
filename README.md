@@ -14,48 +14,47 @@ The 'Getting Started' guide, is available [here](https://github.com/michieltjamp
 
 Supports data collection from a variety of sources:
 
-* **Local hardware:** Serial/TTY, I2C, and files
-* **Network-based:** TCP/UDP (both server and client), MQTT (client)
-* **Internet:** Email and Matrix
+* **Local hardware:** Serial/TTY, I2C, and files.
+* **Network-based:** TCP/UDP (both server and client), MQTT (client).
+* **Internet:** Email and Matrix.
 
 ## Data Alteration & Filtering
 
 Configure the path of the collected data through various modules or steps:
 
-* **Line filtering:** Exclude unwanted data or lines based on specific criteria
-* **String operations:** Modify or format data using regex or custom string manipulation
-* **Mathematical operations:** Apply complex calculations to numeric data
+* **Line filtering:** Exclude unwanted data or lines based on specific criteria.
+* **String operations:** Modify or format data using regex or custom string manipulation.
+* **Mathematical operations:** Apply complex calculations to numeric data.
 
 ## Data Forwarding
 
 Flexible routing of data, including:
 
-* **Return to origin:** Send (altered) data back to its original source
-* **Protocol conversion:** Or over any other link, such as serial to TCP
+* **Return to origin:** Send (altered) data back to its original source.
+* **Protocol conversion:** Or over any other link, such as serial to TCP.
 * **Multi-destination support:** Why limit to a single destination?
 
 ## Data Storage
 
 Store (processed) data in various formats:
 
-* **Memory:** Data is initially stored in memory, allowing fast access and processing before being committed to any
-  persistent storage
+* **Memory:** Data is initially parsed and stored in memory.
 * **Log files:** Data can be saved in timestamped .log files, providing a simple and accessible history of raw or
-  altered data
-* **SQLite:** Stores data locally in a SQLite database, with automatic database and table creation
+  altered data.
+* **SQLite:** Stores data locally in a SQLite database, with automatic database and table creation.
 * **Server-based databases:** Supports MariaDB, MySQL, PostgreSQL, and MSSQL, automatically creating and reading the
-  table structure (but not querying data)
+  table structure (but not querying data).
 * **MQTT:** Data can be sent back to an MQTT broker, enabling real-time data forwarding and integration with other
-  systems
+  systems.
 * **Email:** An email inbox is technically a storage...
 
 ## Scheduling
 
 Handled by the Task Manager, provides flexibility through tasks consisting of:
 
-* **Trigger:** Based on delay, interval, or time of day (on a specified weekday)
-* **Action:** Send data to a source, send an email, or execute a user command
-* **Additional Conditions:** Requirements based on real-time data or repeat until conditions are met
+* **Trigger:** Based on delay, interval, or time of day (on a specified weekday).
+* **Action:** Send data to a source, send an email, or execute a user command.
+* **Additional Conditions:** Requirements based on real-time data or repeat until conditions are met.
 
 ## Triggering
 
