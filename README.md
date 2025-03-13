@@ -2,21 +2,103 @@ dcafs
 =========
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
 
-A tool that takes care of all the nitty-gritty that needs to be done when a sensor has generated data and you want to find that data in a database.  If the device needs to be interrogated or any other sort of control, that's also possible.   
+A tool that takes care of all the 'nitty-gritty' involved in getting sensor data into a database or plain text.
+It also supports device interrogation and control.
 
-It doesn't use a lot of resources (around 30MB RAM excl JVM, 24MB install with all libs), works headless via SSH/Telnet but lacks a GUI.  
-Once it has been set up, projects like [Grafana](https://grafana.com/) can be used to display data.  
+It's lightweight and works headless, with control via Telnet, Matrix, or, if you have the patience, email.  
+Once set up, projects like [Grafana](https://grafana.com/) can be used to display data, or you can keep it simple.
 
-The 'Getting Started' guide, can be read [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
+The 'Getting Started' guide, is available [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
 
-## Main features
-* Collect data from TCP, UDP, MQTT broker, serial/tty, I2C, SPI, email, ascii files, Matrix
-* Alter with string and math operations, or filter out lines
-* Return (altered) back to origin, or forward to any other known destination
-* Store (processed) data in SQLite (dcafs will create the db), MariaDB, MySQL, PostgreSQL and MSSQL (dcafs can 
-create/read the table structure) while additionally raw/altered data can be kept in (timestamped) .log files
-* XML based scheduling engine capable of interacting with all connected sources and respond to realtime data
-* Single control pipeline that can be accessed via telnet, email or the earlier mentioned scheduling engine
+## Data Collection
+
+Supports data collection from a variety of sources:
+
+* **Local hardware:** Serial/TTY, I2C, and files
+* **Network-based:** TCP/UDP (both server and client), MQTT (client)
+* **Internet:** Email and Matrix
+
+## Data Alteration & Filtering
+
+Configure the path of the collected data through various modules or steps:
+
+* **Line filtering:** Exclude unwanted data or lines based on specific criteria
+* **String operations:** Modify or format data using regex or custom string manipulation
+* **Mathematical operations:** Apply complex calculations to numeric data
+
+## Data Forwarding
+
+Flexible routing of data, including:
+
+* **Return to origin:** Send (altered) data back to its original source
+* **Protocol conversion:** Or over any other link, such as serial to TCP
+* **Multi-destination support:** Why limit to a single destination?
+
+## Data Storage
+
+Store (processed) data in various formats:
+
+* **Memory:** Data is initially stored in memory, allowing fast access and processing before being committed to any
+  persistent storage
+* **Log files:** Data can be saved in timestamped .log files, providing a simple and accessible history of raw or
+  altered data
+* **SQLite:** Stores data locally in a SQLite database, with automatic database and table creation
+* **Server-based databases:** Supports MariaDB, MySQL, PostgreSQL, and MSSQL, automatically creating and reading the
+  table structure (but not querying data)
+* **MQTT:** Data can be sent back to an MQTT broker, enabling real-time data forwarding and integration with other
+  systems
+* **Email:** An email inbox is technically a storage...
+
+## Scheduling
+
+Handled by the Task Manager, provides flexibility through tasks consisting of:
+
+* **Trigger:** Based on delay, interval, or time of day (on a specified weekday)
+* **Action:** Send data to a source, send an email, or execute a user command
+* **Additional Conditions:** Requirements based on real-time data or repeat until conditions are met
+
+## Triggering
+
+Automate everything a user could do or the tasks mentioned earlier:
+
+* **Directly:** Trigger actions through Telnet, email, or Matrix commands.
+* **Real-time data:** Trigger based on logical operations on real-time data, such as exceeding thresholds or meeting
+  conditions.
+* **Hardware events:** Respond to events such as a source disconnecting, being idle, (re)connecting, or even GPIO
+  events.
+* **Geofencing:** Trigger actions when entering or leaving a specified area, such as a four-corner zone or circular
+  zone, with an optional bearing check for the circular zone.
+
+These triggers allow for complex automation of tasks, enabling dcafs to respond to a wide range of conditions and
+events, both from the software and the hardware side.
+
+## Configuration via XML: Simple (Opinion) and Powerful
+
+At the heart of dcafs is its command functionality, made possible by configuring everything seen so far through
+flexible XML files. Although it might seem complex at first, this approach offers powerful control and easy automation,
+making it adaptable to a wide range of use cases.
+
+## Use Cases
+
+### As a Tool
+
+* **Device Control and Monitoring:** Schedule tasks to interact with devices or add hardware to control pumps,
+  solenoids, or other equipment based on time, sensor data, or geofencing events.
+* **Flexible Data Forwarding:** Put a serial device on the network or sniff its traffic to reverse engineer
+  communication protocols, enabling seamless integration with other systems or remote monitoring.
+
+### As a Logging Platform
+
+* **At Home:** Start small—run everything on a Raspberry Pi, logging data from MQTT-connected sensors, all stored in a
+  lightweight database. Perfect for local, simple setups.
+* **In the Field:** Still on a Raspberry Pi (or similar small device), now you're collecting environmental data during
+  trips or fieldwork, uploading it to a central server for analysis, without the need for a full-scale server setup.
+* **On a Research Vessel:** Transition to something bigger—on a server, you handle more complex data streams from a
+  range of sensors. The system tracks and analyzes real-time data, all while supporting remote access and continuous
+  logging.
+* **On a Buoy:** Back to low power—now you’ve got a system running on a buoy, autonomously collecting and transmitting
+  data without the need for large servers, operating efficiently on minimal power in remote environments.
+* **In Deep Space:** Vast distances—well a "tiny" nuclear cell might be necessary... but it is possible?
 
 ## Installation
 * Make sure you have _at least_ java17 installed. If not, [download and install java 17](https://adoptium.net/)
@@ -107,6 +189,8 @@ Meanwhile, in the background, the settings.xml was updated as follows:
   </streams>
 </dcafs>
 ````
-Sending 'help' in the telnet interface should provide enough information for the next recommended steps but for more indepth and extensive information, check the docs/wiki.   
+
+Sending `help` in the telnet interface should provide a list of available commands and guidance on
+the next recommended steps. For more in-depth and extensive information, check the docs folder in the repo.
 
 Oh, and the command `sd` shuts it down.
