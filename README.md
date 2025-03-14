@@ -15,7 +15,7 @@ The 'Getting Started' guide, is available [here](https://github.com/michieltjamp
 Supports data collection from a variety of sources:
 
 * **Local hardware:** Serial/TTY, I2C, and files.
-* **Network-based:** TCP/UDP (both server and client), MQTT (client).
+* **Network-based:** TCP/UDP (both server and client), MODBUS(ascii), MQTT (client).
 * **Internet:** Email and Matrix.
 
 ## Data Alteration & Filtering
