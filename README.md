@@ -5,7 +5,8 @@ dcafs
 A tool that takes care of all the 'nitty-gritty' involved in getting sensor data into a database or plain text file.
 It also supports device interrogation/querying and control.
 
-It's lightweight and works headless, with control via Telnet, [Matrix][Matrix], or -if you have the patience- email.  
+It's lightweight and works headless, with control via Telnet, [Matrix](https://matrix.org/), or -if you have the
+patience- email.  
 Once set up, viewing data is possible by:
 
 * using a project like [Grafana](https://grafana.com/) to display data in real time, 
@@ -21,7 +22,7 @@ Dcafs supports data collection from a variety of sources:
 
 * **Local instrumentation:** Serial/TTY, I2C, SPI and files (can be used as passthrough from other logging systems).
 * **Network-based (LAN):** TCP/UDP (both server and client), MODBUS(ascii), MQTT (client).
-* **Internet (WAN):** Email and [Matrix][Matrix].
+* **Internet (WAN):** Email and [Matrix](https://matrix.org/).
 
 ## Data in-place processing & Filtering
 
@@ -201,5 +202,4 @@ the next recommended steps. For more in-depth and extensive information, check:
 
 Oh, and the command `sd` shuts it down.
 
-[Matrix]:matrix.org
 [The tutorial]:docs/README.md
