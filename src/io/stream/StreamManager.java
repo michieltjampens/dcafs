@@ -6,6 +6,9 @@ import io.Writable;
 import io.collector.CollectorFuture;
 import io.collector.ConfirmCollector;
 import io.collector.StoreCollector;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.stream.serialport.ModbusStream;
 import io.stream.serialport.MultiStream;
 import io.stream.serialport.SerialStream;
@@ -14,9 +17,6 @@ import io.stream.tcp.TcpServerStream;
 import io.stream.tcp.TcpStream;
 import io.stream.udp.UdpServer;
 import io.stream.udp.UdpStream;
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.lang3.StringUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -30,7 +30,6 @@ import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -138,10 +137,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				join.add( tss.getClientCount()+" client(s)" ).add("\r\n");
 			}else if (stream.getLastTimestamp() == -1) {
 				join.add("No data yet! ");
-				join.add(" [").add(TimeTools.convertPeriodtoString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
+				join.add(" [").add(TimeTools.convertPeriodToString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
 			} else {
-				join.add(TimeTools.convertPeriodtoString(ttl, TimeUnit.MILLISECONDS)).add(" [");
-				join.add(TimeTools.convertPeriodtoString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
+				join.add(TimeTools.convertPeriodToString(ttl, TimeUnit.MILLISECONDS)).add(" [");
+				join.add(TimeTools.convertPeriodToString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
 			}
 		}
 		return join.toString();
@@ -698,7 +697,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		join.add("Manages all the streams: adding, checking, writing etc.");
 		join.add("Add new streams")
 				.add( "ss:addtcp,id,ip:port -> Add a TCP stream to xml and try to connect")
-				.add( "ss:addudp,id,ip:port -> Add a UDP stream to xml and connect")
+				.add("ss:addudp,id,ip:port -> Add a UDP stream to xml and try to connect")
 				.add( "ss:addserial,id,port,baudrate -> Add a serial stream to xml and try to connect")
 				.add( "ss:addlocal,id,source -> Add a internal stream that handles internal data");
 		join.add( "Info about all streams")
