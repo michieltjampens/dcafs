@@ -102,7 +102,7 @@ public class TriggerBlock extends AbstractBlock{
 
         if( time!=null ) {
             interval_ms = calcTimeDelaySeconds();
-            Logger.info("Next time event: "+TimeTools.convertPeriodtoString(interval_ms,TimeUnit.SECONDS));
+            Logger.info("Next time event: " + TimeTools.convertPeriodToString(interval_ms, TimeUnit.SECONDS));
         }
         if(interval_ms==-1){
             Logger.error("Invalid interval time, not starting");
@@ -214,8 +214,8 @@ public class TriggerBlock extends AbstractBlock{
         return Duration.between( now, triggerTime ).getSeconds();
     }
     public String toString(){
-        String interval = TimeTools.convertPeriodtoString(interval_ms,TimeUnit.MILLISECONDS);
-        String delay = TimeTools.convertPeriodtoString(delay_ms,TimeUnit.MILLISECONDS);
+        String interval = TimeTools.convertPeriodToString(interval_ms, TimeUnit.MILLISECONDS);
+        String delay = TimeTools.convertPeriodToString(delay_ms, TimeUnit.MILLISECONDS);
         delay = "which, after a delay of "+delay+", starts";
         switch(trigType){
             case CLOCK: return "Clock Trigger scheduled for "+ori.split(":")[1];

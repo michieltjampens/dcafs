@@ -15,9 +15,11 @@ import worker.Datagram;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetSocketAddress;
-import java.nio.file.Path;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -360,7 +362,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			time = TelnetCodes.TEXT_ORANGE+TimeTools.formatUTCNow(ts?format:"yyyy-MM-dd HH:mm:ss.SSS")+"   "+TelnetCodes.TEXT_DEFAULT;
 		if( es ) {
 			if( elapsed != -1){
-				time = TelnetCodes.TEXT_ORANGE+TimeTools.convertPeriodtoString(Instant.now().toEpochMilli()-elapsed, TimeUnit.MILLISECONDS)+"   "+TelnetCodes.TEXT_DEFAULT;
+				time = TelnetCodes.TEXT_ORANGE + TimeTools.convertPeriodToString(Instant.now().toEpochMilli() - elapsed, TimeUnit.MILLISECONDS) + "   " + TelnetCodes.TEXT_DEFAULT;
 			}
 			elapsed=Instant.now().toEpochMilli();
 		}

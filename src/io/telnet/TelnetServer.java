@@ -18,8 +18,6 @@ import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.tools.TimeTools;
 import util.tools.Tools;
-import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.nio.file.Path;
@@ -109,7 +107,7 @@ public class TelnetServer implements Commandable {
                         handler.setDefaultColor(defColor);
                         var time = Tools.getLastRawAge(tinylogPath);
                         if( time>maxAge){
-                            handler.addOneTime("Raw data is older then allowed! Something wrong with tinylog? Age:"+ TimeTools.convertPeriodtoString(time, TimeUnit.SECONDS));
+                            handler.addOneTime("Raw data is older then allowed! Something wrong with tinylog? Age:" + TimeTools.convertPeriodToString(time, TimeUnit.SECONDS));
                         }
                         messages.forEach(handler::addOneTime);
                         writables.add(handler.getWritable());

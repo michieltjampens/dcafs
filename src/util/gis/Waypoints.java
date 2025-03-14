@@ -2,10 +2,10 @@ package util.gis;
 
 import das.Commandable;
 import das.Paths;
-import util.LookAndFeel;
-import util.data.RealVal;
 import io.Writable;
 import org.tinylog.Logger;
+import util.LookAndFeel;
+import util.data.RealVal;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -13,9 +13,12 @@ import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
-import java.nio.file.Path;
-import java.time.*;
-import java.util.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -219,11 +222,11 @@ public class Waypoints implements Commandable {
             b.add( wp.getInfo(newline) );
             b.add( wp.toString(false, true, sog.asDoubleValue()) ).add("");
         }
-        var age = TimeTools.convertPeriodtoString(Duration.between(lastCheck,OffsetDateTime.now(ZoneOffset.UTC)).getSeconds(),TimeUnit.SECONDS);
+        var age = TimeTools.convertPeriodToString(Duration.between(lastCheck, OffsetDateTime.now(ZoneOffset.UTC)).getSeconds(), TimeUnit.SECONDS);
 
         b.add("Time since last travel check: "+age+" (check interval: "+CHECK_INTERVAL+"s)");
         if( lastThreadCheck!=null) {
-            var ageThread = TimeTools.convertPeriodtoString(Duration.between(lastThreadCheck, Instant.now()).getSeconds(), TimeUnit.SECONDS);
+            var ageThread = TimeTools.convertPeriodToString(Duration.between(lastThreadCheck, Instant.now()).getSeconds(), TimeUnit.SECONDS);
             b.add("Time since last thread check: " + ageThread + " (check interval: 1h)");
         }else{
             b.add("No thread check done yet (check interval: 1h)");

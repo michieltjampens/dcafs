@@ -196,7 +196,7 @@ public class Waypoint implements Comparable<Waypoint>{
 		if( sog != 0.0 ){
 			sec = (int)(lastDist/(sog*0.514444444));
 			if( sec > 0 ){
-				suffix=" ("+TimeTools.convertPeriodtoString(sec, TimeUnit.SECONDS)+").";				
+				suffix = " (" + TimeTools.convertPeriodToString(sec, TimeUnit.SECONDS) + ").";
 			}
 		}
 		if( lastDist != -1)

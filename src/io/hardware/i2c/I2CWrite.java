@@ -72,7 +72,7 @@ public class I2CWrite implements I2COp{
     }
     @Override
     public String toString(){
-        String info = delay==0?"":"Wait for "+TimeTools.convertPeriodtoString(delay, TimeUnit.MILLISECONDS)+" then, ";
+        String info = delay == 0 ? "" : "Wait for " + TimeTools.convertPeriodToString(delay, TimeUnit.MILLISECONDS) + " then, ";
         return info+"Write "+Tools.fromBytesToHexString(write.data)+" to reg "+write.reg;
     }
 

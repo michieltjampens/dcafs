@@ -213,7 +213,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if( subscriptions.isEmpty() )
 			return "No active subscriptions"+nl;
 
-		var ttlInfo = ttl>0?" [ttl:"+TimeTools.convertPeriodtoString(ttl,TimeUnit.MILLISECONDS)+"]":"";
+		var ttlInfo = ttl > 0 ? " [ttl:" + TimeTools.convertPeriodToString(ttl, TimeUnit.MILLISECONDS) + "]" : "";
 
 		StringJoiner join = new StringJoiner(nl,"  Subs"+ttlInfo+nl,nl);
 		boolean toggle=false; // Toggle between gray or yellow line
@@ -240,7 +240,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			if( subsRecStamp.get(a)<0 ) {
 				suffix = (old?TelnetCodes.TEXT_RED:TelnetCodes.TEXT_ORANGE)+"[-1]";
 			}else{
-				suffix = (old?TelnetCodes.TEXT_RED:"")+"["+TimeTools.convertPeriodtoString(passed,TimeUnit.MILLISECONDS)+"]";
+				suffix = (old ? TelnetCodes.TEXT_RED : "") + "[" + TimeTools.convertPeriodToString(passed, TimeUnit.MILLISECONDS) + "]";
 			}
 
 			// Put it all together, add spaces between depending on the length of the longest sub

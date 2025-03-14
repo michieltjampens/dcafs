@@ -10,8 +10,12 @@ import util.xml.XMLfab;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.*;
-import java.time.*;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -129,10 +133,10 @@ public class SQLiteDB extends SQLDB{
             if( rollOverFuture==null ){
                 join.add( " -> No proper rollover determined..." );
             }else {
-                join.add(" ->  rollover in " + TimeTools.convertPeriodtoString(rollOverFuture.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS));
+                join.add(" ->  rollover in " + TimeTools.convertPeriodToString(rollOverFuture.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS));
             }
         }
-        join.add( " ["+TimeTools.convertPeriodtoString(time,TimeUnit.SECONDS)+"]");
+        join.add(" [" + TimeTools.convertPeriodToString(time, TimeUnit.SECONDS) + "]");
         if( insertErrors!=0)
             join.add( " errors:"+insertErrors);
         join.add(isValid(1)?"":" (NC)");
@@ -269,10 +273,10 @@ public class SQLiteDB extends SQLDB{
      * @param fab A Xmlfab pointing to the databases node as root
      */
     public void writeToXml( XMLfab fab ){
-        String flush = TimeTools.convertPeriodtoString(maxAge, TimeUnit.SECONDS);
+        String flush = TimeTools.convertPeriodToString(maxAge, TimeUnit.SECONDS);
         String idle = "-1";
         if( idleTime!=-1)
-            idle = TimeTools.convertPeriodtoString(maxAge, TimeUnit.SECONDS);
+            idle = TimeTools.convertPeriodToString(maxAge, TimeUnit.SECONDS);
 
         fab.selectOrAddChildAsParent("sqlite","id", id).attr("path",dbPath.toString());
         if( hasRollOver() )
@@ -318,7 +322,7 @@ public class SQLiteDB extends SQLDB{
         long next = Duration.between(LocalDateTime.now(ZoneOffset.UTC),rolloverTimestamp).toMillis();
         if( next > 1000) {
             rollOverFuture = scheduler.schedule(new DoRollOver(true), next, TimeUnit.MILLISECONDS);
-            Logger.info(id+" -> Next rollover in "+TimeTools.convertPeriodtoString(rollOverFuture.getDelay(TimeUnit.SECONDS),TimeUnit.SECONDS));
+            Logger.info(id + " -> Next rollover in " + TimeTools.convertPeriodToString(rollOverFuture.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS));
         }else{
             Logger.error(id+" -> Bad rollover for "+rollCount+" counts and unit "+unit);
         }

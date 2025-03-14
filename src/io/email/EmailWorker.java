@@ -5,7 +5,6 @@ import das.Paths;
 import io.Writable;
 import io.collector.BufferCollector;
 import io.collector.CollectorFuture;
-import io.telnet.TelnetCodes;
 import jakarta.activation.*;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
@@ -332,9 +331,9 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			b.add( "Next inbox check in: Never,checker stopped");
 		}else{
 			b.add("Inbox check in: "
-					+TimeTools.convertPeriodtoString(checker.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS)
+					+ TimeTools.convertPeriodToString(checker.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS)
 					+"/"
-					+TimeTools.convertPeriodtoString(checkIntervalSeconds, TimeUnit.SECONDS)
+					+ TimeTools.convertPeriodToString(checkIntervalSeconds, TimeUnit.SECONDS)
 					+" Last ok: "+getTimeSincelastInboxConnection());
 		}
 		
@@ -346,7 +345,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	public String getTimeSincelastInboxConnection(){
 		if( lastInboxConnect == -1 )
 			return "never";
-		return TimeTools.convertPeriodtoString( Instant.now().toEpochMilli() - lastInboxConnect, TimeUnit.MILLISECONDS)+" ago";	
+		return TimeTools.convertPeriodToString(Instant.now().toEpochMilli() - lastInboxConnect, TimeUnit.MILLISECONDS) + " ago";
 	}
 	/**
 	 * Set the properties for sending emails
@@ -613,7 +612,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			retryQueue.add(email);
 		}else{
 			if( email.isFresh(maxEmailAgeInHours) ) { // If the email is younger than the preset age
-				Logger.info("Scheduling a successive retry after " + TimeTools.convertPeriodtoString(Math.min(30 * email.getAttempts(), 300), TimeUnit.SECONDS) + " with "
+				Logger.info("Scheduling a successive retry after " + TimeTools.convertPeriodToString(Math.min(30 * email.getAttempts(), 300), TimeUnit.SECONDS) + " with "
 						+ retryQueue.size() + " emails in retry queue");
 
 				retryFuture = scheduler.schedule(()-> sendEmail(email, true), Math.min(30 * email.getAttempts(), 300), TimeUnit.SECONDS);

@@ -1,6 +1,9 @@
 package io.hardware.i2c;
 
-import com.diozero.api.*;
+import com.diozero.api.DeviceAlreadyOpenedException;
+import com.diozero.api.DeviceBusyException;
+import com.diozero.api.I2CDevice;
+import com.diozero.api.RuntimeIOException;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -134,7 +137,7 @@ public class I2cDevice{
     }
 
     public String getStatus(){
-        String age = getAge()==-1?"Not used yet": TimeTools.convertPeriodtoString(getAge(), TimeUnit.SECONDS);
+        String age = getAge() == -1 ? "Not used yet" : TimeTools.convertPeriodToString(getAge(), TimeUnit.SECONDS);
         return (valid?"":"!!")+"I2C ["+id+"] "+getAddr()+"\t"+age+" [-1]";
     }
     /**

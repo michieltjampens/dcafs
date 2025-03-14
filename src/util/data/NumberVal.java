@@ -234,7 +234,7 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
             return line;
 
         if (timestamp != null)
-            return line + " Age: " + TimeTools.convertPeriodtoString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
+            return line + " Age: " + TimeTools.convertPeriodToString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
         return line + " Age: No updates yet.";
     }
 }

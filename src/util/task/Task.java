@@ -490,26 +490,26 @@ public class Task implements Comparable<Task>{
 		switch (triggerType) {
 			case CLOCK -> {
 				if (future != null) {
-					suffix = " scheduled at " + this.time + (utc ? " [UTC]" : "") + " next occurrence in " + TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
+					suffix = " scheduled at " + this.time + (utc ? " [UTC]" : "") + " next occurrence in " + TimeTools.convertPeriodToString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
 					if (future.getDelay(TimeUnit.SECONDS) < 0)
 						suffix = ".";
 				}
 			}
 			case DELAY -> {
-				suffix = " after " + TimeTools.convertPeriodtoString(startDelay, unit);
+				suffix = " after " + TimeTools.convertPeriodToString(startDelay, unit);
 				if (future == null) {
 					suffix += " [Not started]";
 				} else if (future.isDone()) {
 					suffix += " [Done]";
 				} else {
-					var delay = TimeTools.convertPeriodtoString(future.getDelay(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
+					var delay = TimeTools.convertPeriodToString(future.getDelay(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
 					suffix += " [Waiting... " + delay + "]";
 				}
 			}
 			case INTERVAL -> {
 				long next = future==null?-1:future.getDelay(TimeUnit.MILLISECONDS);
-				suffix = " every " + TimeTools.convertPeriodtoString(interval, unit) + (startDelay <= 0 ? "." : " after initial delay " + TimeTools.convertPeriodtoString(startDelay, unit))
-						+ (next<=0 ? "." : (" next occurrence in " + TimeTools.convertPeriodtoString(next, TimeUnit.MILLISECONDS)));
+				suffix = " every " + TimeTools.convertPeriodToString(interval, unit) + (startDelay <= 0 ? "." : " after initial delay " + TimeTools.convertPeriodToString(startDelay, unit))
+						+ (next <= 0 ? "." : (" next occurrence in " + TimeTools.convertPeriodToString(next, TimeUnit.MILLISECONDS)));
 			}
 			case KEYWORD -> suffix = " if " + keyword;
 			default -> {

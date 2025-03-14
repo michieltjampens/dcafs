@@ -9,27 +9,28 @@ import io.hardware.gpio.InterruptPins;
 import io.hardware.i2c.I2CWorker;
 import io.matrix.MatrixClient;
 import io.mqtt.MqttPool;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.stream.StreamManager;
-import util.LookAndFeel;
-import util.gis.Waypoints;
-import util.tools.FileMonitor;
 import io.stream.tcp.TcpServer;
 import io.telnet.TelnetCodes;
 import io.telnet.TelnetServer;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.lang3.SystemUtils;
 import org.tinylog.Logger;
 import org.tinylog.provider.ProviderRegistry;
+import util.LookAndFeel;
 import util.data.RealtimeValues;
-import util.database.*;
+import util.database.DatabaseManager;
+import util.gis.Waypoints;
 import util.task.TaskManagerPool;
+import util.tools.FileMonitor;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
-import worker.*;
+import worker.Datagram;
+import worker.LabelWorker;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -37,8 +38,12 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.StringJoiner;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class DAS implements Commandable{
 
@@ -277,7 +282,7 @@ public class DAS implements Commandable{
      * @return The active period in a readable string
      */
     public String getUptime() {
-        return TimeTools.convertPeriodtoString(Duration.between(bootupTimestamp, LocalDateTime.now()).getSeconds(),
+        return TimeTools.convertPeriodToString(Duration.between(bootupTimestamp, LocalDateTime.now()).getSeconds(),
                 TimeUnit.SECONDS);
     }
     /**
@@ -650,8 +655,8 @@ public class DAS implements Commandable{
         if( age == -1 ){
             rawAge = "!! Raw Age: No file yet!";
         }else{
-            var convert = TimeTools.convertPeriodtoString(age,TimeUnit.SECONDS);
-            var max = TimeTools.convertPeriodtoString(maxRawAge,TimeUnit.SECONDS);
+            var convert = TimeTools.convertPeriodToString(age, TimeUnit.SECONDS);
+            var max = TimeTools.convertPeriodToString(maxRawAge, TimeUnit.SECONDS);
             rawAge = (age>maxRawAge?"!! ":"") + "Raw Age: "+convert+"["+max+"]";
         }
         LookAndFeel.formatSplitStatusText( rawAge, report, html );
