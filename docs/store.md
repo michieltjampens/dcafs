@@ -66,7 +66,7 @@ The store would be created with (check `store:?` for syntax):
 
 * To add an integer: `store:meteo,addint,humidity,1`  
 * To alter the delimiter to : `store:meteo,delimiter,:`
-* Set the unit: `store:meteo,alterval,humidity,unit,%` (added in 2.3.3)
+* Set the unit: `store:meteo,alterval,humidity,unit,%`
 
 ```xml
 <stream id="meteo" type="tcp">
@@ -81,7 +81,7 @@ Or if not using index.
 ```xml
     <store group="meteo" delimiter=":">
         <ignore/> <!-- ignore the item at 0 -->
-        <int unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
+  <int unit="%">humidity</int> <!-- Use the item at index 1 for humidity -->
     </store>
 ```
 ### Multiline key:value pair data
@@ -94,17 +94,17 @@ winddir:320
 > Note: The delimiter doesn't have to be ':', it can be any character sequence. But no regex (for now).
 
 > Tip: This is probably a good time to use the 'repeat' function of the telnet interface. After using `store:meteo,!!`
-> that will be used as prefix for any following command untill `!!` is send.
+> that will be used as prefix for any following command until `!!` is sent.
 
 For this the `map` feature is used.
 * Switch to map mode: `store:meteo,map,yes` (or true,1,high)
 * Alter the delimiter: `store:meteo,delimiter,:`
 * Add the humidity: `store:meteo,addint,humidity,hum`
-* Set the unit: `store:meteo,alterval,humidity,unit,%` (added in 2.3.3)
+* Set the unit: `store:meteo,alterval,humidity,unit,%`
 * Add the temperature `store:meteo,addreal,temperature,temp`
-* Set the unit: `store:meteo,alterval,temperature,unit,°C`(added in 2.3.3)
+* Set the unit: `store:meteo,alterval,temperature,unit,°C`
 * Add the winddirection: `store:meteo,addint,winddir,winddir`
-* Set the unit: `store:meteo,alterval,winddir,unit,°`(added in 2.3.3)
+* Set the unit: `store:meteo,alterval,winddir,unit,°`
 
 ```xml
 <stream id="meteo" type="tcp">
@@ -123,10 +123,10 @@ The order of the val's doesn't have to match the sequence in which they arrive.
 
 **Writing to a database**
 
-The write values to a database the `db` attribute is used.  
+To write values to a database the `db` attribute is used.  
 The format is db="dbid:dbtable" multiple dbid's can be provided separated with a ','.
 
-What this does, is trigger an insert into the specified tables when the last val in the store is updated.  
+What this does, is trigger an insert into the specified table(s) when the last val in the store is updated.  
 This is why it might be important for key:pair data that the last pair received is also the last in the store.  
 Otherwise old and new data might get mixed.
 
@@ -139,8 +139,8 @@ To give a simple example:
           <table name="meteo"> <!-- creates a table named meteo -->
             <utcnow>timestamp</utcnow>
             <integer>humidity</integer>
-              <integer>winddir</integer>
-              <real>temperature</real>
+            <integer>winddir</integer>
+            <real>temperature</real>
           </table>
         </sqlite>
     </databases>
@@ -163,8 +163,22 @@ There are multiple ways to deal with rtvals if a stream is no longer sending dat
 - Check the timestamp to see if it's still relevant
 - Reset to default when the stream is idle
 
-For the second one, the `idlereset` attribute is adedd. Setting this to `idlereset="true"` will cause the store to 
+For the second one, the `idlereset` attribute is added. Setting this to `idlereset="true"` will cause the store to
 update the vals to their default value, if those are set...
+
+```xml
+
+<stream id="meteo" type="tcp">
+  <eol>crlf</eol>
+  <ttl>1m</ttl> <!-- TTL needs to be set so that it is known when the stream is idle -->
+  <address>localhost:4000</address>
+  <store idlereset="true" map="true" group="meteo" delimiter=":"> <!-- idlereset to true -->
+    <int key="hum" def="-1" unit="%">humidity</int>  <!-- def value filled in -->
+    <real key="temp" def="-999" unit="°C">temperature</real>
+    <int key="winddir" def="-1" unit="°">winddir</int>
+  </store>
+</stream>
+```
 
 **Calculations**
 
@@ -177,19 +191,6 @@ It's possible to do calculations with the values in a store.
       <!-- Instead of 'i' (for input) the letter 'o' is used -->  
       <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
 </store>
-```
-
-```xml
-<stream id="meteo" type="tcp">
-    <eol>crlf</eol>
-    <ttl>1m</ttl> <!-- TTL needs to be set so that it is known when the stream is idle -->
-    <address>localhost:4000</address>
-    <store idlereset="true" map="true" group="meteo" delimiter=":"> <!-- idlereset to true -->
-        <int key="hum" def="-1" unit="%">humidity</int>  <!-- def value filled in -->
-        <real key="temp" def="-999" unit="°C">temperature</real>
-        <int key="winddir" def="-1" unit="°">winddir</int>
-    </store>
-</stream>
 ```
 
 ## Inside a path node

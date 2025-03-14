@@ -1,5 +1,10 @@
 # Stream Manager
 
+This module is responsible for managing the various streams.
+
+* Attempt to reconnect when the connection is lost.
+* Provide commands to add, remove, alter streams or request data from them.
+
 ## Commands overview
 
 **Add new streams**
