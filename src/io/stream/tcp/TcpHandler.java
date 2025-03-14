@@ -1,13 +1,12 @@
 package io.stream.tcp;
 
-import io.stream.StreamListener;
 import io.Writable;
 import io.netty.channel.*;
 import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import io.stream.StreamListener;
 import org.tinylog.Logger;
-import util.data.ValStore;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
@@ -38,7 +37,6 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     protected List<Writable> targets;
 
     protected EventLoopGroup eventLoopGroup;
-    protected ValStore store;
 
     String eol="\r\n";
     boolean udp=false;
