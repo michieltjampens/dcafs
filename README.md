@@ -43,7 +43,7 @@ Flexible routing of data, including:
 
 Store (processed) data in various formats:
 
-* **Memory:** Data is initially parsed and stored in memory.
+* **Memory:** Data is initially parsed and stored [in memory](docs/rtvals.md).
 * **Log files:** Data can be saved in timestamped .log files, providing a simple and accessible history of raw or
   altered data.
 * **SQLite:** Stores data locally in a SQLite database, with automatic database and table creation.
