@@ -9,6 +9,17 @@ Note: Version numbering: x.y.z
 - Writing to db stopped for some reason for a store in i2c without any error messages etc
  - Might be caused by reloading store because this isn't propagated to db's.
 
+## 2.13.1 (wip)
+
+## General
+
+- Fixed 125 issues found by Codacy.
+- If a stream is disconnected messages are no longer logged every attempt
+
+## GIS
+
+- No longer possible to use duplicate id's for waypoints or geoquads.
+
 ## 2.13.0 (20/02/2025)
 ### Updated dependencies
 - Netty 4.1.112->4.1.118
