@@ -80,7 +80,7 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
 
             // Handle targets if there actually are any
             if( !targets.isEmpty() ){
-                targets.forEach( dt -> dt.writeLine(chunk) );
+                targets.forEach(dt -> dt.writeLine(id, chunk));
                 targets.removeIf( wr -> !wr.isConnectionValid() ); // Clear inactive
             }
 
