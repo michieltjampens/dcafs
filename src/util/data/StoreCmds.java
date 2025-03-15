@@ -93,6 +93,7 @@ public class StoreCmds {
                 .add("store:streamid,delimiter/delim,newdelimiter -> Change the delimiter of the store")
                 .add("store:streamid,db,dbids:table -> Alter the database/table ")
                 .add("store:streamid,map,true/false -> Alter the map attribute")
+                .add("store:streamid,idlereset,true/false -> Alter the idlereset attribute, if true rtvals are reset on idle.")
                 .add("store:streamid,group,newgroup -> Alter the default group used");
         join.add("Alter val attributes")
                 .add("store:streamid,alterval,valname,unit,value -> Set the unit attribute of the given val")
@@ -187,6 +188,14 @@ public class StoreCmds {
                 }
                 fab.attr("map", cmds[2]).build();
                 yield "Set map to '" + cmds[2] + "'";
+            }
+            case "idlereset" -> {
+                if (cmds.length < 3)
+                    yield "! Wrong amount of arguments -> " + prefix + "idlereset,true/false";
+                if (!Tools.isBoolean(cmds[2]))
+                    yield "! Not a valid boolean state: " + cmds[2];
+                fab.attr("idlereset", cmds[2]).build();
+                yield "Set the idlereset to '" + cmds[2] + "'";
             }
             case "group" -> {
                 if (cmds.length < 3)
