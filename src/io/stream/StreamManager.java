@@ -1125,6 +1125,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			((SerialStream)stream).flushBuffer();
 		}
 		stream.flagAsIdle();
+		stores.forEach(StoreCollector::doIdle);
 	}
 
 	@Override

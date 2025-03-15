@@ -71,6 +71,9 @@ public class StoreCollector extends AbstractCollector {
 
     }
 
+    public void doIdle() {
+        store.doIdle();
+    }
     /**
      * Retrieve the store this collector uses
      * @return An optional of the store
