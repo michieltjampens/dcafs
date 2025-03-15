@@ -730,8 +730,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				.add("ss:id,addcmd,when,data -> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
 				.add( "ss:id,echo,on/off -> Sets if the data received on this stream will be returned to sender");
 		join.add( "Route data from or to a stream")
-				.add( "ss:forward,source,id -> Forward the data from a source to the stream, source can be any object that accepts a writable")
-				.add( "ss:connect,id1,if2 -> Data is interchanged between the streams with the given id's")
+				.add("ss:streamid,request,requestcmd -> Requestcmd is the cmd you'd use in telnet to request the data, do this in name of the stream.")
+				.add("ss:id1,tunnel,id2 -> Data is interchanged between the streams with the given id's")
 				.add( "ss:id,send,data(,reply) -> Send the given data to the id with optional reply");
 		return LookAndFeel.formatCmdHelp(join.toString(),html);
 	}
@@ -905,7 +905,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				// Last bit could contain a ',' so combine everything from there onwards
 				var from = Arrays.copyOfRange(cmds,3,cmds.length);
 				var cmd = String.join(",",from);
-
+				fab.selectOrAddChildAsParent("triggered");
 				fab.addChild(cmds[1].substring(3), cmd).attr("when", cmds[2]).build();
 				stream.addTriggeredAction(cmds[2], cmd);
 				return "Added triggered " + cmds[1].substring(3) + " to " + cmds[0];
@@ -939,15 +939,18 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 				int s2_ok = getWritable(cmds[2]).map(wr -> addTargetRequest(cmds[0], wr) ? 1 : 0).orElse(-1);
 				if (s2_ok != 1)
-					return s2_ok == -1 ? "! No writable " + cmds[1] : "! No such source " + cmds[1];
-
-				return "Tunnel established between " + cmds[1] + " and " + cmds[2];
+					return s2_ok == -1 ? "! No writable " + cmds[2] : "! No such source " + cmds[2];
+				// Tunneling is essentially asking the data from the other one
+				dQueue.add(Datagram.system("ss:" + cmds[0] + ",addcmd,open,raw:" + cmds[2]));
+				dQueue.add(Datagram.system("ss:" + cmds[2] + ",addcmd,open,raw:" + cmds[0]));
+				return "Tunnel established between " + cmds[0] + " and " + cmds[2];
 			}
-			case "link" -> {
+			case "request" -> {
 				if (cmds.length != 3) // Make sure we got the correct amount of arguments
-					return "! Wrong amount of arguments -> ss:id,link,toid";
+					return "! Wrong amount of arguments -> ss:id,request,requestcmd";
 				getWritable(cmds[0]).ifPresent( wr -> dQueue.add(Datagram.system(cmds[2]).writable(wr)));
-				return "Tried enabling the forward from " + cmds[0] + " to " + cmds[2];
+				dQueue.add(Datagram.system("ss:" + cmds[0] + ",addcmd,open," + cmds[0]));
+				return "Tried requesting data from " + cmds[2] + " for " + cmds[2];
 			}
 			default -> {
 				return "! No such subcommand for ss:id :"+cmds[1];
