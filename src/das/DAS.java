@@ -13,6 +13,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.stream.StreamManager;
 import io.stream.tcp.TcpServer;
+import io.stream.udp.UdpServer;
 import io.telnet.TelnetCodes;
 import io.telnet.TelnetServer;
 import org.apache.commons.lang3.SystemUtils;
@@ -348,7 +349,10 @@ public class DAS implements Commandable{
        addCommandable(streamManager,""); // stop sending data
 
        streamManager.readSettingsFromXML();
-       streamManager.getStreamIDs().forEach( id -> addCommandable(streamManager,id) );
+        streamManager.getStreamIDs().map(id -> streamManager.getStream(id))
+                .flatMap(Optional::stream) // Only get the valid results
+                .filter(bs -> !(bs instanceof UdpServer))
+                .forEach(bs -> addCommandable(streamManager, bs.id()));
     }
     public Optional<Writable> getStreamWritable( String id ){
         var opt = streamManager.getStream(id);
@@ -646,7 +650,7 @@ public class DAS implements Commandable{
         LookAndFeel.formatSplitStatusText( "IP: "+Tools.getLocalIP(), report, html);
 
         if( streamManager.getStreamCount()==0 ) { // No streams so no raw data
-            report.append(TEXT_DEFAULT).append("Raw Age: ").append(TEXT_WARN).append("No streams yet.");
+            report.append(TEXT_DEFAULT).append("Raw Age: ").append(TEXT_WARN).append("No streams yet.").append(html ? "<br>" : "\r\n");
             return;
         }
         // Streams exist so there should be raw data?
@@ -668,8 +672,8 @@ public class DAS implements Commandable{
         totalMem = Tools.roundDouble(totalMem/(1024.0*1024.0),1);
         usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
 
-        var memStatus = (usedMem>70?"!! ":"") + "Memory: " + usedMem + "/" + totalMem;
-        LookAndFeel.formatStatusText(memStatus,report,html);
+        var memStatus = (usedMem > 70 ? "!! " : "") + "Memory: " + usedMem + "/" + totalMem + "MB";
+        LookAndFeel.formatSplitStatusText(memStatus, report, html);
     }
     /**
      * Prepare the status information about the Database Manager
