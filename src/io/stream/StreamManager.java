@@ -782,7 +782,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		var base = addStreamFromXML(fab.getCurrentParent());
 		if( base != null){
 			try{
-				base.reconnectFuture.get(2,TimeUnit.SECONDS);
+				if (base.reconnectFuture != null)
+					base.reconnectFuture.get(2, TimeUnit.SECONDS);
 				streams.put( cmds[1], base );
 			}catch(CancellationException | ExecutionException | InterruptedException | TimeoutException e){
 				return "! Failed to connect.";
