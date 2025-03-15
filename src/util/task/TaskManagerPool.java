@@ -1,14 +1,14 @@
 package util.task;
 
-import das.Paths;
-import io.email.EmailSending;
-import io.stream.StreamManager;
-import io.Writable;
 import das.CommandPool;
 import das.Commandable;
+import das.Paths;
+import io.Writable;
+import io.email.EmailSending;
+import io.stream.StreamManager;
+import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
-import org.tinylog.Logger;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
@@ -28,7 +28,7 @@ public class TaskManagerPool implements Commandable {
     CommandPool cmdReq;
     StreamManager streamManager;
     EmailSending emailSender;
-    final Path scriptPath = Paths.settings().resolve("tmscripts");
+    final Path scriptPath = Paths.storage().resolve("tmscripts");
 
     public TaskManagerPool( RealtimeValues rtvals, CommandPool cmdReq){
         this.rtvals=rtvals;
