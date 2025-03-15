@@ -16,7 +16,7 @@ public class LookAndFeel {
         for( var line : lines.split("\r\n") ){
             if (first) {
                 first = false;
-                colored.append(magenta).append(line).append(reg);
+                colored.append(magenta).append(line).append(html ? "<br>" : "\r\n").append(reg);
             }else{
                 formatHelpLine(line, html, colored);
             }
