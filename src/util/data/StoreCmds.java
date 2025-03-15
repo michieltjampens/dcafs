@@ -84,10 +84,10 @@ public class StoreCmds {
                 .add("- Regular mode works with indexes after split on the delimiter")
                 .add("- Map is when the data consists of a key, value pair with the given delimiter");
         join.add("Add new vals")
-                .add("store:streamid,addreal/addr,name<,index/group> -> Add a RealVal to the store, with optional index/group/key")
-                .add("store:streamid,addflag/addf,name<,index/group> -> Add a FlagVal to the store, with optional index/group/key")
-                .add("store:streamid,addtext/addt,name<,index/group> -> Add a TextVal to the store, with optional index/group/key")
-                .add("store:streamid,addint/addi,name<,index/group> -> Add a IntVal to the store, with optional index/group/key")
+                .add("store:streamid,addreal/addr,group,name<,index/key> -> Add a RealVal to the store, with optional index/key")
+                .add("store:streamid,addflag/addf,group,name<,index/key> -> Add a FlagVal to the store, with optional index/key")
+                .add("store:streamid,addtext/addt,group,name<,index/key> -> Add a TextVal to the store, with optional index/key")
+                .add("store:streamid,addint/addi,group,name<,index/key> -> Add a IntegerVal to the store, with optional index/key")
                 .add("store:streamid,addb/addblank -> Add a blank spot (if index isn't used but a item needs to be skipped)");
         join.add("Alter attributes")
                 .add("store:streamid,delimiter/delim,newdelimiter -> Change the delimiter of the store")
@@ -209,13 +209,25 @@ public class StoreCmds {
 
     private static String doAddValCmd(String[] cmds, String prefix, XMLdigger dig, XMLfab fab, String numtype, boolean map) {
         if (cmds.length < 3)
-            return "! Wrong amount of arguments -> " + prefix + "add" + numtype + ",name<,index/group>";
-        if (dig.hasPeek(numtype, "name", cmds[2]) || dig.peekAtContent(numtype, cmds[2]))
-            return "! Already a " + numtype + " with that id, try something else?";
+            return "! Wrong amount of arguments -> " + prefix + "add" + numtype + ",group,name<,index/key>";
 
-        fab.addChild(numtype, cmds[2]).attr("unit");
-        addIndexOrMap(fab, dig, cmds, map);
-        fab.build();
+        var group = dig.attr("group", "");
+        if (dig.peekAtBoth(numtype, "group", cmds[2], cmds[3]) || // group attr and name as content
+                (group.equalsIgnoreCase(cmds[2]) && dig.peekAtBoth(numtype, "group", "", cmds[3])) || // group global, name as content
+                (group.equalsIgnoreCase(cmds[2]) && dig.peekAtMulAttr(numtype, "group", "", "name", cmds[3])) ||// group global, name as attr
+                dig.peekAtMulAttr(numtype, "group", cmds[2], "name", cmds[3])) { // group attr, name as attr
+            return "! Already a " + numtype + " with that id, try something else?";
+        }
+        boolean newGroup = false;
+        if (group.isEmpty()) {
+            fab.attr("group", cmds[2]);
+            newGroup = true;
+        }
+        fab.addChild(numtype, cmds[3]).attr("unit");    // Add name and unit
+        if (!group.equalsIgnoreCase(cmds[2]) && !newGroup)
+            fab.attr("group", cmds[2]);             // Add group if it's different then global
+        addIndexOrMap(fab, dig, cmds, map);             // Add index or map key
+        fab.build();                                    // Create it
         return numtype + " added";
     }
 
@@ -299,16 +311,13 @@ public class StoreCmds {
         return "Table added with " + cols + " columns, applied with dbm:" + cmds[2] + ",reload";
     }
     private static void addIndexOrMap( XMLfab fab, XMLdigger dig, String[] cmds, boolean map ){
-        if( cmds.length==4 ) {
+        // store:streamid,addreal/addr,group,name<,index/key>
+        if (cmds.length == 5) {
             if( map ){
-                fab.attr("key",cmds[3]);
+                fab.attr("key", cmds[4]);
             }else {
-                if (NumberUtils.isCreatable(cmds[3])) {
-                    fab.attr("i", cmds[3]);
-                } else if (!cmds[3].isEmpty()) {
-                    fab.attr("group", cmds[3]);
-                    int a = dig.currentSubs().size();
-                    fab.attr("i", a-1); // -1 because just created one
+                if (NumberUtils.isCreatable(cmds[4])) {
+                    fab.attr("i", cmds[4]);
                 }
             }
         }else if( !map ){

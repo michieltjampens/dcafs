@@ -181,6 +181,51 @@ public class XMLdigger {
     }
 
     /**
+     * Check if the current element contains a child with the given tag, attr with the value and textcontent.
+     * If not found the digger remains valid.
+     *
+     * @param tag     The tag to look for.
+     * @param attr    The attribute to look for
+     * @param attrVal The value of the attribute
+     * @param content The content to match with the found element.
+     * @return True if successful.
+     */
+    public boolean peekAtBoth(String tag, String attr, String attrVal, String content) {
+        peeked = true;
+        var eleOpt = XMLtools.getChildElements(last == null ? root : last, tag).stream()
+                .filter(x -> x.getTextContent().equalsIgnoreCase(content)) // Find matching content
+                .filter(at -> at.getAttribute(attr).equalsIgnoreCase(attrVal))
+                .findFirst();
+        peek = eleOpt.orElse(null);
+        return hasValidPeek();
+    }
+
+    /**
+     * Check if the current element contains a child with the given tag, attr with the value and textcontent.
+     * If not found the digger remains valid.
+     *
+     * @param tag     The tag to look for.
+     * @param attrVal The attribute with value to look for, multiple possible atrr1,attr1val,attr2,attr2val etc
+     * @return True if successful.
+     */
+    public boolean peekAtMulAttr(String tag, String... attrVal) {
+        if (attrVal.length % 2 == 1) {
+            return false;
+        }
+        peeked = true;
+        var stream = XMLtools.getChildElements(last == null ? root : last, tag).stream();
+        int a = 0;
+        while (a + 1 < attrVal.length) {
+            var attr = attrVal[a];
+            var val = attrVal[a + 1];
+            stream = stream.filter(at -> at.getAttribute(attr).equalsIgnoreCase(val));
+            a += 2;
+        }
+        var eleOpt = stream.findFirst();
+        peek = eleOpt.orElse(null);
+        return hasValidPeek();
+    }
+    /**
      * Check if the current element has a childnode with the given tag, returns true if so.
      * Does the same thing as peekAt(tag).hasValidPeek(), just shorter.
      * @param tag The tag to look for.
