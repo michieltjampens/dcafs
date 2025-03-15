@@ -11,11 +11,11 @@ import util.LookAndFeel;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -453,10 +453,14 @@ public class RealtimeValues implements Commandable {
 
 		var cmds = args.split(",");
 
-		if( cmds.length==1 && args.equalsIgnoreCase("?")) {
-			if(args.startsWith("i"))
-				return "iv:update,id,value -> Update an existing int, do nothing if not found";
-			return "rv:update,id,value -> Update an existing real, do nothing if not found";
+		if (cmds.length == 1) {
+			if (args.equalsIgnoreCase("?")) {
+				if (args.startsWith("i"))
+					return "iv:update,id,value -> Update an existing int, do nothing if not found";
+				return "rv:update,id,value -> Update an existing real, do nothing if not found";
+			} else {
+				return "! Not enough arguments";
+			}
 		}
 
 		return switch(cmds[1]){
