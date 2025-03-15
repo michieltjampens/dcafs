@@ -516,7 +516,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				UdpServer serv = new UdpServer(dQueue, stream);
 				serv.setEventLoopGroup(eventLoopGroup);
 				serv.addListener(this);
-				serv.reconnectFuture = scheduler.schedule(new DoConnection(serv), 0, TimeUnit.SECONDS);
+				serv.connect();
 				return serv;
 			}
 			case "serial" -> {
@@ -777,7 +777,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if (cmds.length != 3) // Make sure we got the correct amount of arguments
 					return "! Wrong amount of arguments -> ss:addudpserver,id,port";
 				new UdpServer(cmds[1], Integer.parseInt(cmds[2]), dQueue);
-				return "Started udp server (probably)";
+				addBaseToXML(fab, cmds[1], type);
+				fab.addChild("port", cmds[2]).build();
 			}
 			default -> {
 				return "! Invalid option";
