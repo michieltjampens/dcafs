@@ -8,7 +8,7 @@ This simulator can be found in the examples sub folder.
 
 All the info about the various rtvals, except integration in store.
 
-### Store (updated to 2.3.3)
+### Store (updated to 2.13.0)
 
 All the info about the uses of store, only inside a stream for now.
 
@@ -18,4 +18,12 @@ All the info about the uses of i2c.
 
 ### TaskManager (to update for 2.0.0)
 
-Explains how to use taskmanager.
+Explains how to use a task manager.
+
+### StreamManager (updated to 2.13.0)
+
+Explains how to use the Stream manager.
+
+### Paths (wip)
+
+Explains how to use paths.

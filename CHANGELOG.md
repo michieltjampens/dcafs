@@ -13,11 +13,26 @@ Note: Version numbering: x.y.z
 
 ## General
 
-- Fixed 125 issues found by Codacy.
+- Fixed 140 issues found by Codacy. (none actually critical)
+
+## Stream manager
 - If a stream is disconnected messages are no longer logged every attempt
+- Removed 'prefixorigin' option, the >>>prefix in telnet is probably the only use case and better.
+- `Sx:data` or `streamid:data` cmd for sending data can now mix binary and ascii, so `S1:\h(0x24)=dollarsign` is now
+  valid.
+- `ss:buffers` command gave an error when no buffers were in use, replaced with reply that no buffers are in use.
+- The triggered actions (write,cmd) can now be in the <triggered> node instead of directly in <stream> node. Purely
+  a visual change.
+
+## Telnet
+
+- It's now possible to use `>>>es` and `>>>ts` or `>>>ds` at the same time
+- Spaces are added as padding to line up `>>>es` result because it's variable length (up to 8).
+- Changed color of `>>>es` to cyan so the output doesn't look like ts/ds (which is in orange).
+- `>>>?` àdded for a list and info on the available commands.
+- Added `>>>prefixid` does the same as `>>>prefix` does/did but made more sense to show it prefixed the id.
 
 ## GIS
-
 - No longer possible to use duplicate id's for waypoints or geoquads.
 
 ## 2.13.0 (20/02/2025)

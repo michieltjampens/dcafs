@@ -5,6 +5,19 @@ This module is responsible for managing the various streams.
 * Attempt to reconnect when the connection is lost.
 * Provide commands to add, remove, alter streams or request data from them.
 
+## Added telnet features
+
+* `streamid:data` Send the data to the stream with the default eol appended.
+* `Sx:data` or `sx:data` Send data to the stream with index x (check with `ss`), with default eol appended.
+
+> **Note:** When using CTRL+S instead of enter, no eol will be appended!
+
+* `Hx:hexdata` Send binary data to the stream with index x (check with `ss`), no eol appended.
+  * `H1:0x24` Will send $ to the stream.
+  * `H1:0x24 0x24` or `H1:0x24,0x24` will send $$ to the stream.
+* It's possible to send binary and ascii data in a single command:
+  * `S1:\h(0x24)=dollarsign`
+
 ## Commands overview
 
 **Add new streams**
@@ -24,11 +37,10 @@ This module is responsible for managing the various streams.
 **Alter the stream settings**
 
 * `ss:id,ttl,value` Alter the ttl
-* `ss:id,prefixorigin,true/false` Do/don't add the id of the data origin to lines received
 * `ss:id,eol,value` Alter the eol string
 * `ss:id,baudrate,value` Alter the baudrate of a serial/modbus stream
-* `ss:id,addwrite,when:data` Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)
-* `ss:id,addcmd,when:data` Add a triggered cmd, options for 'when' are open,idle,!idle,close
+* `ss:id,addwrite,when,data` Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)
+* `ss:id,addcmd,when,data` Add a triggered cmd, options for 'when' are open,idle,!idle,close
 * `ss:id,echo,on/off` Sets if the data received on this stream will be returned to sender
 
 **Route data from or to a stream**
