@@ -70,7 +70,7 @@ public class ValStore {
         this.rtvals.addAll(rtvals);
     }
     public void setIdleReset( boolean state){
-        this.idleReset=state;
+        idleReset = state;
     }
     public static Optional<ValStore> build( Element store, String id, RealtimeValues rtvals){
 
@@ -404,12 +404,9 @@ public class ValStore {
         val.parseValue(d);
     }
     public void resetValues(){
-        for( var val : rtvals ){
-            val.resetValue();
-        }
-        for( var val : valMap.values() ){
-            val.resetValue();
-        }
+        rtvals.forEach(AbstractVal::resetValue);
+        valMap.values().forEach(AbstractVal::resetValue);
+        calVal.forEach(AbstractVal::resetValue);
     }
     public void doIdle(){
         if( idleReset )
