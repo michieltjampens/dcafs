@@ -136,7 +136,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 			join.add(stream.getInfo()).add(" ".repeat(infoLength-stream.getInfo().length()));
 			if( stream instanceof TcpServerStream tss) {
-				join.add( tss.getClientCount()+" client(s)" ).add("\r\n");
+				join.add(tss.getClientCount() + " client(s)").add("\r\n");
+			} else if (stream instanceof UdpStream udp) {
+				join.add("(send only)");
 			}else if (stream.getLastTimestamp() == -1) {
 				join.add("No data yet! ");
 				join.add(" [").add(TimeTools.convertPeriodToString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
@@ -661,6 +663,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		return "! No such cmds in "+cmd;
 	}
 	private static void addBaseToXML( XMLfab fab, String id, String type ){
+		type = type.replace("client", "");
 		fab.addChild("stream").attr("id", id).attr("type", type).down();
 		fab.addChild("eol", "crlf");
 	}
@@ -714,6 +717,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		join.add("Manages all the streams: adding, checking, writing etc.");
 		join.add("Add new streams")
 				.add( "ss:addtcp,id,ip:port -> Add a TCP stream to xml and try to connect")
+				.add("ss:addtcpserver,id,port -> Add a TCP server to xml and start it")
 				.add("ss:addudp,id,ip:port -> Add a UDP stream to xml and try to connect")
 				.add( "ss:addserial,id,port,baudrate -> Add a serial stream to xml and try to connect")
 				.add( "ss:addlocal,id,source -> Add a internal stream that handles internal data");
@@ -749,7 +753,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		var type = cmds[0].substring(3);
 
 		switch (type) {
-			case "tcp", "udpclient","tcpserver" -> {
+			case "tcp", "udpclient", "udp", "tcpserver" -> {
 				if (cmds.length != 3)
 					return "! Not enough arguments: ss:" + cmds[0] + ",id,ip:port";
 				addBaseToXML(fab, cmds[1], type);

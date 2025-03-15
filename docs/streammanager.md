@@ -23,6 +23,7 @@ This module is responsible for managing the various streams.
 **Add new streams**
 
 * `ss:addtcp,id,ip:port` Add a TCP stream to xml and try to connect
+* `ss:addtcpserver,id,port` Add a TCP server stream to xml and start it
 * `ss:addudp,id,ip:port` Add a UDP stream to xml and try to connect
 * `ss:addserial,id,port,baudrate` Add a serial stream to xml and try to connect
 * `ss:addlocal,id,source` Add a internal stream that handles internal data
@@ -45,8 +46,9 @@ This module is responsible for managing the various streams.
 
 **Route data from or to a stream**
 
-* `ss:forward,source,id` Forward the data from a source to the stream, source can be any object that accepts a writable
-* `ss:connect,id1,if2` Data is interchanged between the streams with the given id's
+* `ss:streamid,request,requestcmd` Requestcmd is the cmd you'd use in telnet to request the data, do this in name of the
+  stream.
+* `ss:id1,tunnel,id2` Data is interchanged between the streams with the given id's
 * `ss:id,send,data(,reply)` Send the given data to the id with optional reply
 
 ## XML
@@ -105,6 +107,7 @@ Beyond that, there are some extras:
 ```xml
 
 <stream id="sensor" type="tcp">
+  <triggered>  <!-- It's not mandatory to use this parent node, cmd and write can be below stream directly -->
     <cmd when="open">raw:sensor2</cmd>   <!-- Execute a request for data from sensor 2 when this connects -->
     <!-- Other options for when:
             * close - if the connection is closed
@@ -113,7 +116,7 @@ Beyond that, there are some extras:
     -->
     <write when="hello">Welcome?</write> <!-- Write Welcome? to the stream on connection -->
     <!-- Other option of when is 'wakeup' for when the stream is idle -->
-
+  </triggered>
     <store group="outside">
         <!-- Check the store docs for info, it's the same -->
     </store>

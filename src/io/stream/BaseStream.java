@@ -73,7 +73,8 @@ public abstract class BaseStream {
 
     protected boolean readFromXML( Element stream ){
 
-        if (!stream.getAttribute("type").equalsIgnoreCase(getType())) {
+        if (!stream.getAttribute("type").equalsIgnoreCase(getType())
+                && !stream.getAttribute("type").replace("client", "").equalsIgnoreCase(getType())) {
             Logger.error("Not a "+getType()+" stream element.");
             return false;
         }
