@@ -707,7 +707,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				.add( "ss:requests -> Get an overview of all the datarequests held by the streams");
 		join.add("Alter the stream settings")
 				.add( "ss:id,ttl,value -> Alter the ttl")
-				.add( "ss:id,prefixorigin,true/false -> Do/don't add the id of the data origin to lines received ")
 				.add( "ss:id,eol,value -> Alter the eol string")
 				.add( "ss:id,baudrate,value -> Alter the baudrate of a serial/modbus stream")
 				.add( "ss:id,addwrite,when:data -> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
@@ -837,17 +836,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				fab.alterChild("label", cmds[2]).build();
 				stream.setLabel(cmds[2]);
 				return "Label altered to " + cmds[2];
-			}
-			case "prefixorigin" -> {
-				if( Tools.parseBool(cmds[2],false )){
-					fab.removeChild("prefixorigin");
-					stream.showOriginAsPrefix(false);
-				}else {
-					fab.alterChild("prefixorigin", cmds[2]);
-					stream.showOriginAsPrefix(true);
-				}
-				fab.build();
-				return "Prefix choice altered";
 			}
 			case "ttl" -> {
 				if (!cmds[2].equals("-1")) {
