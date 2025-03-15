@@ -215,10 +215,10 @@ public class SerialStream extends BaseStream implements Writable {
             try {
                 targets.forEach(dt -> eventLoopGroup.submit(() -> {
                     try {
-                        if (dt.id().contains("telnet")) {
-                            dt.writeString(new String(data) + " ");
-                        } else {
+                        if (eol.isEmpty()) {
                             dt.writeBytes(data);
+                        } else {
+                            dt.writeLine(id, new String(data));
                         }
                     } catch (Exception e) {
                         Logger.error(id + " -> Something bad while writeLine to " + dt.id(), e);
