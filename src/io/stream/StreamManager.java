@@ -801,6 +801,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		var base = addStreamFromXML(fab.getCurrentParent());
 		if( base != null){
+			dQueue.add(Datagram.system("commandable:" + base.id()).payload(this));
 			try{
 				if (base.reconnectFuture != null)
 					base.reconnectFuture.get(2, TimeUnit.SECONDS);

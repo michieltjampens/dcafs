@@ -1,8 +1,8 @@
 package das;
 
+import io.Writable;
 import io.email.Email;
 import io.email.EmailSending;
-import io.Writable;
 import io.email.EmailWorker;
 import io.forward.EditorForward;
 import io.forward.FilterForward;
@@ -193,7 +193,7 @@ public class CommandPool {
 		return result + (html ? "<br>" : "\r\n");
 	}
 	private String findCommand(String[] split, Writable wr, boolean html, Datagram d){
-		String result = checkLocalCommandables(split,wr,html);// First check the standard commandables
+		String result = checkLocalCommandables(split, wr, html, d);// First check the standard commandables
 
 		if( result.equals(UNKNOWN_CMD)) // Meaning not a standard first cmd
 			result = checkCommandables(split[0],split[1],wr,html,d);// Check the stored Commandables
@@ -244,7 +244,7 @@ public class CommandPool {
 	 * @param html True means the answer should use html
 	 * @return The answer
 	 */
-	private String checkLocalCommandables(String[] split, Writable wr,boolean html){
+	private String checkLocalCommandables(String[] split, Writable wr, boolean html, Datagram d) {
 		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
 		return switch (split[0]) { // check if it's a built-in cmd instead of a commandable one
 			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"), html);
@@ -257,6 +257,7 @@ public class CommandPool {
 			case "store" -> doStoreCommands( split[1], wr, html );
 			case "history" -> HistoryCmds.replyToCommand(split[1],html,Paths.settings().getParent());
 			case "log" -> doTinyLogCommands( split[1] );
+			case "commandable" -> doCommandable(split[1], (Commandable) d.payload());
 			case "", "stop", "nothing" -> {
 				stopCommandable.forEach(c -> c.replyToCommand("","", wr, false));
 				yield "Clearing requests";
@@ -367,6 +368,11 @@ public class CommandPool {
 			return "Message logged";
 		}
 		return "! Not enough arguments";
+	}
+
+	private String doCommandable(String sub, Commandable target) {
+		addCommandable(sub, target);
+		return "Commandable added";
 	}
 	/**
 	 * Try to update a file received somehow (email or otherwise)
