@@ -5,6 +5,7 @@ import io.Writable;
 import io.netty.channel.*;
 import io.netty.handler.codec.TooLongFrameException;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -16,10 +17,7 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -227,10 +225,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			});
 			writeLine("ID set to "+id);
 		}
+		this.id = id;
 	}
 	private void doCmds( Datagram d ){
 		var split = new String[2];
-		String[] cmds={"prefix","ts","ds","id?","es"}; // Cmds that don't require arguments
+		String[] cmds = {"prefix", "ts", "ds", "id?", "es", "prefixid", "?"}; // Cmds that don't require arguments
 
 		String cmd = d.getData().substring(2);
 		if(cmd.startsWith(">")) // If three are used
@@ -250,6 +249,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}
 
 		switch (split[0]) {
+			case "?" -> writeLine(doTelnetCmdHelp());
 			case "id?" -> writeLine( id.equalsIgnoreCase("telnet")?"No id set yet":"Current id: "+id);
 			case "id" -> doChangeIdCmd(split[1]);
 			case "talkto" -> {
@@ -275,13 +275,29 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 				es = !es;
 				writeLine("Elapsed time stamping " + (es ? "enabled" : "disabled"));
 			}
-			case "prefix" -> {
+			case "prefix", "prefixid" -> {
 				prefix = !prefix;
 				writeLine("Prefix " + (prefix ? "enabled" : "disabled"));
 			}
 			case "clearhistory","clrh" -> cli.clearHistory();
 			default -> 	writeLine("Unknown telnet command: " + d.getData());
 		}
+	}
+
+	private String doTelnetCmdHelp() {
+		var join = new StringJoiner("\r\n");
+		join.add("Commands available in a Telnet session");
+		join.add(">>>id? -> Returns the current id if set")
+				.add(">>>id:newid -> Change the id to the new id")
+				.add(">>>color:newcolor -> Change the default text color")
+				.add("macro: -> Adds a macro?")
+				.add(">>>clearhistory or >>>clrh -> Clear the history of issued commands");
+		join.add("Prefixes")
+				.add(">>>ts -> Show the time data was received")
+				.add(">>>ds -> Show the full timestamp of when the data was received")
+				.add(">>>es -> Show the time since the previous data was received")
+				.add(">>>prefixid -> Prefix the id in front of the received data");
+		return LookAndFeel.formatCmdHelp(join.toString(), false);
 	}
 	private void doStartCmd(String cmd){
 		if (id.isEmpty() || id.equalsIgnoreCase("telnet")) {
@@ -356,15 +372,18 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}else if(!ids.contains(origin)) {
 			ids.add(origin);
 		}
-		String time="";
+		String time = "", elapsedPeriod = "";
 
 		if( ts || ds)
-			time = TelnetCodes.TEXT_ORANGE+TimeTools.formatUTCNow(ts?format:"yyyy-MM-dd HH:mm:ss.SSS")+"   "+TelnetCodes.TEXT_DEFAULT;
+			time = TelnetCodes.TEXT_ORANGE + TimeTools.formatUTCNow(ts ? format : "yyyy-MM-dd HH:mm:ss.SSS") + "  " + TelnetCodes.TEXT_DEFAULT;
 		if( es ) {
-			if( elapsed != -1){
-				time = TelnetCodes.TEXT_ORANGE + TimeTools.convertPeriodToString(Instant.now().toEpochMilli() - elapsed, TimeUnit.MILLISECONDS) + "   " + TelnetCodes.TEXT_DEFAULT;
+			if (this.elapsed != -1) {
+				var period = String.format("%8s", TimeTools.convertPeriodToString(Instant.now().toEpochMilli() - this.elapsed, TimeUnit.MILLISECONDS));
+				elapsedPeriod = TelnetCodes.TEXT_CYAN + period + "  " + TelnetCodes.TEXT_DEFAULT;
+			} else {
+				elapsedPeriod = TelnetCodes.TEXT_CYAN + "  0ms  " + TelnetCodes.TEXT_DEFAULT;
 			}
-			elapsed=Instant.now().toEpochMilli();
+			this.elapsed = Instant.now().toEpochMilli();
 		}
 		if(prefix) {
 			var end = ids.get(ids.size()-1).equals(origin)?newLine+"------------- ("+ids.size()+")":"";
@@ -372,9 +391,9 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 				end="";
 			var length = ids.stream().mapToInt(String::length).max().orElse(0);
 			origin = Tools.addTrailingSpaces(origin,length);
-			return writeLine(time+TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_DEFAULT + "  " + data + end);
+			return writeLine(time + elapsedPeriod + TelnetCodes.TEXT_MAGENTA + origin + TelnetCodes.TEXT_DEFAULT + "  " + data + end);
 		}
-		return writeLine(time+data);
+		return writeLine(time + elapsedPeriod + data);
 	}
 
 	/**
