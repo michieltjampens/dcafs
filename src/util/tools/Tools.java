@@ -125,6 +125,14 @@ public class Tools {
         return error;
     }
 
+    public static boolean isBoolean(String value) {
+        value = value.toLowerCase().trim();
+        if (value.equals("yes") || value.equals("true") || value.equals("1") || value.equals("on") || value.equals("high") ||
+                value.equals("no") || value.equals("false") || value.equals("0") || value.equals("off") || value.equals("low"))
+            return true;
+        return NumberUtils.isParsable(value);
+    }
+
     /**
      * Convert a signed byte to an unsigned integer.
      * @param val The byte to convert
