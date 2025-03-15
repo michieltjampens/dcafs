@@ -138,7 +138,7 @@ public class Tools {
         return val < 0 ? val + 65536 : val;
     }
     /**
-     * Adds zeros to the front of an integer till it has the specified length
+     * Adds spaces to the front of an integer till it has the specified length
      * @param ori the string to alter
      * @param length the requested length
      * @return ori with spaces added to math the length (if ori was shorter)

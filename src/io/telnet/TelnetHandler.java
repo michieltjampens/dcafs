@@ -290,7 +290,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		join.add(">>>id? -> Returns the current id if set")
 				.add(">>>id:newid -> Change the id to the new id")
 				.add(">>>color:newcolor -> Change the default text color")
-				.add("macro: -> Adds a macro?")
+				.add(">>>macro:shortcut->cmd -> Adds a macro that is called with shortcut and send cmd.")
 				.add(">>>clearhistory or >>>clrh -> Clear the history of issued commands");
 		join.add("Prefixes")
 				.add(">>>ts -> Show the time data was received")
@@ -322,7 +322,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 					.map(f -> {
 						f.addChild("macro", ma[1]).attr("ref", ma[0]).build();
 						macros.put(ma[0], ma[1]);
-						return "Macro " + ma[0] + " replaced with " + ma[1] + "\r\n>";
+						return "Macro " + ma[0] + " gets replaced with '" + ma[1] + "'\r\n>";
 					}).orElse("Couldn't find the node\r\n>"));
 		}
 	}
