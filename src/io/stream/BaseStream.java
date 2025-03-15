@@ -2,7 +2,6 @@ package io.stream;
 
 import io.Writable;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -104,6 +103,9 @@ public abstract class BaseStream {
         }
         // cmds
         triggeredActions.clear();
+        if (dig.hasPeek("triggered"))
+            dig.usePeek();
+
         if( dig.hasPeek("cmd") ) {
             for (var cmd : dig.digOut("cmd")) {
                 var c = cmd.value("");
@@ -138,9 +140,6 @@ public abstract class BaseStream {
     }
     public void setPriority(int priority ){
 		this.priority=priority;
-    }
-    public void showOriginAsPrefix( boolean show ){
-        addDataOrigin=show;
     }
     public void addListener( StreamListener listener ){
 		listeners.add(listener);
