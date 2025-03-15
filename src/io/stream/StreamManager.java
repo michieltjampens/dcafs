@@ -171,6 +171,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String getConfirmBuffers() {
 		StringJoiner join = new StringJoiner("\r\n");
+		join.setEmptyValue("No buffers used yet.");
 		confirmCollectors.forEach( (id, cw) -> join.add(">>"+cw.id()).add(cw.getStored().isEmpty() ? " empty" : cw.getStored()));
 		return join.toString();
 	}
