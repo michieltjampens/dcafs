@@ -40,7 +40,8 @@ To create the store: `store:meteo,addint,humidity`.
     </store>
 </stream>
 ```
-This would result in the humidity being stored in an int with id `meteo_humidity`.
+
+This would result in the humidity being stored as an int with id `meteo_humidity`.
 
 But the above would have actually been read like this:
 ```xml
@@ -73,11 +74,12 @@ The store would be created with (check `store:?` for syntax):
     <eol>crlf</eol>
     <address>localhost:4000</address>
     <store group="meteo" delimiter=":"> <!-- group is taken from the id of the stream, ',' is the default delimiter -->
-        <int i="1" unit="%">humidity</int> <!-- Index is the position after split on the delimiter -->
+      <int i="1" unit="%">humidity</int> <!-- Index is the position after split with the delimiter -->
     </store>
 </stream>
 ```
-Or if not using index.
+
+Or, if not using index.
 ```xml
     <store group="meteo" delimiter=":">
         <ignore/> <!-- ignore the item at 0 -->
@@ -117,7 +119,8 @@ For this the `map` feature is used.
     </store>
 </stream>
 ```
-The order of the val's doesn't have to match the sequence in which they arrive.
+
+The order of the val's does not have to match the sequence in which they arrive.
 
 ### Extras
 
