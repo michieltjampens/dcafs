@@ -39,6 +39,7 @@ public class UdpServer extends BaseStream {
 
         handler = new UDPhandler(dQueue);
         handler.setTargets(targets);
+        handler.setID(id);
         
         b.group(group).channel(NioDatagramChannel.class).option(ChannelOption.SO_BROADCAST, true).handler(handler);
         b.bind(port).sync().channel().closeFuture().await();
