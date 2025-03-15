@@ -689,20 +689,34 @@ public class MathUtils {
      * @return The result of the calculation as a double. If an error occurs (e.g., invalid expression or operands), the
      *         method will return the provided error value.
      */
-    public static double simpleCalculation(String expression,double error, boolean debug ){
+    public static double insideBracketsCalculation(String expression, double error, boolean debug) {
 
         var oriExpression=expression;
         // adding a negative number is the same as subtracting
         expression=expression.replace("+-","-");
+
+        if (expression.isEmpty())
+            return error;
+
         // Split it in parts: numbers,ix and operands
         var parts = extractParts(expression);
 
         if( debug ) Logger.info("-> Calculating: "+expression);
 
         if (parts.size() == 3) { // If there are only three parts, this is a single operation
-            var result = calcDoublesOp(parts.get(0),parts.get(1),parts.get(2) );
+            var result = calcDoublesOp(parts.get(0), parts.get(2), parts.get(1));
             return Double.isNaN(result)?error:result;
         }
+        var doubles = new ArrayList<Double>();
+        // Do all parsing in a single step, and also use this arraylist for intermediate results
+        for (String part : parts) {
+            if (NumberUtils.isCreatable(part)) {
+                doubles.add(NumberUtils.toDouble(part));
+            } else {
+                doubles.add(Double.NaN);
+            }
+        }
+
         // There are more or less than three parts...
         try {
             for (int a = 0; a < ORDERED_OPS.length; a += 2) {
@@ -714,16 +728,12 @@ public class MathUtils {
                         Logger.error("Not enough data in parts -> Expression'"+expression+"' Parts:"+parts.size()+" needed "+(opIndex+1) );
                         return error;
                     }
-                    var leftOperand = parts.get(opIndex - 1);
-                    var rightOperand = parts.get(opIndex + 1);
+                    var leftOperand = doubles.get(opIndex - 1);
+                    var rightOperand = doubles.get(opIndex + 1);
                     var operator = parts.get(opIndex);
                     var subExpression = leftOperand + operator + rightOperand;
 
                     // Check if this isn't a formula that can already be processed, if not something is wrong
-                    if( !NumberUtils.isCreatable(leftOperand)&&NumberUtils.isCreatable(rightOperand)) {
-                        Logger.error("Either of these aren't doubles: "+leftOperand+" or "+rightOperand);
-                        return error;
-                    }
                     var result = calcDoublesOp(leftOperand,rightOperand,operator);
 
                     if( Double.isNaN(result)){
@@ -734,15 +744,18 @@ public class MathUtils {
                     expression = expression.replace(subExpression, String.valueOf(result));
 
                     parts.remove(opIndex);  // remove the operand
+                    doubles.remove(opIndex);
                     parts.remove(opIndex);  // remove the top part
-                    parts.set(opIndex - 1,String.valueOf(result)); // replace the bottom one
+                    doubles.remove(opIndex);
+                    doubles.set(opIndex - 1, result); // replace the bottom one
+
                     opIndex = getIndexOfOperand(parts, ORDERED_OPS[a], ORDERED_OPS[a + 1]);
                 }
             }
             if( parts.size()!=1){
                 Logger.error("Something went wrong processing "+oriExpression);
             }
-            return NumberUtils.toDouble(parts.get(0));
+            return doubles.get(0);
         }catch( IndexOutOfBoundsException e){
             Logger.error("Index issue while processing "+oriExpression+" at "+expression,e);
         }
@@ -758,7 +771,7 @@ public class MathUtils {
 
         // No total enclosing brackets
         int cnt=0;
-        for( int a=0;a<formula.length()-1;a++){
+        for (int a = 0; a < formula.length(); a++) {
             if( formula.charAt(a)=='(') {
                 cnt++;
             }else if( formula.charAt(a)==')' ){
@@ -1307,5 +1320,40 @@ public class MathUtils {
             sum2 += (d - mean) * (d - mean);
         }
         return Tools.roundDouble(Math.sqrt(sum2 / set.size()), decimals);
+    }
+
+    /**
+     * Process a formula that can contain brackets but only contains numbers and no references
+     *
+     * @param formula The formula to parse and calculate
+     * @param error   The value to return on an error
+     * @param debug   True will return extra debug information
+     * @return The result or the error if something went wrong
+     */
+    public static double noRefCalculation(String formula, double error, boolean debug) {
+
+        formula = formula.replace(" ", ""); // But doesn't contain any spaces
+
+        formula = checkBrackets(formula);
+        if (formula.isEmpty())
+            return error;
+
+        // Next go through the brackets from left to right (inner)
+        while (formula.contains("(")) { // Look for an opening bracket
+            int close = formula.indexOf(")"); // Find the first closing bracket
+            int open = formula.substring(0, close).lastIndexOf("(");
+
+            String part = formula.substring(open + 1, close); // get the part between the brackets
+
+            var result = insideBracketsCalculation(part, Double.NaN, debug);//MathUtils.splitAndProcessExpression( part, 0,debug).get(0);    // split that part in the subformulas
+            if (Double.isNaN(result))
+                return error;
+            String piece = formula.substring(open, close + 1); // includes the brackets
+            // replace the sub part in the original formula with a reference to the last subformula
+            formula = formula.replace(piece, String.valueOf(result));
+            if (debug)
+                Logger.info("=>Formula: " + formula);
+        }
+        return NumberUtils.toDouble(formula);
     }
 }

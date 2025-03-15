@@ -361,9 +361,13 @@ public class ValStore {
                 if (!form.contains("_"))// Means all id's were replaced, so stop looking
                     break;
             }
-            var result = MathUtils.simpleCalculation(form,Double.NaN,false);
+            var result = MathUtils.noRefCalculation(form, Double.NaN, false);
             if( !Double.isNaN(result)){
-                calVal.get(op).parseValue(String.valueOf(result));
+                if (calVal.get(op) instanceof NumericVal nv) {
+                    nv.updateValue(result);
+                } else {
+                    calVal.get(op).parseValue(String.valueOf(result));
+                }
             }else{
                 Logger.error("Failed to calculate for "+calVal.get(op).id());
             }

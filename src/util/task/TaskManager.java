@@ -1023,14 +1023,14 @@ public class TaskManager implements CollectorFuture {
 		if( i !=-1 ){
 			int end = line.substring(i).indexOf("}");
 			var cal = line.substring(i+6,i+end);
-			to = String.valueOf((int)Math.rint( MathUtils.simpleCalculation(cal,0,false) ));
+			to = String.valueOf((int) Math.rint(MathUtils.noRefCalculation(cal, 0, false)));
 			line = line.replace(line.substring(i,i+end+1),to);
 		}
 		i = line.indexOf("{mint2s16b:");
 		if( i !=-1 ){
 			int end = line.substring(i).indexOf("}");
 			var cal = line.substring(i+6,i+end);
-			var res = MathUtils.simpleCalculation(cal,0,false);
+			var res = MathUtils.noRefCalculation(cal, 0, false);
 			to = String.valueOf(((int) Math.rint(res) ^ 0xffff) + 1);
 			line = line.replace(line.substring(i,i+end+1),to);
 		}
@@ -1038,7 +1038,7 @@ public class TaskManager implements CollectorFuture {
 		if( i !=-1 ){
 			int end = line.substring(i).indexOf("}");
 			var cal = line.substring(i+6,i+end);
-			to = String.valueOf(MathUtils.simpleCalculation(cal,0,false));
+			to = String.valueOf(MathUtils.noRefCalculation(cal, 0, false));
 			line = line.replace(line.substring(i,i+end+1),to);
 		}
 		i = line.indexOf("{utc:");

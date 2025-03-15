@@ -123,7 +123,7 @@ public class ValTools {
             result = Objects.requireNonNull(MathUtils.decodeDoublesOp(parts.get(0), parts.get(2), parts.get(1), 0)).apply(new Double[]{});
         }else{
             try {
-                result = MathUtils.simpleCalculation(expr, Double.NaN, false);
+                result = MathUtils.noRefCalculation(expr, Double.NaN, false);
             }catch(IndexOutOfBoundsException e){
                 Logger.error("Index out of bounds while processing "+expr);
                 return Double.NaN;
