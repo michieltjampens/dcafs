@@ -61,7 +61,7 @@ Handled by the [Task Manager](docs/taskmanager.md), provides flexibility through
 
 * **Trigger:** Based on delay, interval or time of day (on a specified weekday).
 * **Action:** Send data to a source, send an email, or execute a user command.
-* **Additional conditions:** Requirements based on incoming real-time data or repeating until preconfigured conditions are met.
+* **Additional conditions:** Requirements based on real-time data or repeating until preconfigured conditions are met.
 
 ## Triggering
 
