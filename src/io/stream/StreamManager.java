@@ -64,7 +64,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	private final RealtimeValues rtvals;
 
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
-	static String[] NEWSTREAM={"addserial","addmodbus","addtcp","addudpclient","addlocal","addudpserver","addtcpserver"};
+	static String[] NEWSTREAM = {"addserial", "addmodbus", "addtcp", "addudpclient", "addudp", "addlocal", "addudpserver", "addtcpserver"};
 
 	private final ArrayList<StoreCollector> stores = new ArrayList<>();
 
@@ -138,7 +138,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			if( stream instanceof TcpServerStream tss) {
 				join.add(tss.getClientCount() + " client(s)").add("\r\n");
 			} else if (stream instanceof UdpStream udp) {
-				join.add("(send only)");
+				join.add("(send only)").add("\r\n");
 			}else if (stream.getLastTimestamp() == -1) {
 				join.add("No data yet! ");
 				join.add(" [").add(TimeTools.convertPeriodToString(stream.readerIdleSeconds, TimeUnit.SECONDS)).add("]").add("\r\n");
@@ -971,7 +971,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if (cmds.length != 3) // Make sure we got the correct amount of arguments
 					return "! Wrong amount of arguments -> ss:id,request,requestcmd";
 				getWritable(cmds[0]).ifPresent( wr -> dQueue.add(Datagram.system(cmds[2]).writable(wr)));
-				dQueue.add(Datagram.system("ss:" + cmds[0] + ",addcmd,open," + cmds[0]));
+				dQueue.add(Datagram.system("ss:" + cmds[0] + ",addcmd,open," + cmds[2]));
 				return "Tried requesting data from " + cmds[2] + " for " + cmds[2];
 			}
 			default -> {
