@@ -209,7 +209,8 @@ public class SerialStream extends BaseStream implements Writable {
     }
 
     private void forwardData(byte[] data) {
-        Logger.info("Received: " + new String(data));
+        timestamp = Instant.now().toEpochMilli(); // Store the timestamp of the received message
+        Logger.debug("Received: " + new String(data));
         if (!targets.isEmpty()) {
             try {
                 targets.forEach(dt -> eventLoopGroup.submit(() -> {
