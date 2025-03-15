@@ -1,4 +1,4 @@
-dcafs
+dcafs - "Data Capture Alter Forward Store"
 =========
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
 
@@ -9,10 +9,10 @@ It's lightweight and works headless, with control via Telnet, [Matrix](https://m
 patience- email.  
 Once set up, viewing data is possible by:
 
-* using a project like [Grafana](https://grafana.com/) to display data in real time, 
-* generating and sending automated reports to email or Matrix
-* logging in through telnet and query the data
-* working with the data output (database or plain text files)
+* using a tool like [Grafana](https://grafana.com/) to display data in real time,
+* generating and sending automated reports to email or Matrix,
+* logging in through Telnet and querying the data,
+* or working with the data output (database or plain text files).
 
 The 'Getting Started' guide is available [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
 
@@ -30,7 +30,7 @@ Configure the [path](docs/paths.md) of the collected data through various module
 
 * **Line filtering:** Exclude unwanted data or lines based on specific criteria.
 * **String operations:** Modify or format data using regex or custom string manipulation.
-* **Mathematical operations:** Apply complex calculations to numeric data.
+* **Mathematical operations:** Perform complex calculations on numeric data.
 
 ## Data Forwarding
 
@@ -38,6 +38,7 @@ Flexible routing of data, including:
 
 * **Return to origin:** Send (altered) data back to its original source.
 * **Protocol conversion:** Or over any other link, such as serial to TCP.
+* **Multi-source support:** Merge multiple data sources
 * **Multi-destination support:** Why limit to a single destination?
 
 ## Data Storage
@@ -49,19 +50,18 @@ Store (processed) data in various formats:
   altered data.
 * **SQLite:** Stores data locally in a SQLite database, with automatic database and table creation.
 * **Server-based databases:** Supports MariaDB, MySQL, PostgreSQL, and MSSQL, automatically creating and reading the
-  table structure (but not querying data).
+  table structure (though only as an output, reading from these databases is not supported yet).
 * **MQTT:** Data can be sent back to an MQTT broker, enabling real-time data forwarding and integration with other
   systems.
 * **Email:** An email inbox is technically a storage...
-* **FTP:** Supports FTP, SFTP and ...
 
 ## Scheduling
 
 Handled by the [Task Manager](docs/taskmanager.md), provides flexibility through tasks consisting of:
 
-* **Trigger:** Based on delay, interval, or time of day (on a specified weekday).
+* **Trigger:** Based on delay, interval or time of day (on a specified weekday).
 * **Action:** Send data to a source, send an email, or execute a user command.
-* **Additional Conditions:** Requirements based on real-time data or repeat until conditions are met.
+* **Additional conditions:** Requirements based on real-time data or repeating until preconfigured conditions are met.
 
 ## Triggering
 
@@ -72,13 +72,13 @@ Automate everything a user could do or the tasks mentioned earlier:
   conditions.
 * **Hardware events:** Respond to events such as a source disconnecting, being idle, (re)connecting, or even GPIO
   events.
-* **Geofencing:** Trigger actions when entering or leaving a specified area, such as a four-corner zone or circular
-  zone, with an optional bearing check for the circular zone option.
+* **Geofencing:** Trigger actions on entering or leaving a specified area, such as a four-corner or circular
+  zone, with an optional bearing check (only for the circular zone option).
 
-These triggers allow for complex automation of tasks, enabling dcafs to respond to a wide range of conditions and
+These triggers allow for automation of complex tasks, enabling dcafs to respond to a wide range of conditions and
 events, both from the software and the hardware side.
 
-## Configuration via XML: Simple (Opinion) and Powerful
+## Configuration via XML: Simple (ok... that's an opinion) and powerful
 
 At the heart of dcafs is its command functionality, made possible by configuring everything seen so far through
 flexible XML files. Although it might seem complex at first, this approach offers powerful control and easy automation,
@@ -119,9 +119,9 @@ making it adaptable to a wide range of use cases.
 * If java 17+ isn't installed properly, check the installation step above
    
 ### Linux
-* In a terminal
+* In a terminal:
   * Go to the folder containing the .jar
-  * Run `sudo java -jar dcafs-*.jar`  (sudo is required to be able to open the telnet port)
+  * Run `sudo java -jar dcafs-*.jar`  (sudo is required to be able to open the Telnet port)
   * To make this survive closing the terminal, use [tmux](https://linuxize.com/post/getting-started-with-tmux/) to start it or run it as a service (see below)
 * As a service:
   * If going the repo route, first copy-paste the `install_as_service.sh` file to the same folder as the dcafs*.jar 
@@ -137,23 +137,23 @@ making it adaptable to a wide range of use cases.
      * ```echo "alias dcafs_stop='sudo systemctl stop dcafs'" >> ~/.bashrc```
      * ```echo "alias dcafs_log='sudo journalctl -u dcafs.service'" >> ~/.bashrc```
      * ```echo "alias dcafs_track='sudo journalctl -u dcafs.service -f'" >> ~/.bashrc```
-     * ```echo "alias dcafs='telnet localhost'" >> ~/.bashrc```
+     * ```echo "alias dcafs='telnet localhost 2323'" >> ~/.bashrc```
   
 ## First steps
 
 It is recommended to follow [this](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md) guide if it's your first time using it.
 
-Once running and after opening a telnet connection to it (default: port 23), you'll be greeted with the following screen:
+Once running and after opening a Telnet connection to it (default: port 2323), you'll be greeted with the following screen:
 
 <img src="https://user-images.githubusercontent.com/60646590/112713982-65630380-8ed8-11eb-8987-109a2a066b66.png" width="500" height="300">
 
-In the background, a fresh settings.xml was generated in your working directory:
+In the background, a fresh `settings.xml` was generated in your working directory:
 ````xml
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
     <settings>
         <!-- Settings related to the telnet server -->
-        <telnet port="23" title="DCAFS">
+        <telnet port="2323" title="DCAFS">
             <textcolor>lightgray</textcolor>
         </telnet>
     </settings>
@@ -176,7 +176,7 @@ Meanwhile, in the background, the `settings.xml` was updated as follows:
 <dcafs>
   <settings>
     <!-- Settings related to the telnet server -->
-      <telnet port="23" title="DCAFS">
+      <telnet port="2323" title="DCAFS">
           <textcolor>lightgray</textcolor>
       </telnet>
   </settings>
@@ -195,11 +195,9 @@ Meanwhile, in the background, the `settings.xml` was updated as follows:
 </dcafs>
 ````
 
-Sending `help` in the telnet interface will provide a list of available commands and guidance on
+Sending `help` in the Telnet interface will provide a list of available commands and guidance on
 the next recommended steps. For more in-depth and extensive information, check:
 * The docs folder in the repo.
-* [The tutorial][The tutorial]
+* [The tutorial](docs/README.md)
 
 Oh, and the command `sd` shuts it down.
-
-[The tutorial]:docs/README.md
