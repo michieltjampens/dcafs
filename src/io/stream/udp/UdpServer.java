@@ -1,11 +1,11 @@
 package io.stream.udp;
 
-import io.stream.BaseStream;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.util.concurrent.Future;
+import io.stream.BaseStream;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLtools;
@@ -79,7 +79,7 @@ public class UdpServer extends BaseStream {
 
   @Override
   public String getInfo() {
-    return "UDP server ["+id+"|"+label+"] listens on "+ port;
+    return "UDP server [" + id + (label.isEmpty() ? "" : "|" + label) + "] listens on " + port;
   }
 
   @Override

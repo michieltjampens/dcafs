@@ -717,8 +717,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		join.add("Manages all the streams: adding, checking, writing etc.");
 		join.add("Add new streams")
 				.add( "ss:addtcp,id,ip:port -> Add a TCP stream to xml and try to connect")
-				.add("ss:addtcpserver,id,port -> Add a TCP server to xml and start it")
+				.add("ss:addtcpserver,id,port -> Start TCP server and add to xml")
 				.add("ss:addudp,id,ip:port -> Add a UDP stream to xml and try to connect")
+				.add("ss:addudpserver,id,port -> Start a UDP server and add to xml")
 				.add( "ss:addserial,id,port,baudrate -> Add a serial stream to xml and try to connect")
 				.add( "ss:addlocal,id,source -> Add a internal stream that handles internal data");
 		join.add( "Info about all streams")
@@ -753,11 +754,17 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		var type = cmds[0].substring(3);
 
 		switch (type) {
-			case "tcp", "udpclient", "udp", "tcpserver" -> {
+			case "tcp", "udpclient", "udp" -> {
 				if (cmds.length != 3)
 					return "! Not enough arguments: ss:" + cmds[0] + ",id,ip:port";
 				addBaseToXML(fab, cmds[1], type);
 				fab.addChild("address", cmds[2]).build();
+			}
+			case "tcpserver" -> {
+				if (cmds.length != 3)
+					return "! Not enough arguments: ss:addtcpserver,id,port";
+				addBaseToXML(fab, cmds[1], type);
+				fab.addChild("port", cmds[2]).build();
 			}
 			case "serial", "modbus" -> {
 				if (cmds.length < 3)
@@ -793,6 +800,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}catch(CancellationException | ExecutionException | InterruptedException | TimeoutException e){
 				return "! Failed to connect.";
 			}
+			if (type.endsWith("server"))
+				return "Started " + base.id() + ", use 'raw:" + base.id() + "' to see incoming data.";
 			return "Connected to "+base.id()+", use 'raw:"+base.id()+"' to see incoming data.";
 		}
 		return "! Failed to read stream from XML";

@@ -1,8 +1,6 @@
 package io.stream.udp;
 
-import io.stream.BaseStream;
 import io.Writable;
-import io.stream.tcp.TcpHandler;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -12,11 +10,11 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.netty.util.concurrent.FutureListener;
+import io.stream.BaseStream;
+import io.stream.tcp.TcpHandler;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import util.tools.Tools;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
@@ -134,7 +132,7 @@ public class UdpStream extends BaseStream implements Writable {
 
     @Override
     public String getInfo() {
-        return "UDP writer["+id+"|"+label+"] "+ ipsock.toString();
+        return "UDP writer[" + id + (label.isEmpty() ? "" : "|" + label) + "] " + ipsock.toString();
     }
 
     @Override
