@@ -1129,8 +1129,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	@Override
 	public boolean notifyActive(String id ) {
-
-		dQueue.add( Datagram.system("tm:restored,"+id));
 		getStream(id.toLowerCase()).ifPresent( s -> {
 			s.flagAsActive();
 			scheduler.schedule(new ReaderIdleTimeoutTask(s), s.getReaderIdleTime(), TimeUnit.SECONDS);
@@ -1140,7 +1138,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	@Override
 	public void notifyOpened( String id ) {
-		dQueue.add( Datagram.system("tm:restored,"+id));
 		getStream(id.toLowerCase()).ifPresent( b -> {
 			b.applyTriggeredAction(BaseStream.TRIGGER.HELLO);
 			b.applyTriggeredAction(BaseStream.TRIGGER.OPEN);
