@@ -446,6 +446,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 		}
 	}
+
+	/**
+	 * Adds a store linked to a stream
+	 *
+	 * @param st The element of the store
+	 * @param bs The stream to link it to
+	 * @return True if ok
+	 */
 	private boolean addStore( Element st, BaseStream bs){
 		if( !st.hasAttribute("group"))
 			st.setAttribute("group",bs.id());
