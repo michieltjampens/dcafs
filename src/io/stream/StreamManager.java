@@ -33,6 +33,8 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -264,6 +266,19 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		return true;
 	}
 
+	private String convertHexes(String data) {
+		Pattern pattern = Pattern.compile("\\\\h\\([a-fA-F0-9Xx ,]+\\)");
+		Matcher matcher = pattern.matcher(data);
+
+		while (matcher.find()) {
+			var found = matcher.group();
+			System.out.println("Match: " + found);
+			var sub = found.substring(3, found.length() - 1);
+			var rep = new String(Tools.fromHexStringToBytes(sub));
+			data = data.replace(found, rep);
+		}
+		return data;
+	}
 	/**
 	 * Standard way of writing ascii data to a channel, with or without requesting a certain reply
 	 * @param id The id of the stream to write to
@@ -273,9 +288,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String writeToStream(String id, String txt, String reply) {
 
-		if( txt.startsWith("\\h(") ){
-			txt = txt.substring( 3, txt.indexOf(")") ); //remove the \h(...)
-			return writeBytesToStream( id, Tools.fromHexStringToBytes(txt) );
+		if (txt.contains("\\h(")) {
+			txt = convertHexes(txt);
+			//txt = txt.substring( 3, txt.indexOf(")") ); //remove the \h(...)
+			return writeBytesToStream(id, txt.getBytes());//Tools.fromHexStringToBytes(txt) );
 		}
 
 		Optional<BaseStream> streamOptional = getWritableStream(id);
@@ -709,8 +725,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				.add( "ss:id,ttl,value -> Alter the ttl")
 				.add( "ss:id,eol,value -> Alter the eol string")
 				.add( "ss:id,baudrate,value -> Alter the baudrate of a serial/modbus stream")
-				.add( "ss:id,addwrite,when:data -> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
-				.add( "ss:id,addcmd,when:data -> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
+				.add("ss:id,addwrite,when,data -> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
+				.add("ss:id,addcmd,when,data -> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
 				.add( "ss:id,echo,on/off -> Sets if the data received on this stream will be returned to sender");
 		join.add( "Route data from or to a stream")
 				.add( "ss:forward,source,id -> Forward the data from a source to the stream, source can be any object that accepts a writable")
