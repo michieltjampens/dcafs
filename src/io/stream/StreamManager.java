@@ -912,7 +912,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "Port altered to "+cmds[2];
 			}
 			case "eol" -> {
-				fab.alterChild("eol", cmds[2]);
+				fab.alterChild("eol", cmds.length == 3 ? cmds[2] : "");
 				fab.build();
 				reloadStream(cmds[0]);
 				return "EOL altered";
