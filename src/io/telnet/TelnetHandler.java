@@ -369,7 +369,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	public boolean writeLine(String origin, String data) {
 		if( data.equalsIgnoreCase("Clearing requests")) {
 			ids.clear();
-		}else if(!ids.contains(origin)) {
+		} else if (!ids.contains(origin) && origin != null) {
 			ids.add(origin);
 		}
 		String time = "", elapsedPeriod = "";
@@ -412,7 +412,8 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	}
 	public synchronized boolean writeBytes( byte[] data ){
 		if( channel != null && channel.isActive()){
-			channel.writeAndFlush(Tools.fromBytesToHexString(data));
+			//var hex = Tools.fromBytesToHexString(data);
+			channel.writeAndFlush(data);
 			lastSendMessage = new String(data);	// Store the message for future reference
 			return true;
 		}

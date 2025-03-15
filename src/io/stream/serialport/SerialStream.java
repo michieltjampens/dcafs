@@ -202,7 +202,6 @@ public class SerialStream extends BaseStream implements Writable {
         if (p > 0) { // If this time is valid
             passed = p; // Store it
         }
-        timestamp = Instant.now().toEpochMilli(); // Store the timestamp of the received message
     }
     protected void forwardData( String message){
         forwardData(message.getBytes());
