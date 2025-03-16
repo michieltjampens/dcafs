@@ -8,10 +8,8 @@ import util.xml.XMLdigger;
 import util.xml.XMLtools;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Optional;
-import java.util.StringJoiner;
+import java.util.*;
+import java.util.stream.Stream;
 
 public class ValStore {
     private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
@@ -138,18 +136,23 @@ public class ValStore {
         mapFlag( dig.attr("map",false) );
         if( mapped() ) { // key based
             var vals = dig.currentSubs();
-            for (var val : vals) {
-                var key = XMLtools.getStringAttribute(val, "key","");
-                switch (val.getTagName()) {
-                    case "real" -> RealVal.build(val, groupID).ifPresent( v -> putAbstractVal(key,v));
-                    case "int" -> IntegerVal.build(val, groupID).ifPresent(v -> putAbstractVal(key,v));
-                    case "flag", "bool" -> FlagVal.build(val, groupID).ifPresent(v -> putAbstractVal(key,v));
-                    case "text" -> TextVal.build(val, groupID).ifPresent(v -> putAbstractVal(key,v));
+            for (var val : dig.digOut("*")) {
+                if (checkForCalVal(val, groupID))
+                    continue;
+
+                var key = val.attr("key", "");
+                switch (val.tagName("")) {
+                    case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
+                    case "int" ->
+                            IntegerVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
+                    case "flag", "bool" ->
+                            FlagVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
+                    case "text" -> TextVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
                     default -> {
                     }
                 }
             }
-            if(mapSize()!=vals.size()){
+            if (mapSize() + calVal.size() != (vals.size())) {
                 Logger.error("Failed to create an AbstractVal for " + groupID+" while mapping.");
                 return false;
             }
@@ -158,16 +161,8 @@ public class ValStore {
             calOps.clear();
 
             for (var val : dig.digOut("*")) {
-                String o = val.attr( "o","");
-                if( !o.isEmpty()) { // Skip o's
-                    calOps.add(o);
-                    switch (val.tagName("")) {
-                        case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(calVal::add);
-                        case "int", "integer" -> IntegerVal.build(val.currentTrusted(), groupID).ifPresent(calVal::add);
-                        default -> Logger.error("Can't do calculation on any other than real and int for now");
-                    }
+                if (checkForCalVal(val, groupID))
                     continue;
-                }
 
                 // Find the index wanted
                 int i = val.attr("index",-1);
@@ -211,6 +206,23 @@ public class ValStore {
         if( rtv!=null)
             shareRealtimeValues(rtv);
         return true;
+    }
+
+    private boolean checkForCalVal(XMLdigger dig, String groupID) {
+        String o = dig.attr("o", "");
+        if (!o.isEmpty()) { // Skip o's
+            calOps.add(o);
+            switch (dig.tagName("")) {
+                case "real" -> RealVal.build(dig.currentTrusted(), groupID).ifPresent(calVal::add);
+                case "int", "integer" -> IntegerVal.build(dig.currentTrusted(), groupID).ifPresent(calVal::add);
+                default -> {
+                    Logger.error("Can't do calculation on any other than real and int for now");
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
     public boolean isInvalid(){
         return !valid;
@@ -354,7 +366,13 @@ public class ValStore {
     public void doCalVals(){
         for( int op=0;op<calOps.size();op++ ){
             var form = calOps.get(op);
-            for (AbstractVal val : rtvals) {
+
+            for (AbstractVal val : Stream.of(rtvals, valMap.values()).flatMap(Collection::stream).filter(Objects::nonNull).toList()) {
+                form = form.replace(val.id(), val.stringValue()); // Replace the id with the value
+                if (!form.contains("_"))// Means all id's were replaced, so stop looking
+                    break;
+            }
+            for (AbstractVal val : valMap.values()) {
                 if (val == null)
                     continue;
                 form = form.replace(val.id(), val.stringValue()); // Replace the id with the value
