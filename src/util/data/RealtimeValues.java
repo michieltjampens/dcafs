@@ -869,6 +869,9 @@ public class RealtimeValues implements Commandable {
 			return total+base;
 		}
 		private String processLevel(double total, int scale, String curUnit){
+			if (curUnit.isEmpty())
+				return String.valueOf(total);
+
 			int index;
 			for( index=0;index<subs.size();index++){
 				if( subs.get(index).unit.equalsIgnoreCase(curUnit))
