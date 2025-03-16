@@ -11,26 +11,44 @@ Note: Version numbering: x.y.z
 
 ## 2.13.1 (wip)
 
-## General
+This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 
+## General
 - Fixed 140 issues found by Codacy. (none actually critical)
 
 ## Stream manager
 - If a stream is disconnected messages are no longer logged every attempt
-- Removed 'prefixorigin' option, the >>>prefix in telnet is probably the only use case and better.
+- Removed 'prefixorigin' option, the `>>>prefixid` in telnet is probably the only use case and better.
 - `Sx:data` or `streamid:data` cmd for sending data can now mix binary and ascii, so `S1:\h(0x24)=dollarsign` is now
   valid.
 - `ss:buffers` command gave an error when no buffers were in use, replaced with reply that no buffers are in use.
 - The triggered actions (write,cmd) can now be in the <triggered> node instead of directly in <stream> node. Purely
-  a visual change.
+  a visual change. This is now the default when adding through commands.
+- `ss:id1,tunnel,id2` This command is now persistent.
+- `ss:id,link,source` changed to `ss:id;request,requestcmd` to make the function clearer, now also persistent.
+- Fixed adding tcpserver, wasn't added to list because of nullpointer.Also added it to the help.
+- Command help now lists how to add the servers.
+- Fixed adding a udp server, wasn't added to xml nor the manager, just started.
+- Changed status message of the udp client to show it's send only.
+- TCP server port was in an address node instead of port
+- The time since last data received wasn't determined for serial with empty eol
+- Fixed `ss:id,eol,` for clearing eol.
 
 ## Telnet
 
-- It's now possible to use `>>>es` and `>>>ts` or `>>>ds` at the same time
+- It's now possible to use `>>>es` and `>>>ts` or `>>>ds` at the same time.
 - Spaces are added as padding to line up `>>>es` result because it's variable length (up to 8).
 - Changed color of `>>>es` to cyan so the output doesn't look like ts/ds (which is in orange).
 - `>>>?` àdded for a list and info on the available commands.
 - Added `>>>prefixid` does the same as `>>>prefix` does/did but made more sense to show it prefixed the id.
+
+## Store
+
+- Changed the order of the add command so that group is no longer optional.
+- Calculations should be slightly more performant because of decreased parsing.
+- Added command to alter idlereset of a store.
+- Rtvals that are calculated are now also reset if idlereset is true.
+- Store that use map can now also use calculated values.
 
 ## GIS
 - No longer possible to use duplicate id's for waypoints or geoquads.
