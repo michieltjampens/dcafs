@@ -216,25 +216,29 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
     public String stringValue(){ return String.valueOf(value);}
     public String asValueString(){ return value+unit; }
 
-    public String toString(){
-        String line = value+unit;
-        // Check if min max data is kept, if so, add it.
-        if( keepMinMax )
-            line += " (Min:"+min+unit+", Max: "+max+unit+")";
+    public String getExtras() {
+        var line = "";
+        if (keepMinMax)
+            line += " (Min:" + min + unit + ", Max: " + max + unit + ")";
 
         // Check if history is kept, if so, append relevant info
-        if( keepHistory>0 && !history.isEmpty()) {
+        if (keepHistory > 0 && !history.isEmpty()) {
             // Check is we previously added minmax, so we know to remove the closing )
             line = (line.endsWith(")") ? line.substring(0, line.length() - 1) + ", " : line + " (") + "Avg:" + getAvg() + unit + ")";
-            if( history.size()==keepHistory){
-                line = line.substring(0,line.length()-1) +" StDev: "+getStdev()+unit+")";
+            if (history.size() == keepHistory) {
+                line = line.substring(0, line.length() - 1) + " StDev: " + getStdev() + unit + ")";
             }
         }
-        if( !keepTime )
+        if (!keepTime)
             return line;
 
         if (timestamp != null)
             return line + " Age: " + TimeTools.convertPeriodToString(Duration.between(timestamp, Instant.now()).getSeconds(), TimeUnit.SECONDS);
         return line + " Age: No updates yet.";
+    }
+    public String toString(){
+        String line = value+unit;
+        // Check if min max data is kept, if so, add it.
+        return line + getExtras();
     }
 }

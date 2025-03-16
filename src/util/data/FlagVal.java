@@ -242,6 +242,9 @@ public class FlagVal extends AbstractVal implements NumericVal{
         return String.valueOf(state);
     }
 
+    public String getExtras() {
+        return "";
+    }
     /**
      * Reset this flagVal to default state, disables options and clears cmd's
      */
@@ -290,8 +293,8 @@ public class FlagVal extends AbstractVal implements NumericVal{
             join.add("time");
         if( keepHistory>0)
             join.add("history:"+keepHistory);
-        if( order !=-1 )
-            join.add("order:"+order);
+        if (order() != -1)
+            join.add("order:" + order());
         return join.toString();
     }
 }

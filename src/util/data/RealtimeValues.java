@@ -710,7 +710,7 @@ public class RealtimeValues implements Commandable {
 							return Integer.compare(nv1.order(), nv2.order());
 						return nv1.name().compareTo(nv2.name());
 					})
-					.map(nv ->  "  "+ nv.name() + " : "+applyUnit(nv)) // change it to strings
+					.map(nv -> "  " + nv.name() + " : " + applyUnit(nv) + " " + nv.getExtras()) // change it to strings
 					.forEach(list::add);
 		}
 		if( showTexts )
