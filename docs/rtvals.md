@@ -217,31 +217,28 @@ Some examples:
 </flag>
 ````
 
-## Dynamic Units
+# Dynamic Units
 
-To make the `rtvals` return a bit cleaner, dynamic units were introduced. These can be used for int/real.  
+If the values read have a wide range this isn't nice to display. So dynamic units were added so the values that
+you see (but not those stored) are scaled.
 
-To use this:
-- Add a unit node to the global rtvals node.
-- Fill it with steps/levels
-- Now when a val has the base unit, the dynamic unit will be applied.
+Below is a full example with explanation.
+
 ```xml
- <!-- For example the unit is a time period in seconds -->
-  <rtvals>
-    <unit base="s"> <!-- the unit used  -->
-      <step cnt="60">m</step> <!-- the next step up 60s  to 1m -->
-      <step cnt="60">h</step> <!-- the next step up 60m to 1h -->
+
+<rtvals>
+  <!-- Step based, so if starting with seconds, once this reaches 60 it's displayed as 1m then 1m1s and so on -->
+  <unit base="s">
+    <step cnt="60">m</step>
+    <step cnt="60">h</step>
     </unit>
-    <unit base="Hz" div="1000"><!-- div can be global or per level -->
-      <level from="1500">kHz</level> <!-- Use kHz if the value is higher than 1500 and use 1000 as divider -->
-      <level scale="3">MHz</level> <!-- No 'from' so same as div, so kHz -->
-      <level>GHz</level>
+  <!-- Level based -->
+  <!-- This is applied the moment the value passes the set max -->
+  <!-- So 1001uA will become 1.001mA but scale is set to two, so 1mA -->
+  <unit div="1000"> <!-- From one level to the next the division is 1000 -->
+    <level max="1000">uA</level> <!-- Once max is passed, the next unit is used,max = div if not specified -->
+    <level max="1500" scale="2">mA</level>
+    <level>A</level> <!-- No max specified because the highest unit -->
     </unit>
 </rtvals>
-<!--
-So an input of 3962s will result in 1h6m2s shown instead.
-Or an input of 1400Hz will result in 1400Hz 
-    but 1840Hz will become 1.840kHz
-    and 1245358Hz will become 1.245MHz
--->
 ```
