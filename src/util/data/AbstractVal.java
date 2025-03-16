@@ -19,7 +19,7 @@ public abstract class AbstractVal {
     protected String unit="";
 
     /* Position in lists */
-    int order = -1;
+    private int order = 100;
 
     /* Keep Time */
     protected Instant timestamp;
@@ -79,7 +79,7 @@ public abstract class AbstractVal {
     public void reset(){
         keepTime=false;
         keepHistory=0;
-        order=-1;
+        order = 100;
     }
     /**
      * Enable keeping time of the last value update
@@ -194,7 +194,7 @@ public abstract class AbstractVal {
             var arg = opt.split(":");
             switch (arg[0]) {
                 case "time" -> keepTime();
-                case "order" -> order(NumberUtils.toInt(arg[1], -1));
+                case "order" -> order(NumberUtils.toInt(arg[1], order));
                 case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
             }
         }

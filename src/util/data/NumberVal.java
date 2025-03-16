@@ -78,7 +78,7 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
                 case "minmax" -> keepMinMax();
                 case "time" -> keepTime();
                 case "scale" -> digits = NumberUtils.toInt(arg[1], -1);
-                case "order" -> order(NumberUtils.toInt(arg[1], -1));
+                case "order" -> order(NumberUtils.toInt(arg[1], order()));
                 case "history" -> enableHistory(NumberUtils.toInt(arg[1], -1));
                 case "abs" -> enableAbs();
             }
