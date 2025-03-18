@@ -56,8 +56,10 @@ public class StoreCollector extends AbstractCollector {
         if( store !=null ) {
             store.apply(data);
             tis.forEach(ti -> {
-                for( var db : store.dbInsertSets())
-                    ti.insertStore(db);
+                for (var db : store.dbInsertSets()) {
+                    if (ti.id().equals(db[0]))
+                        ti.insertStore(db);
+                }
             });
         }else{
             Logger.error(id+"(sc) -> Forward without a valid store...");
