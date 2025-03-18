@@ -368,7 +368,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 .add("dbm:addsqlite,id(,filename) -> Creates an empty sqlite database, filename and extension optional default db/id.sqlite")
                 .add("Working with tables")
                 .add("dbm:id,addtable,tablename -> Adds a table to the given database id")
-                .add("dbm:id,addcol,tablename,columntype:columnname<:rtval> -> Add a column to the given table")
+                .add("dbm:id,addcol,tablename,columntype:columnname<:rtval> -> Add a column to the given table, repeat last part for more")
                 .add("- columntypes: r(eal),t(ime)s(tamp),i(nteger),t(ext), utc(now), ltc")
                 .add("dbm:id,tablexml,tablename -> Write the table in memory to the xml file, use * as tablename for all")
                 .add("dbm:id,tables -> Get info about the given id (tables etc)")
@@ -475,7 +475,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 case "integer", "int", "i" -> spl[0] = "int";
                 case "real", "r", "d" -> spl[0] = "real";
                 case "text", "t" -> spl[0] = "text";
-                case "utc" -> spl[0] = "utcnow";
+                case "utc", "utcnow" -> spl[0] = "utcnow";
                 case "ltc" -> spl[0] = "localdtnow";
                 case "dt" -> spl[0] = "datetime";
                 default -> {
