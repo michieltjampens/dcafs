@@ -225,16 +225,16 @@ public class SQLiteDB extends SQLDB{
             try {
                 String tableName = rs.getString(1);
                 if( tables.get(tableName)==null) {//don't overwrite
-                    var t= new SqlTable(tableName);
+                    var t = new SqlTable(tableName);
                     tables.put(tableName, t);
                 }
-                tables.get(tableName).flagAsReadFromDB();
+                tables.get(tableName).flagAsinDB();
             } catch (SQLException e) {
                 Logger.error( id() + " -> Error during table read: "+e.getErrorCode());
             }
         });
         for( SqlTable table : tables.values() ){
-            if( table.isReadFromDB() ){// Don't overwrite existing info
+            if (table.hasColumns()) {// Don't overwrite existing info
                 Logger.debug( id() + " -> The table "+table.getName()+" has already been setup, not adding the columns");
                 continue;
             }
@@ -243,6 +243,7 @@ public class SQLiteDB extends SQLDB{
         return true;
     }
     private void readTableInfo(SqlTable table){
+        table.flagAsReadFromDB();
         readTable(con, "PRAGMA table_info(\"" + table.getName() + "\");", rs -> {
             try {
                 String column = rs.getString(rs.findColumn("name"));

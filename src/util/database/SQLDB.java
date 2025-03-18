@@ -333,7 +333,7 @@ public class SQLDB extends Database implements TableInsert{
                         tables.put(tableName, table); //and add it to the hashmap
                     }
                     table.toggleServer();
-                    table.flagAsReadFromDB(); // either way, it's already present in the database
+                    table.flagAsinDB();
                     Logger.debug(id+" (db) -> Found: "+tableName+" -> "+tableType);
                 }
             } catch (SQLException e) {
@@ -347,6 +347,7 @@ public class SQLDB extends Database implements TableInsert{
         if( type == DBTYPE.POSTGRESQL )
             tblName = "'"+tblName+"'";
         final boolean[] first = {true};
+        table.flagAsReadFromDB();
         readTable(con,columnRequest+tblName+";", rs -> {
             try {
                 String name = rs.getString(1);
@@ -422,7 +423,7 @@ public class SQLDB extends Database implements TableInsert{
             Logger.debug(id + "(db) -> Checking to create " + tbl.getName() + " read from?" + tbl.isReadFromDB());
             if (!tbl.isServer() && !tbl.hasColumns()) {
                 lastError = "Note: Tried to create a table without columns, not allowed in SQLite.";
-            } else if (!tbl.isReadFromDB()) {
+            } else if (tbl.notInDB()) {
                 try (Statement stmt = con.createStatement()) {
                     stmt.execute(tbl.create());
                     if (tables.get(tbl.getName()) != null && tbl.hasIfNotExists()) {
@@ -514,7 +515,7 @@ public class SQLDB extends Database implements TableInsert{
             insertErrors++;
             return false;
         }
-        if( getTable(dbInsert[1]).map( table -> !table.isReadFromDB()).orElse(false) ){
+        if (getTable(dbInsert[1]).map(SqlTable::notInDB).orElse(false)) {
             Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+"> in the database.");
             lastError= "No such table <"+dbInsert[1]+"> in the database.";
             insertErrors++;
