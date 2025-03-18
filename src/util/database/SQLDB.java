@@ -509,7 +509,7 @@ public class SQLDB extends Database implements TableInsert{
             return true;
 
         if( !id.equalsIgnoreCase(dbInsert[0])) {
-            Logger.warn(id+"(db) -> Mismatch between insert id and current db");
+            Logger.warn(id + "(db) -> Mismatch between insert id and current db -> " + id + " vs " + dbInsert[0]);
             return false;
         }
         if( getTable(dbInsert[1]).isEmpty() ){

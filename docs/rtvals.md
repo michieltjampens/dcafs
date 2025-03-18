@@ -17,11 +17,11 @@ Because these two have significant overlap, this is combined.
 The most basic node, this is the absolute minimum required:
 ````xml
 <rtvals>
-<real>name</real>
+  <real>name</real>
   <int>name</int>
   <!-- or -->
   <real name="name">
-  <!-- add subnodes -->
+    <!-- add subnodes -->
   </real>
   <int name="name">
   </int>
@@ -217,7 +217,7 @@ Some examples:
 </flag>
 ````
 
-# Dynamic Units
+## Dynamic Units
 
 If the values read have a wide range this isn't nice to display. So dynamic units were added so the values that
 you see (but not those stored) are scaled.
