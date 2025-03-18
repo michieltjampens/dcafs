@@ -35,6 +35,8 @@ public class LookAndFeel {
             colored.append(green).append("   ").append(before).append(reg).append(" -> ").append(after);
         } else if (line.startsWith("-")) {
             colored.append("        ").append(line);
+        } else if (line.startsWith(" ")) {
+            colored.append(line);
         } else {
             colored.append(html ? "<br>" : "\r\n");
             colored.append(cyan).append(line).append(reg);
