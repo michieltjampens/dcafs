@@ -13,10 +13,10 @@ Note: Version numbering: x.y.z
 
 This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 
-## General
+### General
 - Fixed 140 issues found by Codacy. (none actually critical)
 
-## Stream manager
+### Stream manager
 - If a stream is disconnected messages are no longer logged every attempt
 - Removed 'prefixorigin' option, the `>>>prefixid` in telnet is probably the only use case and better.
 - `Sx:data` or `streamid:data` cmd for sending data can now mix binary and ascii, so `S1:\h(0x24)=dollarsign` is now
@@ -26,15 +26,15 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
   a visual change. This is now the default when adding through commands.
 - `ss:id1,tunnel,id2` This command is now persistent.
 - `ss:id,link,source` changed to `ss:id;request,requestcmd` to make the function clearer, now also persistent.
-- Fixed adding tcpserver, wasn't added to list because of nullpointer.Also added it to the help.
+- Fixed, adding tcpserver, wasn't added to list because of nullpointer.Also added it to the help.
 - Command help now lists how to add the servers.
-- Fixed adding a udp server, wasn't added to xml nor the manager, just started.
+- Fixed, adding a udp server, wasn't added to xml nor the manager, just started.
 - Changed status message of the udp client to show it's send only.
 - TCP server port was in an address node instead of port
-- The time since last data received wasn't determined for serial with empty eol
+- Fixed, The time since last data received wasn't determined for serial with empty eol
 - Fixed `ss:id,eol,` for clearing eol.
 
-## Telnet
+### Telnet
 
 - It's now possible to use `>>>es` and `>>>ts` or `>>>ds` at the same time.
 - Spaces are added as padding to line up `>>>es` result because it's variable length (up to 8).
@@ -42,16 +42,26 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - `>>>?` àdded for a list and info on the available commands.
 - Added `>>>prefixid` does the same as `>>>prefix` does/did but made more sense to show it prefixed the id.
 
-## Store
+### Store
 
-- Changed the order of the add command so that group is no longer optional.
+- Breaking, Changed the order of the add command so that group is no longer optional.
 - Calculations should be slightly more performant because of decreased parsing.
 - Added command to alter idlereset of a store.
-- Rtvals that are calculated are now also reset if idlereset is true.
-- Store that use map can now also use calculated values.
+- Fixed, Rtvals that are calculated are now also reset if idlereset is true.
+- Fixed, Store that use map can now also use calculated values.
 
-## GIS
+### RealtimeValues
+
+- Fixed, Min/max/avg etc. is shown again for the `rtvals` command.
+- Fixed, if order wasn't specified it was on top instead of bottom
+
+### GIS
 - No longer possible to use duplicate id's for waypoints or geoquads.
+
+### Database Manager
+
+- Fixed, tables weren't read from sqlite db.
+- MariaDB, can add a node <timeprecision> to set the amount of digits in the seconds default 0.
 
 ## 2.13.0 (20/02/2025)
 ### Updated dependencies
