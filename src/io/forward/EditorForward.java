@@ -478,7 +478,7 @@ public class EditorForward extends AbstractForward{
             }else {
                 edits.add(input -> {
                     var its = input.split(delimiter);
-                    var list = Arrays.asList(its);
+                    var list = new ArrayList<>(Arrays.asList(its));
                     if (index < list.size()) {
                         list.remove(index);
                     } else {
@@ -518,7 +518,11 @@ public class EditorForward extends AbstractForward{
         rulesString.add( new String[]{"","insert","add:"+addition+" at "+position} );
         edits.add( input -> {
             if( input.length() < position ) {
-                Logger.error(id+"(ef) -> Tried to insert "+addition+" at "+position+" but input string to short -> >"+input+"<");
+                Logger.error(id + "(ef) -> Tried to insert " + addition + " at index " + position + " but input string to short -> >" + input + "<");
+                return null;
+            }
+            if (position == -1) {
+                Logger.error(id + "(ef) -> Tried to insert at -1 index");
                 return null;
             }
             return input.substring(0,position)+addition+input.substring(position);
