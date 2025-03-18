@@ -2,7 +2,6 @@ package io.forward;
 
 import das.Paths;
 import org.tinylog.Logger;
-import util.LookAndFeel;
 import util.data.StoreCmds;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -69,7 +68,7 @@ public class PathCmds {
         join.add("Alter attributes")
                 .add("pf:pathid,delimiter/delim,newdelimiter -> Change the delimiter")
                 .add("pf:pathid,src,newsrc -> Alter the src");
-        return LookAndFeel.formatCmdHelp(join.toString(),html);
+        return join.toString();
     }
     /* ***************************** C R E A T E  P A T H ********************************************** */
     private static String createPath( String[] cmds, Path settingsPath, String id){
