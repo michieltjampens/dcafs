@@ -1,9 +1,9 @@
 package util.database;
 
-import util.data.*;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.data.*;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
@@ -37,6 +37,7 @@ public class SqlTable{
     String lastError="";
 
     private boolean readFromDatabase=false;
+    private boolean isInDB = false;
     private long prepCount=0;
 
     public SqlTable(String name) {
@@ -173,6 +174,9 @@ public class SqlTable{
         readFromDatabase=true;
     }
 
+    public void flagAsinDB() {
+        isInDB = true;
+    }
     /**
      * Clear the flag that states that the table was read from the database
      */
@@ -181,11 +185,15 @@ public class SqlTable{
     }
 
     /**
-     * Check if the table was rad the the database (instead of xml)
+     * Check if the table was read from the database (instead of xml)
      * @return True if read from database
      */
     public boolean isReadFromDB(){
         return readFromDatabase;
+    }
+
+    public boolean notInDB() {
+        return !isInDB;
     }
     /**
      * Get the name of the table
