@@ -10,7 +10,6 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -72,7 +71,7 @@ public class TimeTools {
             LocalTime dt = LocalTime.parse(date, DateTimeFormatter.ofPattern(inputFormat));
             return dt.format(DateTimeFormatter.ofPattern(outputFormat));
         }catch(DateTimeParseException e){
-            Logger.error(e);
+            Logger.error(e.getMessage());
         }
         return "";
     }

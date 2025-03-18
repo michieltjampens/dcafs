@@ -57,7 +57,7 @@ public class PathPool implements Commandable {
                     path.readFromXML( pathEle,Paths.settings().getParent() );
                     var p = paths.get(path.id());
                     if( p!=null) {
-                        p.lastTargets().forEach(path::addTarget);
+                        p.lastTargets().forEach(path::addTarget); // Pass targets on to the new path
                         p.stop();
                         paths.remove(p.id());
                     }

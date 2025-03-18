@@ -35,7 +35,6 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - Fixed `ss:id,eol,` for clearing eol.
 
 ### Telnet
-
 - It's now possible to use `>>>es` and `>>>ts` or `>>>ds` at the same time.
 - Spaces are added as padding to line up `>>>es` result because it's variable length (up to 8).
 - Changed color of `>>>es` to cyan so the output doesn't look like ts/ds (which is in orange).
@@ -43,7 +42,6 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - Added `>>>prefixid` does the same as `>>>prefix` does/did but made more sense to show it prefixed the id.
 
 ### Store
-
 - Breaking, Changed the order of the add command so that group is no longer optional.
 - Calculations should be slightly more performant because of decreased parsing.
 - Added command to alter idlereset of a store.
@@ -59,9 +57,14 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - No longer possible to use duplicate id's for waypoints or geoquads.
 
 ### Database Manager
-
 - Fixed, tables weren't read from sqlite db.
 - MariaDB, can add a node <timeprecision> to set the amount of digits in the seconds default 0.
+
+### Paths
+
+- Targets are stored between reloads, so updates are 'live'.
+- Editor, indexreplace used an inmutable list so didn't work...
+- Updated `help:editor` to use node tags instead of type attribute
 
 ## 2.13.0 (20/02/2025)
 ### Updated dependencies
