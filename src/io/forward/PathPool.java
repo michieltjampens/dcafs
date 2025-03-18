@@ -1,22 +1,23 @@
 package io.forward;
 
+import das.Commandable;
 import das.Paths;
-import util.LookAndFeel;
-import util.data.RealtimeValues;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
-import das.Commandable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
+import util.data.RealtimeValues;
 import util.database.QueryWriting;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
 public class PathPool implements Commandable {
@@ -56,6 +57,7 @@ public class PathPool implements Commandable {
                     path.readFromXML( pathEle,Paths.settings().getParent() );
                     var p = paths.get(path.id());
                     if( p!=null) {
+                        p.lastTargets().forEach(path::addTarget);
                         p.stop();
                         paths.remove(p.id());
                     }
@@ -144,6 +146,7 @@ public class PathPool implements Commandable {
                         .add( "pf:reload/reloadall -> Reload all the paths")
                         .add( "pf:id,reload -> reload the path with the given id")
                         .add( "pf:list -> List all the currently loaded paths")
+                        .add("pf:id,list -> List all the steps in the chosen path")
                         .add( "pf:id,debug<,stepnr/stepid> -> Request the data from a single step in the path (nr:0=first; -1=custom src)")
                         .add( "pf:clear -> Remove all the paths from XML!");
                 return LookAndFeel.formatCmdHelp(help.toString(),html);

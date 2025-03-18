@@ -304,6 +304,13 @@ public class PathForward {
         return Optional.ofNullable(step.getLastStep());
     }
 
+    public ArrayList<Writable> lastTargets() {
+        var stepOpt = lastStep();
+        if (stepOpt.isEmpty())
+            return new ArrayList<>();
+        var step = stepOpt.get();
+        return step.targets;
+    }
     public String toString(){
         var join = new StringJoiner("\r\n");
         if (customs.isEmpty() && stepsForward == null || stepsForward.isEmpty())
