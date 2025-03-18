@@ -1,9 +1,9 @@
 package io.forward;
 
-import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.data.ValTools;
 import util.tools.TimeTools;
@@ -585,66 +585,62 @@ public class EditorForward extends AbstractForward{
      */
     public static String getHelp(String eol) {
         StringJoiner join = new StringJoiner(eol);
-        var gr = TelnetCodes.TEXT_GREEN;
-        var re = TelnetCodes.TEXT_DEFAULT;
-        join.add(TelnetCodes.TEXT_MAGENTA+"All examples will start from 16:25:12 as base data");
-        join.add(TelnetCodes.TEXT_ORANGE+"--REGULAR--")
-                .add(gr+"resplit"+re+" -> Use the delimiter to split the data and combine according to the value")
-                .add("    cmd adde,resplit:")
-                .add("    xml <edit type='resplit' delimiter=':' leftover='append'>i0-i1</edit>  --> 16-25:12")
-                .add("    xml <edit type='resplit' delimiter=':' leftover='remove'>i0-i1</edit>  --> 16-25")
-                .add(gr+"charsplit"+re+" -> Splits the given data on the char positions and combines with first used delimiter")
-                .add("    fe. <edit type='charsplit'>1,4,7 </edit>  --> 1,6:2,5:1,2")
-                .add(gr+"redate"+re+" -> Get the value at index according to delimiter, then go 'from' one date(time) format to the format in the value given")
-                .add("    fe. <edit type='redate' from='yy:dd:MM' >dd_MMMM_yy</edit>  --> 25_december_16")
-                .add("    Note: to go from epoch millis use 'epochmillis' as inputformat")
-                .add(gr+"retime"+re+" -> Same as redate but for only time")
-                .add("    fe. <edit type='retime' from='HH:mm:ss' >HH-mm</edit>  --> 16-25")
-                .add(gr+"replace"+re+" -> Replace 'find' with the replacement (NOTE: 'replacement' can't be a whitespace character)")
-                .add("    cmd pf:pathid,adde,replace,find|replace")
-                .add("    fe. <edit type='replace' find='1'>4</edit>  --> 46:25:42")
-                .add(gr+"prepend"+re+" -> Add the given data to the front")
-                .add("    cmd pf:pathid,adde,prepend,givendata")
-                .add("    fe. <edit type='prepend' >time=</edit>  --> time=16:25:12")
-                .add(gr+"append"+re+" -> Add the given data at the end")
-                .add("    cmd pf:pathid,adde,append,givendata")
-                .add("    fe. <edit type='append' > (UTC)</edit>  --> time=16:25:12 (UTC)")
-                .add(gr+"insert"+re+" -> Add the given data at the chosen position")
-                .add("    cmd pf:pathid,adde,insert,position,givendata")
-                .add("    fe. <edit type='insert' position='4' >!</edit>  --> time!=16:25:12 (UTC)")
-                .add(gr+"indexreplace"+re+" -> Replace the item at the given index (start at 0) whitt something else")
-                .add("    cmd pf:pathid,adde,indexreplace,index,replacement")
-                .add("    fe. <edit type='indexreplace' index='1' delimiter=':'>35</edit>  -->16:35:12 (UTC)")
-                .add("")
-                .add(TelnetCodes.TEXT_ORANGE+"--REMOVE--")
-                .add(gr+"trim"+re+" -> Remove all whitespace characters from the start and end of the data")
-                .add("    cmd pf:pathid,adde,trim")
-                .add("    fe. <edit type='trim'/>")
-                .add(gr+"remove"+re+" -> Remove all occurrences of the value given  (NOTE: 'Value given' can't be a whitespace character)")
-                .add("    cmd pf:pathid,adde,remove:toremove ")
-                .add("    fe. <edit type='remove' >1</edit>  --> 6:25:2")
-                .add(gr+"cutstart"+re+" -> Cut the given amount of characters from the front")
-                .add("    cmd pf:pathid,adde,cutstart:charstocut")
-                .add("    fe. <edit type='cutstart' >2</edit>  --> time=:25:12")
-                .add(gr+"cutend"+re+" -> Cut the given amount of characters from the end")
-                .add("    cmd pf:pathid,adde,cutend:charstocut")
-                .add("    fe. <edit type='cutend' >2</edit>  --> time=16:25:")
-                .add("")
-                .add(TelnetCodes.TEXT_ORANGE+"--REGEX BASED--")
-                .add(gr+"rexsplit"+re+" -> Use the value as a regex to split the data and combine again with the delimiter")
-                .add("    fe. <edit type='rexsplit' delimiter='-'>\\d*</edit>  --> 16-25-12")
-                .add(gr+"rexreplace"+re+" -> Use a regex based on 'find' and replace it with the value given")
-                .add("    fe. <edit type='rexreplace' find='\\d*'>x</edit>  --> x:x:x")
-                .add(gr+"rexremove"+re+" -> Remove all matches of the value as a regex ")
-                .add("    fe. <edit type='rexremove' >\\d*</edit>  --> ::")
-                .add(gr+"rexkeep"+re+" -> Only retain the result of the regex given as value")
-                .add("    fe. <edit type='rexkeep' >\\d*</edit>  --> 162512")
-                .add(gr+"millisdate"+re+" -> Convert epoch millis to a timestamp with given format")
-                .add("    cmd pf:pathid,addf,millisdate:index,format")
-                .add("    fe. <edit type='millisdate'>yyyy-MM-dd HH:mm:ss.SSS</edit> ")
-                .add(gr+"listreplace"+re+" -> Replace the element at a certain index with the one in that position in a list")
-                .add("    fe. <edit type='listreplace' index='1' first='0'>cat,dog,canary</edit> --> if a 0 is at index 1, that will become cat");
 
-        return join.toString();
+        join.add("All examples will start from 16:25:12 as base data");
+        join.add("Regular")
+                .add("resplit -> Use the delimiter to split the data and combine according to the value")
+                .add("    xml <resplit delimiter=':' leftover='append'>i0-i1</resplit>  --> 16-25:12")
+                .add("    xml <resplit delimiter=':' leftover='remove'>i0-i1</resplit>  --> 16-25")
+                .add("charsplit -> Splits the given data on the char positions and combines with first used delimiter")
+                .add("    fe. <charsplit>1,4,7 </charsplit>  --> 1,6:2,5:1,2")
+                .add("redate -> Get the value at index according to delimiter, then go 'from' one date(time) format to the format in the value given")
+                .add("    fe. <redate from='yy:dd:MM' >dd_MMMM_yy</redate>  --> 25_december_16")
+                .add("    Note: to go from epoch millis use 'epochmillis' as inputformat")
+                .add("retime -> Same as redate but for only time")
+                .add("    fe. <retime from='HH:mm:ss' >HH-mm</retime>  --> 16-25")
+                .add("replace -> Replace 'find' with the replacement (NOTE: 'replacement' can't be a whitespace character)")
+                .add("    cmd pf:pathid,adde,replace,find|replace")
+                .add("    fe. <replace find='1'>4</replace>  --> 46:25:42")
+                .add("prepend -> Add the given data to the front")
+                .add("    cmd pf:pathid,adde,prepend,givendata")
+                .add("    fe. <prepend>time=</prepend>  --> time=16:25:12")
+                .add("append -> Add the given data at the end")
+                .add("    cmd pf:pathid,adde,append,givendata")
+                .add("    fe. <append> (UTC)</append>  --> time=16:25:12 (UTC)")
+                .add("insert -> Add the given data at the chosen position")
+                .add("    cmd pf:pathid,adde,insert,position,givendata")
+                .add("    fe. <insert index='4' >!</insert>  --> time!=16:25:12 (UTC)")
+                .add("indexreplace -> Replace the item at the given index (start at 0) whitt something else")
+                .add("    cmd pf:pathid,adde,indexreplace,index,replacement")
+                .add("    fe. <indexreplace index='1' delimiter=':'>35</indexreplace>  -->16:35:12 (UTC)")
+                .add("Remove")
+                .add("trim -> Remove all whitespace characters from the start and end of the data")
+                .add("    cmd pf:pathid,adde,trim")
+                .add("    fe. <trim/>")
+                .add("remove -> Remove all occurrences of the value given  (NOTE: 'Value given' can't be a whitespace character)")
+                .add("    cmd pf:pathid,adde,remove:toremove ")
+                .add("    fe. <remove>1</remove>  --> 6:25:2")
+                .add("cutstart -> Cut the given amount of characters from the front")
+                .add("    cmd pf:pathid,adde,cutstart:charstocut")
+                .add("    fe. <cutstart>2</cutstart>  --> time=:25:12")
+                .add("cutend -> Cut the given amount of characters from the end")
+                .add("    cmd pf:pathid,adde,cutend:charstocut")
+                .add("    fe. <cutend>2</cutend>  --> time=16:25:")
+                .add("Regex")
+                .add("rexsplit -> Use the value as a regex to split the data and combine again with the delimiter")
+                .add("    fe. <rexsplit delimiter='-'>\\d*</rexsplit>  --> 16-25-12")
+                .add("rexreplace -> Use a regex based on 'find' and replace it with the value given")
+                .add("    fe. <rexreplace find='\\d*'>x</rexreplace>  --> x:x:x")
+                .add("rexremove -> Remove all matches of the value as a regex ")
+                .add("    fe. <rexremove>\\d*</rexremove>  --> ::")
+                .add("rexkeep -> Only retain the result of the regex given as value")
+                .add("    fe. <rexkeep>\\d*</rexkeep>  --> 162512")
+                .add("millisdate -> Convert epoch millis to a timestamp with given format")
+                .add("    cmd pf:pathid,addf,millisdate:index,format")
+                .add("    fe. <millisdate>yyyy-MM-dd HH:mm:ss.SSS</millisdate> ")
+                .add("listreplace -> Replace the element at a certain index with the one in that position in a list")
+                .add("    fe. <listreplace index='1' first='0'>cat,dog,canary</listreplace> --> if a 0 is at index 1, that will become cat");
+
+        return LookAndFeel.formatCmdHelp(join.toString(), false);
     }
 }
