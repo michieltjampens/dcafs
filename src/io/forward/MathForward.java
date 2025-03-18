@@ -255,8 +255,9 @@ public class MathForward extends AbstractForward {
         var bds = bdsOpt.get(); // Nothing failed, unpack
 
         // After doing all possible initial tests, do the math
-        if( !applyOperations(bds,data) ){
+        if (applyOperations(bds, data)) {
             badDataCount++;
+            Logger.error(id + "(math) -> Applying operation failed");
             return true;
         }
 
