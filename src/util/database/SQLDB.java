@@ -37,7 +37,7 @@ public class SQLDB extends Database implements TableInsert{
 
     ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1); // Scheduler for queries
     Path workPath;
-
+    private int mariadbTimePrecision = 0;
     protected boolean doInserts = true;
     /**
      * Prepare connection to one of the supported databases
@@ -425,7 +425,10 @@ public class SQLDB extends Database implements TableInsert{
                 lastError = "Note: Tried to create a table without columns, not allowed in SQLite.";
             } else if (tbl.notInDB()) {
                 try (Statement stmt = con.createStatement()) {
-                    stmt.execute(tbl.create());
+                    var create = tbl.create();
+                    if (type == DBTYPE.MARIADB) // Mariadb allows setting the precision of datatime
+                        create = create.replace("DATETIME", "DATETIME(" + mariadbTimePrecision + ")");
+                    stmt.execute(create);
                     if (tables.get(tbl.getName()) != null && tbl.hasIfNotExists()) {
                         Logger.warn(id + "(db) -> Already a table with the name " + tbl.getName() + " nothing done because 'IF NOT EXISTS'.");
                     }
@@ -653,6 +656,10 @@ public class SQLDB extends Database implements TableInsert{
         if( db.getCurrentTables(false)){ // No use trying to create content of reading tables failed
             db.lastError = db.createContent(true);
         }
+
+        // Mariadb
+        if (dbDig.hasPeek("timeprecision"))
+            db.mariadbTimePrecision = dbDig.peekAt("timeprecision").value(0);
         return db;
     }
 
