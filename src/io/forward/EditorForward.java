@@ -128,15 +128,15 @@ public class EditorForward extends AbstractForward{
                 addResplit(deli, content, error, leftover.equalsIgnoreCase("append"));
                 Logger.info(id() + " -> Added resplit edit on delimiter " + deli + " with formula " + content);
             }
-            case "rexsplit" -> {
+            case "rexsplit", "regexsplit" -> {
                 addRexsplit(deli, content);
                 Logger.info(id() + " -> Get items from " + content + " and join with " + deli);
             }
-            case "redate" -> {
+            case "redate", "reformatdata" -> {
                 addRedate(from, content, index, deli);
                 Logger.info(id() + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content+ " at "+index);
             }
-            case "retime" -> {
+            case "retime", "reformattime" -> {
                 addRetime(from, content, index, deli);
                 Logger.info(id() + " -> Added retime edit on delimiter " + deli + " from " + from + " to " + content);
             }
@@ -147,7 +147,7 @@ public class EditorForward extends AbstractForward{
                     addReplacement(find, content);
                 }
             }
-            case "rexreplace" -> {
+            case "rexreplace", "regexreplace" -> {
                 if (find.isEmpty()) {
                     Logger.error(id() + " -> Tried to add an empty replace.");
                 } else {
@@ -158,23 +158,23 @@ public class EditorForward extends AbstractForward{
                 addReplacement(content, "");
                 Logger.info(id() + " -> Remove occurrences off " + content);
             }
-            case "trim" -> {
+            case "trim", "trimspaces" -> {
                 addTrim();
                 Logger.info(id() + " -> Trimming spaces");
             }
-            case "rexremove" -> {
+            case "rexremove", "regexremove" -> {
                 addRexRemove(content);
                 Logger.info(id() + " -> RexRemove matches off " + content);
             }
-            case "rexkeep" -> {
+            case "rexkeep", "regexkeep" -> {
                 addRexsplit("", content);
                 Logger.info(id() + " -> Keep result of " + content);
             }
-            case "prepend", "prefix" -> {
+            case "prepend", "prefix", "addprefix" -> {
                 addPrepend(content);
                 Logger.info(id() + " -> Added prepend of " + content);
             }
-            case "append", "suffix" -> {
+            case "append", "suffix", "addsuffix" -> {
                 addAppend(content);
                 Logger.info(id() + " -> Added append of " + content);
             }
@@ -182,7 +182,7 @@ public class EditorForward extends AbstractForward{
                 addInsert(dig.attr("index", -1), content);
                 Logger.info(id() + " -> Added insert of " + content);
             }
-            case "cutstart" -> {
+            case "cutstart", "cutfromstart" -> {
                 if (NumberUtils.toInt(content, 0) != 0) {
                     addCutStart(NumberUtils.toInt(content, 0));
                     Logger.info(id() + " -> Added cut start of " + content + " chars");
@@ -190,7 +190,7 @@ public class EditorForward extends AbstractForward{
                     Logger.warn(id() + " -> Invalid number given to cut from start " + content);
                 }
             }
-            case "cutend" -> {
+            case "cutend", "cutfromend" -> {
                 if (NumberUtils.toInt(content, 0) != 0) {
                     addCutEnd(NumberUtils.toInt(content, 0));
                     Logger.info(id() + " -> Added cut end of " + content + " chars");
@@ -601,10 +601,10 @@ public class EditorForward extends AbstractForward{
                 .add("replace -> Replace 'find' with the replacement (NOTE: 'replacement' can't be a whitespace character)")
                 .add("    cmd pf:pathid,adde,replace,find|replace")
                 .add("    fe. <replace find='1'>4</replace>  --> 46:25:42")
-                .add("prepend -> Add the given data to the front")
+                .add("prepend/addprefix -> Add the given data to the front")
                 .add("    cmd pf:pathid,adde,prepend,givendata")
                 .add("    fe. <prepend>time=</prepend>  --> time=16:25:12")
-                .add("append -> Add the given data at the end")
+                .add("append/addsuffix -> Add the given data at the end")
                 .add("    cmd pf:pathid,adde,append,givendata")
                 .add("    fe. <append> (UTC)</append>  --> time=16:25:12 (UTC)")
                 .add("insert -> Add the given data at the chosen position")
