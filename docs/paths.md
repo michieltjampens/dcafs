@@ -78,7 +78,6 @@ If a character needs to be at specific position in the data, these can be used.
 If you want to check if a forward is working as expected, it's possible to create the data stream locally.
 
 ````xml
-
 <path>
     <plainsrc>Hello World!</plainsrc> <!-- Will send Hello World every second -->
     <plainsrc delay="100ms" interval="10s">Hello??

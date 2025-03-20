@@ -239,6 +239,13 @@ Below is a full example with explanation.
     <level max="1000">uA</level> <!-- Once max is passed, the next unit is used,max = div if not specified -->
     <level max="1500" scale="2">mA</level>
     <level>A</level> <!-- No max specified because the highest unit -->
-    </unit>
+  </unit>
+
+  <unit div="1000"> <!-- default divider/multiplier is 1000 -->
+    <level max="100" scale="2">mWh</level>  <!-- Up to 100mWh use two digits, no div done to next step -->
+    <level max="1000" digits="1">mWh</level>  <!-- From 100 till 1000mWh use one digit -->
+    <level max="1500" scale="2">Wh</level>
+    <level scale="3">kWh</level>
+  </unit>
 </rtvals>
 ```
