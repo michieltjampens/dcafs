@@ -132,7 +132,7 @@ public class EditorForward extends AbstractForward{
                 addRexsplit(deli, content);
                 Logger.info(id() + " -> Get items from " + content + " and join with " + deli);
             }
-            case "redate", "reformatdata" -> {
+            case "redate", "reformatdate" -> {
                 addRedate(from, content, index, deli);
                 Logger.info(id() + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content+ " at "+index);
             }

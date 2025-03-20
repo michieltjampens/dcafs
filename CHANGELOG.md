@@ -49,7 +49,6 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - Fixed, Store that use map can now also use calculated values.
 
 ### RealtimeValues
-
 - Fixed, Min/max/avg etc. is shown again for the `rtvals` command.
 - Fixed, if order wasn't specified it was on top instead of bottom
 
@@ -59,11 +58,12 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 ### Database Manager
 - Fixed, tables weren't read from sqlite db.
 - MariaDB, can add a node <timeprecision> to set the amount of digits in the seconds default 0.
+- Server connect is now threaded, 5 consecutive fails trigger a query dump to csv. Logging is also rated.
 
 ### Paths
-
 - Targets are stored between reloads, so updates are 'live'.
 - Editor, indexreplace used an inmutable list so didn't work...
+- Editor, added some alternives to the types to maybe make it more straightforward rex -> regex and so on
 - Updated `help:editor` to use node tags instead of type attribute
 
 ## 2.13.0 (20/02/2025)
