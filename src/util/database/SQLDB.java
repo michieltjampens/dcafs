@@ -1,7 +1,9 @@
 package util.database;
 
+import das.Paths;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
@@ -11,6 +13,7 @@ import java.nio.file.Path;
 import java.sql.*;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +42,8 @@ public class SQLDB extends Database implements TableInsert{
     Path workPath;
     private int mariadbTimePrecision = 0;
     protected boolean doInserts = true;
+    protected int connectionAttempts = 0;
+    protected String quotePrefix = "", quoteSuffix = "";
     /**
      * Prepare connection to one of the supported databases
      * @param type The type of database
@@ -57,21 +62,29 @@ public class SQLDB extends Database implements TableInsert{
                 irl = "jdbc:mysql://" + address + (address.contains(":") ? "/" : ":3306/") + dbName;
                 tableRequest = "SHOW FULL TABLES;";
                 columnRequest = "SHOW COLUMNS FROM ";
+                quotePrefix = "`";
+                quoteSuffix = "`";
             }
             case MSSQL -> {
                 irl = "jdbc:sqlserver://" + address + (dbName.isBlank() ? "" : ";database=" + dbName);
                 tableRequest = "SELECT * FROM information_schema.tables";
                 columnRequest = "";
+                quotePrefix = "[";
+                quoteSuffix = "]";
             }
             case MARIADB -> {
                 irl = "jdbc:mariadb://" + address + (address.contains(":") ? "/" : ":3306/") + dbName;
                 tableRequest = "SHOW FULL TABLES;";
                 columnRequest = "SHOW COLUMNS FROM ";
+                quotePrefix = "`";
+                quoteSuffix = "`";
             }
             case POSTGRESQL -> {
                 irl = "jdbc:postgresql://" + address + (address.contains(":") ? "/" : ":5432/") + dbName;
                 tableRequest = "SELECT table_name FROM information_schema.tables WHERE NOT table_schema='pg_catalog'AND NOT table_schema='information_schema';";
                 columnRequest = "SELECT column_name,udt_name,is_nullable,is_identity FROM information_schema.columns WHERE table_name=";
+                quotePrefix = "\"";
+                quoteSuffix = "\"";
             }
             default -> {
                 tableRequest = "";
@@ -154,43 +167,78 @@ public class SQLDB extends Database implements TableInsert{
      * @return True if successful
      */
     @Override
-    public boolean connect(boolean force){        
-        try {
-            if( con != null ){
-                if( !con.isValid(2) || force){
-                    con.close();
-                }else{   
-                    return true;                    
+    public boolean connect(boolean force) {
+        if (state == STATE.CON_BUSY)
+            return true;
+        state = STATE.CON_BUSY;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                if (con != null) {
+                    if (!con.isValid(2) || force) {
+                        con.close();
+                    } else {
+                        state = STATE.HAS_CON;
+                        return true;
+                    }
+                }
+            } catch (SQLException e) {
+                Logger.error(id + " (db) -> " + e.getMessage());
+            }
+
+            if (!loadClass(type))
+                return false;
+
+            try {
+                state = STATE.CON_BUSY;
+                con = DriverManager.getConnection(irl, user, pass);
+                Logger.info(id + "(db) -> Connection: " + irl + con);
+                state = STATE.HAS_CON; // Connection established, change state
+            } catch (SQLException ex) {
+                String message = ex.getMessage();
+                int eol = message.indexOf("\n");
+                if (eol != -1)
+                    message = message.substring(0, eol);
+                if (LookAndFeel.isNthAttempt(connectionAttempts))
+                    Logger.error(id + "(db) -> (" + connectionAttempts + ") Failed to make connection to database! " + message);
+                if (!message.toLowerCase().contains("access denied")) {
+                    state = STATE.NEED_CON; // Failed to connect, set state to try again
+                } else {
+                    state = STATE.ACCESS_DENIED;
+                    Logger.error(id + "(dbm) -> Access denied, no use retrying.");
+                }
+                return false;
+            }
+            return true;
+        }, scheduler).thenAccept(result -> {
+            // Callback after task is completed
+            if (result) {
+                Logger.info(id + " -> Connection made");
+                doOnConnectionMade();
+            } else {
+                connectionAttempts++;
+                // Dump after x attempts?
+                if (connectionAttempts % 5 == 0) {
+                    tables.values().forEach(t -> t.dumpData("", Paths.storage().resolve("db").resolve(id + "_" + t.getName() + ".csv")));
+
                 }
             }
-        } catch (SQLException e) {
-            Logger.error(id+" (db) -> "+e.getMessage());
-        }
-
-        if (!loadClass(type))
-            return false;
-
-        try{
-            con = DriverManager.getConnection(irl, user, pass);           
-            Logger.info( id+"(db) -> Connection: " + irl +con);
-            state = STATE.HAS_CON; // Connection established, change state
-    	} catch ( SQLException ex) {              
-            String message = ex.getMessage();
-            int eol = message.indexOf("\n");
-            if( eol != -1 )
-                message = message.substring(0,eol);          
-            Logger.error( id+"(db) -> Failed to make connection to database! "+message );
-            if( !message.toLowerCase().contains("access denied") ) {
-                state = STATE.NEED_CON; // Failed to connect, set state to try again
-            }else{
-                state = STATE.ACCESS_DENIED;
-                Logger.error(id+"(dbm) -> Access denied, no use retrying.");
-            }
-            return false;
-        }       
-    	return true;
+        });
+        return true;
     }
 
+    protected void doOnConnectionMade() {
+        connectionAttempts = 0;
+        if (!tablesRetrieved) {
+            if (getCurrentTables(false)) { // No use trying to create content of reading tables failed
+                lastError = createContent(true);
+            }
+            tablesRetrieved = true;
+        }
+        if (busySimple)
+            prepSimple();
+        if (busyPrepared)
+            scheduler.submit(new DoPrepared());
+    }
     private boolean loadClass(DBTYPE type) {
         try {
             switch (type) { // Set the class according to the database, might not be needed anymore
@@ -293,9 +341,6 @@ public class SQLDB extends Database implements TableInsert{
      */
     @Override
     public boolean getCurrentTables(boolean clear){
-        
-        if( !connect(false) ) // if no connection available try to reconnect
-            return false; // Not connected and reconnect failed, can't do anything
 
         requestTables(clear);
 
@@ -328,12 +373,15 @@ public class SQLDB extends Database implements TableInsert{
 
                 if( tableType.equalsIgnoreCase("base table") && !tableName.startsWith("sym_") ){ // ignore symmetricsDS tables and don't overwrite
                     SqlTable table = tables.get(tableName); // look for it in the stored tables
-                    if( table == null ){ // if not found, it's new
+                    if (table == null || !table.hasColumns()) { // if not found, it's new
                         table = new SqlTable(tableName); // so create it
+                        requestColumns(table);
+                        table.flagAsReadFromDB();
                         tables.put(tableName, table); //and add it to the hashmap
+                    } else { // Found so not new and probably ready? (check column matching?)
+                        table.flagAsReady();
                     }
                     table.toggleServer();
-                    table.flagAsinDB();
                     Logger.debug(id+" (db) -> Found: "+tableName+" -> "+tableType);
                 }
             } catch (SQLException e) {
@@ -348,7 +396,7 @@ public class SQLDB extends Database implements TableInsert{
             tblName = "'"+tblName+"'";
         final boolean[] first = {true};
         table.flagAsReadFromDB();
-        readTable(con,columnRequest+tblName+";", rs -> {
+        readTable(con, columnRequest + quotePrefix + tblName + quoteSuffix + ";", rs -> {
             try {
                 String name = rs.getString(1);
                 String colType = rs.getString(2).toLowerCase();
@@ -383,17 +431,11 @@ public class SQLDB extends Database implements TableInsert{
     }
     /**
      * Actually create all the tables
-     * @param keepConnection True if the connection should be kept open afterwards
+     * @param keepConnection True if the connection should be kept open afterward
      * @return Empty string if all ok, otherwise error message
      */
     public String createContent(boolean keepConnection){
 
-        boolean connected=false;
-        if( con==null || !isValid(2) ){
-            connected=true;
-            if (!connect(false) )
-                return "No connection to "+id;
-        }
         if( isValid(5) ){
             createTables(); // Create the tables
             createViews();  // Create the views
@@ -401,12 +443,6 @@ public class SQLDB extends Database implements TableInsert{
             try {
                 if( !con.getAutoCommit())
                     con.commit();
-                if( connected && keepConnection ){
-                    state=STATE.HAS_CON;
-                }else{
-                    con.close();
-                    state=STATE.IDLE;
-                }
                 StringJoiner errors = new StringJoiner("\r\n");
                 tables.values().stream().filter(x-> !x.lastError.isEmpty()).forEach( x -> errors.add(x.getLastError(true)));
                 return errors.toString();
@@ -423,22 +459,26 @@ public class SQLDB extends Database implements TableInsert{
             Logger.debug(id + "(db) -> Checking to create " + tbl.getName() + " read from?" + tbl.isReadFromDB());
             if (!tbl.isServer() && !tbl.hasColumns()) {
                 lastError = "Note: Tried to create a table without columns, not allowed in SQLite.";
-            } else if (tbl.notInDB()) {
+            } else if (tbl.isReadFromXML()) {
                 try (Statement stmt = con.createStatement()) {
                     var create = tbl.create();
-                    if (type == DBTYPE.MARIADB) // Mariadb allows setting the precision of datatime
+                    if (type == DBTYPE.MARIADB) // Mariadb allows setting the precision of datetime
                         create = create.replace("DATETIME", "DATETIME(" + mariadbTimePrecision + ")");
                     stmt.execute(create);
                     if (tables.get(tbl.getName()) != null && tbl.hasIfNotExists()) {
                         Logger.warn(id + "(db) -> Already a table with the name " + tbl.getName() + " nothing done because 'IF NOT EXISTS'.");
                     }
-                    tbl.flagAsReadFromDB(); // Created on database, so flag as read
+                    tbl.flagAsReady(); // Created on database, so flag as ready
                 } catch (SQLException e) {
                     Logger.error(id + "(db) -> Failed to create table with: " + tbl.create());
                     Logger.error(e.getMessage());
                     tbl.setLastError(e.getMessage() + " when creating " + tbl.name + " for " + id);
                 }
-            } else {
+            } else if (tbl.isReadFromDB()) {
+                var fab = Paths.fabInSettings("databases");
+                fab.selectOrAddChildAsParent(tbl.isServer() ? "server" : "sqlite", "id", id);
+                tbl.writeToXml(fab, true);
+                tbl.flagAsReady(); // Wrote to xml, so flag as ready
                 Logger.debug(id + "(db) -> Not creating " + tbl.getName() + " because already read from database...");
             }
         });
@@ -518,7 +558,8 @@ public class SQLDB extends Database implements TableInsert{
             insertErrors++;
             return false;
         }
-        if (getTable(dbInsert[1]).map(SqlTable::notInDB).orElse(false)) {
+        var table = getTable(dbInsert[1]).get();
+        if (!table.isReady() && isValid(2)) {
             Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+"> in the database.");
             lastError= "No such table <"+dbInsert[1]+"> in the database.";
             insertErrors++;
@@ -528,8 +569,8 @@ public class SQLDB extends Database implements TableInsert{
         if (!hasRecords())
             firstPrepStamp = Instant.now().toEpochMilli();
 
-        if (getTable(dbInsert[1]).map(t -> t.insertStore("")).orElse(false)) {
-            if(tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries)
+        if (table.insertStore("")) {
+            if (tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries && isValid(3))
                 flushPrepared();
             return true;
         }else{
@@ -579,29 +620,35 @@ public class SQLDB extends Database implements TableInsert{
      * Flush the simple queries to the database
      */
     protected void flushSimple(){
-        if( isValid(1)){
+        if (!busySimple) {
             busySimple = true;
-            var temp = new ArrayList<String>();
-            while(!simpleQueries.isEmpty())
-                temp.add(simpleQueries.remove(0));
-            scheduler.submit( new DoSimple(temp) );
-        }else{
-            if( state != STATE.ACCESS_DENIED ) // No use trying
-                connect(false);
+            if (isValid(1)) {
+                prepSimple();
+            } else {
+                if (state != STATE.ACCESS_DENIED) // No use trying
+                    flagNeedcon();
+            }
         }
     }
 
+    protected void prepSimple() {
+        var temp = new ArrayList<String>();
+        while (!simpleQueries.isEmpty())
+            temp.add(simpleQueries.remove(0));
+        scheduler.submit(new DoSimple(temp));
+    }
     /**
      * Flush all the PreparedStatements to the database
      */
     protected void flushPrepared(){
         if (!busyPrepared ) { // Don't ask for another flush when one is being done
+            busyPrepared = true; // Set Flag so we know the buffer is being flushed
+
             if(isValid(1)) {
-                busyPrepared=true; // Set Flag so we know the buffer is being flushed
                 scheduler.submit(new DoPrepared());
             }else{
                 if( state != STATE.ACCESS_DENIED ) // No use trying
-                    connect(false);
+                    flagNeedcon();
             }
         }
     }
@@ -652,14 +699,10 @@ public class SQLDB extends Database implements TableInsert{
                 db.tables.put(t.name,t);
             });
         }
-
-        if( db.getCurrentTables(false)){ // No use trying to create content of reading tables failed
-            db.lastError = db.createContent(true);
-        }
-
         // Mariadb
         if (dbDig.hasPeek("timeprecision"))
             db.mariadbTimePrecision = dbDig.peekAt("timeprecision").value(0);
+        db.connect(false);
         return db;
     }
 
@@ -674,6 +717,11 @@ public class SQLDB extends Database implements TableInsert{
                 yield null;
             }
         };
+    }
+
+    public void flagNeedcon() {
+        if (state != STATE.HAS_CON)
+            state = STATE.NEED_CON;
     }
     /**
      * Write the setup of this database to the settings.xml
@@ -751,8 +799,9 @@ public class SQLDB extends Database implements TableInsert{
             case FLUSH_REQ -> doFlushReq(); // Required a flush
             case HAS_CON -> doHas_Con(secondsPassed); // If we have a connection, but not using it
             case IDLE -> doIdle(); // Database is idle
-            case NEED_CON -> doNeedCon(); // Needs a connection
+            case NEED_CON -> connect(false); // Needs a connection
             case ACCESS_DENIED -> Logger.info("Todo ACCESS DENIED");
+            case CON_BUSY -> Logger.debug(id + " -> Trying to connect...");
             default -> Logger.warn(id + "(db) -> Unknown state: " + state);
         }
     }
@@ -804,7 +853,7 @@ public class SQLDB extends Database implements TableInsert{
 
     private void doIdle() {
         if (hasRecords()) { // If it has records
-            if (connect(false)) { // try to connect but don't reconnect if connected
+            if (isValid(2000)) { // try to connect but don't reconnect if connected
                 state = STATE.HAS_CON; // connected
             } else {
                 state = STATE.NEED_CON; // connection failed
@@ -812,20 +861,9 @@ public class SQLDB extends Database implements TableInsert{
         }
     }
 
-    private void doNeedCon() {
-        Logger.info(id + " -> Need con, trying to connect...");
-        if (connect(false)) {
-            if (hasRecords()) { // If it is connected and has records
-                state = STATE.HAS_CON;
-                Logger.info(id + " -> Got a connection.");
-            } else {  // Has a connection but doesn't need it anymore
-                state = STATE.IDLE;
-                Logger.info(id + " -> Got a connection, but don't need it anymore...");
-            }
-        }
-    }
     // @SuppressWarnings("SQLInjection")
     protected void readTable(Connection con, String query, Consumer<ResultSet> action) {
+        Logger.debug("Running query: " + query);
         try (Statement stmt = con.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 
@@ -998,7 +1036,7 @@ public class SQLDB extends Database implements TableInsert{
                                         if( errors>10) {
                                             Logger.error(id()+" -(db)> 10x SQL Error:"+e.getMessage() );
                                             Logger.error( "Errorcode:" +e.getErrorCode() );
-                                            if( e.getErrorCode()==8 && !t.server && errors<30 ){
+                                            if (e.getErrorCode() == 8 && !t.server) {
                                                 connect(true);
                                                 Logger.warn(id()+ "->Errorcode 8 detected for sqlite, trying to reconnect.");
                                             }else{

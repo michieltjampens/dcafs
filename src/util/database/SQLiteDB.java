@@ -226,9 +226,12 @@ public class SQLiteDB extends SQLDB{
                 String tableName = rs.getString(1);
                 if( tables.get(tableName)==null) {//don't overwrite
                     var t = new SqlTable(tableName);
+                    t.flagAsReadFromDB();
+                    readTableInfo(t);
                     tables.put(tableName, t);
+                } else {
+                    tables.get(tableName).flagAsReady();
                 }
-                tables.get(tableName).flagAsinDB();
             } catch (SQLException e) {
                 Logger.error( id() + " -> Error during table read: "+e.getErrorCode());
             }
@@ -243,7 +246,6 @@ public class SQLiteDB extends SQLDB{
         return true;
     }
     private void readTableInfo(SqlTable table){
-        table.flagAsReadFromDB();
         readTable(con, "PRAGMA table_info(\"" + table.getName() + "\");", rs -> {
             try {
                 String column = rs.getString(rs.findColumn("name"));
@@ -424,11 +426,11 @@ public class SQLiteDB extends SQLDB{
             if(renew)
                 updateFileName(rolloverTimestamp); // first update the filename
 
-            getTables().forEach(SqlTable::clearReadFromDB); // Otherwise they won't get generated
+            getTables().forEach(SqlTable::flagAsReadFromXML); // Otherwise they won't get generated
 
             disconnect();// then disconnect, this also flushes the queries first
             Logger.info("Disconnected to connect to new one...");
-
+            connect(false);
             if( !createContent(true).isEmpty() ){
                 Logger.error(id+" -> Failed to create the database");
             }

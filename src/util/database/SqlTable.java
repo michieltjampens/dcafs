@@ -28,6 +28,11 @@ public class SqlTable{
         INTEGER, REAL, TEXT, TIMESTAMP, EPOCH, OBJECT, LOCALDTNOW, UTCDTNOW, DATETIME
     }
 
+    enum TABLE_STATE {
+        NEW, READ_FROM_XML, XML_FAILED, FOUND_IN_DB, READ_FROM_DB, READY
+    }
+
+    TABLE_STATE ready_state = TABLE_STATE.NEW;
     ArrayList<Column> columns = new ArrayList<>();
     HashMap<String, ValStore> stores = new HashMap<>();
     boolean ifnotexists = false;
@@ -36,8 +41,6 @@ public class SqlTable{
     HashMap<String,PrepStatement> preps = new HashMap<>();
     String lastError="";
 
-    private boolean readFromDatabase=false;
-    private boolean isInDB = false;
     private long prepCount=0;
 
     public SqlTable(String name) {
@@ -124,9 +127,27 @@ public class SqlTable{
                     table.withDefault(node.getAttribute("def"));
             }
         }
-        if (ok)
+        if (ok) {
+            table.ready_state = TABLE_STATE.READ_FROM_XML;
             return Optional.of(table);
+        }
         return Optional.empty();
+    }
+
+    public void flagAsReadFromXML() {
+        ready_state = TABLE_STATE.READ_FROM_XML;
+    }
+
+    public boolean isReadFromXML() {
+        return ready_state == TABLE_STATE.READ_FROM_XML;
+    }
+
+    public void flagAsReady() {
+        ready_state = TABLE_STATE.READY;
+    }
+
+    public boolean isReady() {
+        return ready_state == TABLE_STATE.READY;
     }
 
     /**
@@ -171,29 +192,14 @@ public class SqlTable{
      * Flag that the sqltable was read from a database (and not from xml)
      */
     public void flagAsReadFromDB(){
-        readFromDatabase=true;
+        ready_state = TABLE_STATE.READ_FROM_DB;
     }
-
-    public void flagAsinDB() {
-        isInDB = true;
-    }
-    /**
-     * Clear the flag that states that the table was read from the database
-     */
-    public void clearReadFromDB(){
-        readFromDatabase=false;
-    }
-
     /**
      * Check if the table was read from the database (instead of xml)
      * @return True if read from database
      */
     public boolean isReadFromDB(){
-        return readFromDatabase;
-    }
-
-    public boolean notInDB() {
-        return !isInDB;
+        return ready_state == TABLE_STATE.READ_FROM_DB;
     }
     /**
      * Get the name of the table
@@ -458,18 +464,19 @@ public class SqlTable{
 
 
         int size = prep.getData().size();
-        var dumpPath = path.resolve(name+"_dump.csv");
-        if(Files.notExists(dumpPath)){
+        if (!path.toString().endsWith(".csv"))
+            path = path.resolve(name + "_dump.csv");
+        if (Files.notExists(path)) {
             var join = new StringJoiner(";");
             columns.forEach( c -> join.add(c.title));
-            FileTools.appendToTxtFile(dumpPath,join+ System.lineSeparator() );
+            FileTools.appendToTxtFile(path, getPreparedStatement() + System.lineSeparator() + join + System.lineSeparator());
         }
-        Logger.warn("Something wrong dumping data to "+dumpPath.toAbsolutePath());
+
         for (int a=0;a<size;a++) {
             Object[] d = prep.getData().get(a);
             var join = new StringJoiner(";");
             Arrays.stream(d).forEach( dd -> join.add(String.valueOf(dd)));
-            FileTools.appendToTxtFile(path.resolve(name+"_dump.csv"),join+ System.lineSeparator() );
+            FileTools.appendToTxtFile(path, join + System.lineSeparator());
         }
         clearRecords(id,size);
         return true;

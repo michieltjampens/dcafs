@@ -513,7 +513,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                     db.connect(true);
                     yield "Trying to reconnect to the sqlite database";
                 }else{
-                    db.connect(true);
+                    db.flagNeedcon();
                     yield "Trying to reconnect to the sql database";
                 }
             }
