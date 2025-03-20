@@ -20,7 +20,8 @@ The 'Getting Started' guide is available [here](https://github.com/michieltjampe
 
 Dcafs supports data collection from a variety of sources:
 
-* **Local instrumentation:** Serial/TTY, I2C, SPI and files (can be used as passthrough from other logging systems).
+* **Local storage:** Line delimited files, SQLite
+* **Local instrumentation:** Serial/TTY, I2C, SPI and files (can be used as pass through from other logging systems).
 * **Network-based (LAN):** TCP/UDP (both server and client), MODBUS(ascii), MQTT (client).
 * **Internet (WAN):** Email and [Matrix](https://matrix.org/).
 
