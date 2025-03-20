@@ -330,8 +330,15 @@ public class PathForward {
         return targets;
     }
     public void addTarget(Writable wr){
-        var target = stepsForward.get(stepsForward.size()-1).getLastStep();
-        target.addTarget(wr);
+        if (!stepsForward.isEmpty()) {
+            var target = stepsForward.get(stepsForward.size() - 1).getLastStep();
+            target.addTarget(wr);
+        } else {
+            if (targets.isEmpty()) {
+                customs.forEach(CustomSrc::start);
+            }
+            targets.add(wr);
+        }
     }
     public void addTarget(Writable wr, String id){
         for( var step : stepsForward){

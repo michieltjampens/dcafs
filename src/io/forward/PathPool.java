@@ -58,6 +58,7 @@ public class PathPool implements Commandable {
                     var p = paths.get(path.id());
                     if( p!=null) {
                         p.lastTargets().forEach(path::addTarget); // Pass targets on to the new path
+                        p.getTargets().forEach(path::addTarget);
                         p.stop();
                         paths.remove(p.id());
                     }
