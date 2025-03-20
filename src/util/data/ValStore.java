@@ -318,7 +318,8 @@ public class ValStore {
                 String value = line.substring(items[0].length()+1);
                 val.parseValue(value);
             }else{
-                Logger.warn(id+" -> No mapping found for "+items[0]);
+                Logger.warn(id + " -> No mapping found for " + items[0] + ", skipping db insert");
+                return false;
             }
             dbOk = items[0].equalsIgnoreCase(lastKey);
         }else {
@@ -334,7 +335,8 @@ public class ValStore {
             }
         }
         // Now try the calvals?
-        doCalVals();
+        if (dbOk)
+            doCalVals();
         return dbOk;
     }
     public boolean apply(ArrayList<Double> vals){

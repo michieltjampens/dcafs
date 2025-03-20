@@ -238,7 +238,8 @@ public abstract class AbstractForward implements Writable {
 
     protected void applyDataToStore(String data) {
         if (store != null) {
-            store.apply(data);
+            if (!store.apply(data))
+                return;
             for (var dbInsert : store.dbInsertSets())
                 tableInserters.forEach(ti -> ti.insertStore(dbInsert));
         }

@@ -54,7 +54,8 @@ public class StoreCollector extends AbstractCollector {
      */
     protected boolean addData(String data) {
         if( store !=null ) {
-            store.apply(data);
+            if (!store.apply(data))
+                return true;
             tis.forEach(ti -> {
                 for (var db : store.dbInsertSets()) {
                     if (ti.id().equals(db[0]))
