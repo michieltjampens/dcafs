@@ -253,7 +253,7 @@ public class TimeTools {
             }
 	    	// Now total should contain the converted part in seconds, millis not yet included
             if( msIndex!= -1){
-                int millis = Tools.parseInt( period.substring(sIndex, msIndex), 0 );
+                int millis = Tools.parseInt(period.substring(0, msIndex), 0);
                 if( unit == TimeUnit.SECONDS ){
                     total += millis/1000;   // Users asked seconds, so add rounded
                 }else if (unit == TimeUnit.MILLISECONDS ){
