@@ -72,3 +72,18 @@ If a character needs to be at specific position in the data, these can be used.
 ### Other
 * nmea : Check if the data is a valid nmea string (verifies checksum).
 * math : Does a simple math check.
+
+## Customsrc
+
+If you want to check if a forward is working as expected, it's possible to create the data stream locally.
+
+````xml
+
+<path>
+    <plainsrc>Hello World!</plainsrc> <!-- Will send Hello World every second -->
+    <plainsrc delay="100ms" interval="10s">Hello??
+    </plainsrc> <!-- Will send hello?? every 10s with initial delay of 100ms -->
+    <filesrc>todo</filesrc> <!-- will send the data from all the files in the map one line at a time at 1s interval -->
+    <cmdsrc>st</cmdsrc> <!-- will send the result of the cmd -->
+</path>
+````
