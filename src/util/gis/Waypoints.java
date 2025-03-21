@@ -13,10 +13,7 @@ import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
@@ -38,8 +35,8 @@ public class Waypoints implements Commandable {
     private final BlockingQueue<Datagram> dQueue;
     private ScheduledFuture<?> checkTravel;
     private ScheduledFuture<?> checkThread=null;
-    private OffsetDateTime lastCheck;
-    private Instant lastThreadCheck;
+    private long lastTravelCheck = 0L;
+    private long lastTravelTaskCheck = 0L;
 
     /* *************************** C O N S T R U C T O R *********************************/
     public Waypoints(ScheduledExecutorService scheduler, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
@@ -61,7 +58,7 @@ public class Waypoints implements Commandable {
             Logger.error("(wpts) -> Tried to add waypoint with used id (" + wp.id() + ")");
             return;
         }
-        checkTravelThread( wp.hasTravelCmd() );
+        scheduleTravelCheck(wp.hasTravelCmd());
         Logger.info( "(wpts) -> Adding waypoint: "+wp );
 
     	wps.put(wp.id(),wp);
@@ -78,7 +75,7 @@ public class Waypoints implements Commandable {
             Logger.error("(wpts) -> Tried to add GeoQuad with used id (" + quad.id() + ")");
             return;
         }
-        checkTravelThread(quad.hasCmds());
+        scheduleTravelCheck(quad.hasCmds());
         Logger.info( "(wpts) -> Adding GeoQuad: "+quad );
 
         quads.put(quad.id(),quad);
@@ -129,7 +126,7 @@ public class Waypoints implements Commandable {
 
         if( checkThread==null) {
             Logger.info("(wpts) -> Enable hourly check thread");
-            checkThread = scheduler.scheduleAtFixedRate(this::checkThread, 1, 1, TimeUnit.HOURS);
+            checkThread = scheduler.scheduleAtFixedRate(this::monitorTravelTask, 1, 1, TimeUnit.HOURS);
         }
         return true;
     }
@@ -222,11 +219,13 @@ public class Waypoints implements Commandable {
             b.add( wp.getInfo(newline) );
             b.add( wp.toString(false, true, sog.asDoubleValue()) ).add("");
         }
-        var age = TimeTools.convertPeriodToString(Duration.between(lastCheck, OffsetDateTime.now(ZoneOffset.UTC)).getSeconds(), TimeUnit.SECONDS);
+        var age = "Not yet";
+        if (lastTravelCheck != 0L)
+            age = TimeTools.convertPeriodToString(Instant.now().getEpochSecond() - lastTravelCheck, TimeUnit.SECONDS);
 
         b.add("Time since last travel check: "+age+" (check interval: "+CHECK_INTERVAL+"s)");
-        if( lastThreadCheck!=null) {
-            var ageThread = TimeTools.convertPeriodToString(Duration.between(lastThreadCheck, Instant.now()).getSeconds(), TimeUnit.SECONDS);
+        if (lastTravelTaskCheck != 0L) {
+            var ageThread = TimeTools.convertPeriodToString(Instant.now().getEpochSecond() - lastTravelTaskCheck, TimeUnit.SECONDS);
             b.add("Time since last thread check: " + ageThread + " (check interval: 1h)");
         }else{
             b.add("No thread check done yet (check interval: 1h)");
@@ -271,20 +270,18 @@ public class Waypoints implements Commandable {
         return wp.distanceTo(latitude.asDoubleValue(), longitude.asDoubleValue());
     }
     /* ********************************* T H R E A D ***************************************** */
-    private void checkTravelThread( boolean hasTravel ){
-        if( checkTravel!=null && (checkTravel.isDone()||checkTravel.isCancelled()) )
-            Logger.error("(wpts) -> Checktravel cancelled? " + checkTravel.isCancelled()
-                                + " or done: " + checkTravel.isDone());
+    private void scheduleTravelCheck(boolean hasTravel) {
 
         // Check if the hastravel is true and the thread hasn't been created or stopped for some reason
         if(hasTravel && (checkTravel==null || (checkTravel.isDone()||checkTravel.isCancelled())))
             checkTravel = scheduler.scheduleAtFixedRate(this::checkWpAndGQuads,5, CHECK_INTERVAL, TimeUnit.SECONDS);
     }
-    public boolean checkThread(){
-        lastThreadCheck=Instant.now();
+
+    public boolean monitorTravelTask() {
+        lastTravelTaskCheck = Instant.now().getEpochSecond();
         if( checkTravel!=null) {
             if( checkTravel.isDone()||checkTravel.isCancelled() ) {
-                Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone());
+                Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone() + " -> Restarting!");
                 checkTravel = scheduler.scheduleAtFixedRate(this::checkWpAndGQuads,5, CHECK_INTERVAL, TimeUnit.SECONDS);
                 return false;
             }else{
@@ -297,7 +294,7 @@ public class Waypoints implements Commandable {
      * Check the waypoints to see if any travel occurred, if so execute the commands associated with it
      */
     private void checkWpAndGQuads(){
-        lastCheck = OffsetDateTime.now(ZoneOffset.UTC);
+        lastTravelCheck = Instant.now().getEpochSecond();
         try {
             wps.values().forEach(wp -> {
                 wp.checkIt( latitude.asDoubleValue(), longitude.asDoubleValue()).ifPresent(
@@ -308,8 +305,8 @@ public class Waypoints implements Commandable {
                 gq.checkIt(latitude.asDoubleValue(), longitude.asDoubleValue())
                         .forEach( cmd -> dQueue.add(Datagram.system(cmd)));
             });
-        }catch( Throwable trow){
-            Logger.error(trow);
+        } catch (Throwable trow) {
+            Logger.error("Error occurred during Wp & Quad travel check:" + trow.getMessage(), trow);
         }
     }
     /* ****************************************************************************************************/
@@ -367,7 +364,7 @@ public class Waypoints implements Commandable {
                 way.addTravel(cmds[5], cmds[4], cmds[2]);
                 yield "Added travel " + cmds[5] + " to " + cmds[1];
             }
-            case "checktread" -> checkThread() ? "Thread is fine" : "! Thread needed restart";
+            case "checktread" -> monitorTravelTask() ? "Thread is fine" : "! Thread needed restart";
             default -> "! No such subcommand in " + cmd + ": " + cmds[0];
         };
     }
