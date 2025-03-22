@@ -51,6 +51,7 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 ### RealtimeValues
 - Fixed, Min/max/avg etc. is shown again for the `rtvals` command.
 - Fixed, if order wasn't specified it was on top instead of bottom
+- Fixed, `ss:id,reloadstore` didn't properly reload if a map was used.
 
 ### GIS
 - No longer possible to use duplicate id's for waypoints or geoquads.
@@ -59,12 +60,16 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - Fixed, tables weren't read from sqlite db.
 - MariaDB, can add a node <timeprecision> to set the amount of digits in the seconds default 0.
 - Server connect is now threaded, 5 consecutive fails trigger a query dump to csv. Logging is also rated.
+- Rollover now uses the same format as everywhere else.
+- Rewrote how reloading of the database works, now the instance is retained instead of a 'clean slate'
 
 ### Paths
 - Targets are stored between reloads, so updates are 'live'.
 - Editor, indexreplace used an inmutable list so didn't work...
-- Editor, added some alternives to the types to maybe make it more straightforward rex -> regex and so on
-- Updated `help:editor` to use node tags instead of type attribute
+- Editor, added some alternives to the types to maybe make it more straightforward rex -> regex and so on.
+- Updated `help:editor` to use node tags instead of type attribute.
+- Fixed, response to `p:id,new...` is how it should be again.
+- Fixed, src was cleared when reading from xml and the path is in the settings.xml
 
 ## 2.13.0 (20/02/2025)
 ### Updated dependencies

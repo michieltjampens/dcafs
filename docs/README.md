@@ -1,6 +1,6 @@
 ## Content of the files in this folder
 
-### Basics (updated to 2.6.0)
+### Basics (updated to 3.0.0)
 Tries to teach the basics of using dcafs with the use of a dice rolling simulator.
 This simulator can be found in the examples sub folder.
 

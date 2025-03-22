@@ -1,6 +1,6 @@
 ## Introduction
 
->**Note: Document up to date for 2.10.x**
+> **Note: Document up to date for 3.0.x**
 
 The purpose of this (probably in the end very long) page is to slowly introduce the different components in dcafs and how to use them.
 The basis will be interacting with a dummy sensor that simulates rolling a d20 (a 20 sided die). This wil be simulated by another instance of dcafs running on the same system. Do note that practicality isn't the mean concern, showing what is (or isn't) possible is.
@@ -9,8 +9,8 @@ The dummy sensor is in fact just dcafs running a purpose made settings.xml and s
 Nothing in the source code has been altered to make it possible, so it should be independent of the version used (unless because of new bugs).   
 How the dummy works will be explained on this page (somewhere). The only thing that matters for now is that it is running a TCP server on port 4000.
 
->Note: This guide assumes [Java](https://adoptium.net/) (at least 17, install the latest LTS version) and a telnet client (such as [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html)) have been installed already.
-Dcafs doesn't have a GUI and uses a telnet server for interaction instead.
+> Note: This guide assumes [Java](https://adoptium.net/) (at least 17, install the latest LTS version) and a telnet client (such as [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html)) have been installed already.
+> Dcafs doesn't have a GUI and uses a telnet server for interaction instead.
 
 To start off with a glossary:
 
@@ -167,7 +167,7 @@ d20:12
 ```
 To stop this constant stream of data, send an empty command (press enter).
 
-> Note: By default all data received (but not send) is stored in .log files that can be found in the /raw subfolder.
+> **Note:** By default all data received (but not send) is stored in .log files that can be found in the /raw subfolder.
 
 ### 3. Store the last value in memory
 
@@ -192,7 +192,7 @@ So, to define the store,we need to analyse the format of the data.
 The data needs to be split on ':' and then the second element (but counting from 0) is the integer we want.
 
 An overview of all the commands available for store is given with the `store:?` command.  
-(Issue that command in the window that had the ss:? result)
+(Issue that command in the window that had the `ss:?` result)
 
 Now defining the store:
 * Start with `store:dice,!!` because all commands that we'll use start with that.
@@ -257,7 +257,8 @@ Altering the store to increase the roll with 5, cmd for this is `store:dice,alte
       </int> 
 </store>
 ```
-This can be applied with the cmd `ss:dice,reloadstore`. (check the result with `int:dice_rolled` and compare it to `raw:dice`)
+
+Check the result with `int:dice_rolled` and compare it to `raw:dice`.
 Or if the roll was stored as a text instead. The node below replaces some bad rolls with better ones.  
 To test the example below, copy it and paste it over the current one in the settings file, save the file and 
 use `ss:dice,reloadstore` to apply it.
@@ -288,7 +289,8 @@ Note that the type was altered to flag, so to see the results `flag:dice_rolled`
 
 ### 5. Store the last value in a database
 
-> Note: To look at a created sqlite database, install an SQLite viewer like [DB Browser for SQLite](https://sqlitebrowser.org/dl/)
+> **Note:** To look at a created sqlite database, install an SQLite viewer
+> like [DB Browser for SQLite](https://sqlitebrowser.org/dl/)
 
 The code doesn't differ much between SQLite or a database server, so we'll go with SQLite.  
 For a full list of database related commands, use `dbm:?`
@@ -445,13 +447,13 @@ It's called rollover (db rolls over to the next), the command for it `dbm:id,add
 * pattern is the text that is added in front of .sqlite of the filename, and allows for datetime patterns.
   * Alternative position can be given be adding `{rollover}` in the filename, this will be replaced 
 
-So as an example a monthly rollover: `dbm:rolls,addrollover,5 min,_HHmm`. 
+So as an example a monthly rollover: `dbm:rolls,addrollover,5m,_HHmm`.
 Other options for unit are: minute, hour, day, month, year.
 To apply it: `dbm:rolls,reload` 
 ```xml
 <databases>
-  <sqlite id="rolls" path="db\rolls.sqlite"> 
-    <rollover period="5 minutes">_HHmm</rollover>
+  <sqlite id="rolls" path="db\rolls.sqlite">
+    <rollover period="5m">_HHmm</rollover>
     <flush age="30s" batchsize="30"/>
     <idleclose>-1</idleclose>
     <table name="dice">
@@ -461,8 +463,8 @@ To apply it: `dbm:rolls,reload`
   </sqlite>
 </databases>
 ```
-Suppose this is active at 10:12:15, the filename will be rolls_1012.sqlite.
-Dcafs will make the next filename be a 'cleaner' division, so it will be named rolls_1015.sqlite and so on. 
+
+Suppose this is active at 10:12:15, the filename will be rolls_1010.sqlite because takes the closes 'clean' option.
 
 #### Using a database server?
 
@@ -493,13 +495,16 @@ Which in turn fills in the xml.
 All the rest is the same as the SQLite. (meaning adding the table and using the store with the new db attribute)
 
 ### 6. Summary
-This should serve as a broad, toplevel overview of what happens and what goes where or has which function.
+
+This should serve as a broad, top level overview of what happens and what goes where or has which function.
 
 * Create a `stream`. The ID will be what you use to refer to it afterward.
     * Some references that can be altered: `ttl`, `eol`.
 * A `store` will process the data by splitting it at the delimiter.
     * Each "field" that results from the split can be given a name and type (int, text ...)
     * One of the attributes of a `store` is the group. This allows you to group incoming data (shown using `rtvals`).
+* For everything related to databases, check `dbm:?`
+  * There are commands for adding tables, columns and for SQLite, set the rollover.
 
 ## B. Altering the raw data
 
@@ -579,6 +584,7 @@ Filled in: `pf:cheat1,addf,minlength:6`
 
 Now use `path:cheat1` to see the result. If you don't see anything, it either doesn't work, or the rolls are really unlucky.  
 You could open a second telnet session and use `raw:dice` to see the unfiltered data.
+Or use `raw:dice` in the same session as the path and also add `>>prefixid` to also see the origin id of the data.
 
 Below is what was added to the settings.xml.
 ```xml
@@ -591,11 +597,11 @@ Below is what was added to the settings.xml.
 To write this to the database, a store node needs to be added. Because it's inside a path, the cmds are different.  
 All the cmds start with `pf:pathid,store,`, using !! again `pf:cheat1,store,!!`
 * Because a store takes group from the parent id (dice), this doesn't need to be set.
-* To add an int to a store: `addint,name<,index>`, so `addint,rolled,1`.
+* To add an int to a store: `addint,group,name<,index>`, so `addint,dice,rolled,1`.
     * If a store is the last step in the path, the int will be added to that store.
     * If no store is at the end, a new one will be created for it.
+  * If a group was given once, no need to type it for consecutive elements.
     * If no index is given, one will be generated based on the amount of nodes already present.
-* The group is taken from the id, but we want it to be dice instead to match the table `group,dice`.
 * Then finally, to set the db reference, `db,rolls:dice`.
 * Next `!!`, to go back to normal entry.
 
@@ -693,7 +699,7 @@ Next add a filter again, `pf:dice,addf,maxlength:5`
 
 To add an editor that does a replace, check the earlier `help:editor` for the correct sequence.
 > replace -> Replace 'find' with the replacement
-> cmd pf:pathid,adde,replace:find|replacement
+> cmd pf:pathid,adde,replace,find|replacement
 
 So this becomes: `pf:dice,adde,replace,d2|d1`.
 ```xml
@@ -911,7 +917,7 @@ The cmd node has four 'when' options, but those are for issuing (local) commands
 * `open` executed on a (re)connection
 * `idle` executed when the ttl is passed and thus idle
 * `!idle` executed when idle is resolved
-* `close` executed when it's closed
+* `close` executed when the connection closed
 
 These can be added with the command `ss:id,addcmd,when,data`
 
@@ -1233,7 +1239,7 @@ Besides 'below', the other options are:
 
 > Notes:   
 > (1) It's really easy to create an endless loop with this, the user is responsible for not causing it!  
-> (2) I'd rather have used logical symbols like <,>,>= etc but some of them aren't allowed in xml
+> (2) I'd rather have used logical symbols like <,>,>= etc. but some of them aren't allowed in xml
 
 ```xml
 <rtvals>
