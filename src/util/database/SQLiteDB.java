@@ -1,8 +1,7 @@
 package util.database;
 
-import org.apache.commons.lang3.math.NumberUtils;
+import das.Paths;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -18,7 +17,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -63,62 +61,64 @@ public class SQLiteDB extends SQLDB{
     public static SQLiteDB createDB( String id, Path db ){
         return new SQLiteDB( id, db );
     }
-    /**
-     * Read the rollover and table settings from the given xml element
-     * @param dbe The element with the setup info
-     * @return Returns an optional sqliteDB
-     */
-    public static Optional<SQLiteDB> readFromXML( Element dbe, Path workPath ){
-        if( dbe == null )
-            return Optional.empty();
 
-        var dig = XMLdigger.goIn(dbe);
+    public void reloadDatabase() {
+        disconnect(); // Start with disconnecting
+        tables.clear();
+        views.clear();
+
+        var dig = Paths.digInSettings("databases").digDown("sqlite", "id", id);
+        readFromXML(dig);
+
+        connect(false); // Reconnect
+    }
+
+    public boolean readFromXML(XMLdigger dig) {
+
         String id = dig.attr("id","");
         var path = dig.attr("path",null,workPath);
 
         if( path.isEmpty() )
-            return Optional.empty();
+            return false;
 
-        SQLiteDB db = SQLiteDB.createDB(id,path.get());
-
-        db.maxInsertAge = TimeTools.parsePeriodStringToSeconds(dig.peekAt("maxinsertage").value("1h"));
+        maxInsertAge = TimeTools.parsePeriodStringToSeconds(dig.peekAt("maxinsertage").value("1h"));
 
         /* RollOver */
         if( dig.peekAt("rollover").hasValidPeek() ){
             String period = dig.attr("period","").toLowerCase();
-            var rollCount = NumberUtils.toInt(period.replaceAll("\\D",""));
-            var unit = period.replaceAll("[^a-z]","");
+            var secs = 0;
+            if (!period.isEmpty())
+                secs = (int) TimeTools.parsePeriodStringToSeconds(period);
             String format = dig.value("");
 
-            ChronoUnit rollUnit = TimeTools.parseToChronoUnit( unit );
-            if( rollUnit != ChronoUnit.FOREVER ){
-                Logger.info("Setting rollover: "+format+" "+rollCount+" "+rollUnit);
-                db.setRollOver(format,rollCount,rollUnit);
+            if (secs != 0) {
+                Logger.info("Setting rollover: " + format + " " + period);
+                setRollOver(format, secs, ChronoUnit.SECONDS);
             }else{
                 Logger.error(id+" -> Bad Rollover given" );
-                return Optional.empty();
+                return false;
             }
         }
         /* Setup */
-        dig.peekAndUse("flush").ifPresent(db::readFlushSetup);
+        dig.peekAndUse("flush").ifPresent(this::readFlushSetup);
 
         // How many seconds before the connection is considered idle (and closed)
-        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds(dig.attr("idleclose","5m"));
+        idleTime = (int) TimeTools.parsePeriodStringToSeconds(dig.attr("idleclose", "5m"));
 
         /* Views */
         dig.peekOut("view").forEach( view -> {
             String name = view.getAttribute("name");
             String query = view.getTextContent();
-            db.views.add( "CREATE VIEW  IF NOT EXISTS "+name+" AS "+query);
+            views.add("CREATE VIEW  IF NOT EXISTS " + name + " AS " + query);
         });
 
         /* Tables */
-        dig.peekOut("table").forEach( table -> SqlTable.readFromXml(table).ifPresent(t -> db.tables.put(t.name,t)));
+        dig.peekOut("table").forEach(table -> SqlTable.readFromXml(table).ifPresent(t -> tables.put(t.name, t)));
 
         /* Create the content */
-        db.getCurrentTables(false);
-        db.lastError=db.createContent(false);
-        return Optional.of(db);
+        getCurrentTables(false);
+        lastError = createContent(false);
+        return true;
     }
     /* ************************************************************************************************************** */
     @Override
@@ -283,7 +283,7 @@ public class SQLiteDB extends SQLDB{
 
         fab.selectOrAddChildAsParent("sqlite","id", id).attr("path",dbPath.toString());
         if( hasRollOver() )
-            fab.alterChild("rollover",oriFormat).attr("period",rollCount+" "+rollUnit.toString().toLowerCase());
+            fab.alterChild("rollover", oriFormat).attr("period", TimeTools.convertPeriodToString(rollCount, TimeUnit.SECONDS));
         fab.alterChild("flush").attr("age",flush).attr("batchsize",maxQueries)
            .alterChild("idleclose",idle)
            .build();
@@ -303,6 +303,11 @@ public class SQLiteDB extends SQLDB{
             Logger.warn(id+" -> Bad rollover given");
             return null;
         }
+        if (unit == ChronoUnit.SECONDS && rollCount % 60 == 0) {
+            unit = ChronoUnit.MINUTES;
+            rollCount /= 60;
+        }
+
         try {
             format = DateTimeFormatter.ofPattern(dateFormat);
         }catch(IllegalArgumentException e){

@@ -2,7 +2,6 @@ package util.database;
 
 import das.Paths;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
@@ -22,9 +21,10 @@ import java.util.stream.Stream;
 
 public class SQLDB extends Database implements TableInsert{
 
-    private final String tableRequest;   // The query to request table information
-    private final String columnRequest;  // The query to request column information
-    private final String dbName;         // The name of the database
+    private String tableRequest;   // The query to request table information
+    private String columnRequest;  // The query to request column information
+    private String address;
+    private String dbName;         // The name of the database
     protected HashMap<String, SqlTable> tables = new HashMap<>(); // Map of the tables
     protected ArrayList<String> views = new ArrayList<>();        // List if views
     protected ArrayList<String> simpleQueries = new ArrayList<>();// Simple query buffer
@@ -32,8 +32,9 @@ public class SQLDB extends Database implements TableInsert{
     protected Connection con = null; // Database connection
     protected int insertErrors=0;
 
-    DBTYPE type;                                  // The type of database this object connects to
-    public enum DBTYPE {MSSQL,MYSQL,MARIADB, POSTGRESQL} // Supported types
+    DBTYPE type = DBTYPE.UNKNOWN;                                   // The type of database this object connects to
+
+    public enum DBTYPE {UNKNOWN, MSSQL, MYSQL, MARIADB, POSTGRESQL} // Supported types
 
     boolean busySimple =false;   // Busy with the executing the simple queries
     boolean busyPrepared =false; // Busy with executing the prepared statement queries
@@ -44,19 +45,33 @@ public class SQLDB extends Database implements TableInsert{
     protected boolean doInserts = true;
     protected int connectionAttempts = 0;
     protected String quotePrefix = "", quoteSuffix = "";
-    /**
-     * Prepare connection to one of the supported databases
-     * @param type The type of database
-     * @param address The address for this connection (port is optional)
-     * @param user A user with sufficient rights
-     * @param pass The pass for the user
-     */
-    public SQLDB( DBTYPE type, String address, String dbName, String user, String pass ) {
-        this.type=type;
-        this.user=user;
-        this.pass=pass;
-        this.dbName=dbName;
 
+    protected SQLDB(){
+        tableRequest="";
+        columnRequest="";
+        dbName="";
+    }
+
+    public SQLDB(String type, String address, String dbName, String user, String pass) {
+        this.type = parseType(type);
+        this.address = address;
+        this.dbName = dbName;
+        this.user = user;
+        this.pass = pass;
+
+        prepareIRL();
+    }
+
+    public static Optional<SQLDB> createFromXML(String id) {
+        var db = new SQLDB();
+        var dig = Paths.digInSettings("databases").digDown("server", "id", id);
+        if (dig.isInvalid())
+            return Optional.empty();
+        db.readFromXML(dig);
+        return Optional.of(db);
+    }
+
+    private void prepareIRL() {
         switch (type) {
             case MYSQL -> {
                 irl = "jdbc:mysql://" + address + (address.contains(":") ? "/" : ":3306/") + dbName;
@@ -93,26 +108,22 @@ public class SQLDB extends Database implements TableInsert{
             }
         }
     }
-    protected SQLDB(){
-        tableRequest="";
-        columnRequest="";
-        dbName="";
+
+    public boolean isInValidType() {
+        return type == DBTYPE.UNKNOWN;
+    }
+
+    private DBTYPE parseType(String type) {
+        return switch (type.toLowerCase()) {
+            case "mysql" -> DBTYPE.MYSQL;
+            case "mariadb" -> DBTYPE.MARIADB;
+            case "mssql" -> DBTYPE.MSSQL;
+            case "postgresql" -> DBTYPE.POSTGRESQL;
+            default -> DBTYPE.UNKNOWN;
+        };
     }
     public void setWorkPath(Path p){
         workPath=p;
-    }
-    /* ************************************************************************************************* */
-    public static SQLDB asMSSQL( String address,String dbName, String user, String pass ){
-        return new SQLDB( DBTYPE.MSSQL,address,dbName,user,pass );
-    }
-    public static SQLDB asMARIADB( String address,String dbName, String user, String pass ){
-    	return new SQLDB( DBTYPE.MARIADB,address,dbName,user,pass );
-    }
-    public static SQLDB asMYSQL( String address, String dbName, String user, String pass ){
-        return new SQLDB( DBTYPE.MYSQL,address,dbName,user,pass);
-    }
-    public static SQLDB asPOSTGRESQL(String address, String dbName, String user, String pass ){
-        return new SQLDB( DBTYPE.POSTGRESQL,address,dbName,user,pass);
     }
     /* ************************************************************************************************* */
     public String toString(){
@@ -542,7 +553,9 @@ public class SQLDB extends Database implements TableInsert{
         Logger.info(id() + "(dbm) -> Allowing inserts? " + doInserts);
     }
     public void buildStores( RealtimeValues rtvals ){
-        tables.values().forEach(x->x.buildStore(rtvals));
+        tables.values().stream()
+                .filter(table -> !table.hasValidStore())
+                .forEach(x -> x.buildStore(rtvals));
     }
     public synchronized boolean insertStore(String[] dbInsert ) {
         if (!doInserts)
@@ -654,71 +667,65 @@ public class SQLDB extends Database implements TableInsert{
     }
     /**
      * Read the setup of a database server from the settings.xml
-     * @param dbe The element containing the info
+     * @param dbDig The digger pointing at the element
      * @return The database object made with the info
      */
-    public static SQLDB readFromXML( Element dbe ){
-        if( dbe == null )
-            return null;                
+    public boolean readFromXML(XMLdigger dbDig) {
 
-        var dbDig = XMLdigger.goIn(dbe);
+        if (dbDig == null)
+            return false;
+
         var id = dbDig.attr("id","");
 
         if( !dbDig.hasPeek("db") || !dbDig.hasPeek("address") ) {
             Logger.error(id+"(dbm) -> No db and/or address node found");
-            return null;
+            return false;
         }
         dbDig.digDown("db");
-        var dbName = dbDig.value("");                     // The name of the database
-        var user = dbDig.attr("user", "");            // A username with writing rights
-        var pass = dbDig.attr("pass", "");          // The password for the earlier defined username
+        dbName = dbDig.value("");                  // The name of the database
+        user = dbDig.attr("user", "");            // A username with writing rights
+        pass = dbDig.attr("pass", "");            // The password for the earlier defined username
         dbDig.goUp();
 
-        var address = dbDig.peekAt("address").value("");			// Set the address of the server on which the DB runs (either hostname or IP)
+        address = dbDig.peekAt("address").value("");            // Set the address of the server on which the DB runs (either hostname or IP)
 
-        var type = dbDig.attr("type","").toLowerCase();
-        var db = setupDatabase(type, address, dbName, user, pass);
+        type = parseType(dbDig.attr("type", ""));
+        prepareIRL();
 
-        if (db == null)
-            return null;
-
-        db.id(id);
-        db.maxInsertAge = TimeTools.parsePeriodStringToSeconds(dbDig.peekAt("maxinsertage").value("1h"));
+        id(id);
+        maxInsertAge = TimeTools.parsePeriodStringToSeconds(dbDig.peekAt("maxinsertage").value("1h"));
 
         /* Setup */
         if (dbDig.hasPeek("flush"))
-            db.readFlushSetup( dbDig.currentTrusted() );
+            readFlushSetup(dbDig.currentTrusted());
 
         // How many seconds before the connection is considered idle (and closed)
-        db.idleTime = (int)TimeTools.parsePeriodStringToSeconds( dbDig.peekAt("idleclose").value("5m") );
+        idleTime = (int) TimeTools.parsePeriodStringToSeconds(dbDig.peekAt("idleclose").value("5m"));
 
         /* Tables */
         for( var table : dbDig.peekOut("table")){
             SqlTable.readFromXml(table).ifPresent( t -> {
                 t.toggleServer();
-                db.tables.put(t.name,t);
+                tables.put(t.name, t);
             });
         }
         // Mariadb
         if (dbDig.hasPeek("timeprecision"))
-            db.mariadbTimePrecision = dbDig.peekAt("timeprecision").value(0);
-        db.connect(false);
-        return db;
+            mariadbTimePrecision = dbDig.peekAt("timeprecision").value(0);
+
+        return true;
     }
 
-    private static SQLDB setupDatabase(String type, String address, String dbName, String user, String pass) {
-        return switch (type) { // Set the database type:mssql,mysql or mariadb
-            case "mssql" -> SQLDB.asMSSQL(address, dbName, user, pass);
-            case "mysql" -> SQLDB.asMYSQL(address, dbName, user, pass);
-            case "mariadb" -> SQLDB.asMARIADB(address, dbName, user, pass);
-            case "postgresql" -> SQLDB.asPOSTGRESQL(address, dbName, user, pass);
-            default -> {
-                Logger.error("(dbm) -> Invalid database type: " + type);
-                yield null;
-            }
-        };
-    }
+    public void reloadDatabase() {
+        disconnect(); // Start with disconnecting
 
+        var dig = Paths.digInSettings("databases").digDown("server", "id", id);
+        tables.clear();
+        views.clear();
+        readFromXML(dig);
+
+        connect(false); // Reconnect
+    }
     public void flagNeedcon() {
         if (state != STATE.HAS_CON)
             state = STATE.NEED_CON;

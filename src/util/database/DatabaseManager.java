@@ -5,7 +5,6 @@ import das.Paths;
 import io.Writable;
 import io.collector.StoreCollector;
 import io.forward.*;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
@@ -21,10 +20,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 public class DatabaseManager implements QueryWriting, Commandable {
     private final Map<String, SQLiteDB> lites = new HashMap<>();        // Store the SQLite databases
@@ -42,7 +43,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
         this.rtvals=rtvals;
         scheduler = Executors.newScheduledThreadPool(1); // create a scheduler with a single thread
 
-        readFromXML();  // Read the settings from the xml
+        readFromXML(true);  // Read the settings from the xml
     }
 
     /**
@@ -134,16 +135,38 @@ public class DatabaseManager implements QueryWriting, Commandable {
     /**
      * Read the databases' setup from the settings.xml
      */
-    private void readFromXML() {
+    private void readFromXML(boolean clear) {
+        if (clear) {
+            lites.clear();
+            sqls.clear();
+        }
         XMLdigger.goIn( Paths.settings(),"dcafs","databases")
                 .peekOut("sqlite").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
-                .forEach( db -> SQLiteDB.readFromXML(db,Paths.storage()).ifPresent( d -> addSQLiteDB(db.getAttribute("id"),d)) );
+                .forEach(db -> {
+                    var dbid = db.getAttribute("id");
+                    var path = Path.of(db.getAttribute("path"));
+                    var lite = lites.get(dbid);
+                    if (lite == null) { // If it's new, create it
+                        lite = SQLiteDB.createDB(dbid, path);
+                        addSQLiteDB(dbid, lite);
+                    }
+                    lite.reloadDatabase();
+                });
 
         XMLdigger.goIn(Paths.settings(),"dcafs","databases")
                 .peekOut("server").stream()
                 .filter( db -> !db.getAttribute("id").isEmpty() )
-                .forEach( db -> addSQLDB(db.getAttribute("id"), SQLDB.readFromXML(db)));
+                .forEach(db -> {
+                    var id = db.getAttribute("id");
+                    var sql = sqls.get(id);
+                    if (sql != null) {
+                        sql.reloadDatabase();
+                    } else {
+                        var opt = SQLDB.createFromXML(id);
+                        opt.ifPresent(sqldb -> addSQLDB(id, sqldb));
+                    }
+                });
     }
 
     /**
@@ -151,16 +174,18 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * @param id The id of the database
      * @return The database reloaded
      */
-    public Optional<Database> reloadDatabase( String id ){
-        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","databases");
-        if( dig.hasPeek("sqlite","id",id)){
-            var d = dig.usePeek().currentTrusted();
-            return SQLiteDB.readFromXML( d,Paths.storage()).map(sqLiteDB -> addSQLiteDB(id, sqLiteDB));
-        }else if( dig.hasPeek("server","id",id)){
-            var d = dig.usePeek().currentTrusted();
-            return Optional.ofNullable(addSQLDB(id, SQLDB.readFromXML(d) ));
+    public boolean reloadDatabase(String id) {
+        var sqlOpt = Stream.of(lites, sqls)
+                .flatMap(map -> map.values().stream())
+                .filter(db -> db.id().equalsIgnoreCase(id))
+                .findFirst();
+        if (sqlOpt.isPresent()) {
+            var sql = sqlOpt.get();
+            sql.reloadDatabase();
+            sql.buildStores(rtvals);
+            return true;
         }
-        return Optional.empty();
+        return false;
     }
     public void buildStores(RealtimeValues rtvals){
         sqls.values().forEach( x -> x.buildStores(rtvals));
@@ -338,16 +363,13 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 });
                 yield join.toString();
             }
+            case "reloadstores" -> {
+                buildStores(rtvals);
+                yield "Stores rebuild";
+            }
             case "reload","reloadall" -> {
-                for( var lite : sqls.values() ) {
-                    var r = reloadDatabase(lite.id);
-                    if (r.isPresent()) {
-                        ((SQLDB) r.get()).buildStores(rtvals);
-                        var error = r.get().getLastError();
-                        if( error.isEmpty() )
-                            yield "! Reload of "+lite.id+" failed";
-                    }
-                }
+                readFromXML(false);
+                buildStores(rtvals);
                 yield "Reloading finished";
             }
             case "clearerrors" -> {
@@ -376,7 +398,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 .add("dbm:id,store,tableid -> Trigger a insert for the database and table given")
                 .add("dbm:id,doinserts,true/false -> Disable or enable inserts from stores.")
                 .add("Other")
-                .add("dbm:id,addrollover,period,pattern -> Add rollover with the given period to a SQLite database (period should be a single unit")
+                .add("dbm:id,addrollover,period,pattern -> Add rollover with the given period (like 1h) to a SQLite database")
                 .add("dbm:id,coltypes,table -> Get a list of the columntypes in the table, only used internally")
                 .add("dbm:id,reload -> (Re)loads the database with the given id fe. after changing the xml")
                 .add("dbm:reloadall -> Reloads all databases")
@@ -420,24 +442,14 @@ public class DatabaseManager implements QueryWriting, Commandable {
             }
             return "! Failed to create SQLite";
         }else{
-            SQLDB db = switch( cmds[0] ){
-                case "mssql" ->  SQLDB.asMSSQL(address,dbName,user,pass);
-                case "mysql" -> SQLDB.asMYSQL(address, dbName, user, pass);
-                case "mariadb" -> SQLDB.asMARIADB(address,dbName,user,pass);
-                case "postgresql" -> SQLDB.asPOSTGRESQL(address, dbName, user, pass);
-                default -> null;
-            };
-            if( db == null )
+            SQLDB db = new SQLDB(cmds[0], address, dbName, user, pass);
+            if (db.isInValidType())
                 return "! Invalid db type: "+cmds[0];
-            cmds[0]=cmds[0].toUpperCase();
             db.id(id);
-            if( db.connect(false) ){
-                db.getCurrentTables(false);
-                db.writeToXml( XMLfab.withRoot(Paths.settings(),"dcafs","databases"));
-                addSQLDB(id,db);
-                return "Connected to "+cmds[0]+" database and stored in xml as id "+id;
-            }
-            return "! Failed to connect to "+cmds[0]+" database.";
+            db.writeToXml(Paths.fabInSettings("databases"));
+            addSQLDB(id, db);
+            db.connect(false);
+            return "Connecting to " + cmds[0] + " database...";
         }
     }
     private String doAddColumnCmd( String[] cmds ){
@@ -500,13 +512,12 @@ public class DatabaseManager implements QueryWriting, Commandable {
             }
             case "tables" -> db.getTableInfo(html ? "<br" : "\r\n");
             case "reload" -> {
-                var r = reloadDatabase(cmds[0]);
-                if( r.isPresent() ){
-                    ((SQLDB)r.get()).buildStores(rtvals);
-                    var error = r.get().getLastError();
-                    yield error.isEmpty() ? "Database reloaded" : error;
-                }
-                yield "! Reload failed";
+                var ok = reloadDatabase(cmds[0]);
+                yield ok ? "Database Reloaded" : "! Reload failed";
+            }
+            case "checkstore" -> {
+                db.buildStores(rtvals);
+                yield "Stores rebuild";
             }
             case "reconnect" -> {
                 if( db instanceof SQLiteDB sd ){
@@ -534,12 +545,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 yield rs == 0 ? "None added" : "Added " + rs + " tables to xml";
             }
             case "addrollover" -> {
-                if (cmds.length < 5)
+                if (cmds.length < 4)
                     yield "! Not enough arguments, needs to be dbm:dbid,addrollover,period,pattern";
                 if (db instanceof SQLiteDB) {
-                    var rollCount = NumberUtils.toInt(cmds[2].replaceAll("\\D",""));
-                    var unit = TimeTools.parseToChronoUnit(cmds[2].replaceAll("[^a-z]",""));
-                    var sql =  ((SQLiteDB) db).setRollOver(cmds[4],rollCount, unit);
+                    var secs = (int) TimeTools.parsePeriodStringToSeconds(cmds[2]);
+                    var sql = ((SQLiteDB) db).setRollOver(cmds[3], secs, ChronoUnit.SECONDS);
                     if( sql==null)
                         yield "! Bad arguments given, probably format?";
                     sql.writeToXml(XMLfab.withRoot(Paths.settings(), "dcafs", "databases"));
