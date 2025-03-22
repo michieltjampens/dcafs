@@ -30,8 +30,6 @@ public class CommandPool {
 	static final String UNKNOWN_CMD = "unknown command"; // Default reply if the requested cmd doesn't exist
 	private EmailSending sendEmail = null; // Object to send emails
 	private String shutdownReason=""; // The reason given for shutting down
-
-
 	/* ******************************  C O N S T R U C T O R *********************************************************/
 	/**
 	 * Add an implementation of the Commandable interface
@@ -81,7 +79,7 @@ public class CommandPool {
 		emailResponse( d, "Bot Reply" );
 	}
 	/**
-	 * When the result of the datagram should be send to an email
+	 * When the result of the datagram should be sent to an email
 	 * @param d The datagram to process
 	 * @param subject The subject of  the email
 	 */
@@ -161,7 +159,7 @@ public class CommandPool {
 		split[0]=split[0].toLowerCase(); // make sure the cmd is in lowercase
 
 		// Check the repo's for a match for the given command
-		String result = findCommand(split,wr,html,d);
+		String result = findCommand(split, html, d);
 
 		if( result.startsWith("! No such cmd group") ){
 			result = createMatrixNodeIfAsked(result,split[1]);
@@ -192,20 +190,35 @@ public class CommandPool {
 
 		return result + (html ? "<br>" : "\r\n");
 	}
-	private String findCommand(String[] split, Writable wr, boolean html, Datagram d){
-		String result = checkLocalCommandables(split, wr, html, d);// First check the standard commandables
 
-		if( result.equals(UNKNOWN_CMD)) // Meaning not a standard first cmd
-			result = checkCommandables(split[0],split[1],wr,html,d);// Check the stored Commandables
+	private String findCommand(String[] split, boolean html, Datagram d) {
+		String result = checkLocalCommandables(split, html, d);// First check the standard commandables
+		if (!result.equals(UNKNOWN_CMD)) return result;// Meaning a standard first cmd
 
-		if( result.equals(UNKNOWN_CMD)) // Meaning no such first cmd in the commandables
-			result = checkTaskManagers(split[0],split[1],wr,html); // Check if it matches the id of a TaskManager
+		result = checkCommandables(split[0], split[1], html, d);// Check the stored Commandables
+		if (!result.equals(UNKNOWN_CMD)) return result; // So a stored one
 
-		if( result.equals(UNKNOWN_CMD)) { // Check if any result so far
-			result = "! No such cmd group: |" + split[0] + "|"; // No result, so probably bad cmd
-			Logger.error("No cmd found with " + split[0] + ":" + split[1] + (wr != null ? " requested by " + wr.id() + "." : "."));
-		}
-		return result;
+		result = checkTaskManagers(split[0], split[1], d.getWritable(), html);
+		if (!result.equals(UNKNOWN_CMD)) return result;// Check if it matches the id of a TaskManager
+
+		Logger.error("No cmd found with " + split[0] + ":" + split[1] + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
+		return "! No such cmd group: |" + split[0] + "|"; // No result, so probably bad cmd
+	}
+
+	public void quickCommand(Datagram d) {
+		var cmd = d.getData().split(":", 2);
+		var arg = cmd.length == 2 ? cmd[1] : "";
+
+		var result = checkCommandables(cmd[0], arg, false, d);// Check the stored Commandables
+		if (!result.equals(UNKNOWN_CMD)) return; // So a stored one
+
+		result = checkLocalCommandables(cmd, false, d);// First check the standard commandables
+		if (!result.equals(UNKNOWN_CMD)) return;// Meaning a standard first cmd
+
+		result = checkTaskManagers(cmd[0], arg, d.getWritable(), false);
+		if (!result.equals(UNKNOWN_CMD)) return;// Check if it matches the id of a TaskManager
+
+		Logger.error("No cmd found with " + cmd[0] + ":" + arg + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
 	}
 	private String createMatrixNodeIfAsked(String result, String subCmd){
 		if( result.contains("matrix")){
@@ -240,12 +253,12 @@ public class CommandPool {
 	/**
 	 * Checks if the cmd/question is for a standard commandable
 	 * @param split the question split on :
-	 * @param wr The writable of the object that asked the question (if any)
 	 * @param html True means the answer should use html
 	 * @return The answer
 	 */
-	private String checkLocalCommandables(String[] split, Writable wr, boolean html, Datagram d) {
+	private String checkLocalCommandables(String[] split, boolean html, Datagram d) {
 		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
+		var wr = d.getWritable();
 		return switch (split[0]) { // check if it's a built-in cmd instead of a commandable one
 			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"), html);
 			case "help", "h", "?" -> doHelp(split, eol);
@@ -269,12 +282,11 @@ public class CommandPool {
 	 * Check the list of Commandable's for the matching one and ask the question
 	 * @param cmd The cmd (group)
 	 * @param question The question to ask
-	 * @param wr The writable of the object asking the question (if any)
 	 * @param html True means the answer should use html
 	 * @param d The original datagram send to ask the question
 	 * @return The answer
 	 */
-	private String checkCommandables(String cmd, String question, Writable wr, boolean html, Datagram d){
+	private String checkCommandables(String cmd, String question, boolean html, Datagram d) {
 		final String f = cmd.replaceAll("\\d+","_"); // For special ones like sending data
 		var cmdOpt = commandables.entrySet().stream()
 				.filter( ent -> {
@@ -284,20 +296,21 @@ public class CommandPool {
 					return Arrays.stream(key.split(";")).anyMatch(k->k.equals(cmd)||k.equals(f));
 				}).map(Map.Entry::getValue).findFirst();
 
-		if( cmdOpt.isPresent()) { // If requested cmd exists
-			String result;
-			if( d.payload()!=null) {
-				result = cmdOpt.get().payloadCommand(cmd, question, d.payload());
-			}else {
-				result = cmdOpt.get().replyToCommand(cmd, question, wr, html);
-			}
-			if( result == null || result.isEmpty()){
-				Logger.error("Got a null as response to "+question);
-				return "! Something went wrong processing: "+question;
-			}
-			return result;
+		if (cmdOpt.isEmpty())
+			return UNKNOWN_CMD;
+
+		// If requested cmd exists
+		String result;
+		if (d.payload() != null) {
+			result = cmdOpt.get().payloadCommand(cmd, question, d.payload());
+		} else {
+			result = cmdOpt.get().replyToCommand(cmd, question, d.getWritable(), html);
 		}
-		return UNKNOWN_CMD;
+		if (result == null || result.isEmpty()) {
+			Logger.error("Got a null as response to " + question);
+			return "! Something went wrong processing: " + question;
+		}
+		return result;
 	}
 
 	/**
@@ -305,17 +318,23 @@ public class CommandPool {
 	 * If so, the question is the task(set) to execute.
 	 * @param tmId The TaskManager id to look for
 	 * @param taskId The task(set) id
-	 * @param wr The writable of the object asking the question (if any)
+	 * @param wr The writable of the object asking (if any)
 	 * @param html True means the answer should use html
 	 * @return The answer
 	 */
 	private String checkTaskManagers(String tmId, String taskId, Writable wr,boolean html){
 		var nl = html ? "<br>" : "\r\n";
 
+		var tmCmd = commandables.get("tm");
+		if (tmCmd == null) {
+			Logger.warn("Tried to issue tm cmd without tm existing");
+			return UNKNOWN_CMD;
+		}
 		String res = switch (taskId) {
-			case "?", "list" -> doCmd("tm", tmId + ",sets", wr) + nl + doCmd("tm", tmId + ",tasks", wr);
-			case "reload" -> doCmd("tm", tmId+",reload", wr);
-			default -> doCmd("tm", tmId+",run,"+ taskId, wr);
+			case "?", "list" ->
+					tmCmd.replyToCommand("tm", tmId + ",sets", wr, html) + nl + tmCmd.replyToCommand("tm", tmId + ",tasks", wr, html);
+			case "reload" -> tmCmd.replyToCommand("tm", tmId + ",reload", wr, html);
+			default -> tmCmd.replyToCommand("tm", tmId + ",run," + taskId, wr, html);
 		};
 		if (!res.toLowerCase().startsWith("! no such taskmanager") &&
 				!(res.toLowerCase().startsWith("! no taskmanager") && taskId.split(":").length==1))
@@ -401,7 +420,8 @@ public class CommandPool {
 		};
 	}
 	private String doUpgradeOfTaskManagerScript( String subCmd, Writable wr){
-		var ori = doCmd("tm", "getpath," +subCmd, wr);
+		var tmCmd = commandables.get("tm");
+		var ori = tmCmd.replyToCommand("tm", "getpath," + subCmd, wr, false);
 		if (ori.isEmpty())
 			return "! No such script";
 
@@ -415,7 +435,7 @@ public class CommandPool {
 				Files.move(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
 
 				// somehow reload the script
-				return doCmd("tm", "reload," + subCmd, wr);// Reloads based on id
+				return tmCmd.replyToCommand("tm", "reload," + subCmd, wr, false);// Reloads based on id
 			} else {
 				Logger.warn("Didn't find the needed files.");
 				return "! Couldn't find the correct files. (maybe check spelling?)";
@@ -477,7 +497,7 @@ public class CommandPool {
 	private String doRetrieveOfTaskManagerScript(String[] spl, String[] request, Writable wr){
 		if (spl.length < 3)
 			return "! Not enough arguments retrieve:type,tmid,email in " + request[0] + ":" + request[1];
-		var p = doCmd("tm", "getpath," + spl[1], wr);
+		var p = commandables.get("tm").replyToCommand("tm", "getpath," + spl[1], wr, false);
 		if (p.isEmpty())
 			return "! No such script";
 		sendEmail.sendEmail(Email.to(spl[2]).subject("Requested tm script: " + spl[1]).content("Nothing to say").attachment(p));

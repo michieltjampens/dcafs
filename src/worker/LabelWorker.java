@@ -3,6 +3,7 @@ package worker;
 import das.CommandPool;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
+
 import java.util.concurrent.*;
 
 /**
@@ -19,7 +20,6 @@ public class LabelWorker implements Runnable {
 			30L, TimeUnit.SECONDS,
 			new LinkedBlockingQueue<>());
 
-	String lastOrigin="";
 	/* ***************************** C O N S T R U C T O R **************************************/
 
 	/**
@@ -70,57 +70,62 @@ public class LabelWorker implements Runnable {
 	public void run() {
 
 		if (this.reqData == null) {
-			Logger.error("Not starting without proper BaseReq");
+			Logger.error("Not starting without proper CommandPool");
 			return;
 		}
 		while (goOn) {
 			try {
 				Datagram d = dQueue.take();
-				lastOrigin=d.getOriginID();
 				String label = d.getLabel();
 
 				if (label == null) {
 					Logger.error("Invalid label received along with message :" + d.getData());
 					continue;
 				}
-
-				if( d.label.contains(":") ){
-					switch (d.label.split(":")[0]) {
-						case "log" -> {
-							switch (d.label.split(":")[1]) {
-								case "info" -> Logger.info(d.getData());
-								case "warn" -> Logger.warn(d.getData());
-								case "error" -> Logger.error(d.getData());
+				var labelSplit = d.getLabel().split(":", 2);
+				if (labelSplit.length == 2) {
+					switch (labelSplit[0]) {
+						case "log" -> handleLogCmd(labelSplit[1], d.getData());
+						case "cmd" -> executor.execute(() -> handleCommand(d));
+						default -> Logger.error("Unknown label: " + labelSplit[0]);
+					}
+				} else {
+					switch (label) {
+						case "system", "cmd", "matrix" -> {
+							if (d.isSilent()) {
+								executor.execute(() -> reqData.quickCommand(d));
+							} else {
+								executor.execute(() -> reqData.executeCommand(d, false));
 							}
 						}
-						case "cmd" -> executor.execute(() -> {
-								String response = reqData.executeCommand(d, false);
-								if( d.getOriginID().startsWith("telnet")&&d.getWritable()!=null){
-									d.getWritable().writeLine(response);
-									if( d.getLabel().contains(":")){
-										d.getWritable().writeString(
-												TelnetCodes.TEXT_YELLOW + // print the prefix in yellow
-													d.getLabel().substring(d.getLabel().indexOf(":")+1)+ ">"
-													+ TelnetCodes.TEXT_DEFAULT ); // return to default color
-									}else{
-										d.getWritable().writeString( ">");
-									}
-								}
-							});
-						default -> Logger.error("Unknown label: " + label);
-					}
-				}else {
-					switch (label) {
-						case "system", "cmd", "matrix" -> executor.execute(() -> reqData.executeCommand(d, false));
 						case "email" -> executor.execute(() -> reqData.emailResponse(d));
 						default -> Logger.error("Unknown label: " + label);
 					}
 				}
-			} catch( RejectedExecutionException e){
+			} catch (RejectedExecutionException e) {
 				Logger.error(e.getMessage());
 			} catch (Exception e) {
 				Logger.error(e);
 			}
+		}
+	}
+
+	private void handleCommand(Datagram d) {
+		String response = reqData.executeCommand(d, false);
+		if (d.getOriginID().startsWith("telnet") && d.getWritable() != null) {
+			d.getWritable().writeLine(response);
+			d.getWritable().writeString(
+					TelnetCodes.TEXT_YELLOW + // print the prefix in yellow
+							d.getLabel().substring(d.getLabel().indexOf(":") + 1) + ">"
+							+ TelnetCodes.TEXT_DEFAULT); // return to default color
+		}
+	}
+
+	private void handleLogCmd(String logLevel, String data) {
+		switch (logLevel) {
+			case "info" -> Logger.info(data);
+			case "warn" -> Logger.warn(data);
+			case "error" -> Logger.error(data);
 		}
 	}
 }
