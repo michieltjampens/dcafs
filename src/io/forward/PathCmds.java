@@ -1,6 +1,7 @@
 package io.forward;
 
 import das.Paths;
+import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
 import util.data.StoreCmds;
 import util.xml.XMLdigger;
@@ -35,12 +36,14 @@ public class PathCmds {
             return "! No paths yet";
 
         dig.digDown("path","id",id);
-        if( dig.isInvalid() ) {
-            return createPath( cmds,Paths.settings(),id );
-        }else if( cmds[1].equalsIgnoreCase("new")
-                    || cmds[1].equalsIgnoreCase("xml")){
+        if (cmds[1].equalsIgnoreCase("new")
+                || cmds[1].equalsIgnoreCase("xml")) {
+            if (dig.isInvalid())
+                return createPath(cmds, Paths.settings(), id);
             return "! Already a path with that id, pick something else?";
         }
+        if (dig.isInvalid())
+            return "! No path with that id yet.";
         // At this point, the digger is pointing to the path node for the given id
         // But this might be an import....
         var fabOpt = XMLfab.alterDigger(dig); // Create a fab with parentnode the path node
@@ -302,6 +305,7 @@ public class PathCmds {
             }
             if( cmds.length < 4 )
                 return "! Not enough arguments, need at least 4: pf:pathid,store,cmd,value(s)";
-            return StoreCmds.replyToPathCmd(cmds[0]+","+cmds[2]+","+cmds[3]+(cmds.length>4?","+cmds[4]:""),Paths.settings());
+        var cmdString = String.join(",", ArrayUtils.remove(cmds, 1)); // Remove 'store'
+        return StoreCmds.replyToPathCmd(cmdString, Paths.settings());
         }
 }

@@ -420,7 +420,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( !streams.isEmpty()){
 			streams.values().forEach(BaseStream::disconnect);
 		}
-		// Make sure the rtvals created earlier are deleted incase they don't exist anymore
+		// Make sure the rtvals created earlier are deleted in case they don't exist anymore
 		stores.forEach( st -> st.getStore().ifPresent( s -> s.removeRealtimeValues(rtvals)));
 		streams.clear(); // Clear out before the reread
 

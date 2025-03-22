@@ -113,7 +113,6 @@ public class PathPool implements Commandable {
                     }else{
                         p.addTarget(wr);
                     }
-
                     return "Request received.";
                 }
             }
@@ -236,19 +235,21 @@ public class PathPool implements Commandable {
     }
     private String doRequest( String[] args, String cmd, boolean html){
         var res = PathCmds.replyToCommand( cmd, html );
-        if( res.startsWith("Table added with ")){
-            dQueue.add( Datagram.system( res.substring( res.indexOf("dbm") )) );
+        if (res.startsWith("Table added with ")) {
+            dQueue.add(Datagram.system(res.substring(res.indexOf("dbm"))));
         }else if( !res.startsWith("!") ){ // If the command worked
             if (res.startsWith("Deleted ")) { // meaning the path was removed from xml, remove it from paths
                 paths.remove(args[0]);
-            }else{ // Reload after the changes
+            } else {
                 var dig = Paths.digInSettings("paths");
                 if ( !dig.hasPeek("path","id",args[0]))
                     return "! No such path: " + args[0] ;
+                dig.usePeek();
                 if (!paths.containsKey(args[0])) // Exists in xml but not in map
                     paths.put( args[0], new PathForward(rtvals, dQueue, nettyGroup, qw) );
                 var rep = paths.get(args[0]).readFromXML(dig.currentTrusted(), Paths.storage() );
-                if (!rep.isEmpty() && !res.startsWith("path ")) // empty is good, starting means new so not full
+                dQueue.add(Datagram.system("dbm:reloadstores"));
+                if (!rep.isEmpty() && !res.startsWith("Path ") && !res.startsWith("Set ")) // empty is good, starting means new so not full
                     res = rep;
             }
         }

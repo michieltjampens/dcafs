@@ -45,7 +45,7 @@ public class FilterForward extends AbstractForward {
                 Logger.tag("RAW").info( id() + "\t" + data);
 
             applyDataToStore(data);
-        }else{
+        } else if (!reversed.isEmpty()) {
             reversed.parallelStream().forEach( ns-> ns.writeLine(data) );
         }
         if( !cmds.isEmpty())

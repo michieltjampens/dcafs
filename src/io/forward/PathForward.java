@@ -41,7 +41,7 @@ public class PathForward {
     EventLoopGroup nettyGroup; // Threaded processing is done with this
 
     String id; // The id of the path
-    ArrayList<AbstractForward> stepsForward; // The steps to take in the path
+    ArrayList<AbstractForward> stepsForward = new ArrayList<>(); // The steps to take in the path
     Path workPath; // The path to the working folder of dcafs
 
     private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
@@ -119,9 +119,9 @@ public class PathForward {
             return error;
         }
         // If the step doesn't have a source and it's the first step
-        var src = XMLtools.getStringAttribute(steps.get(0),"src","");
-        if( stepsForward.isEmpty() && src.isEmpty())
-            steps.get(0).setAttribute("src",this.src);
+        var stepSrc = XMLtools.getStringAttribute(steps.get(0), "src", "");
+        if (stepsForward.isEmpty() && stepSrc.isEmpty())
+            steps.get(0).setAttribute("src", src);
 
         // Now process all the steps
         var validData = addSteps(steps, delimiter,null);

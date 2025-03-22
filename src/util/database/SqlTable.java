@@ -542,6 +542,7 @@ public class SqlTable{
             Logger.error(name+" -> No such prep: "+name);
             return;
         }
+        Logger.info(name + " -> Building store");
         stores.clear(); // Start from scratch
         stores.put("", new ValStore(""));
         var store = stores.get("");
@@ -626,6 +627,10 @@ public class SqlTable{
             }
         }
         validStore=true;
+    }
+
+    public boolean hasValidStore() {
+        return validStore;
     }
     public boolean insertStore( String id ){
         if( stores.isEmpty())

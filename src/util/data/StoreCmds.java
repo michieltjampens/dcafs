@@ -227,13 +227,14 @@ public class StoreCmds {
                 dig.peekAtMulAttr(numtype, "group", cmds[2], "name", cmds[3])) { // group attr, name as attr
             return "! Already a " + numtype + " with that id, try something else?";
         }
+
         boolean newGroup = false;
-        if (group.isEmpty()) {
-            fab.attr("group", cmds[2]);
+        if (group.isEmpty()) { // If the path doesn't have a group yet
+            fab.attr("group", cmds[2]); // Update the attribute accordingly
             newGroup = true;
         }
-        fab.addChild(numtype, cmds[3]).attr("unit");    // Add name and unit
-        if (!group.equalsIgnoreCase(cmds[2]) && !newGroup)
+        fab.selectOrAddChildAsParent(numtype).content(cmds[3]).attr("unit");    // Add name and unit
+        if (!group.equalsIgnoreCase(cmds[2]) && !newGroup && !cmds[2].isEmpty())
             fab.attr("group", cmds[2]);             // Add group if it's different then global
         addIndexOrMap(fab, dig, cmds, map);             // Add index or map key
         fab.build();                                    // Create it
