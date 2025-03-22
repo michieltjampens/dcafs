@@ -152,10 +152,9 @@ public class CommandPool {
 			html=true;
 
 		String[] split = new String[]{question,""};
-		if( question.contains(":")){ // might contain more than one ':' so split on the first one
-			split[0]=question.substring(0, question.indexOf(":"));
-			split[1]=question.substring(question.indexOf(":")+1);
-		}
+		if (question.contains(":")) // might contain more than one ':' so split on the first one
+			split = question.split(":", 2);
+
 		split[0]=split[0].toLowerCase(); // make sure the cmd is in lowercase
 
 		// Check the repo's for a match for the given command
@@ -342,15 +341,15 @@ public class CommandPool {
 		return UNKNOWN_CMD;
 	}
 	/* ****************************************** C O M M A N D A B L E ********************************************* */
-	private String doCmd( String id, String command, Writable wr){
+	private void doCmd(String id, String command, Writable wr) {
 		for( var cmd : commandables.entrySet() ){
 			var spl = cmd.getKey().split(";");
 			if( Arrays.stream(spl).anyMatch( x->x.equalsIgnoreCase(id)) ){
-				return cmd.getValue().replyToCommand(id,command,wr,false);
+				cmd.getValue().replyToCommand(id, command, wr, false);
+				return;
 			}
 		}
 		Logger.error("No "+id+" available");
-		return "! No "+id+" available";
 	}
 	/* ********************************************************************************************/
 	/**

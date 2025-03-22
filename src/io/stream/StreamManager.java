@@ -375,21 +375,21 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		streamDig.usePeek(); // now point to the stream node
 
 		var baseOpt = getStream(id);
-		if( baseOpt.isPresent() ){ // meaning reloading an existing one
-			var str = baseOpt.get();
-			str.disconnect();
-			str.readFromXML(streamDig.currentTrusted());
-			if( streamDig.hasPeek("store")){
-				streamDig.usePeek();
-				addStore(streamDig.currentTrusted(),str);
-			}
-			if( !str.getType().contains("server"))
-				str.reconnectFuture = scheduler.schedule( new DoConnection( str ), 0, TimeUnit.SECONDS );
-			return "Reloaded and trying to reconnect";
-		}else{
+		if (baseOpt.isEmpty()) {
 			addStreamFromXML(streamDig.currentTrusted());
 			return "Loading new stream.";
 		}
+		// meaning reloading an existing one
+		var str = baseOpt.get();
+		str.disconnect();
+		str.readFromXML(streamDig.currentTrusted());
+		if (streamDig.hasPeek("store")) {
+			streamDig.usePeek();
+			addStore(streamDig.currentTrusted(), str);
+		}
+		if (!str.getType().contains("server"))
+			str.reconnectFuture = scheduler.schedule(new DoConnection(str), 0, TimeUnit.SECONDS);
+		return "Reloaded and trying to reconnect";
 	}
 
 	/**
@@ -887,7 +887,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 				fab.build();
 				scheduler.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
-				//reloadStream(cmds[0]);
 				return "TTL altered";
 			}
 			case "port" -> {

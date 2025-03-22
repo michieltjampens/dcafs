@@ -6,19 +6,18 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
-- Writing to db stopped for some reason for a store in i2c without any error messages etc
- - Might be caused by reloading store because this isn't propagated to db's.
 
-## 3.0.0 (wip)
+## 3.0.0 (22/03/25)
 
 This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
+Major version bump because a lot has changed under the hood and major bump was overdue anyway.
 
 ### General
 - Fixed 140 issues found by Codacy. (none actually critical)
 
 ### Stream manager
 - If a stream is disconnected messages are no longer logged every attempt
-- Removed 'prefixorigin' option, the `>>>prefixid` in telnet is probably the only use case and better.
+- Removed 'prefixorigin' option, the `>>prefixid` in telnet is probably the only use case and better.
 - `Sx:data` or `streamid:data` cmd for sending data can now mix binary and ascii, so `S1:\h(0x24)=dollarsign` is now
   valid.
 - `ss:buffers` command gave an error when no buffers were in use, replaced with reply that no buffers are in use.
@@ -35,11 +34,12 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - Fixed `ss:id,eol,` for clearing eol.
 
 ### Telnet
-- It's now possible to use `>>>es` and `>>>ts` or `>>>ds` at the same time.
-- Spaces are added as padding to line up `>>>es` result because it's variable length (up to 8).
-- Changed color of `>>>es` to cyan so the output doesn't look like ts/ds (which is in orange).
-- `>>>?` àdded for a list and info on the available commands.
-- Added `>>>prefixid` does the same as `>>>prefix` does/did but made more sense to show it prefixed the id.
+
+- It's now possible to use `>>es` and `>>ts` or `>>ds` at the same time.
+- Spaces are added as padding to line up `>>es` result because it's variable length (up to 8).
+- Changed color of `>>es` to cyan so the output doesn't look like ts/ds (which is in orange).
+- `>>?` àdded for a list and info on the available commands.
+- Added `>>prefixid` does the same as `>>prefix` does/did but made more sense to show it prefixed the id.
 
 ### Store
 - Breaking, Changed the order of the add command so that group is no longer optional.
@@ -70,6 +70,9 @@ This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 - Updated `help:editor` to use node tags instead of type attribute.
 - Fixed, response to `p:id,new...` is how it should be again.
 - Fixed, src was cleared when reading from xml and the path is in the settings.xml
+- Added `pf:pathid,switchsrc,newsrc` to switch the src for a path at runtime, can be used to implement redundancy.
+  This won't alter the xml.
+- Reloading a path now triggers a check if the db tables that have missing rtvals now can find them.
 
 ## 2.13.0 (20/02/2025)
 ### Updated dependencies
