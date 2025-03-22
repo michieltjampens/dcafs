@@ -62,9 +62,7 @@ public class PathForward {
         this.src=src;
         return this;
     }
-    public void setSrc( String src ){
-        this.src=src;
-    }
+
     public String src(){
         return src;
     }
@@ -129,22 +127,9 @@ public class PathForward {
         if( !oldTargets.isEmpty()&&!stepsForward.isEmpty()){ // Restore old requests
             oldTargets.forEach(this::addTarget);
         }
-        if( !lastStep().map(AbstractForward::noTargets).orElse(false) || validData ) {
-            if (customs.isEmpty() ) { // If no custom sources
-                if(stepsForward.isEmpty()) {
-                    Logger.error(id+" -> No steps to take, this often means something went wrong processing it");
-                }else{
-                    for( var step : stepsForward )
-                        if( step.getSrc().equals(this.src))
-                            dQueue.add(Datagram.system(this.src).writable(step));
-                }
-            } else {// If custom sources
-                if( !stepsForward.isEmpty()) { // and there are steps
-                    targets.addAll(stepsForward);
-                    customs.forEach(CustomSrc::start);
-                }
-            }
-        }
+        if (!lastStep().map(AbstractForward::noTargets).orElse(false) || validData)
+            reloadSrc();
+
         customs.trimToSize();
         stepsForward.trimToSize();
 
@@ -156,6 +141,22 @@ public class PathForward {
             Logger.error(id()+" -> This path doesn't have a src!");
         }
         return "";
+    }
+
+    public void reloadSrc() {
+        if (customs.isEmpty()) { // If no custom sources
+            if (stepsForward.isEmpty()) {
+                Logger.error(id + " -> No steps to take, this often means something went wrong processing it");
+            } else {
+                dQueue.add(Datagram.system("stop").writable(stepsForward.get(0)));
+                dQueue.add(Datagram.system(src).writable(stepsForward.get(0))); // Request it
+            }
+        } else {// If custom sources
+            if (!stepsForward.isEmpty()) { // and there are steps
+                targets.add(stepsForward.get(0));
+                customs.forEach(CustomSrc::start);
+            }
+        }
     }
     private boolean addSteps( ArrayList<Element> steps, String delimiter, AbstractForward parent ){
         boolean reqData=false;

@@ -70,7 +70,8 @@ public class PathCmds {
                 .add("pf:pathid,store,cmds -> Add/edit a store");
         join.add("Alter attributes")
                 .add("pf:pathid,delimiter/delim,newdelimiter -> Change the delimiter")
-                .add("pf:pathid,src,newsrc -> Alter the src");
+                .add("pf:pathid,switchsrc,newsrc -> Alter the src at runtime, keeping xml as is.")
+                .add("pf:pathid,src,newsrc -> Alter the src in xml");
         return join.toString();
     }
     /* ***************************** C R E A T E  P A T H ********************************************** */

@@ -234,6 +234,14 @@ public class PathPool implements Commandable {
         return pf.debugStep(nr, wr);
     }
     private String doRequest( String[] args, String cmd, boolean html){
+        if (args[1].equalsIgnoreCase("switchsrc")) {
+            var path = paths.get(args[0]);
+            if (path == null)
+                return "! No such path yet.";
+            path.src(args[2]).reloadSrc();
+            return "Src altered to " + args[2];
+        }
+
         var res = PathCmds.replyToCommand( cmd, html );
         if (res.startsWith("Table added with ")) {
             dQueue.add(Datagram.system(res.substring(res.indexOf("dbm"))));
