@@ -1,6 +1,7 @@
 package io.hardware.i2c;
 
-import com.diozero.api.*;
+import com.diozero.api.DigitalInputEvent;
+import com.diozero.api.RuntimeIOException;
 import com.diozero.api.function.DeviceEventConsumer;
 import io.Writable;
 import io.netty.buffer.ByteBuf;
@@ -205,6 +206,11 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     @Override
     public Writable getWritable() {
         return this;
+    }
+
+    @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
     }
 
     @Override

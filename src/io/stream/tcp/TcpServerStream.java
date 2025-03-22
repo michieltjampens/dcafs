@@ -191,6 +191,11 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     }
 
     @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
+
+    @Override
     public void notifyIdle(BaseStream stream) {
 
     }

@@ -350,4 +350,9 @@ public abstract class AbstractForward implements Writable {
     public Writable getWritable(){
         return this;
     }
+
+    @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
 }

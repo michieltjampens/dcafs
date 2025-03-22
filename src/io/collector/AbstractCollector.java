@@ -84,6 +84,10 @@ public abstract class AbstractCollector implements Writable {
         return this;
     }
 
+    @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
     /* *********************** TIME OUT *******************************************/
     /**
      * Set a timeout for this collector, so it won't gather/wait indefinitely

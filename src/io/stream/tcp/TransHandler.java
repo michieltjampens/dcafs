@@ -1,8 +1,8 @@
 package io.stream.tcp;
 
-import io.stream.StreamListener;
 import io.Writable;
 import io.netty.channel.*;
+import io.stream.StreamListener;
 import org.tinylog.Logger;
 import worker.Datagram;
 
@@ -287,6 +287,11 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 	@Override
 	public Writable getWritable() {
 		return this;
+	}
+
+	@Override
+	public boolean giveObject(String info, Object object) {
+		return false;
 	}
 
 	/**

@@ -78,6 +78,11 @@ public class LocalStream extends BaseStream implements Writable {
     }
 
     @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
+
+    @Override
     public boolean connect() {
         valid=true;
         applyTriggeredAction(TRIGGER.OPEN);

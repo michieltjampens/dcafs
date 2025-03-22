@@ -33,4 +33,6 @@ public interface Writable {
     boolean isConnectionValid();
 
     Writable getWritable();
+
+    boolean giveObject(String info, Object object);
 }

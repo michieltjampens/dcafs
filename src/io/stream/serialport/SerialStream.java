@@ -380,6 +380,11 @@ public class SerialStream extends BaseStream implements Writable {
     }
 
     @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
+
+    @Override
     protected boolean readExtraFromXML(Element stream) {
         var dig = XMLdigger.goIn(stream);
         if (!setPort( dig.peekAt("port").value(""))) {

@@ -682,9 +682,8 @@ public class SqlTable{
                             val = OffsetDateTime.now(ZoneOffset.UTC);
                         }else{
                             var v = rt.get(index);
-                            if( v!=null){
+                            if (v != null)
                                 val = v.stringValue();
-                            }
                         }
                     }
                     case DATETIME -> {
@@ -895,7 +894,6 @@ public class SqlTable{
             locked=false;
             if( !temp.isEmpty()) {
                 data.addAll(temp);
-                //Logger.info("Moved " + temp.size() + " from temp");
                 temp.clear();
             }
         }

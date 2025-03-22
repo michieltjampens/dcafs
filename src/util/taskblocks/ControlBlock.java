@@ -37,10 +37,9 @@ public class ControlBlock extends AbstractBlock{
         return true;
     }
     public String toString(){
-        switch(TODO){
-            case STOP :  return "CB: Stop the block if running: "+target.toString();
-            case START : return "CB: Start the block: " +target.toString();
-        }
-        return "CB: Nothing to do";
+        return switch (TODO) {
+            case STOP -> "CB: Stop the block if running: " + target.toString();
+            case START -> "CB: Start the block: " + target.toString();
+        };
     }
 }

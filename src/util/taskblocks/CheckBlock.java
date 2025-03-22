@@ -1,9 +1,8 @@
 package util.taskblocks;
 
-import org.apache.commons.lang3.StringUtils;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
 import util.data.RealVal;
+import util.data.RealtimeValues;
 import util.data.ValTools;
 import util.math.MathUtils;
 import util.tools.Tools;
@@ -122,7 +121,7 @@ public class CheckBlock extends AbstractBlock{
     }
     private String fixFlagAndIssueNegation(){
         // Find comparisons optionally surrounded with curly brackets
-        // Legacy or altenative notation for a flag is flag:value without a comparison (e.g. ==1)
+        // Legacy or alternative notation for a flag is flag:value without a comparison (e.g. ==1)
         Pattern words = Pattern.compile("\\{?[!a-zA-Z:_]+[0-9]*[a-zA-Z]+\\d*}?");
 
         var foundComparisons = words.matcher(ori).results().map(MatchResult::group).toList();

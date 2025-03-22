@@ -432,6 +432,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		return this;
 	}
 
+	@Override
+	public boolean giveObject(String info, Object object) {
+		return false;
+	}
+
 	/* ***********************************************************************************************************/
 	/**
 	 * Change the title of the handler, title is used for telnet client etc representation

@@ -1,25 +1,20 @@
 package io.stream.tcp;
 
-import io.stream.BaseStream;
 import io.Writable;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.FixedLengthFrameDecoder;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
-import io.netty.util.concurrent.FutureListener;
+import io.stream.BaseStream;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import util.tools.Tools;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
@@ -195,5 +190,10 @@ public class TcpStream extends BaseStream implements Writable {
     @Override
     public Writable getWritable(){
         return this;
+    }
+
+    @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
     }
 }

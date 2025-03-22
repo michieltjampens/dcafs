@@ -750,6 +750,11 @@ public class MatrixClient implements Writable, Commandable {
     }
 
     @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
+
+    @Override
     public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
 
         var cmds = args.split(",");
