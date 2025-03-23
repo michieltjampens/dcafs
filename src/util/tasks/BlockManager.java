@@ -4,8 +4,10 @@ import das.Commandable;
 import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
@@ -33,6 +35,8 @@ public class BlockManager implements Commandable, Writable {
     }
 
     public void addStarter(AbstractBlock start) {
+        if (start == null)
+            return;
         if (start.id().isEmpty()) { // No id means it's not addressed but run at startup
             start.id("startup" + startup.size());
             startup.add(start);
@@ -83,21 +87,26 @@ public class BlockManager implements Commandable, Writable {
      */
     private AbstractBlock processTask(XMLdigger task, AbstractBlock start) {
         var id = task.attr("id", "");
+
         if (start == null)
             start = new OriginBlock(id);
 
-        var req = task.attr("req", "");
-        // Check if it's delayed
-        handleDelay(task, start);
-
         // Handle req
-        if (!req.isEmpty())
-            start.addNext(new ConditionBlock(rtvals).setCondition(req));
+        var reqAttr = task.attr("req", "");
+        ConditionBlock req = null;
+        if (!reqAttr.isEmpty())
+            req = new ConditionBlock(rtvals).setCondition(reqAttr);
 
         // Handle target
-        handleTarget(task, start);
-
-        return start;
+        var target = handleTarget(task);
+        if (target == null) {
+            Logger.error("Task '" + id + "' needs a valid target!");
+            return null;
+        }
+        // Check if it's delayed
+        if (handleDelayAndCombine(task, start, req, target))
+            return start;
+        return null;
     }
 
     /**
@@ -105,41 +114,78 @@ public class BlockManager implements Commandable, Writable {
      * @param task Digger pointing to the node
      * @param start The block to attach to
      */
-    private void handleDelay(XMLdigger task, AbstractBlock start) {
-        var delay = task.attr("delay", "0s");
+    private boolean handleDelayAndCombine(XMLdigger task, AbstractBlock start, ConditionBlock req, AbstractBlock target) {
+        var delay = task.attr("delay", "-1s");
         var interval = task.attr("interval", "");
-        var repeats = task.attr("repeats", -1);
+        var retryDelay = task.attr("retry", "");
+        var whileDelay = task.attr("while", "");
 
-        if (!delay.equals("0s")) {
-            start.addNext(new DelayBlock(eventLoop).useDelay(delay));
+        var block = new DelayBlock(eventLoop);
+
+        if (!delay.equals("-1s")) {
+            block.useDelay(delay);
         } else if (!interval.isEmpty()) {
-            var periods = interval.split(";");
+            var periods = Tools.splitList(interval);
             var initial = periods[0];
             var recurring = periods.length == 2 ? periods[1] : periods[0];
-            start.addNext(new DelayBlock(eventLoop).useInterval(initial, recurring, repeats));
+            var repeats = task.attr("repeats", -1);
+
+            block.useInterval(initial, recurring, repeats);
+        } else if (!retryDelay.isEmpty()) { // Retry loop keeps trying conditional block till successful
+            var split = Tools.splitList(retryDelay);
+            if (split.length != 2) {
+                Logger.error("Missing period in " + retryDelay);
+                return false;
+            }
+            if (req == null) {
+                Logger.error("Retry loop requires a conditional");
+                return false;
+            }
+            int retries = NumberUtils.toInt(split[1]);
+            block.useInterval(split[0], split[1], retries);
+            req.setFailureBlock(block); // Make sure the req returns to the delay
+        } else if (!whileDelay.isEmpty()) { // While loop returns to delay block after target if successful
+            var split = Tools.splitList(whileDelay);
+            if (split.length != 2) {
+                Logger.error("Missing period in " + whileDelay);
+                return false;
+            }
+
+            int retries = NumberUtils.toInt(split[1]);
+            block.useInterval(split[0], split[1], retries);
+            target.addNext(block); // Make sure the target returns to the delay
+        } else { // Without delay
+            if (req != null) // Add the req if any
+                start.addNext(req);
+            start.addNext(target); // Add the target
+            return true;
         }
+        // Common
+        start.addNext(block);
+        if (req != null) // Add the req if any
+            start.addNext(req);
+        start.addNext(target); // Add the target
+        return true;
     }
 
     /**
      * Parses and processes the type attribute of a task node
      * @param task Digger pointing to the node
-     * @param start The block to attach to
      */
-    private void handleTarget(XMLdigger task, AbstractBlock start) {
+    private AbstractBlock handleTarget(XMLdigger task) {
         var target = task.attr("output", "system").split(":",2);
-
         var content = task.value("");
 
-        switch (target[0]) {
-            case "system" -> start.addNext(new CmdBlock(dQueue).setCmd(content));
-            case "stream", "file" ->
-                    start.addNext(new WritableBlock(dQueue).setMessage(target[0] + ":" + target[1], content));
+        return switch (target[0]) {
+            case "system" -> new CmdBlock(dQueue).setCmd(content);
+            case "stream", "file" -> new WritableBlock(dQueue).setMessage(target[0] + ":" + target[1], content);
             case "email" -> {
                 var subs = content.split(";", 2);
-                start.addNext(new EmailBlock(dQueue, target[1]).subject(subs[0]).content(subs[1]));
+                yield new EmailBlock(dQueue, target[1]).subject(subs[0]).content(subs[1]);
             }
-            case "manager" -> start.addNext(new ControlBlock(this).setMessage(content));
-        }
+            case "manager" -> new ControlBlock(this).setMessage(content);
+            default -> null;
+        };
     }
 
     @Override

@@ -38,7 +38,7 @@ public abstract class AbstractBlock implements Writable {
         return this;
     }
 
-    public AbstractBlock setFailure(AbstractBlock failure) {
+    public AbstractBlock setFailureBlock(AbstractBlock failure) {
         this.failure = failure;
         return this;
     }
@@ -77,13 +77,18 @@ public abstract class AbstractBlock implements Writable {
         } else {
             info.add(offset + "-End of the chain-");
         }
-
         return info.toString();
     }
 
     public void reset() {
         if (next != null)
             next.reset();
+    }
+
+    public AbstractBlock getLastBlock() {
+        if (next == null)
+            return this;
+        return getLastBlock();
     }
     @Override
     public boolean writeString(String data) {
