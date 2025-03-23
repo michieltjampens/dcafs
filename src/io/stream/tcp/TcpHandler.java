@@ -12,8 +12,10 @@ import worker.Datagram;
 import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
 
@@ -34,7 +36,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
 
     protected InetSocketAddress remote;
     protected Writable writable;
-    protected List<Writable> targets;
+    protected CopyOnWriteArrayList<Writable> targets;
 
     protected EventLoopGroup eventLoopGroup;
 
@@ -49,7 +51,8 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
         this(id,dQueue);
         this.writable=writable;
     }
-    public void setTargets(List<Writable> targets){
+
+    public void setTargets(CopyOnWriteArrayList<Writable> targets) {
         this.targets = targets;
     }
     public long getTimestamp(){
@@ -174,8 +177,12 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
             // Forward data to targets
 			if( !targets.isEmpty() ){
                 String tosend=new String(data);
-                targets.parallelStream().forEach( wr -> wr.writeLine(id,tosend));// Concurrent sending to multiple writables
-                targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
+                try {
+                    targets.parallelStream().forEach(wr -> wr.writeLine(id, tosend));// Concurrent sending to multiple writables
+                    targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
+                } catch (ConcurrentModificationException e) {
+                    Logger.error(e);
+                }
 			}
 
             // Keep the timestamp of the last message
