@@ -26,22 +26,21 @@ public class EmailBlock extends AbstractBlock {
 
     @Override
     boolean start() {
-        dQueue.add(Datagram.system("email:payload").payload(email).writable(this));
+        dQueue.add(Datagram.system(email.content()).writable(this));
         return true;
     }
 
     @Override
     public boolean writeLine(String origin, String data) {
         Logger.info(chainId() + " -> Reply: " + data);
-        if (data.startsWith("!")) {
-            doFailure();
-        } else {
-            doNext();
-        }
+        var cmd = "email:send," + email.to() + "," + email.subject() + "," + email.content();
+        cmd += data.startsWith("!") ? email.content() : data;
+        dQueue.add(Datagram.system(cmd).payload(email).writable(this));
+        doNext();
         return true;
     }
 
     public String toString() {
-        return chainId() + " -> Queue's email:'" + email + "'";
+        return chainId() + " -> Queued email:'" + email + "'";
     }
 }

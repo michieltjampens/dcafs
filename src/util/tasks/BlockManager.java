@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 
-public class BlockManager implements Commandable {
+public class BlockManager implements Commandable, Writable {
     HashMap<String, AbstractBlock> starters = new HashMap<>();
     ArrayList<AbstractBlock> startup = new ArrayList<>();
     EventLoopGroup eventLoop;
@@ -26,9 +26,6 @@ public class BlockManager implements Commandable {
         this.dQueue = dQueue;
         this.rtvals = rtvals;
 
-        //createTestChain();
-        //Logger.info( starters.get("test").getInfo(new StringJoiner("\r\n")) );
-        //starters.get("test").start();
         parseXML(XMLdigger.goIn(Paths.storage().resolve("tmscripts").resolve("blocks.xml"), "dcafs", "tasklist"));
 
         Logger.info("Starting startups");
@@ -43,18 +40,6 @@ public class BlockManager implements Commandable {
             starters.put(start.id(), start);
         }
         Logger.info(start.getInfo(new StringJoiner("\r\n"), ""));
-    }
-
-    public void createTestChain() {
-        var start = new DelayBlock("test", eventLoop).useDelay("5s");
-        addStarter(start);
-        var hello = new WritableBlock(dQueue)
-                .setMessage("stream:dice", "Hello World?").setAttempts(2)
-                .setFailure(new WritableBlock(dQueue).setMessage("stream:dice", "goodbye :("));
-        start.addNext(hello)
-                .addNext(new ReadingBlock(eventLoop, dQueue).setMessage("stream:dice", "yes?", "5s").setFailure(hello));
-        start.addNext(new ConditionBlock(rtvals).setCondition("{i:dice_rolled} above 10"));
-        start.addNext(new WritableBlock(dQueue).setMessage("stream:dice", "Rolled above 10!"));
     }
 
     public void parseXML(XMLdigger dig) {
@@ -89,6 +74,13 @@ public class BlockManager implements Commandable {
             addStarter(processTask(task, null));
     }
 
+    /**
+     * Processes a task node
+     *
+     * @param task  Digger pointing to the node
+     * @param start The block to attach to
+     * @return The resulting block
+     */
     private AbstractBlock processTask(XMLdigger task, AbstractBlock start) {
         var id = task.attr("id", "");
         if (start == null)
@@ -108,6 +100,11 @@ public class BlockManager implements Commandable {
         return start;
     }
 
+    /**
+     * Parses and processes the delay information in a task node
+     * @param task Digger pointing to the node
+     * @param start The block to attach to
+     */
     private void handleDelay(XMLdigger task, AbstractBlock start) {
         var delay = task.attr("delay", "0s");
         var interval = task.attr("interval", "");
@@ -123,15 +120,42 @@ public class BlockManager implements Commandable {
         }
     }
 
+    /**
+     * Parses and processes the type attribute of a task node
+     * @param task Digger pointing to the node
+     * @param start The block to attach to
+     */
     private void handleTarget(XMLdigger task, AbstractBlock start) {
-        var target = task.attr("output", "system");
+        var target = task.attr("output", "system").split(":",2);
+
         var content = task.value("");
 
-        if (target.equals("system")) {
-            start.addNext(new CmdBlock(dQueue).setCmd(content));
-        } else if (target.startsWith("stream") || target.startsWith("file")) {
-            start.addNext(new WritableBlock(dQueue).setMessage(target, content));
+        switch (target[0]) {
+            case "system" -> start.addNext(new CmdBlock(dQueue).setCmd(content));
+            case "stream", "file" ->
+                    start.addNext(new WritableBlock(dQueue).setMessage(target[0] + ":" + target[1], content));
+            case "email" -> {
+                var subs = content.split(";", 2);
+                start.addNext(new EmailBlock(dQueue, target[1]).subject(subs[0]).content(subs[1]));
+            }
+            case "manager" -> start.addNext(new ControlBlock(this).setMessage(content));
         }
+    }
+
+    @Override
+    public boolean writeLine(String origin, String data) {
+        String[] cmd = data.split(":");
+        var task = starters.get(cmd[1]);
+        if (task == null) {
+            Logger.error(id() + " -> Got a command for " + cmd[1] + " but that doesn't exist");
+            return false;
+        }
+        switch (cmd[0]) {
+            case "start" -> eventLoop.submit(task::start);
+            case "stop" -> eventLoop.submit(task::reset);
+            default -> Logger.error(id() + " -> No such command yet: " + cmd[0]);
+        }
+        return false;
     }
 
     @Override
@@ -146,6 +170,41 @@ public class BlockManager implements Commandable {
 
     @Override
     public boolean removeWritable(Writable wr) {
+        return false;
+    }
+
+    @Override
+    public boolean writeString(String data) {
+        return false;
+    }
+
+    @Override
+    public boolean writeLine(String data) {
+        return false;
+    }
+
+    @Override
+    public boolean writeBytes(byte[] data) {
+        return false;
+    }
+
+    @Override
+    public String id() {
+        return "";
+    }
+
+    @Override
+    public boolean isConnectionValid() {
+        return false;
+    }
+
+    @Override
+    public Writable getWritable() {
+        return null;
+    }
+
+    @Override
+    public boolean giveObject(String info, Object object) {
         return false;
     }
 }
