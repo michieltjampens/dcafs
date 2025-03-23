@@ -391,7 +391,6 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				return "Adding default email settings";
 			return "! Failed to add default email settings";
 		}
-
 		if( !ready ){
 			if(args.equals("reload")
 					&& XMLfab.withRoot(Paths.settings(), "dcafs","settings").getChild("email").isPresent() ){
@@ -401,6 +400,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				return "! No EmailWorker initialized (yet), use email:addblank to add blank to xml.";
 			}
 		}
+		if (args.equalsIgnoreCase("payload"))
+			return payloadCommand(cmd, args, null);
 		// Allow a shorter version to email to admin, replace it to match the standard command
 		args = args.replace("toadmin,","send,admin,");
 

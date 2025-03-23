@@ -648,7 +648,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
 		String find = cmd.toLowerCase().replaceAll("\\d+","_");
 		return switch( find ) {
-			case "ss", "streams" -> replyToStreamCommand(args, html);
+			case "ss", "streams" -> replyToStreamCommand(args, wr, html);
 			case "raw","stream" -> {
 				var res = addTargetRequest(args,wr);
 				yield (res?"":"! ")+"Request for "+cmd+":"+args+" "+(res?"ok":"failed");
@@ -682,7 +682,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 * @param html Whether the answer should use html or regular line endings
 	 * @return The answer or Unknown Command if the question wasn't understood
 	 */
-	public String replyToStreamCommand(String request, boolean html ){
+	public String replyToStreamCommand(String request, Writable wr, boolean html) {
 
 		String[] cmds = request.split(",");
 		// Prepare the digger
@@ -696,7 +696,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}else if( Arrays.asList(NEWSTREAM).contains(cmds[0]) ){ // Meaning it's an add cmd
 			return doAddStreamCmd(cmds,dig);
 		}else{ // Meaning it's an alter/use cmd
-			return doAlterUseCmd( cmds, dig );
+			return doAlterUseCmd(cmds, wr, dig);
 		}
 	}
 	private String doSingleCmd( String cmd, boolean html){
@@ -815,7 +815,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		return "! Failed to read stream from XML";
 	}
-	private String doAlterUseCmd( String[] cmds, XMLdigger dig){
+
+	private String doAlterUseCmd(String[] cmds, Writable wr, XMLdigger dig) {
 		cmds[0] = cmds[0].toLowerCase();
 
 		dig.hasPeek("stream","id",cmds[0]);
@@ -956,11 +957,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if (cmds.length != 3) // Make sure we got the correct amount of arguments
 					return "! Wrong amount of arguments -> ss:fromid,tunnel,toid";
 
-				int s1_ok = getWritable(cmds[0]).map(wr -> addTargetRequest(cmds[2], wr) ? 1 : 0).orElse(-1);
+				int s1_ok = getWritable(cmds[0]).map(wri -> addTargetRequest(cmds[2], wri) ? 1 : 0).orElse(-1);
 				if (s1_ok != 1)
 					return s1_ok == -1 ? "! No writable " + cmds[0] : "! No such source " + cmds[2];
 
-				int s2_ok = getWritable(cmds[2]).map(wr -> addTargetRequest(cmds[0], wr) ? 1 : 0).orElse(-1);
+				int s2_ok = getWritable(cmds[2]).map(wri -> addTargetRequest(cmds[0], wri) ? 1 : 0).orElse(-1);
 				if (s2_ok != 1)
 					return s2_ok == -1 ? "! No writable " + cmds[2] : "! No such source " + cmds[2];
 				// Tunneling is essentially asking the data from the other one
@@ -971,9 +972,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "request" -> {
 				if (cmds.length != 3) // Make sure we got the correct amount of arguments
 					return "! Wrong amount of arguments -> ss:id,request,requestcmd";
-				getWritable(cmds[0]).ifPresent( wr -> dQueue.add(Datagram.system(cmds[2]).writable(wr)));
+				getWritable(cmds[0]).ifPresent(wri -> dQueue.add(Datagram.system(cmds[2]).writable(wri)));
 				dQueue.add(Datagram.system("ss:" + cmds[0] + ",addcmd,open," + cmds[2]));
 				return "Tried requesting data from " + cmds[2] + " for " + cmds[2];
+			}
+			case "reqwritable" -> {
+				wr.giveObject("writable", getWritable(cmds[0]).orElse(null));
+				return "Writable given";
 			}
 			default -> {
 				return "! No such subcommand for ss:id :"+cmds[1];

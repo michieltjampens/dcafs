@@ -1,0 +1,100 @@
+package util.tasks;
+
+import io.netty.channel.EventLoopGroup;
+import util.tools.TimeTools;
+import worker.Datagram;
+
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
+public class ReadingBlock extends AbstractBlock {
+    String data;
+    String src;
+    EventLoopGroup eventLoop;
+    long timeout = 0;
+    ScheduledFuture<?> future;
+    ScheduledFuture<?> cleanup;
+    boolean writableAsked = false;
+    boolean active = false;
+
+    public ReadingBlock(EventLoopGroup eventLoop, BlockingQueue<Datagram> dQueue) {
+        this.eventLoop = eventLoop;
+        this.dQueue = dQueue;
+    }
+
+    public ReadingBlock setMessage(String src, String data, String timeout) {
+        this.data = data;
+        src = src.replace("stream", "raw");
+        this.src = src;
+        this.timeout = TimeTools.parsePeriodStringToSeconds(timeout);
+        return this;
+    }
+
+    @Override
+    boolean start() {
+        if (!writableAsked) {
+            dQueue.add(Datagram.system(src).writable(this)); // Request data updates from src
+            writableAsked = true;
+        }
+        if (timeout > 0) {
+            future = eventLoop.schedule(this::doFailure, timeout, TimeUnit.SECONDS);
+            if (cleanup != null)
+                cleanup.cancel(true);
+            cleanup = eventLoop.schedule(this::doCleanup, 5 * timeout, TimeUnit.SECONDS);
+        }
+        active = true;
+        return true;
+    }
+
+    private void doCleanup() {
+        writableAsked = false;
+    }
+
+    public String toString() {
+        return chainId() + " -> Waiting dor '" + data + "' from " + src + " for at most " + TimeTools.convertPeriodToString(timeout, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public synchronized boolean writeLine(String origin, String data) {
+        if (!active)
+            return true;
+
+        if (this.data.equalsIgnoreCase(data)) {
+            active = false;
+            doNext();
+            // Task moves on, so cancel data updates
+            // Notify src that updates are no longer needed
+            writableAsked = false; // Reset this for when executed again
+            future.cancel(true);
+        }
+        return true;
+    }
+
+    public void reset() {
+        if (future != null && !future.isDone() && !future.isCancelled())
+            future.cancel(true);
+        if (cleanup != null && !cleanup.isDone() && !cleanup.isCancelled())
+            cleanup.cancel(true);
+        writableAsked = false;
+
+        if (next != null)
+            next.reset();
+    }
+
+    @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
+
+    @Override
+    public boolean isConnectionValid() {
+        return writableAsked;
+    }
+
+    protected void doFailure() {
+        active = false;
+        if (failure != null)
+            failure.start();
+    }
+}

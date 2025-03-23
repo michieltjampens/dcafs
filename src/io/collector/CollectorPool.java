@@ -42,7 +42,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
     @Override
     public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
         return switch( cmd ) {
-            case "fc" -> doFileCollectorCmd(args, html);
+            case "fc" -> doFileCollectorCmd(args, wr, html);
             case "mc" -> "No commands yet";
             default -> "Wrong commandable...";
         };
@@ -109,7 +109,8 @@ public class CollectorPool implements Commandable, CollectorFuture {
         fileCollectors.put(id, fc);
         return fc;
     }
-    private String doFileCollectorCmd( String args, boolean html ) {
+
+    private String doFileCollectorCmd(String args, Writable wr, boolean html) {
         String[] cmds = args.split(",");
 
         if( cmds.length==1){
@@ -120,7 +121,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
             var fco = fileCollectors.get(cmds[0]);
             if( fco == null )
                 return "! Invalid id given: "+cmds[0];
-            return doGeneralCommands( cmds, fco );
+            return doGeneralCommands(cmds, fco, wr);
         }
     }
     private String singleArgCommands(String cmd, boolean html){
@@ -184,7 +185,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
         return "FileCollector " + cmds[1] + " created and added to xml.";
     }
     /* ********************************** G E N E R A L  C O M M A N D S ******************************************* */
-    private String doGeneralCommands( String[] cmds, FileCollector fco ){
+    private String doGeneralCommands(String[] cmds, FileCollector fco, Writable wr) {
 
         var fab = Paths.fabInSettings("collectors")
                     .selectOrAddChildAsParent("file", "id", fco.id());
@@ -240,6 +241,10 @@ public class CollectorPool implements Commandable, CollectorFuture {
             case "perms" -> {
                 fileCollectors.values().forEach(f -> FileTools.setAllPermissions(f.getPath().getParent()));
                 yield "Tried to alter permissions";
+            }
+            case "reqwritable" -> {
+                wr.giveObject("writable", fco.getWritable());
+                yield "Writable given";
             }
             default -> "! No such subcommand for fc:id : " + cmds[1];
         };

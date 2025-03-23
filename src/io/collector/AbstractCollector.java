@@ -54,20 +54,20 @@ public abstract class AbstractCollector implements Writable {
 
     /* **********************Writable implementation ****************************/
     @Override
-    public boolean writeString(String data) {
+    public synchronized boolean writeString(String data) {
         return addData(data);
     }
 
     @Override
-    public boolean writeLine(String data) {
+    public synchronized boolean writeLine(String data) {
         return addData(data);
     }
     @Override
-    public boolean writeLine(String origin, String data) {
+    public synchronized boolean writeLine(String origin, String data) {
         return addData(data);
     }
     @Override
-    public boolean writeBytes(byte[] data) {
+    public synchronized boolean writeBytes(byte[] data) {
         return addData(new String(data));
     }
 

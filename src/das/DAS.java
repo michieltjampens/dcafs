@@ -24,6 +24,7 @@ import util.data.RealtimeValues;
 import util.database.DatabaseManager;
 import util.gis.Waypoints;
 import util.task.TaskManagerPool;
+import util.tasks.BlockManager;
 import util.tools.FileMonitor;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -48,7 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 public class DAS implements Commandable{
 
-    private static final String version = "2.13.1";
+    private static final String version = "3.1.0";
 
     private String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
@@ -87,6 +88,7 @@ public class DAS implements Commandable{
     private long statusCheckInterval =3600;
     private String statusEmail="";
     private String statusMatrixRoom="";
+    private BlockManager blocks;
 
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
@@ -135,6 +137,8 @@ public class DAS implements Commandable{
 
         /* Regular check if the system clock was changed */
         nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
+
+        blocks = new BlockManager(nettyGroup, dQueue, rtvals);
 
         /* Build the stores in the sqltables, needs to be done at the end */
         dbManager.buildStores(rtvals);

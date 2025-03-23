@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 
@@ -39,7 +40,7 @@ public abstract class BaseStream {
     protected long openedStamp;
     protected long passed = -1;							    // Time passed (in ms) between the last two received messages
 
-    protected ArrayList<Writable> targets = new ArrayList<>();
+    protected CopyOnWriteArrayList<Writable> targets = new CopyOnWriteArrayList<>();
     protected ArrayList<StreamListener> listeners = new ArrayList<>();
 
     protected String eol="\r\n";

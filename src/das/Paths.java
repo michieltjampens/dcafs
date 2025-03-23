@@ -3,14 +3,18 @@ package das;
 import org.apache.commons.lang3.SystemUtils;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
+import worker.Datagram;
 
 import java.nio.file.Path;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Paths {
 
     // Static fields to store the paths
     public static final Path FILE_STORAGE_PATH;
     public static final Path SETTINGS_XML_PATH;
+    private final BlockingQueue<Datagram> dQueue = new LinkedBlockingQueue<>();
 
     static {
         String classPath = Paths.class.getProtectionDomain().getCodeSource().getLocation().getPath();
