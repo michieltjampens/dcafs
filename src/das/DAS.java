@@ -46,6 +46,7 @@ import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 public class DAS implements Commandable{
 
@@ -319,11 +320,11 @@ public class DAS implements Commandable{
     /* **************************************  C O M M A N D P O O L ********************************************/
     /**
      * Add a commandable to the CommandPool, this is the same as adding commands to dcafs
-     * @param id The unique start command (so whatever is in front of the : )
+     * @param ids The unique start command (so whatever is in front of the : )
      * @param cmd The commandable to add
      */
-    public void addCommandable( Commandable cmd, String... id  ){
-        commandPool.addCommandable(String.join(";",id),cmd);
+    public void addCommandable(Commandable cmd, String... ids) {
+        Stream.of(ids).forEach(id -> commandPool.addCommandable(id, cmd));
     }
     /* ***************************************  T A S K M A N A G E R ********************************************/
     /**

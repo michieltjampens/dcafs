@@ -40,6 +40,10 @@ public class Datagram {
         return cmd;
     }
 
+    public Datagram cmd(String cmd) {
+        this.cmd = cmd;
+        return this;
+    }
     public String args() {
         return args;
     }

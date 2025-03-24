@@ -42,17 +42,12 @@ public class CommandPool {
 				stopCommandable.add(cmdbl);
 		}else{
 			// No use in having repeated commandables, if the commandable is already in the map, add the id to the key
-			var oldOpt = commandables.entrySet().stream().filter( ent -> ent.getValue().equals(cmdbl)).findFirst();
-			if(oldOpt.isPresent()){
-				var old = oldOpt.get();
-				commandables.remove(old.getKey());
-				id+=";"+old.getKey();
+			var old = commandables.get(id);
+			if (old == null) {
+				commandables.put(id, cmdbl);
 			}else{
-				if( commandables.get(id)!=null){
-					Logger.error("Overwriting an existing commandable with same id: "+id);
-				}
+				Logger.error("Prevented overwriting an existing commandable with same id: " + id);
 			}
-			commandables.put(id, cmdbl);
 		}
 	}
 	public String getShutdownReason(){
@@ -237,6 +232,11 @@ public class CommandPool {
 			default -> UNKNOWN_CMD;
 		};
 	}
+
+	private String doCommandable(String sub, Commandable target) {
+		addCommandable(sub, target);
+		return "Commandable added";
+	}
 	/**
 	 * Check the list of Commandable's for the matching one and ask the question
 	 * @param d The original datagram send to ask the question
@@ -244,14 +244,7 @@ public class CommandPool {
 	 */
 	private String checkCommandables(Datagram d) {
 		final String f = d.cmd().replaceAll("\\d+", "_"); // For special ones like sending data
-		var cmdOpt = commandables.entrySet().stream()
-				.filter( ent -> {
-					String key = ent.getKey();
-					if (key.equals(d.cmd()) || key.equals(f))
-						return true;
-					return Arrays.stream(key.split(";")).anyMatch(k -> k.equals(d.cmd()) || k.equals(f));
-				}).map(Map.Entry::getValue).findFirst();
-
+		var cmdOpt = Optional.ofNullable(commandables.get(f));
 		if (cmdOpt.isEmpty())
 			return UNKNOWN_CMD;
 
@@ -340,10 +333,6 @@ public class CommandPool {
 		return "! Not enough arguments";
 	}
 
-	private String doCommandable(String sub, Commandable target) {
-		addCommandable(sub, target);
-		return "Commandable added";
-	}
 	/**
 	 * Try to update a file received somehow (email or otherwise)
 	 * Current options: dcafs,script and settings (dcafs is wip)
