@@ -1,10 +1,10 @@
 package util.tasks;
 
+import das.Core;
 import io.netty.channel.EventLoopGroup;
 import util.tools.TimeTools;
 import worker.Datagram;
 
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -18,9 +18,8 @@ public class ReadingBlock extends AbstractBlock {
     boolean writableAsked = false;
     boolean active = false;
 
-    public ReadingBlock(EventLoopGroup eventLoop, BlockingQueue<Datagram> dQueue) {
+    public ReadingBlock(EventLoopGroup eventLoop) {
         this.eventLoop = eventLoop;
-        this.dQueue = dQueue;
     }
 
     public ReadingBlock setMessage(String src, String data, String timeout) {
@@ -34,7 +33,7 @@ public class ReadingBlock extends AbstractBlock {
     @Override
     boolean start() {
         if (!writableAsked) {
-            dQueue.add(Datagram.system(src).writable(this)); // Request data updates from src
+            Core.addToQueue(Datagram.system(src).writable(this)); // Request data updates from src
             writableAsked = true;
         }
         if (timeout > 0) {

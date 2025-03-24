@@ -15,10 +15,8 @@ import io.stream.tcp.TcpHandler;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import worker.Datagram;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.BlockingQueue;
 
 public class UdpStream extends BaseStream implements Writable {
 
@@ -27,8 +25,8 @@ public class UdpStream extends BaseStream implements Writable {
     private Bootstrap bootstrapUDP;		// Bootstrap for TCP connections
     private EventLoopGroup group;		    // Eventloop used by the netty stuff
 
-    public UdpStream( BlockingQueue<Datagram> dQueue, Element stream  ){
-        super(dQueue,stream);
+    public UdpStream( Element stream  ){
+        super(stream);
     }
     protected String getType(){
         return "udp";
@@ -74,7 +72,7 @@ public class UdpStream extends BaseStream implements Writable {
 
                 if( handler != null )
                     handler.disconnect();	
-                handler = new TcpHandler( id, dQueue, UdpStream.this );
+                handler = new TcpHandler( id, UdpStream.this );
                 handler.setTargets(targets);
                 handler.setStreamListeners(listeners);
                 handler.toggleUDP();

@@ -8,7 +8,6 @@ import worker.Datagram;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.concurrent.BlockingQueue;
 
 public class MultiStream extends SerialStream{
 
@@ -19,8 +18,8 @@ public class MultiStream extends SerialStream{
     private final int idPosition=2;
     private static final byte deviceId='1';
 
-    public MultiStream(BlockingQueue<Datagram> dQueue, Element stream) {
-	    super(dQueue,stream);
+    public MultiStream(Element stream) {
+	    super(stream);
         recBuffer = ByteBuffer.wrap(rec);
         eol = "";
     }

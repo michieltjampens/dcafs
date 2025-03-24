@@ -9,16 +9,12 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.util.CharsetUtil;
 import org.tinylog.Logger;
-import worker.Datagram;
-
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 
 public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
 
     private Channel channel;
-    BlockingQueue<Datagram> dQueue;
     private String id;
     private final ByteBuf buf = Unpooled.buffer(128);
     private ByteBuf delim =  Unpooled.copiedBuffer(new byte[]{13,10});
@@ -28,10 +24,6 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
     protected List<Writable> targets;
     private boolean readerIdle=false;
 
-    /* Constructor */
-    public UDPhandler( BlockingQueue<Datagram> dQueue ){
-        this.dQueue = dQueue;
-    }
     public void setDebug( boolean debug ){
         this.debug = debug;
     }

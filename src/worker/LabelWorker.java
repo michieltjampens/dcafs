@@ -1,6 +1,7 @@
 package worker;
 
 import das.CommandPool;
+import das.Core;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 
@@ -11,7 +12,6 @@ import java.util.concurrent.*;
  * Next the content of @see Datagram is investigated and processed.
  */
 public class LabelWorker implements Runnable {
-	private BlockingQueue<Datagram> dQueue;      // The queue holding raw data for processing
 	private boolean goOn=true;
 	protected CommandPool reqData;
 
@@ -25,10 +25,8 @@ public class LabelWorker implements Runnable {
 	/**
 	 * Default constructor that gets a queue to use
 	 *
-	 * @param dQueue The queue to use
 	 */
-	public LabelWorker(BlockingQueue<Datagram> dQueue) {
-		this.dQueue = dQueue;
+	public LabelWorker() {
 		Logger.info("Using " + Math.min(3, Runtime.getRuntime().availableProcessors()) + " threads");
 	}
 
@@ -45,23 +43,7 @@ public class LabelWorker implements Runnable {
 	public int getWaitingQueueSize(){
 		return executor.getQueue().size();
 	}
-	/**
-	 * Get the queue for adding work for this worker
-	 *
-	 * @return The qeueu
-	 */
-	public BlockingQueue<Datagram> getQueue() {
-		return dQueue;
-	}
 
-	/**
-	 * Set the queue for adding work for this worker
-	 *
-	 * @param d The queue
-	 */
-	public void setQueue(BlockingQueue<Datagram> d) {
-		this.dQueue = d;
-	}
 	public void stop(){
 		goOn=false;
 	}
@@ -75,7 +57,7 @@ public class LabelWorker implements Runnable {
 		}
 		while (goOn) {
 			try {
-				Datagram d = dQueue.take();
+				Datagram d = Core.retrieve();
 				String label = d.getLabel();
 
 				if (label == null) {

@@ -1,14 +1,13 @@
 package util.taskblocks;
 
 import org.tinylog.Logger;
-
-import java.util.Locale;
 import java.util.StringJoiner;
 
 public class MetaBlock extends AbstractBlock{
     String id;
     String info;
-    enum RUNTYPE {STEP,ONESHOT};
+    enum RUNTYPE {STEP,ONESHOT}
+
     RUNTYPE type = RUNTYPE.ONESHOT;
     TaskBlock failure;
     int runIndex=0;

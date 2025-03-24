@@ -18,7 +18,7 @@ public class TriggerBlock extends AbstractBlock{
     long interval_ms =1000;
     int tries=-1;
 
-    enum TYPE {CLOCK, WHILE, WAITFOR, OTHER, RETRY,INTERVAL,DELAY};
+    enum TYPE {CLOCK, WHILE, WAITFOR, OTHER, RETRY,INTERVAL,DELAY}
 
     TYPE trigType =TYPE.OTHER;
 

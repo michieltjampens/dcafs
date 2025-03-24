@@ -79,7 +79,7 @@ public class XMLfab {
                 Logger.error( xmlPath.getFileName()+" already has a rootnode, can't set "+tag);
                 return false;
             }else{
-                root=first;;
+                root=first;
             }
         }else{
             Logger.warn("No such root "+tag+ " in "+xmlPath.getFileName()+", so creating it.");
@@ -87,7 +87,7 @@ public class XMLfab {
             try {
                 xmlDoc.appendChild(root);
             }catch( DOMException e ){
-                Logger.error("Issue while trying to add " + tag + " to " + xmlDoc.toString() + ":" + e.getMessage());
+                Logger.error("Issue while trying to add " + tag + " to " + xmlDoc + ":" + e.getMessage());
                 return false;
             }
         }

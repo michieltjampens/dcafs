@@ -1,5 +1,6 @@
 package util.data;
 
+import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.math.MathFab;
@@ -168,9 +169,9 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
     }
     public void triggerAndForward(T val){
         /* Respond to triggered command based on value */
-        if( dQueue!=null && triggered!=null ) {
+        if( triggered!=null ) {
             for( var trigger : triggered )
-                trigger.check(val,value, cmd -> dQueue.add( Datagram.system(cmd)), this::getStdev );
+                trigger.check(val,value, cmd -> Core.addToQueue( Datagram.system(cmd)), this::getStdev );
         }
 
         if( targets!=null ){
@@ -210,7 +211,8 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
     }
     public abstract void updateValue( double val );
     public abstract void defValue( T val);
-    public int asIntegerValue(){ return value.intValue();};
+    public int asIntegerValue(){ return value.intValue();}
+
     public double asDoubleValue(){ return value.doubleValue(); }
     public Object valueAsObject(){ return value;}
     public String stringValue(){ return String.valueOf(value);}

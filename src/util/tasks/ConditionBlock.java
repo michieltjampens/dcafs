@@ -58,7 +58,7 @@ public class ConditionBlock extends AbstractBlock {
         for (int a = 0; a < steps.size(); a++)
             work[a] = steps.get(a).apply(work);
         var pass = Double.compare(work[resultIndex], 0.0) > 0;
-        pass = negate ? !pass : pass;
+        pass = negate != pass;
 
         if (pass) {
             doNext();

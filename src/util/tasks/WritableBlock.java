@@ -1,10 +1,9 @@
 package util.tasks;
 
+import das.Core;
 import io.Writable;
 import org.tinylog.Logger;
 import worker.Datagram;
-
-import java.util.concurrent.BlockingQueue;
 
 public class WritableBlock extends AbstractBlock {
     Writable target;
@@ -12,10 +11,6 @@ public class WritableBlock extends AbstractBlock {
     String dest;
     int attempts = -1;
     int tempAttempts = -1;
-
-    public WritableBlock(BlockingQueue<Datagram> dQueue) {
-        this.dQueue = dQueue;
-    }
 
     public WritableBlock setMessage(String dest, String data) {
         this.data = data;
@@ -27,7 +22,7 @@ public class WritableBlock extends AbstractBlock {
             default -> "";
         };
         if (!cmd.isEmpty())
-            dQueue.add(Datagram.system(cmd).writable(this));
+            Core.addToQueue(Datagram.system(cmd).writable(this));
         return this;
     }
 

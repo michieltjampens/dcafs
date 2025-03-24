@@ -1,16 +1,14 @@
 package util.tasks;
 
+import das.Core;
 import io.email.Email;
 import org.tinylog.Logger;
 import worker.Datagram;
 
-import java.util.concurrent.BlockingQueue;
-
 public class EmailBlock extends AbstractBlock {
     Email email;
 
-    public EmailBlock(BlockingQueue<Datagram> dQueue, String to) {
-        this.dQueue = dQueue;
+    public EmailBlock( String to ) {
         email = Email.to(to);
     }
 
@@ -26,7 +24,7 @@ public class EmailBlock extends AbstractBlock {
 
     @Override
     boolean start() {
-        dQueue.add(Datagram.system(email.content()).writable(this));
+        Core.addToQueue(Datagram.system(email.content()).writable(this));
         return true;
     }
 
@@ -35,7 +33,7 @@ public class EmailBlock extends AbstractBlock {
         Logger.info(chainId() + " -> Reply: " + data);
         var cmd = "email:send," + email.to() + "," + email.subject() + "," + email.content();
         cmd += data.startsWith("!") ? email.content() : data;
-        dQueue.add(Datagram.system(cmd).payload(email).writable(this));
+        Core.addToQueue(Datagram.system(cmd).payload(email).writable(this));
         doNext();
         return true;
     }

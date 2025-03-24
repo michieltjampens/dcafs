@@ -1,5 +1,6 @@
 package io.forward;
 
+import das.Core;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
@@ -23,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -37,7 +37,6 @@ public class PathForward {
 
     enum SRCTYPE {REG,PLAIN,RTVALS,CMD,FILE,SQLITE,INVALID} // Possible custom sources
     RealtimeValues rtvals; // Reference to the realtimevalues
-    BlockingQueue<Datagram> dQueue; // The queue to process datagrams
     EventLoopGroup nettyGroup; // Threaded processing is done with this
 
     String id; // The id of the path
@@ -49,9 +48,8 @@ public class PathForward {
     boolean valid=false; // Whether this path is valid (xml processing went ok)
     QueryWriting db;
 
-    public PathForward(RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, QueryWriting db){
+    public PathForward(RealtimeValues rtvals, EventLoopGroup nettyGroup, QueryWriting db){
         this.rtvals = rtvals;
-        this.dQueue=dQueue;
         this.nettyGroup=nettyGroup;
         this.db=db;
     }
@@ -79,7 +77,7 @@ public class PathForward {
         customs.forEach(CustomSrc::stop);
 
         if( stepsForward!=null && !stepsForward.isEmpty()) {// If this is a reload, reset the steps
-            stepsForward.forEach( step -> dQueue.add(Datagram.system("nothing").writable(step))); // stop asking for data
+            stepsForward.forEach( step -> Core.addToQueue(Datagram.system("nothing").writable(step))); // stop asking for data
             stepsForward.forEach( AbstractForward::invalidate ); // Make sure these get removed as targets
             lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
@@ -105,7 +103,7 @@ public class PathForward {
                 error="No valid path script found: "+importPath;
                 String error = XMLtools.checkXML(importPath);
                 if( !error.isEmpty())
-                    dQueue.add(Datagram.system("telnet:error,PathForward: "+error));
+                    Core.addToQueue(Datagram.system("telnet:error,PathForward: "+error));
                 return error;
             }
         }
@@ -148,8 +146,8 @@ public class PathForward {
             if (stepsForward.isEmpty()) {
                 Logger.error(id + " -> No steps to take, this often means something went wrong processing it");
             } else {
-                dQueue.add(Datagram.system("stop").writable(stepsForward.get(0)));
-                dQueue.add(Datagram.system(src).writable(stepsForward.get(0))); // Request it
+                Core.addToQueue(Datagram.system("stop").writable(stepsForward.get(0)));
+                Core.addToQueue(Datagram.system(src).writable(stepsForward.get(0))); // Request it
             }
         } else {// If custom sources
             if (!stepsForward.isEmpty()) { // and there are steps
@@ -183,7 +181,7 @@ public class PathForward {
             parent = switch( step.getTagName() ){
 
                 case "case" -> {
-                    FilterForward ff = new FilterForward(step, dQueue);
+                    FilterForward ff = new FilterForward(step);
                     // Now link to the source
                     checkParent( parent,ff,prevTag);
                     // Go deeper
@@ -192,7 +190,7 @@ public class PathForward {
                     yield parent; // This doesn't alter the parent
                 }
                 case "if" -> {
-                    FilterForward ff = new FilterForward(step, dQueue);
+                    FilterForward ff = new FilterForward(step);
                     // Now link to the source
                     checkParent( parent,ff, prevTag);
                     // Go deeper
@@ -200,10 +198,10 @@ public class PathForward {
                     reqData |= addSteps( subs, delimiter, ff);
                     yield ff; //
                 }
-                case "filter" -> checkParent( parent,new FilterForward(step, dQueue), prevTag );
-                case "math" ->   checkParent( parent,new MathForward(step, dQueue, rtvals,defines), prevTag );
-                case "editor" -> checkParent( parent,new EditorForward(step, dQueue, rtvals), prevTag );
-                case "cmd" -> checkParent( parent,new CmdForward(step,dQueue,rtvals), prevTag );
+                case "filter" -> checkParent( parent,new FilterForward(step), prevTag );
+                case "math" ->   checkParent( parent,new MathForward(step, rtvals,defines), prevTag );
+                case "editor" -> checkParent( parent,new EditorForward(step, rtvals), prevTag );
+                case "cmd" -> checkParent( parent,new CmdForward(step, rtvals), prevTag );
                 case "defines" -> {
                     for( var ele :dig.currentSubs()){
                         defines.put(ele.getTagName(),ele.getTextContent());
@@ -217,7 +215,7 @@ public class PathForward {
                         if( parent != null ) {
                             parent.setStore(store);
                             for (var db : store.dbInsertSets())
-                                dQueue.add(Datagram.system("dbm:" + db[0] + ",tableinsert," + db[1]).payload(parent));
+                                Core.addToQueue(Datagram.system("dbm:" + db[0] + ",tableinsert," + db[1]).payload(parent));
                         }else{ // No parent node, so it's the only node in the path...?
                             Logger.warn("Still to implement a path that only contains a store, should be in the stream instead");
                         }
@@ -270,7 +268,7 @@ public class PathForward {
                 targets.add(stepsForward.get(0)); // add it
             enableSource();
             if( step.equals("*"))
-                dQueue.add( Datagram.system(src).writable(wr));
+                Core.addToQueue( Datagram.system(src).writable(wr));
         }
         return join.toString();
     }
@@ -354,7 +352,7 @@ public class PathForward {
     private void enableSource(){
         if( targets.size()==1 ){
             if( customs.isEmpty()){
-                dQueue.add( Datagram.system(src).writable(stepsForward.get(0)));
+                Core.addToQueue( Datagram.system(src).writable(stepsForward.get(0)));
             }else{
                 customs.forEach(CustomSrc::start);
             }
@@ -475,7 +473,7 @@ public class PathForward {
 
             switch (srcType) {
                 case CMD ->
-                        targets.forEach(t -> dQueue.add(Datagram.system(pathOrData).writable(t).toggleSilent()));
+                        targets.forEach(t -> Core.addToQueue(Datagram.system(pathOrData).writable(t).toggleSilent()));
                 case RTVALS -> {
                     var write = ValTools.parseRTline(pathOrData, "-999", rtvals);
                     targets.forEach(x -> x.writeLine(write));
@@ -513,7 +511,7 @@ public class PathForward {
                                 // If the list of files is empty, stop
                                 if (files.isEmpty()) {
                                     future.cancel(true);
-                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
+                                    Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
                                     return;
                                 }
 
@@ -522,7 +520,7 @@ public class PathForward {
                                 if( lineCount/1000==0)
                                     Logger.info("Read "+lineCount+" lines");
                                 if (buffer.size() < maxBufferSize) { // Buffer wasn't full, so file read till end
-                                    dQueue.add(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)+" at "+ Instant.now()));
+                                    Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)+" at "+ Instant.now()));
                                     Logger.info("Finished processing " + files.get(0));
                                     files.remove(0);
                                     lineCount = 1+skipLines; // First line is at 1, so add any that need to be skipped
@@ -534,7 +532,7 @@ public class PathForward {
                                             lineCount += buffer.size();
                                         } else {
                                             future.cancel(true);
-                                            dQueue.add(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
+                                            Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
                                             return;
                                         }
                                     }
@@ -543,7 +541,7 @@ public class PathForward {
                             String line = buffer.remove(0);
                             targets.forEach(wr -> wr.writeLine(line));
                             if (!label.isEmpty()) {
-                                dQueue.add(Datagram.build(line).label(label));
+                                Core.addToQueue(Datagram.build(line).label(label));
                             }
                             sendLines++;
                         }

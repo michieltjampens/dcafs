@@ -1,5 +1,6 @@
 package util.data;
 
+import das.Core;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.tools.TimeTools;
@@ -19,7 +20,8 @@ public class TextVal extends AbstractVal{
     private final HashMap<String,String> parser = new HashMap<>();
     private String keepOrignal;
     private boolean regex=false;
-    private enum TYPE{STATIC,LOCALDT,UTCDT};
+    private enum TYPE{STATIC,LOCALDT,UTCDT}
+
     private TYPE type = TYPE.STATIC;
     /* ********************************* Constructing ************************************************************ */
 
@@ -145,7 +147,7 @@ public class TextVal extends AbstractVal{
             timestamp= Instant.now();
 
         /* Respond to triggered command based on value */
-        if( dQueue!=null && !triggered.isEmpty() ) {
+        if( !triggered.isEmpty() ) {
             // Execute all the triggers, only if it's the first time
             triggered.forEach(tc -> tc.apply(val));
         }
@@ -225,17 +227,13 @@ public class TextVal extends AbstractVal{
             return cmd.isEmpty();
         }
         public void apply( String val ){
-            if( dQueue==null) {
-                Logger.error(id()+" (dv)-> Tried to check for a trigger without a dQueue");
-                return;
-            }
             switch (type) {
                 case ALWAYS -> {
-                    dQueue.add(Datagram.system(cmd.replace("$", val)));
+                    Core.addToQueue(Datagram.system(cmd.replace("$", val)));
                 }
                 case CHANGED -> {
                     if (val.equals(value))
-                        dQueue.add(Datagram.system(cmd.replace("$", val)));
+                        Core.addToQueue(Datagram.system(cmd.replace("$", val)));
                 }
                 default -> {
                     Logger.error(id() + " (dv)-> Somehow an invalid trigger sneaked in... ");

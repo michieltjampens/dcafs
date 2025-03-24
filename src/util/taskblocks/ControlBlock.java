@@ -3,7 +3,8 @@ package util.taskblocks;
 public class ControlBlock extends AbstractBlock{
 
     TaskBlock target;
-    enum ACTIONS {START,STOP};
+    enum ACTIONS {START,STOP}
+
     ACTIONS TODO;
 
     public ControlBlock( TaskBlock target, String action ){

@@ -1,5 +1,6 @@
 package io.mqtt;
 
+import das.Core;
 import io.Writable;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -52,17 +53,15 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private final ArrayList<Writable> targets = new ArrayList<>();
 
 	private final RealtimeValues rtvals;
-	private final BlockingQueue<Datagram> dQueue;
 	private String storeTopic="";
 	private long ttl=-1L;
 	private boolean debug=false;
 
-	public MqttWorker(String id, String address, String clientId, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
+	public MqttWorker(String id, String address, String clientId, RealtimeValues rtvals) {
 		this.id=id;
 		setBrokerAddress(address);
 		this.clientId=clientId;
 		this.rtvals=rtvals;
-		this.dQueue=dQueue;
 	}
 	/**
 	 * Set the id of this worker
@@ -382,19 +381,19 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 								real.parseValue(load);
 								rtvals.addRealVal(real);
 								valReceived.put(topic, real);
-								dQueue.add(Datagram.system("mqtt:" + id + ",store,real," + real.id() + "," + topic));
+								Core.addToQueue(Datagram.system("mqtt:" + id + ",store,real," + real.id() + "," + topic));
 							} else { // int
 								var i = IntegerVal.newVal(group, name);
 								i.parseValue(load);
 								rtvals.addIntegerVal(i);
 								valReceived.put(topic, i);
-								dQueue.add(Datagram.system("mqtt:" + id + ",store,int," + i.id() + "," + topic));
+								Core.addToQueue(Datagram.system("mqtt:" + id + ",store,int," + i.id() + "," + topic));
 							}
 						} else { // So text
 							var txt = TextVal.newVal(group, name).value(load);
 							rtvals.addTextVal(txt);
 							valReceived.put(topic, txt);
-							dQueue.add(Datagram.system("mqtt:" + id + ",store,txt," + txt.id() + "," + topic));
+							Core.addToQueue(Datagram.system("mqtt:" + id + ",store,txt," + txt.id() + "," + topic));
 						}
 					}
 				}

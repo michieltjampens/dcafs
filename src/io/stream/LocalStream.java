@@ -1,5 +1,6 @@
 package io.stream;
 
+import das.Core;
 import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -7,14 +8,13 @@ import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.time.Instant;
-import java.util.concurrent.BlockingQueue;
 
 public class LocalStream extends BaseStream implements Writable {
 
     boolean valid=true;
 
-    public LocalStream(BlockingQueue<Datagram> dQueue, Element stream) {
-        super(dQueue,stream);
+    public LocalStream(Element stream) {
+        super(stream);
         if( stream!=null){
             var src = XMLtools.getStringAttribute(stream,"src","");
             if( !src.isEmpty())
@@ -51,7 +51,7 @@ public class LocalStream extends BaseStream implements Writable {
        if (msg != null && !(msg.isBlank() && clean)) { //make sure that the received data is not 'null' or an empty string           
             if(!label.isEmpty()) {
                 var d = Datagram.build(msg).priority(priority).label(label).writable(this);
-                dQueue.add(d);
+                Core.addToQueue(d);
             }
             // Log anything and everything (except empty strings)
             if( !msg.isBlank() && log )		// If the message isn't an empty string and logging is enabled, store the data with logback

@@ -1,6 +1,7 @@
 package io.stream;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.collector.CollectorFuture;
@@ -44,8 +45,6 @@ import java.util.stream.Stream;
  */
 public class StreamManager implements StreamListener, CollectorFuture, Commandable {
 
-	private final BlockingQueue<Datagram> dQueue; // Holds the data for the DataWorker
-
 	// Netty
 	private Bootstrap bootstrapTCP;        // Bootstrap for TCP connections
 	private Bootstrap bootstrapUDP;          // Bootstrap for UDP connections
@@ -68,14 +67,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	private final ArrayList<StoreCollector> stores = new ArrayList<>();
 
-	public StreamManager(BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
-		this.dQueue = dQueue;
+	public StreamManager(EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
+
 		this.eventLoopGroup = nettyGroup;
 		this.rtvals=rtvals;
 	}
 
-	public StreamManager(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals) {
-		this(dQueue, new NioEventLoopGroup(), rtvals);
+	public StreamManager( RealtimeValues rtvals) {
+		this( new NioEventLoopGroup(), rtvals);
 	}
 
 	/**
@@ -482,7 +481,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		bs.addTarget(sc); // Make sure the forward is a target of the stream
 		if (sc.needsDB()) { // If it contains db writing, ask for a link
 			for (var dbInsert : sc.dbInsertSets()) { // Request the table insert object
-				dQueue.add(Datagram.system("dbm:" + dbInsert[0] + ",tableinsert," + dbInsert[1]).payload(sc));
+				Core.addToQueue(Datagram.system("dbm:" + dbInsert[0] + ",tableinsert," + dbInsert[1]).payload(sc));
 			}
 		}
 		return true;
@@ -496,7 +495,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		var type = stream.getAttribute("type").toLowerCase();
 		switch (type) {
 			case "tcp", "tcpclient" -> {
-				TcpStream tcp = new TcpStream(dQueue, stream);
+				TcpStream tcp = new TcpStream(stream);
 				tcp.setEventLoopGroup(eventLoopGroup);
 				tcp.addListener(this);
 				bootstrapTCP = tcp.setBootstrap(bootstrapTCP);
@@ -507,13 +506,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return tcp;
 			}
 			case "tcpserver" -> {
-				TcpServerStream tcp = new TcpServerStream(dQueue, stream);
+				TcpServerStream tcp = new TcpServerStream(stream);
 				tcp.setEventLoopGroup(eventLoopGroup);
 				tcp.connect();
 				return tcp;
 			}
 			case "udp", "udpclient" -> {
-				UdpStream udp = new UdpStream(dQueue, stream);
+				UdpStream udp = new UdpStream(stream);
 				udp.setEventLoopGroup(eventLoopGroup);
 				udp.addListener(this);
 				bootstrapUDP = udp.setBootstrap(bootstrapUDP);
@@ -521,14 +520,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return udp;
 			}
 			case "udpserver" -> {
-				UdpServer serv = new UdpServer(dQueue, stream);
+				UdpServer serv = new UdpServer(stream);
 				serv.setEventLoopGroup(eventLoopGroup);
 				serv.addListener(this);
 				serv.connect();
 				return serv;
 			}
 			case "serial" -> {
-				SerialStream serial = new SerialStream(dQueue, stream);
+				SerialStream serial = new SerialStream(stream);
 				serial.setEventLoopGroup(eventLoopGroup);
 				if (serial.getReaderIdleTime() != -1) {
 					scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
@@ -539,14 +538,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 			case "modbus" -> {
 				if (XMLtools.hasChildByTag(stream, "address")) { // Address means tcp
-					ModbusTCPStream mbtcp = new ModbusTCPStream(dQueue, stream);
+					ModbusTCPStream mbtcp = new ModbusTCPStream(stream);
 					mbtcp.setEventLoopGroup(eventLoopGroup);
 					mbtcp.addListener(this);
 					bootstrapTCP = mbtcp.setBootstrap(bootstrapTCP);
 					mbtcp.reconnectFuture = scheduler.schedule(new DoConnection(mbtcp), 0, TimeUnit.SECONDS);
 					return mbtcp;
 				} else {
-					ModbusStream modbus = new ModbusStream(dQueue, stream);
+					ModbusStream modbus = new ModbusStream(stream);
 					modbus.setEventLoopGroup(eventLoopGroup);
 					modbus.addListener(this);
 					modbus.reconnectFuture = scheduler.schedule(new DoConnection(modbus), 0, TimeUnit.SECONDS);
@@ -554,7 +553,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				}
 			}
 			case "multiplex" -> {
-				MultiStream mStream = new MultiStream(dQueue, stream);
+				MultiStream mStream = new MultiStream(stream);
 				mStream.setEventLoopGroup(eventLoopGroup);
 				if (mStream.readerIdleSeconds != -1) {
 					scheduler.schedule(new ReaderIdleTimeoutTask(mStream), mStream.readerIdleSeconds, TimeUnit.SECONDS);
@@ -564,7 +563,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return mStream;
 			}
 			case "local" -> {
-				LocalStream local = new LocalStream(dQueue, stream);
+				LocalStream local = new LocalStream(stream);
 				local.setEventLoopGroup(eventLoopGroup);
 				local.addListener(this);
 				if (local.readerIdleSeconds != -1) {
@@ -794,7 +793,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			case "udpserver" -> {
 				if (cmds.length != 3) // Make sure we got the correct amount of arguments
 					return "! Wrong amount of arguments -> ss:addudpserver,id,port";
-				new UdpServer(cmds[1], Integer.parseInt(cmds[2]), dQueue);
+				new UdpServer(cmds[1], Integer.parseInt(cmds[2]));
 				addBaseToXML(fab, cmds[1], type);
 				fab.addChild("port", cmds[2]).build();
 			}
@@ -804,7 +803,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 		var base = addStreamFromXML(fab.getCurrentParent());
 		if( base != null){
-			dQueue.add(Datagram.system("commandable:" + base.id()).payload(this));
+			Core.addToQueue(Datagram.system("commandable:" + base.id()).payload(this));
 			try{
 				if (base.reconnectFuture != null)
 					base.reconnectFuture.get(2, TimeUnit.SECONDS);
@@ -968,15 +967,15 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if (s2_ok != 1)
 					return s2_ok == -1 ? "! No writable " + cmds[2] : "! No such source " + cmds[2];
 				// Tunneling is essentially asking the data from the other one
-				dQueue.add(Datagram.system("ss:" + cmds[0] + ",addcmd,open,raw:" + cmds[2]));
-				dQueue.add(Datagram.system("ss:" + cmds[2] + ",addcmd,open,raw:" + cmds[0]));
+				Core.addToQueue(Datagram.system("ss", cmds[0] + ",addcmd,open,raw:" + cmds[2]));
+				Core.addToQueue(Datagram.system("ss", cmds[2] + ",addcmd,open,raw:" + cmds[0]));
 				return "Tunnel established between " + cmds[0] + " and " + cmds[2];
 			}
 			case "request" -> {
 				if (cmds.length != 3) // Make sure we got the correct amount of arguments
 					return "! Wrong amount of arguments -> ss:id,request,requestcmd";
-				getWritable(cmds[0]).ifPresent(wri -> dQueue.add(Datagram.system(cmds[2]).writable(wri)));
-				dQueue.add(Datagram.system("ss:" + cmds[0] + ",addcmd,open," + cmds[2]));
+				getWritable(cmds[0]).ifPresent(wri -> Core.addToQueue(Datagram.system(cmds[2]).writable(wri)));
+				Core.addToQueue(Datagram.system("ss", cmds[0] + ",addcmd,open," + cmds[2]));
 				return "Tried requesting data from " + cmds[2] + " for " + cmds[2];
 			}
 			case "reqwritable" -> {
@@ -1078,7 +1077,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if (confirmCollectors.isEmpty())
 					Logger.info("All confirm requests are finished");
 			}
-			case "math" -> dQueue.add(Datagram.system("store:" + message + "," + result));
+			case "math" -> Core.addToQueue(Datagram.system("store", message + "," + result));
 			default -> Logger.error("Unknown Collector type: " + id);
 		}
 	}

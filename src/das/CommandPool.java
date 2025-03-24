@@ -242,7 +242,7 @@ public class CommandPool {
 	 * @param d The original datagram send to ask the question
 	 * @return The answer
 	 */
-	private String checkCommandables(Datagram d) {
+	private String checkCommandables( Datagram d ) {
 		final String f = d.cmd().replaceAll("\\d+", "_"); // For special ones like sending data
 		var cmdOpt = Optional.ofNullable(commandables.get(f));
 		if (cmdOpt.isEmpty())

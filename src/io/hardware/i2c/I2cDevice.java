@@ -10,14 +10,12 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
-import worker.Datagram;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class I2cDevice{
@@ -29,11 +27,10 @@ public class I2cDevice{
     protected boolean debug=false;
     protected I2CDevice device;
     protected final I2cBus bus;
-    protected BlockingQueue<Datagram> dQueue;
     protected boolean valid = true;
 
-    public I2cDevice(XMLdigger dev, I2cBus bus, BlockingQueue<Datagram> dQueue){
-        this.dQueue=dQueue;
+    public I2cDevice(XMLdigger dev, I2cBus bus){
+
         this.bus=bus;
 
         id = dev.attr("id","");
@@ -62,11 +59,10 @@ public class I2cDevice{
             }
         }
     }
-    public I2cDevice( String id, int address, I2cBus bus, BlockingQueue<Datagram> dQueue){
+    public I2cDevice( String id, int address, I2cBus bus){
         this.id=id;
         this.address=address;
         this.bus=bus;
-        this.dQueue=dQueue;
 
         try {
             device = I2CDevice.builder(address).setController(bus.id()).build();

@@ -1,22 +1,22 @@
 package util.taskblocks;
 
+import das.Core;
 import worker.Datagram;
 
 import java.util.ArrayList;
-import java.util.concurrent.BlockingQueue;
 
 public class LabelBlock extends AbstractBlock{
-    BlockingQueue<Datagram> dQueue;
+
     String label="";
     String value="";
     ArrayList<String[]> pairs = new ArrayList<>();
 
-    public LabelBlock(  BlockingQueue<Datagram> dQueue,String set ){
-        this.dQueue=dQueue;
+    public LabelBlock(  String set ){
+
         pairs.add(new String[]{set.substring(0,set.indexOf(":")),set.substring(set.indexOf(":")+1)});
     }
-    public static LabelBlock prepBlock( BlockingQueue<Datagram> dQueue, String set ){
-        return new LabelBlock(dQueue,set);
+    public static LabelBlock prepBlock(String set ){
+        return new LabelBlock(set);
     }
     @Override
     public boolean build() {
@@ -36,7 +36,7 @@ public class LabelBlock extends AbstractBlock{
     }
     @Override
     public boolean addData(String data){
-        dQueue.add( Datagram.build(data.substring(data.indexOf(":")+1))
+        Core.addToQueue( Datagram.build(data.substring(data.indexOf(":")+1))
                                 .label(data.substring(0,data.indexOf(":")))
                     );
         return true;
@@ -44,7 +44,7 @@ public class LabelBlock extends AbstractBlock{
     @Override
     public boolean start(TaskBlock starter) {
         for( var p : pairs )
-            dQueue.add( Datagram.build(p[1]).label(p[0]) );
+            Core.addToQueue( Datagram.build(p[1]).label(p[0]) );
         doNext();
         return true;
     }

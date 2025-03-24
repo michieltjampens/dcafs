@@ -15,4 +15,7 @@ public class Core {
     public static Datagram retrieve() throws InterruptedException {
         return dQueue.take();
     }
+    public static int queueSize(){
+        return dQueue.size();
+    }
 }

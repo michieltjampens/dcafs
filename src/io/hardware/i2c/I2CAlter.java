@@ -13,8 +13,9 @@ public class I2CAlter implements I2COp{
     byte reg=-1;
     byte bits=8;
     OPERAND operand = OPERAND.NONE;
-    enum OPERAND {OR,AND,NOT,XOR,NONE};
-    private ArrayList<Operation> ops = new ArrayList<>();
+    enum OPERAND {OR,AND,NOT,XOR,NONE}
+
+    private final ArrayList<Operation> ops = new ArrayList<>();
 
     public I2CAlter( XMLdigger dig ){
         readFromXML(dig);

@@ -9,9 +9,6 @@ import io.stream.BaseStream;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLtools;
-import worker.Datagram;
-
-import java.util.concurrent.BlockingQueue;
 
 public class UdpServer extends BaseStream {
 
@@ -20,11 +17,11 @@ public class UdpServer extends BaseStream {
   UDPhandler handler;
   Future<?> serverFuture;
 
-  public UdpServer(BlockingQueue<Datagram> dQueue, Element stream ) {
-    super(dQueue,stream);
+  public UdpServer( Element stream ) {
+    super(stream);
   }
-  public UdpServer( String id, int port, BlockingQueue<Datagram> dQueue ){
-      super(id,dQueue);
+  public UdpServer( String id, int port ){
+      super(id);
       this.port=port;
   }
   public void setEventLoopGroup( EventLoopGroup group ){
@@ -37,7 +34,7 @@ public class UdpServer extends BaseStream {
       try {
         Bootstrap b = new Bootstrap();
 
-        handler = new UDPhandler(dQueue);
+        handler = new UDPhandler();
         handler.setTargets(targets);
         handler.setID(id);
         

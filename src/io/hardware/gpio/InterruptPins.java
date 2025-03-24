@@ -4,6 +4,7 @@ import com.diozero.api.*;
 import com.diozero.api.function.DeviceEventConsumer;
 import com.diozero.sbc.LocalSystemInfo;
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
@@ -13,21 +14,17 @@ import util.data.RealtimeValues;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
-import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
 public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Commandable {
 
     private final HashMap<String,DigitalInputDevice> inputs = new HashMap<>();
     private final HashMap<Integer,ArrayList<IsrAction>> isrs = new HashMap<>();
-    private final BlockingQueue<Datagram> dQueue;
     private final CustomBoard board;
     private final RealtimeValues rtvals;
 
-    public InterruptPins(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
-        this.dQueue=dQueue;
+    public InterruptPins(RealtimeValues rtvals){
         this.rtvals=rtvals;
         board = new CustomBoard(LocalSystemInfo.getInstance(), Paths.settings());
 
@@ -266,7 +263,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
         }
         public void trigger(DigitalInputEvent event){
             Logger.debug("Interrupt -> {}", event);
-            cmds.forEach(cmd -> dQueue.add(Datagram.system(cmd)));
+            cmds.forEach(cmd -> Core.addToQueue(Datagram.system(cmd)));
         }
     }
 

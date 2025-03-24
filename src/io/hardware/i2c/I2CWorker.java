@@ -22,20 +22,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 
 public class I2CWorker implements Commandable {
     private final HashMap<String, I2cDevice> devices = new HashMap<>();
     private final Path scriptsPath = Paths.storage().resolve("i2cscripts"); // Path to the scripts
     private final EventLoopGroup eventloop; // Executor to run the opsets
     private final RealtimeValues rtvals;
-    private final BlockingQueue<Datagram> dQueue;
     private final ArrayList<I2cBus> busses = new ArrayList<>();
 
-    public I2CWorker( EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
+    public I2CWorker( EventLoopGroup eventloop, RealtimeValues rtvals) {
         this.rtvals=rtvals;
         this.eventloop=eventloop;
-        this.dQueue=dQueue;
         readFromXML();
     }
     /* ************************* READ XML SETTINGS *******************************************/
@@ -65,7 +62,7 @@ public class I2CWorker implements Commandable {
                 if(i2c_bus.hasPeek("device")) {
                     for (var device : i2c_bus.digOut("device")) {
                         cnt++;
-                        var dev = new I2cOpper(device, bus, dQueue);
+                        var dev = new I2cOpper(device, bus);
                         loadSet(dev);
                         devices.put(dev.id(), dev);
                     }
@@ -73,7 +70,7 @@ public class I2CWorker implements Commandable {
                 }
                 for( var device : i2c_bus.digOut("uart")){
                     cnt++;
-                    var dev = new I2cUart( device,bus,dQueue);
+                    var dev = new I2cUart( device,bus);
                     devices.put(dev.id,dev);
                 }
             }
@@ -108,7 +105,7 @@ public class I2CWorker implements Commandable {
 
         var defOut = dig.attr("output","");
         for( var c : dig.digOut("i2cop")){
-            var set = new I2COpSet(c,rtvals,dQueue,device.id());
+            var set = new I2COpSet(c,rtvals,device.id());
             set.setOutputType(defOut);
             if( set.isInvalid()) {
                 Logger.error(device.id() + " (i2c) -> Failed to process " + script + "->" + set.id() + ", check logs.");
@@ -298,7 +295,7 @@ public class I2CWorker implements Commandable {
                     }
                 }
                 var bus = getBus(NumberUtils.toInt(args[2]));
-                var opper = new I2cOpper(args[1], bus, NumberUtils.createInteger(args[3]), args[4], dQueue);
+                var opper = new I2cOpper(args[1], bus, NumberUtils.createInteger(args[3]), args[4]);
                 if( !opper.probeIt() )
                     return "! Probing " + args[3] + " on bus " + args[2] + " failed";
 

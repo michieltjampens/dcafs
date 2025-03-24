@@ -1,6 +1,7 @@
 package util.gis;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
@@ -16,7 +17,6 @@ import worker.Datagram;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -32,16 +32,14 @@ public class Waypoints implements Commandable {
 
     private final ScheduledExecutorService scheduler;
     final static int CHECK_INTERVAL = 20;
-    private final BlockingQueue<Datagram> dQueue;
     private ScheduledFuture<?> checkTravel;
     private ScheduledFuture<?> checkThread=null;
     private long lastTravelCheck = 0L;
     private long lastTravelTaskCheck = 0L;
 
     /* *************************** C O N S T R U C T O R *********************************/
-    public Waypoints(ScheduledExecutorService scheduler, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue){
+    public Waypoints(ScheduledExecutorService scheduler, RealtimeValues rtvals){
         this.scheduler=scheduler;
-        this.dQueue=dQueue;
 
         readFromXML(rtvals);
     }
@@ -298,12 +296,12 @@ public class Waypoints implements Commandable {
         try {
             wps.values().forEach(wp -> {
                 wp.checkIt( latitude.asDoubleValue(), longitude.asDoubleValue()).ifPresent(
-                        travel -> travel.getCmds().forEach(cmd -> dQueue.add(Datagram.system(cmd)))
+                        travel -> travel.getCmds().forEach(cmd -> Core.addToQueue(Datagram.system(cmd)))
                 );
             });
             quads.values().forEach( gq -> {
                 gq.checkIt(latitude.asDoubleValue(), longitude.asDoubleValue())
-                        .forEach( cmd -> dQueue.add(Datagram.system(cmd)));
+                        .forEach( cmd -> Core.addToQueue(Datagram.system(cmd)));
             });
         } catch (Throwable trow) {
             Logger.error("Error occurred during Wp & Quad travel check:" + trow.getMessage(), trow);

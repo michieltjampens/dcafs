@@ -43,8 +43,6 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -76,7 +74,6 @@ public class DAS implements Commandable{
     private boolean bootOK = false; // Flag to show if booting went ok
     String sdReason = "Unwanted shutdown."; // Reason for shutdown of das, default is unwanted
 
-    private final BlockingQueue<Datagram> dQueue = new LinkedBlockingQueue<>(); // Queue for datagrams for the labelworker
     boolean rebootOnShutDown = false; // Flag to set to know if the device should be rebooted on dcafs shutdown (linux only)
     private InterruptPins isrs; // Manager for working with IO pins
     private MatrixClient matrixClient; // Client for working with matrix connections
@@ -125,7 +122,7 @@ public class DAS implements Commandable{
             addTransServer(); // and if so, set it up
 
         /* Waypoints */
-        var waypoints = new Waypoints(nettyGroup,rtvals,dQueue);
+        var waypoints = new Waypoints(nettyGroup,rtvals);
         addCommandable(waypoints,"wpts");
 
         digForCollectors(digger);   // Add FileCollectors
@@ -139,7 +136,7 @@ public class DAS implements Commandable{
         /* Regular check if the system clock was changed */
         nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
 
-        blocks = new BlockManager(nettyGroup, dQueue, rtvals);
+        blocks = new BlockManager(nettyGroup, rtvals);
 
         /* Build the stores in the sqltables, needs to be done at the end */
         dbManager.buildStores(rtvals);
@@ -206,14 +203,14 @@ public class DAS implements Commandable{
         }
     }
     private void addRtvals(){
-        rtvals = new RealtimeValues( dQueue );
+        rtvals = new RealtimeValues();
         addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text;flag");
         addCommandable(rtvals,"rtval","rtvals");
         addCommandable(rtvals,"stop");
     }
     private void prepareForwards(){
-        var pathPool = new PathPool(dQueue, rtvals, nettyGroup,dbManager);
-        addCommandable(pathPool,"paths","path","pf","paths");
+        var pathPool = new PathPool(rtvals, nettyGroup,dbManager);
+        addCommandable(pathPool,"paths","path","pf");
         addCommandable(pathPool, ""); // empty cmd is used to stop data requests
     }
     /**
@@ -223,7 +220,7 @@ public class DAS implements Commandable{
     private void digForMatrix( XMLdigger digger ){
         if( digger.hasPeek("matrix") ){
             Logger.info("Reading Matrix info from settings.xml");
-            matrixClient = new MatrixClient( dQueue, rtvals );
+            matrixClient = new MatrixClient( rtvals );
             addCommandable(matrixClient,"matrix");
         }else{
             statusMatrixRoom="";
@@ -237,7 +234,7 @@ public class DAS implements Commandable{
     private void digForFileMonitor( XMLdigger digger ){
         if( digger.hasPeek("monitor") ) {
             // Monitor files for changes
-            FileMonitor fileMonitor = new FileMonitor( Paths.storage(), dQueue);
+            FileMonitor fileMonitor = new FileMonitor( Paths.storage() );
             addCommandable(fileMonitor,"fm","fms");
         }
     }
@@ -259,7 +256,7 @@ public class DAS implements Commandable{
      */
     private void digForCollectors( XMLdigger digger ) {
         if (digger.hasPeek("collectors")) {
-            collectorPool = new CollectorPool( dQueue, nettyGroup, rtvals);
+            collectorPool = new CollectorPool( nettyGroup, rtvals);
             addCommandable(collectorPool, "fc");
             addCommandable(collectorPool, "mc");
         } else {
@@ -273,7 +270,7 @@ public class DAS implements Commandable{
     private void digForGPIOs( XMLdigger digger ) {
         if (digger.hasPeek("gpios")) {
             Logger.info("Reading interrupt gpio's from settings.xml");
-            isrs = new InterruptPins(dQueue, rtvals);
+            isrs = new InterruptPins(rtvals);
             addCommandable(isrs, "gpios", "isr");
         }
     }
@@ -347,7 +344,7 @@ public class DAS implements Commandable{
      */
     private void addStreamManager() {
 
-       streamManager = new StreamManager(dQueue, nettyGroup,rtvals);
+       streamManager = new StreamManager(nettyGroup,rtvals);
        addCommandable(streamManager,"ss","streams"); // general commands
        addCommandable(streamManager,"s_","h_");      // sending data to a stream
        addCommandable(streamManager,"raw","stream"); // getting data from a stream
@@ -369,11 +366,8 @@ public class DAS implements Commandable{
      */
     private void addLabelWorker() {
         if (this.labelWorker == null)
-            labelWorker = new LabelWorker(dQueue);
+            labelWorker = new LabelWorker();
         labelWorker.setCommandReq(commandPool);
-    }
-    public BlockingQueue<Datagram> getDataQueue(){
-        return dQueue;
     }
     /* ***************************************** M Q T T ******************************************************** */
 
@@ -381,7 +375,7 @@ public class DAS implements Commandable{
      * Add the pool that handles the mqtt connections
      */
     private void addMqttPool(){
-        mqttPool = new MqttPool(rtvals,dQueue);
+        mqttPool = new MqttPool(rtvals);
         addCommandable( mqttPool,"mqtt");
     }
     /* *****************************************  T R A N S S E R V E R ***************************************** */
@@ -392,7 +386,6 @@ public class DAS implements Commandable{
 
         Logger.info("Adding TransServer");
         trans = new TcpServer(nettyGroup);
-        trans.setDataQueue(dQueue); // Uses the same queue for datagrams like StreamManager etc
 
         addCommandable(trans,"ts","trans"); // Add ts/trans commands to CommandPool
     }
@@ -403,7 +396,7 @@ public class DAS implements Commandable{
      */
     private void addEmailWorker() {
         Logger.info("Adding EmailWorker");
-        emailWorker = new EmailWorker(dQueue);
+        emailWorker = new EmailWorker();
         addCommandable(emailWorker,"email");
         commandPool.setEmailSender(emailWorker);
     }
@@ -412,12 +405,9 @@ public class DAS implements Commandable{
      * Create the telnet server
      */
     private void addTelnetServer() {
-        if( bootOK) {
-            telnet = new TelnetServer(dQueue, nettyGroup);
+        telnet = new TelnetServer(nettyGroup,bootOK);
+        if( bootOK)
             addCommandable(telnet, "telnet", "nb");
-        }else{
-            telnet = new TelnetServer(null, nettyGroup);
-        }
     }
 
     /* ********************************   B U S ************************************************/
@@ -433,7 +423,7 @@ public class DAS implements Commandable{
             return;
         }
         Logger.info("Adding I2CWorker.");
-        i2cWorker = new I2CWorker(nettyGroup,rtvals,dQueue);
+        i2cWorker = new I2CWorker(nettyGroup,rtvals);
         addCommandable(i2cWorker,"i2c","i_c");
         addCommandable(i2cWorker,"stop");
         i2cWorker.getUartIds().forEach( id -> addCommandable(i2cWorker,id) );
@@ -578,10 +568,10 @@ public class DAS implements Commandable{
                     emailWorker.sendEmail( Email.to(statusEmail).subject("[Issue] Status report").content(status));
                 if( !statusMatrixRoom.isEmpty() ){ // If the status needs to be reported in a matrix room
                     var prefix = "matrix:" + statusMatrixRoom + ",txt,";
-                    dQueue.add(Datagram.system( prefix + "<b>Issue(s) found!</b><br>" )); // send the header
+                    Core.addToQueue(Datagram.system( prefix + "<b>Issue(s) found!</b><br>" )); // send the header
 
                     Arrays.stream(status.split("<br>")).filter( l -> l.startsWith("!!"))
-                            .forEach( line -> dQueue.add(Datagram.system(prefix + line)));
+                            .forEach( line -> Core.addToQueue(Datagram.system(prefix + line)));
                 }
             }
             nettyGroup.schedule(this::checkStatus,30,TimeUnit.MINUTES); // Reschedule, but earlier
@@ -594,7 +584,7 @@ public class DAS implements Commandable{
             if( !statusEmail.isEmpty())
                 emailWorker.sendEmail( Email.to(statusEmail).subject("[Resolved] Status report").content(status));
             if( !statusMatrixRoom.isEmpty() ) {
-                dQueue.add(Datagram.system("matrix:" + statusMatrixRoom + ",txt,Issues resolved"));
+                Core.addToQueue(Datagram.system("matrix:" + statusMatrixRoom + ",txt,Issues resolved"));
             }
         }
         nettyGroup.schedule(this::checkStatus, statusCheckInterval,TimeUnit.SECONDS); // every hour by default
@@ -704,7 +694,7 @@ public class DAS implements Commandable{
      */
     public String getQueueSizes() {
         StringJoiner join = new StringJoiner("\r\n", "", "\r\n");
-        join.add("Data buffer: " + dQueue.size() + " in receive buffer and "+ labelWorker.getWaitingQueueSize()+" waiting...");
+        join.add("Data buffer: " + Core.queueSize() + " in receive buffer and "+ labelWorker.getWaitingQueueSize()+" waiting...");
 
         if (emailWorker != null)
             join.add("Email backlog: " + emailWorker.getRetryQueueSize() );

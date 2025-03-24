@@ -57,8 +57,7 @@ public class BlockTree {
             return this;
         }
         var lastNext = last.getLastNext();
-        if( lastNext != null && lastNext instanceof CmdBlock && twig instanceof CmdBlock ){
-            CmdBlock a = (CmdBlock) lastNext;
+        if( lastNext != null && lastNext instanceof CmdBlock a && twig instanceof CmdBlock ){
             ((CmdBlock) twig).getCmds().forEach(a::addCmd);
         }else if( !twig.link(last).build() ) {
             Logger.error("Build of block failed: "+twig);

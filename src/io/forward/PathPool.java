@@ -1,6 +1,7 @@
 package io.forward;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
@@ -18,18 +19,15 @@ import worker.Datagram;
 
 import java.util.HashMap;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public class PathPool implements Commandable {
 
     private final HashMap<String, PathForward> paths = new HashMap<>();
-    private final BlockingQueue<Datagram> dQueue;
     private final RealtimeValues rtvals;
     private final EventLoopGroup nettyGroup;
     private final QueryWriting qw;
 
-    public PathPool(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, EventLoopGroup group, QueryWriting qw){
-        this.dQueue=dQueue;
+    public PathPool(RealtimeValues rtvals, EventLoopGroup group, QueryWriting qw){
         this.rtvals=rtvals;
         this.qw=qw;
         nettyGroup=group;
@@ -42,7 +40,7 @@ public class PathPool implements Commandable {
     public void readPathsFromXML(){
         var xmlOpt = XMLtools.readXML(Paths.settings());
         if( xmlOpt.isEmpty()) {
-            dQueue.add(Datagram.build("ForwardPool -> Failed to read xml at "+Paths.settings()).label("fail"));
+            Logger.error("ForwardPool -> Failed to read xml at "+Paths.settings());
             return;
         }
 
@@ -53,7 +51,7 @@ public class PathPool implements Commandable {
         // From the paths section
         XMLdigger.goIn(Paths.settings(),"dcafs","paths").peekOut("path").forEach(
                 pathEle -> {
-                    PathForward path = new PathForward(rtvals,dQueue,nettyGroup,qw);
+                    PathForward path = new PathForward(rtvals,nettyGroup,qw);
                     path.readFromXML( pathEle,Paths.settings().getParent() );
                     var p = paths.get(path.id());
                     if( p!=null) {
@@ -72,7 +70,7 @@ public class PathPool implements Commandable {
                 .map( e -> XMLtools.getFirstChildByTag(e,"path").get())
                 .forEach(
                         pathEle -> {
-                            PathForward path = new PathForward(rtvals,dQueue,nettyGroup,qw);
+                            PathForward path = new PathForward(rtvals,nettyGroup,qw);
                             var parentId = XMLtools.getStringAttribute((Element) pathEle.getParentNode(), "id", "");
                             // The functionality to import a path, relies on an attribute while this will be a content instead but may be...
                             if( !pathEle.hasAttribute("import")) {
@@ -245,7 +243,7 @@ public class PathPool implements Commandable {
 
         var res = PathCmds.replyToCommand(d);
         if (res.startsWith("Table added with ")) {
-            dQueue.add(Datagram.system(res.substring(res.indexOf("dbm"))));
+            Core.addToQueue( Datagram.system(res.substring(res.indexOf("dbm"))) );
         }else if( !res.startsWith("!") ){ // If the command worked
             if (res.startsWith("Deleted ")) { // meaning the path was removed from xml, remove it from paths
                 paths.remove(args[0]);
@@ -255,9 +253,9 @@ public class PathPool implements Commandable {
                     return "! No such path: " + args[0] ;
                 dig.usePeek();
                 if (!paths.containsKey(args[0])) // Exists in xml but not in map
-                    paths.put( args[0], new PathForward(rtvals, dQueue, nettyGroup, qw) );
+                    paths.put( args[0], new PathForward(rtvals, nettyGroup, qw) );
                 var rep = paths.get(args[0]).readFromXML(dig.currentTrusted(), Paths.storage() );
-                dQueue.add(Datagram.system("dbm:reloadstores"));
+                Core.addToQueue(Datagram.system("dbm","reloadstores"));
                 if (!rep.isEmpty() && !res.startsWith("Path ") && !res.startsWith("Set ")) // empty is good, starting means new so not full
                     res = rep;
             }

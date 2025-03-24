@@ -1,5 +1,6 @@
 package io.forward;
 
+import das.Core;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
@@ -18,7 +19,6 @@ import worker.Datagram;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -38,22 +38,18 @@ public class MathForward extends AbstractForward {
     private int highestI=-1;
     private final ArrayList<BigDecimal> temps = new ArrayList<>();
 
-    public MathForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
-        super(id,source,dQueue,rtvals);
+    public MathForward(String id, String source, RealtimeValues rtvals){
+        super(id,source,rtvals);
         valid = rtvals!=null;
     }
-    public MathForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals, HashMap<String,String> defs){
-        super(dQueue,rtvals);
+    public MathForward(Element ele,  RealtimeValues rtvals, HashMap<String,String> defs){
+        super(rtvals);
         if( defs !=null )
             defines.putAll(defs);
         readOk = readFromXML(ele);
     }
-    public MathForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
-        super(dQueue,rtvals);
-        readOk = readFromXML(ele);
-    }
-    public MathForward( Element ele, RealtimeValues rtvals ){
-        super(null,rtvals);
+    public MathForward(Element ele,  RealtimeValues rtvals){
+        super(rtvals);
         readOk = readFromXML(ele);
     }
     @Override
@@ -125,7 +121,7 @@ public class MathForward extends AbstractForward {
         digForOpsProcessing(dig);
 
         if( !oldValid && valid )// If math specific things made it valid
-            sources.forEach( source -> dQueue.add( Datagram.system( source ).writable(this) ) );
+            sources.forEach( source -> Core.addToQueue( Datagram.system( source ).writable(this) ) );
         referencedNums.trimToSize(); // Won't be changed after this, so trime excess space
         return true;
     }
@@ -279,7 +275,7 @@ public class MathForward extends AbstractForward {
         storeData(bds,split);
 
         if( !cmds.isEmpty())
-            cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
+            cmds.forEach( cmd->Core.addToQueue(Datagram.system(cmd).writable(this)));
 
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         return !noTargets() || log || store != null;
@@ -1022,7 +1018,7 @@ public class MathForward extends AbstractForward {
             if( update != null ) {
                 update.updateValue(bd.doubleValue());
             }else if( !cmd.isEmpty()){
-                dQueue.add(Datagram.system(cmd.replace("$", bd.toString())));
+                Core.addToQueue(Datagram.system(cmd.replace("$", bd.toString())));
             }
             if(debug)
                 Logger.info("Result of op: "+bd.toPlainString());

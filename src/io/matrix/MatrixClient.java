@@ -1,6 +1,7 @@
 package io.matrix;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.forward.MathForward;
@@ -31,7 +32,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 
 public class MatrixClient implements Writable, Commandable {
 
-    private static String root = "_matrix/";
+    private static final String root = "_matrix/";
     public static String client = root+"client/v3/";
     public static String media = root+"media/v3/";
 
@@ -73,7 +73,6 @@ public class MatrixClient implements Writable, Commandable {
     String since = "";
     HttpClient httpClient;
 
-    BlockingQueue<Datagram> dQueue;
     MathForward math;
     boolean downloadAll=true;
     Path dlFolder=Path.of("downloads");
@@ -89,8 +88,8 @@ public class MatrixClient implements Writable, Commandable {
     private static final String ROOM_ID_REGEX = "^[!][a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
     private static final String EVENT_ID_REGEX = "^\\$[a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
 
-    public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
-        this.dQueue=dQueue;
+    public MatrixClient(RealtimeValues rtvals ){
+
         math = new MathForward(null,rtvals);
         readFromXML();
     }
@@ -281,7 +280,7 @@ public class MatrixClient implements Writable, Commandable {
                         if( !room.entering().isEmpty())
                             sendMessage(room.url(), room.entering().replace("{user}",userName) );
                         for( var cmd : room.getTriggeredCmds() )
-                            dQueue.add(Datagram.system(cmd).writable(room).toggleSilent());
+                            Core.addToQueue(Datagram.system(cmd).writable(room).toggleSilent());
                         if( wr!=null) {
                             wr.writeLine("Joined " + room.id() + " at " + room.url());
                         }
@@ -395,8 +394,8 @@ public class MatrixClient implements Writable, Commandable {
             }
         }else { // Respond to commands
             var d = Datagram.build(body).label("matrix").origin(originRoom + "|" + from);
-            d.writable(Objects.requireNonNullElse(room, this));
-            dQueue.add(d);
+            d.writable( Objects.requireNonNullElse(room, this) );
+            Core.addToQueue(d);
         }
     }
     public Optional<Room> roomByUrl(String url){
@@ -513,7 +512,7 @@ public class MatrixClient implements Writable, Commandable {
                             sendMessage(originRoom, "Error when trying to download the file.");
                         }
                         return 0;
-                    });;
+                    });
         } catch (URISyntaxException | IOException e) {
             Logger.error(e);
             if( !originRoom.isEmpty())

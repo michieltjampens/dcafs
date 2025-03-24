@@ -1,6 +1,7 @@
 package util.data;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.forward.AbstractForward;
@@ -14,7 +15,6 @@ import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -31,11 +31,7 @@ public class RealtimeValues implements Commandable {
 	private final ConcurrentHashMap<String, FlagVal> flagVals = new ConcurrentHashMap<>(); 		 // booleans
 	private final HashMap<String,DynamicUnit> units = new HashMap<>();
 
-	/* Other */
-	private final BlockingQueue<Datagram> dQueue; // Used to issue triggered cmd's
-
-	public RealtimeValues( BlockingQueue<Datagram> dQueue ){
-		this.dQueue=dQueue;
+	public RealtimeValues( ){
 		readFromXML( XMLdigger.goIn(Paths.settings(),"dcafs","rtvals") );
 	}
 
@@ -77,7 +73,7 @@ public class RealtimeValues implements Commandable {
 		var r = RealVal.build(rtval,group);
 		if( r.isPresent() ){
 			var rr = r.get();
-			rr.enableTriggeredCmds(dQueue);
+			rr.enableTriggeredCmds();
 			for( var unit : units.values() ){
 				if( unit.matchesRegex(rr.name) ){
 					if( rr.unit().isEmpty())
@@ -96,7 +92,7 @@ public class RealtimeValues implements Commandable {
 		var i = IntegerVal.build(rtval,group);
 		if( i.isPresent() ){
 			var ii = i.get();
-			ii.enableTriggeredCmds(dQueue);
+			ii.enableTriggeredCmds();
 			for( var unit : units.values() ){
 				if( unit.matchesRegex(ii.name) ){
 					if( ii.unit().isEmpty())
@@ -113,7 +109,7 @@ public class RealtimeValues implements Commandable {
 		var f = FlagVal.build(rtval, group);
 		if (f.isPresent()) {
 			var ff = f.get();
-			ff.enableTriggeredCmds(dQueue);
+			ff.enableTriggeredCmds();
 			flagVals.put(ff.id(), ff);
 			return Optional.of(ff);
 		}
@@ -123,7 +119,7 @@ public class RealtimeValues implements Commandable {
 		var t = TextVal.build(rtval, group);
 		if( t.isPresent()){
 			var tt = t.get();
-			tt.enableTriggeredCmds(dQueue);
+			tt.enableTriggeredCmds();
 			textVals.put(tt.id(), tt);
 			return Optional.of(tt);
 		}
@@ -637,8 +633,8 @@ public class RealtimeValues implements Commandable {
 				}
 				case "reload" -> {
 					readFromXML(XMLdigger.goIn(Paths.settings(), "dcafs", "rtvals"));
-					dQueue.add(Datagram.system("pf:reload"));
-					dQueue.add(Datagram.system("dbm:reload"));
+					Core.addToQueue( Datagram.system("pf","reload"));
+					Core.addToQueue( Datagram.system("dbm","reload"));
 					return "Reloaded rtvals and paths, databases (because might be affected).";
 				}
 				case "groups" -> {
@@ -805,9 +801,9 @@ public class RealtimeValues implements Commandable {
 		String valRegex="";
 		TYPE type = TYPE.STEP;
 		ArrayList<SubUnit> subs = new ArrayList<>();
-		enum TYPE {STEP,LEVEL};
+		enum TYPE {STEP,LEVEL}
 
-		public DynamicUnit( String base ){
+        public DynamicUnit( String base ){
 			this.base=base;
 		}
 		public void setValRegex( String regex ){

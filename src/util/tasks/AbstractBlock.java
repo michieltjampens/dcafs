@@ -1,16 +1,12 @@
 package util.tasks;
 
 import io.Writable;
-import worker.Datagram;
-
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public abstract class AbstractBlock implements Writable {
     Writable feedback, callback;
     AbstractBlock next, failure;
     String id = "";
-    BlockingQueue<Datagram> dQueue;
     int order = -1;
 
     abstract boolean start();

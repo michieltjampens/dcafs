@@ -1,5 +1,6 @@
 package io.forward;
 
+import das.Core;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -13,7 +14,6 @@ import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.function.Predicate;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -25,11 +25,11 @@ public class FilterForward extends AbstractForward {
     private final ArrayList<AbstractForward> reversed = new ArrayList<>();
     private boolean negate=false; // If the filter is negated or not
 
-    public FilterForward(String id, String source, BlockingQueue<Datagram> dQueue ){
-        super(id,source,dQueue,null);
+    public FilterForward(String id, String source){
+        super(id,source,null);
     }
-    public FilterForward(Element ele, BlockingQueue<Datagram> dQueue  ){
-        super(dQueue,null);
+    public FilterForward(Element ele){
+        super(null);
         readFromXML(ele);
     }
 
@@ -49,7 +49,7 @@ public class FilterForward extends AbstractForward {
             reversed.parallelStream().forEach( ns-> ns.writeLine(data) );
         }
         if( !cmds.isEmpty())
-            cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
+            cmds.forEach( cmd-> Core.addToQueue(Datagram.system(cmd).writable(this)));
 
         if( noTargets() && reversed.isEmpty() && store==null){
             valid=false;

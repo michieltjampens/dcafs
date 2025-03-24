@@ -1,16 +1,11 @@
 package util.tasks;
 
+import das.Core;
 import org.tinylog.Logger;
 import worker.Datagram;
 
-import java.util.concurrent.BlockingQueue;
-
 public class CmdBlock extends AbstractBlock {
     String cmd;
-
-    public CmdBlock(BlockingQueue<Datagram> dQueue) {
-        this.dQueue = dQueue;
-    }
 
     public CmdBlock setCmd(String cmd) {
         this.cmd = cmd;
@@ -19,7 +14,7 @@ public class CmdBlock extends AbstractBlock {
 
     @Override
     boolean start() {
-        dQueue.add(Datagram.system(cmd));
+        Core.addToQueue(Datagram.system(cmd));
         return true;
     }
 

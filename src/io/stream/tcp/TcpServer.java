@@ -24,11 +24,8 @@ import worker.Datagram;
 
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.BlockingQueue;
 
 public class TcpServer implements StreamListener, Commandable {
-
-	private BlockingQueue<Datagram> dQueue; // TransHandler can also process other commands if given this queue
 
 	private int serverPort = 5542; // The port the server is active on default is 5542
 	private ChannelFuture serverFuture;
@@ -66,15 +63,6 @@ public class TcpServer implements StreamListener, Commandable {
 		}
 		return active;
 	}
-	/**
-	 * Set the queue worked on by a @see BaseWorker
-	 * 
-	 * @param dQueue The queue from the BaseWorker
-	 */
-	public void setDataQueue(BlockingQueue<Datagram> dQueue) {
-		this.dQueue = dQueue;
-	}
-
 	/**
 	 * Read the settings related to the transserver from the settings.xml
 	 * @return True if no hiccups
@@ -133,7 +121,7 @@ public class TcpServer implements StreamListener, Commandable {
 							ch.pipeline().addLast("decoder", new ByteArrayDecoder());
 							ch.pipeline().addLast("encoder", new ByteArrayEncoder());
 
-							TransHandler handler = new TransHandler("system", dQueue);
+							TransHandler handler = new TransHandler("system");
 							handler.setListener(TcpServer.this);
 							handler.setEventLoopGroup(workerGroup);
 							clients.add(handler);

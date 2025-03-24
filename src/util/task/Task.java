@@ -88,7 +88,7 @@ public class Task implements Comparable<Task>{
 	private String taskset="";			// The taskset this task is part of
 	private int tasksetIndex=-1;		// The index the task has in the taskset it's part of
 	private boolean stopOnFail=true;	// Whether this task should stop the taskset on failure
-	private StringJoiner buildError;
+	private final StringJoiner buildError;
 	/* *************************************  C O N S T R U C T O R S ***********************************************/
 	/**
 	 * Constructor that parses an Element to get all the info

@@ -15,10 +15,8 @@ import io.stream.BaseStream;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import worker.Datagram;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.BlockingQueue;
 
 public class TcpStream extends BaseStream implements Writable {
 
@@ -28,8 +26,8 @@ public class TcpStream extends BaseStream implements Writable {
     Bootstrap bootstrap;        // Bootstrap for TCP connections
     static int bufferSize = 2048;     // How many bytes are stored before a dump
 
-    public TcpStream(BlockingQueue<Datagram> dQueue, Element stream) {
-        super(dQueue,stream);
+    public TcpStream(Element stream) {
+        super(stream);
     }
     protected String getType(){
         return "tcp";
@@ -88,7 +86,7 @@ public class TcpStream extends BaseStream implements Writable {
                         idle= handler.isIdle(); // Keep this so it survives
                     }
                     // For some reason the handler needs to be remade in order to restore the connection...
-                    handler = new TcpHandler( id, dQueue, TcpStream.this );
+                    handler = new TcpHandler( id, TcpStream.this );
                     handler.setPriority(priority);
                     handler.setLabel(label);
                     handler.setTargets(targets);

@@ -1,5 +1,6 @@
 package io.stream.tcp;
 
+import das.Core;
 import io.Writable;
 import io.netty.channel.*;
 import io.netty.handler.codec.TooLongFrameException;
@@ -14,12 +15,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
-
-    protected BlockingQueue<Datagram> dQueue;
 
     protected boolean idle=false;
 
@@ -43,12 +41,11 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     String eol="\r\n";
     boolean udp=false;
 
-    public TcpHandler( String id,BlockingQueue<Datagram> dQueue ){
+    public TcpHandler( String id ){
         this.id=id;
-        this.dQueue=dQueue;
     }
-    public TcpHandler( String id, BlockingQueue<Datagram> dQueue, Writable writable ){
-        this(id,dQueue);
+    public TcpHandler( String id,  Writable writable ){
+        this.id=id;
         this.writable=writable;
     }
 
@@ -164,14 +161,13 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
             }
 
             // Implement the use of labels
-            if( !label.isEmpty() && dQueue !=null ) { // No use adding to queue without label
-               dQueue.add( Datagram.build(msg)
-                       .label(label)
-                       .origin(id)
-                       .priority(priority)
-                       .writable(writable)
-                       .toggleSilent()
-                       );
+            if( !label.isEmpty()  ) { // No use adding to queue without label
+                Core.addToQueue(Datagram.build(msg)
+                        .label(label)
+                        .origin(id)
+                        .priority(priority)
+                        .writable(writable)
+                );
             }
 
             // Forward data to targets

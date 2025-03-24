@@ -14,18 +14,15 @@ import worker.Datagram;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public class BlockManager implements Commandable, Writable {
     HashMap<String, AbstractBlock> starters = new HashMap<>();
     ArrayList<AbstractBlock> startup = new ArrayList<>();
     EventLoopGroup eventLoop;
-    BlockingQueue<Datagram> dQueue;
     RealtimeValues rtvals;
 
-    public BlockManager(EventLoopGroup eventLoop, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals) {
+    public BlockManager(EventLoopGroup eventLoop, RealtimeValues rtvals) {
         this.eventLoop = eventLoop;
-        this.dQueue = dQueue;
         this.rtvals = rtvals;
 
         parseXML(XMLdigger.goIn(Paths.storage().resolve("tmscripts").resolve("blocks.xml"), "dcafs", "tasklist"));
@@ -177,11 +174,11 @@ public class BlockManager implements Commandable, Writable {
         var content = task.value("");
 
         return switch (target[0]) {
-            case "system" -> new CmdBlock(dQueue).setCmd(content);
-            case "stream", "file" -> new WritableBlock(dQueue).setMessage(target[0] + ":" + target[1], content);
+            case "system" -> new CmdBlock().setCmd(content);
+            case "stream", "file" -> new WritableBlock().setMessage(target[0] + ":" + target[1], content);
             case "email" -> {
                 var subs = content.split(";", 2);
-                yield new EmailBlock(dQueue, target[1]).subject(subs[0]).content(subs[1]);
+                yield new EmailBlock( target[1] ).subject(subs[0]).content(subs[1]);
             }
             case "manager" -> new ControlBlock(this).setMessage(content);
             default -> null;

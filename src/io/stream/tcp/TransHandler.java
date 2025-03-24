@@ -1,5 +1,6 @@
 package io.stream.tcp;
 
+import das.Core;
 import io.Writable;
 import io.netty.channel.*;
 import io.stream.StreamListener;
@@ -10,11 +11,8 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements Writable {
-
-	private final BlockingQueue<Datagram> dQueue;
 
 	private String id="";
 	private String label;
@@ -28,9 +26,8 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 	boolean keepHistory=false;
 	private EventLoopGroup eventLoopGroup;
 
-    public TransHandler( String label, BlockingQueue<Datagram> dQueue ){
+    public TransHandler( String label ){
         this.label=label;
-        this.dQueue=dQueue;
     }
 
 	/**
@@ -126,7 +123,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 			return;
 		}
 
-		dQueue.put(Datagram.build(repeat + msg).label(tempLabel).writable(this));
+		Core.addToQueue(Datagram.build(repeat + msg).label(tempLabel).writable(this));
 
 		if( !targets.isEmpty() && !tempLabel.equals("system")){
 			String tosend = repeat+new String(data);
@@ -282,7 +279,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 	 * @param cmd The command to execute
 	 */
 	private void useQueue(String cmd){
-		dQueue.add( Datagram.system(cmd).writable(this).toggleSilent() );
+		Core.addToQueue( Datagram.system(cmd).writable(this).toggleSilent() );
 	}
 	@Override
 	public Writable getWritable() {

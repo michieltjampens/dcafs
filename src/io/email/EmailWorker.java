@@ -1,6 +1,7 @@
 package io.email;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.collector.BufferCollector;
@@ -68,9 +69,6 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	private int MAX_EMAILS=5;
 	java.util.concurrent.ScheduledFuture<?> retryFuture; // Future of the retry checking thread
 
-	private final BlockingQueue<Datagram> dQueue; // Used to pass commands received via email to the dataworker for
-														// processing
-
 	/* Reading emails */
 	java.util.concurrent.ScheduledFuture<?> checker; // Future of the inbox checking thread
 
@@ -100,10 +98,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	/**
 	 * Constructor for this class
 	 *
-	 * @param dQueue the queue processed by a @see BaseWorker
 	 */
-	public EmailWorker( BlockingQueue<Datagram> dQueue) {
-		this.dQueue = dQueue;
+	public EmailWorker( ) {
 		if( readFromXML() )
 			init();
 	}
@@ -114,15 +110,14 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	public void init() {
 		setOutboxProps();
 
-		if (dQueue != null) { // No need to check if nothing can be done with it
-			if (!inbox.server.isBlank() && !inbox.user.equals("user@email.com")) {
-				// Check the inbox every x minutes
-				checker = scheduler.scheduleAtFixedRate(new Check(), checkIntervalSeconds,checkIntervalSeconds, TimeUnit.SECONDS);
+		if (!inbox.server.isBlank() && !inbox.user.equals("user@email.com")) {
+			// Check the inbox every x minutes
+			checker = scheduler.scheduleAtFixedRate(new Check(), checkIntervalSeconds,checkIntervalSeconds, TimeUnit.SECONDS);
 
-			}
-			inboxSession = Session.getDefaultInstance(new Properties());
-			alterInboxProps(inboxSession.getProperties());
 		}
+		inboxSession = Session.getDefaultInstance(new Properties());
+		alterInboxProps(inboxSession.getProperties());
+
 		MailcapCommandMap mc = (MailcapCommandMap) CommandMap.getDefaultCommandMap();
 		mc.addMailcap("text/html;; x-java-content-handler=com.sun.mail.handlers.text_html");
 		mc.addMailcap("text/xml;; x-java-content-handler=com.sun.mail.handlers.text_xml");
@@ -967,7 +962,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				if( line.isEmpty()){
 					break;
 				}
-				dQueue.add( Datagram.build(line).label(cmd.split(":")[1]).origin(from) );
+				Core.addToQueue( Datagram.build(line).label(cmd.split(":")[1]).origin(from) );
 			}
 		}else{
 			// Retrieve asks files to be emailed, if this command is without email append from address
@@ -981,7 +976,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				buffered.put(req.getID(), req);
 			}
 			d.origin(from);
-			dQueue.add( d );
+			Core.addToQueue( d );
 		}
 	}
 

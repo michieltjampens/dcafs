@@ -1,6 +1,7 @@
 package io.collector;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
@@ -19,19 +20,16 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public class CollectorPool implements Commandable, CollectorFuture {
 
     private final Map<String, FileCollector> fileCollectors = new HashMap<>();
 
-    private final BlockingQueue<Datagram> dQueue;
     private final EventLoopGroup nettyGroup;
     private final RealtimeValues rtvals;
 
-    public CollectorPool(BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, RealtimeValues rtvals ){
+    public CollectorPool(EventLoopGroup nettyGroup, RealtimeValues rtvals ){
 
-        this.dQueue=dQueue;
         this.nettyGroup=nettyGroup;
         this.rtvals=rtvals;
 
@@ -72,7 +70,6 @@ public class CollectorPool implements Commandable, CollectorFuture {
                         XMLdigger.goIn(Paths.storage().resolve("settings.xml"),"dcafs","collectors")
                                 .peekOut("file"),
                         nettyGroup,
-                        dQueue,
                         Paths.storage().toString() )
                 .forEach( this::addFileCollector );
     }
@@ -84,7 +81,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
     private void addFileCollector( FileCollector fc ){
         Logger.info("Created "+fc.id());
         fileCollectors.put(fc.id().substring(3),fc); // remove the fc: from the front
-        dQueue.add( Datagram.system(fc.getSource()).writable(fc) ); // request the data
+        Core.addToQueue( Datagram.system(fc.getSource()).writable(fc) ); // request the data
     }
 
     /**
@@ -105,7 +102,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
      * @return The created object
      */
     private FileCollector createFileCollector(String id ){
-        var fc = new FileCollector(id,"1m",nettyGroup,dQueue);
+        var fc = new FileCollector(id,"1m",nettyGroup);
         fileCollectors.put(id, fc);
         return fc;
     }

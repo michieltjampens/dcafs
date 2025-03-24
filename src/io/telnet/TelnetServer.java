@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -40,18 +39,18 @@ public class TelnetServer implements Commandable {
     int port = 2323;
     String title = "dcafs";
     String ignore = "";
-    
-    BlockingQueue<Datagram> dQueue;
+
     ArrayList<Writable> writables = new ArrayList<>();
     private final ArrayList<String> messages=new ArrayList<>();
     private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
     private final HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
     private long maxAge=3600;
     private Path tinylogPath;
+    private final boolean bootOk;
 
-    public TelnetServer( BlockingQueue<Datagram> dQueue, EventLoopGroup eventGroup ) {
-        this.dQueue=dQueue;
+    public TelnetServer( EventLoopGroup eventGroup, boolean bootOk ) {
         this.workerGroup = eventGroup;
+        this.bootOk=bootOk;
         tinylogPath = Paths.storage();
         readSettingsFromXML();
     }
@@ -63,20 +62,18 @@ public class TelnetServer implements Commandable {
     }
 
     public void readSettingsFromXML( ) {
-        if( dQueue != null ) {
-            var dig = Paths.digInSettings("settings").digDown("telnet");
-            if( dig.isValid()){
-                port = dig.attr("port",2323);
-                title = dig.attr( "title", "DCAFS");
-                ignore = dig.attr( "ignore", "");
-                defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
-                dig.goUp();
-                maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
-                var pth = dig.peekAt("tinylog").value("");
-                tinylogPath = pth.isEmpty()?Paths.storage():Path.of(pth);
-            }else {
-                addBlankTelnetToXML();
-            }
+        var dig = Paths.digInSettings("settings").digDown("telnet");
+        if( dig.isValid()){
+            port = dig.attr("port",2323);
+            title = dig.attr( "title", "DCAFS");
+            ignore = dig.attr( "ignore", "");
+            defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
+            dig.goUp();
+            maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
+            var pth = dig.peekAt("tinylog").value("");
+            tinylogPath = pth.isEmpty()?Paths.storage():Path.of(pth);
+        }else {
+            addBlankTelnetToXML();
         }
     }
     public static void addBlankTelnetToXML( ){
@@ -99,7 +96,7 @@ public class TelnetServer implements Commandable {
                                 .addLast( new ReadTimeoutHandler(1800) );// close connection after set time without traffic
 
                         // and then business logic.
-                        TelnetHandler handler = new TelnetHandler( dQueue,ignore ) ;
+                        TelnetHandler handler = new TelnetHandler( ignore,bootOk ) ;
                         handler.setTitle(title);
                         var remoteIp = ch.remoteAddress().getAddress().toString().substring(1);
                         cmdHistory.computeIfAbsent(remoteIp, k -> new ArrayList<>());

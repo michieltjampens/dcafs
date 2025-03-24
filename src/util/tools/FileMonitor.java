@@ -1,10 +1,10 @@
 package util.tools;
 
 import das.Commandable;
+import das.Core;
 import io.Writable;
 import org.tinylog.Logger;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.io.FileInputStream;
@@ -24,11 +24,9 @@ public class FileMonitor implements Commandable {
     ArrayList<ReactionInfo> files = new ArrayList<>();
     static final int BUFFER_SIZE = 256;
     Path root;
-    BlockingQueue<Datagram> dQueue;
 
-    public FileMonitor(Path root, BlockingQueue<Datagram> dQueue){
+    public FileMonitor(Path root){
         this.root=root;
-        this.dQueue=dQueue;
 
         readFromXML();
     }
@@ -104,7 +102,7 @@ public class FileMonitor implements Commandable {
                     }
                 }else if( kind == ENTRY_MODIFY && fileName.equals(mon.getFilename()) ){
                     if( mon.hasCmd() ) {
-                        dQueue.add(Datagram.system(mon.getCmd()));
+                        Core.addToQueue(Datagram.system(mon.getCmd()));
                         Logger.info("Executing '"+mon.getCmd()+"' because modified "+mon.getFilename());
                     }
                     blank = read(wk,mon,"");

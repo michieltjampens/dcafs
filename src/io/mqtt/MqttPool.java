@@ -2,7 +2,6 @@ package io.mqtt;
 
 import das.Paths;
 import io.Writable;
-import io.telnet.TelnetCodes;
 import das.Commandable;
 import util.LookAndFeel;
 import util.data.AbstractVal;
@@ -14,19 +13,15 @@ import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
-import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 
 public class MqttPool implements Commandable {
 
     Map<String, MqttWorker> mqttWorkers = new HashMap<>();
     RealtimeValues rtvals;
-    BlockingQueue<Datagram> dQueue;
 
-    public MqttPool( RealtimeValues rtvals, BlockingQueue<Datagram> dQueue ){
+    public MqttPool( RealtimeValues rtvals ){
         this.rtvals=rtvals;
-        this.dQueue=dQueue;
 
         if( !readXMLsettings() )
             Logger.info("No MQTT settings in settings.xml");
@@ -74,7 +69,7 @@ public class MqttPool implements Commandable {
             var addr = broker.peekAt("address").value("");
             var clientid = broker.peekAt("clientid").value("");
 
-            var worker = new MqttWorker( id, addr, clientid, rtvals, dQueue );
+            var worker = new MqttWorker( id, addr, clientid, rtvals );
             var ttl = TimeTools.parsePeriodStringToMillis( broker.attr("ttl",broker.peekAt("ttl").value("")));
             worker.setTTL(ttl);
 

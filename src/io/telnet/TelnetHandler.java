@@ -1,5 +1,6 @@
 package io.telnet;
 
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.netty.channel.*;
@@ -14,17 +15,13 @@ import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implements Writable {
-	
-	protected BlockingQueue<Datagram> dQueue;								// Queue that receives raw data for processing
-	
+
 	/* Pretty much the local descriptor */
 	protected static final String LABEL = "cmd";			// The label that determines what needs to be done with a message
 	protected Channel channel;	// The channel that is handled
@@ -51,15 +48,15 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	private long elapsed=-1;
 	private String format="HH:mm:ss.SSS";
 	private String default_text_color=TelnetCodes.TEXT_LIGHT_GRAY;
+	boolean bootOk=true;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
-	 * 
-	 * @param dQueue the queue from the @see BaseWorker
+	 *
 	 * @param ignoreIPlist list of ip's to ignore (meaning no logging)
 	 */
-    public TelnetHandler(BlockingQueue<Datagram> dQueue, String ignoreIPlist){
-		this.dQueue = dQueue;
+    public TelnetHandler(String ignoreIPlist, boolean bootOk){
+		this.bootOk=bootOk;
 		ignoreIP.addAll(Arrays.asList(ignoreIPlist.split(";")));
 		ignoreIP.trimToSize();
 	}
@@ -83,7 +80,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			if( remote.getAddress() instanceof Inet4Address){
 				Logger.debug("IPv4: "+ remote.getAddress());
 			}else{
-				Logger.debug("IPv6: "+((Inet6Address)remote.getAddress()));
+				Logger.debug("IPv6: "+ remote.getAddress());
 			}
 			readXMLsettings();
 		}else{
@@ -92,11 +89,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 		cli = new CommandLineInterface(channel); // Start the cli
 		cli.setHistory(hist);
-		if( dQueue !=null ) {
+		if( bootOk ) {
 			showWelcomeMessage();
 
 			if (!start.isEmpty()) { // Send the init cmds
-				dQueue.add( Datagram.build(start).label(LABEL).writable(this).origin("telnet:" + channel.remoteAddress().toString()).toggleSilent() );
+				Core.addToQueue(Datagram.build(start).label(LABEL).writable(this).origin("telnet:" + channel.remoteAddress().toString()).toggleSilent());
 			}
 		}else{
 			writeLine(TelnetCodes.TEXT_RED + "Issue in settings.xml, can't start up properly! Please fix! " + TelnetCodes.TEXT_ORANGE);
@@ -152,7 +149,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) { 
 		Logger.debug("Not implemented yet - channelUnregistered");
-		dQueue.add( Datagram.system("nb").writable(this)); // Remove this from the writables when closed
+		Core.addToQueue( Datagram.system("nb").writable(this)); // Remove this from the writables when closed
     }
     @Override
     public void channelRead0(ChannelHandlerContext ctx, byte[] data) {
@@ -165,7 +162,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 		writeString(newLine); // Without this, the reply will overwrite the data
 
-		if( dQueue==null ){
+		if( !bootOk ){
 			System.exit(0);
 		}
 
@@ -206,7 +203,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			ChannelFuture future = channel.writeAndFlush( "Have a good day!\r\n");   			
 			future.addListener(ChannelFutureListener.CLOSE);
         } else {
-			dQueue.add( d );
+			Core.addToQueue( d );
         }
 	}
 	private void doChangeIdCmd( String id ){
@@ -335,7 +332,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         // Close the connection when an exception is raised, but don't send messages if it's related to remote ignore	
 		String addr = ctx.channel().remoteAddress().toString();
-		dQueue.add( Datagram.system("nb"));
+		Core.addToQueue( Datagram.system("nb"));
 		if (cause instanceof TooLongFrameException){	
 			Logger.warn("Unexpected exception caught"+cause.getMessage()+" "+addr, true); 
 			ctx.flush();
