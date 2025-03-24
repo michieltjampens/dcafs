@@ -448,7 +448,7 @@ public class DAS implements Commandable{
             public void run() {
                 Logger.info("Dcafs shutting down!");
                 // Inform in all active telnet sessions that a shutdown is in progress
-                telnet.replyToCommand( "telnet","broadcast,error,Dcafs shutting down!",null,false);
+                telnet.replyToCommand(Datagram.system("telnet", "broadcast,error,Dcafs shutting down!"));
 
                 // Inform in the matrix rooms that it's shutting down
                 if( matrixClient!=null)
@@ -711,14 +711,11 @@ public class DAS implements Commandable{
     }
     /*  COMMANDABLE INTERFACE */
     @Override
-    public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
-        if( cmd.equalsIgnoreCase("st"))
-            return getStatus(html);
+    public String replyToCommand(Datagram d) {
+        if (d.cmd().equalsIgnoreCase("st"))
+            return getStatus(d.asHtml());
 
         return "Unknown command";
-    }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
     }
     /**
      * Part of the commandable interface but not used here

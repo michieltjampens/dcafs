@@ -40,9 +40,9 @@ public class CollectorPool implements Commandable, CollectorFuture {
     }
 
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        return switch( cmd ) {
-            case "fc" -> doFileCollectorCmd(args, wr, html);
+    public String replyToCommand(Datagram d) {
+        return switch (d.cmd()) {
+            case "fc" -> doFileCollectorCmd(d);
             case "mc" -> "No commands yet";
             default -> "Wrong commandable...";
         };
@@ -110,18 +110,18 @@ public class CollectorPool implements Commandable, CollectorFuture {
         return fc;
     }
 
-    private String doFileCollectorCmd(String args, Writable wr, boolean html) {
-        String[] cmds = args.split(",");
+    private String doFileCollectorCmd(Datagram d) {
+        String[] cmds = d.argList();
 
         if( cmds.length==1){
-            return singleArgCommands(cmds[0],html);
+            return singleArgCommands(cmds[0], d.asHtml());
         }else if( cmds[0].equalsIgnoreCase("addnew")||cmds[0].equalsIgnoreCase("add") ){
            return addNewCommand(cmds);
         }else{
             var fco = fileCollectors.get(cmds[0]);
             if( fco == null )
                 return "! Invalid id given: "+cmds[0];
-            return doGeneralCommands(cmds, fco, wr);
+            return doGeneralCommands(d, fco);
         }
     }
     private String singleArgCommands(String cmd, boolean html){
@@ -185,7 +185,8 @@ public class CollectorPool implements Commandable, CollectorFuture {
         return "FileCollector " + cmds[1] + " created and added to xml.";
     }
     /* ********************************** G E N E R A L  C O M M A N D S ******************************************* */
-    private String doGeneralCommands(String[] cmds, FileCollector fco, Writable wr) {
+    private String doGeneralCommands(Datagram d, FileCollector fco) {
+        var cmds = d.argList();
 
         var fab = Paths.fabInSettings("collectors")
                     .selectOrAddChildAsParent("file", "id", fco.id());
@@ -243,7 +244,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
                 yield "Tried to alter permissions";
             }
             case "reqwritable" -> {
-                wr.giveObject("writable", fco.getWritable());
+                d.getWritable().giveObject("writable", fco.getWritable());
                 yield "Writable given";
             }
             default -> "! No such subcommand for fc:id : " + cmds[1];

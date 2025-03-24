@@ -53,7 +53,7 @@ public class MultiStream extends SerialStream{
                                          .label(label)
                                          .origin(id+":"+(char)rec[idPosition]);
                     recBuffer.position(0); // reset position to start of buffer
-                    Logger.info("Message found and forwarded: "+d.getData()+" from "+d.getOriginID()); // debug info
+                    Logger.info("Message found and forwarded: " + d.getData() + " from " + d.originID()); // debug info
 
                     if( !targets.isEmpty() ){ // If there are targets
                         try {

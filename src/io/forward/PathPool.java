@@ -90,43 +90,40 @@ public class PathPool implements Commandable {
         Logger.info("Finished loading paths");
     }
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+    public String replyToCommand(Datagram d) {
         // Regular ones
-        switch (cmd) {
+        switch (d.cmd()) {
             // Path
             case "paths", "pf" -> {
-                return replyToPathCmd(args, wr, html);
+                return replyToPathCmd(d);
             }
             case "path" -> {
-                if( args.startsWith("!")){
-                    var p = paths.get(args.substring(1));
+                if (d.args().startsWith("!")) {
+                    var p = paths.get(d.args().substring(1));
                     if( p!=null)
-                        p.removeTarget(wr);
+                        p.removeTarget(d.getWritable());
                     return "Remove received";
                 }else {
-                    var sp = args.split(",");
+                    var sp = d.argList();
                     var p = paths.get(sp[0]);
                     if (p == null)
-                        return "No such path (yet): " + args;
+                        return "No such path (yet): " + d.args();
                     if( sp.length==2){
-                        p.addTarget(wr,sp[1]);
+                        p.addTarget(d.getWritable(), sp[1]);
                     }else{
-                        p.addTarget(wr);
+                        p.addTarget(d.getWritable());
                     }
                     return "Request received.";
                 }
             }
             case "" -> {
-                paths.values().forEach( p->p.removeTarget(wr));
+                paths.values().forEach(p -> p.removeTarget(d.getWritable()));
                 return "";
             }
             default -> {
-                return "! No such subcommand in "+cmd+": "+args;
+                return "! No such subcommand in " + d.getData();
             }
         }
-    }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
     }
     @Override
     public boolean removeWritable( Writable wr) {
@@ -134,14 +131,14 @@ public class PathPool implements Commandable {
         return false;
     }
     /* ******************************************** P A T H ******************************************************** */
-    public String replyToPathCmd(String cmd, Writable wr, boolean html ){
-        var args =cmd.split(",");
+    public String replyToPathCmd(Datagram d) {
+        var args = d.argList();
 
         switch (args[0]) {
             case "?" -> {
                 StringJoiner help = new StringJoiner("\r\n");
                 help.add("Commands related to general paths actions");
-                help.add( PathCmds.replyToCommand("?",html));
+                help.add(PathCmds.replyToCommand(d));
                 help.add("Other" )
                         .add( "pf:reload/reloadall -> Reload all the paths")
                         .add( "pf:id,reload -> reload the path with the given id")
@@ -149,7 +146,7 @@ public class PathPool implements Commandable {
                         .add("pf:id,list -> List all the steps in the chosen path")
                         .add( "pf:id,debug<,stepnr/stepid> -> Request the data from a single step in the path (nr:0=first; -1=custom src)")
                         .add( "pf:clear -> Remove all the paths from XML!");
-                return LookAndFeel.formatCmdHelp(help.toString(),html);
+                return LookAndFeel.formatCmdHelp(help.toString(), d.asHtml());
             }
             case "reload", "reloadall" -> { // Reload all tha paths
                 if (args.length == 1 || args[0].endsWith("all")) {
@@ -170,13 +167,13 @@ public class PathPool implements Commandable {
                 return "Paths cleared";
             }
             case "stop" -> { // Stop receiving data from this path
-                paths.values().forEach(pf -> pf.removeTarget(wr));
-                return "Stopped sending to " + wr.id();
+                paths.values().forEach(pf -> pf.removeTarget(d.getWritable()));
+                return "Stopped sending to " + d.originID();
             }
             case "list" -> { // Get a listing of all the steps in the path
-                String green=html?"":TelnetCodes.TEXT_GREEN;
-                String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-                StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
+                String green = d.asHtml() ? "" : TelnetCodes.TEXT_GREEN;
+                String reg = d.asHtml() ? "" : TelnetCodes.TEXT_DEFAULT;
+                StringJoiner join = new StringJoiner(d.asHtml() ? "<br>" : "\r\n");
                 join.setEmptyValue("No paths yet");
                 paths.forEach((key, value) -> {
                     String src = key + " src: " + value.src();
@@ -185,19 +182,20 @@ public class PathPool implements Commandable {
                 return join.toString();
             }
             default -> {
-                return doTwoArgsCmds(args,cmd,wr,html);
+                return doTwoArgsCmds(d);
             }
         }
     }
-    private String doTwoArgsCmds( String[] args, String cmd, Writable wr, boolean html ){
-        if (args.length < 2)
-            return "Not enough arguments";
 
+    private String doTwoArgsCmds(Datagram d) {
+        if (d.argList().length < 2)
+            return "Not enough arguments";
+        var args = d.argList();
         var pf = paths.get(args[0]);
 
         switch (args[1]) {
             case "debug" -> {
-                return doDebugCmd(args,wr,pf);
+                return doDebugCmd(args, d.getWritable(), pf);
             }
             case "reload" -> { // Reload the given path
                 var dig = Paths.digInSettings("paths");
@@ -209,10 +207,10 @@ public class PathPool implements Commandable {
             case "list" -> {
                 return pf == null
                             ? "! No such path: " + args[0]
-                            : "Path: " + pf.id() + (html ? "<br>" : "\r\n") + pf;
+                        : "Path: " + pf.id() + (d.asHtml() ? "<br>" : "\r\n") + pf;
             }
             default -> {
-                return doRequest(args,cmd,html);
+                return doRequest(d);
             }
         }
     }
@@ -233,7 +231,10 @@ public class PathPool implements Commandable {
             return pf.debugStep(args[2], wr);
         return pf.debugStep(nr, wr);
     }
-    private String doRequest( String[] args, String cmd, boolean html){
+
+    private String doRequest(Datagram d) {
+        var args = d.argList();
+
         if (args[1].equalsIgnoreCase("switchsrc")) {
             var path = paths.get(args[0]);
             if (path == null)
@@ -242,7 +243,7 @@ public class PathPool implements Commandable {
             return "Src altered to " + args[2];
         }
 
-        var res = PathCmds.replyToCommand( cmd, html );
+        var res = PathCmds.replyToCommand(d);
         if (res.startsWith("Table added with ")) {
             dQueue.add(Datagram.system(res.substring(res.indexOf("dbm"))));
         }else if( !res.startsWith("!") ){ // If the command worked

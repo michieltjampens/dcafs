@@ -126,7 +126,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 			return;
 		}
 
-		dQueue.put( Datagram.build(repeat+msg).label(tempLabel).writable(this).raw(data) );
+		dQueue.put(Datagram.build(repeat + msg).label(tempLabel).writable(this));
 
 		if( !targets.isEmpty() && !tempLabel.equals("system")){
 			String tosend = repeat+new String(data);

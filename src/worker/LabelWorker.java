@@ -112,7 +112,7 @@ public class LabelWorker implements Runnable {
 
 	private void handleCommand(Datagram d) {
 		String response = reqData.executeCommand(d, false);
-		if (d.getOriginID().startsWith("telnet") && d.getWritable() != null) {
+		if (d.originID().startsWith("telnet") && d.getWritable() != null) {
 			d.getWritable().writeLine(response);
 			d.getWritable().writeString(
 					TelnetCodes.TEXT_YELLOW + // print the prefix in yellow

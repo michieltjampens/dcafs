@@ -384,15 +384,15 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		return list.contains(address);
 	}
 	@Override
-	public String replyToCommand( String cmd, String args, Writable wr, boolean html) {
+	public String replyToCommand(Datagram d) {
 
-		if( args.equalsIgnoreCase("addblank") ){
+		if (d.args().equalsIgnoreCase("addblank")) {
 			if( EmailWorker.addBlankElement(  Paths.settings(), true,true) )
 				return "Adding default email settings";
 			return "! Failed to add default email settings";
 		}
 		if( !ready ){
-			if(args.equals("reload")
+			if (d.args().equals("reload")
 					&& XMLfab.withRoot(Paths.settings(), "dcafs","settings").getChild("email").isPresent() ){
 				if( !readFromXML() )
 					return "! No proper email node yet";
@@ -400,18 +400,24 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				return "! No EmailWorker initialized (yet), use email:addblank to add blank to xml.";
 			}
 		}
-		if (args.equalsIgnoreCase("payload"))
-			return payloadCommand(cmd, args, null);
 		// Allow a shorter version to email to admin, replace it to match the standard command
-		args = args.replace("toadmin,","send,admin,");
+		d.args(d.args().replace("toadmin,", "send,admin,"));
 
-		String[] cmds = args.split(",");
+		String[] cmds = d.argList();
 
 		return switch (cmds[0]) {
-			case "?" -> getHelp(html);
+			case "?" -> getHelp(d.asHtml());
 			case "reload" -> readFromXML()?"Settings reloaded":"! Reload failed";
 			case "refs" -> getEmailBook();
 			case "setup", "status" -> getSettings();
+			case "deliver" -> {
+				if (d.payload() == null && !(d.payload() instanceof Email))
+					yield "! No valid payload in datagram";
+				if (cmds.length != 2)
+					yield "! Missing to";
+				sendEmail((Email) d.payload());
+				yield "Added email to queue";
+			}
 			case "send" -> {
 				if (cmds.length != 4)
 					yield "! Wrong amount of arguments -> email:send,ref/email,subject,content";
@@ -438,7 +444,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				var cl = clear != null ? "in " + clear.getDelay(TimeUnit.SECONDS) + "s" : "never";
 				yield "Busy at " + busy + " and sendrequests at " + sendRequests + ", clearing " + cl;
 			}
-			default ->  "! No such subcommand in email: " + args;
+			default -> "! No such subcommand in email: " + d.args();
 		};
 	}
 	private String getHelp( boolean html ){
@@ -461,10 +467,6 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
 		permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
 		return writePermits() ? "Permit added" : "! Failed to write to xml";
-	}
-
-	public String payloadCommand( String cmd, String args, Object payload){
-		return "! No such cmds in "+cmd;
 	}
 	/**
 	 * Send an email

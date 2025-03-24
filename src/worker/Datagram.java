@@ -6,37 +6,60 @@ import io.Writable;
  * Simple storage class that holds the raw data before processing
  */
 public class Datagram {
-	
-    String data;             // The received data
-    byte[] raw;              // Raw received data
+
+    //String data;             // The received data
+    String cmd;
+    String args;
     int priority = 1;        // The priority of the data source
     String label="";         // The label of the data source
     String originID ="";     // ID of the origin of the message
-    Writable writable;      //
-    Object payload;         //
+    Writable writable;       //
+    Object payload;          //
     boolean silent = true;
 
     public Datagram(String data){
-        this.data = data;
-        raw = data.getBytes();
+        var spl = data.split(":", 2);
+        cmd = spl[0].toLowerCase();
+        args = spl.length == 2 ? spl[1] : "";
     }
-    public Datagram(){
+
+    public Datagram(String cmd, String args) {
+        this.cmd = cmd.toLowerCase();
+        this.args = args;
     }
 
     public Writable getWritable(){
         return writable;
     }
-    public String getOriginID(){ return originID;}
+
+    public String originID() {
+        return originID;
+    }
+
+    public String cmd() {
+        return cmd;
+    }
+
+    public String args() {
+        return args;
+    }
+
+    public String[] argList() {
+        return args.split(",");
+    }
+
+    public Datagram args(String args) {
+        this.args = args;
+        return this;
+    }
 
     public String getData(){
-        return data ==null?"": data;
+        return cmd + ":" + args;
     }
     public void setData(String msg ){
-        this.data =msg;
-        raw = msg.getBytes();
-    }
-    public byte[] getRaw(){
-        return raw;
+        var spl = msg.split(":", 2);
+        cmd = spl[0];
+        args = spl.length == 2 ? spl[1] : "";
     }
     public String getLabel(){ return label.toLowerCase(); }
     public boolean isSilent(){ return silent;}
@@ -47,15 +70,19 @@ public class Datagram {
         return new Datagram(message);
     }
     public static Datagram build(byte[] message){
-        var d = new Datagram( new String(message));
-        d.raw=message;
-        return d;
+        return new Datagram(new String(message));
     }
-    public static Datagram build(){
-        return new Datagram();
+
+    public static Datagram build(String cmd, String args) {
+        return new Datagram(cmd, args);
     }
+
     public static Datagram system(String message){
         return Datagram.build(message).label("system");
+    }
+
+    public static Datagram system(String cmd, String args) {
+        return Datagram.build(cmd, args).label("system");
     }
     public Datagram label(String label){
         this.label=label;
@@ -80,10 +107,6 @@ public class Datagram {
         this.originID=origin;
         return this;
     }
-    public Datagram raw( byte[] raw ){
-        this.raw=raw;
-        return this;
-    }
     public Datagram toggleSilent(){
         silent = !silent;
         return this;
@@ -94,5 +117,13 @@ public class Datagram {
     }
     public Object payload(){
         return payload;
+    }
+
+    public boolean asHtml() {
+        return writable != null && (writable.id().contains("matrix") || writable.id().startsWith("file:"));
+    }
+
+    public String eol() {
+        return asHtml() ? "<br>" : "\r\n";
     }
 }

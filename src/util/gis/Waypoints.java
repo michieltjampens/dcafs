@@ -313,18 +313,17 @@ public class Waypoints implements Commandable {
     /**
      * Reply to requests made
      *
-     * @param wr The writable of the origin of this request
-     * @param html Determines if EOL should be <br> or crlf
+     * @param d The datagram containing all info needed to process the command
      * @return Descriptive reply to the request
      */
     @Override
-    public String replyToCommand(String cmd,String args, Writable wr, boolean html) {
-        
-        String[] cmds = args.split(",");
+    public String replyToCommand(Datagram d) {
+
+        String[] cmds = d.argList();
 
         return switch (cmds[0]) {
-            case "?" -> doCmdHelp( html );
-            case "list" ->  getWaypointList(html ? "<br>" : "\r\n");
+            case "?" -> doCmdHelp(d.asHtml());
+            case "list" -> getWaypointList(d.eol());
             case "exists" -> wpExists(cmds[1]) ? "Waypoint exists" : "No such waypoint";
             case "cleartemps" -> {
                 clearTempWaypoints();
@@ -333,10 +332,10 @@ public class Waypoints implements Commandable {
             case "distanceto" -> {
                 if (cmds.length == 1)
                     yield "! No id given, must be wpts:distanceto,id";
-                var d = distanceTo(cmds[1]);
-                yield (d == -1)
+                var dist = distanceTo(cmds[1]);
+                yield (dist == -1)
                         ?"! No such waypoint"
-                        :"Distance to " + cmds[1] + " is " + d + "m";
+                        : "Distance to " + cmds[1] + " is " + dist + "m";
             }
             case "nearest" -> "The nearest waypoint is " + getNearestWaypoint();
             case "states" -> sog == null
@@ -365,7 +364,7 @@ public class Waypoints implements Commandable {
                 yield "Added travel " + cmds[5] + " to " + cmds[1];
             }
             case "checktread" -> monitorTravelTask() ? "Thread is fine" : "! Thread needed restart";
-            default -> "! No such subcommand in " + cmd + ": " + cmds[0];
+            default -> "! No such subcommand in " + d.getData();
         };
     }
     private String doCmdHelp( boolean html ){

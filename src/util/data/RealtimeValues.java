@@ -420,24 +420,26 @@ public class RealtimeValues implements Commandable {
 	}
 	/* ************************** C O M M A N D A B L E ***************************************** */
 	@Override
-	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+	public String replyToCommand(Datagram d) {
+		var html = d.asHtml();
+		var args = d.args();
 
 		// Switch between either empty string or the telnetcode because of htm not understanding telnet
 		String green=html?"":TelnetCodes.TEXT_GREEN;
 		String reg=html?"":TelnetCodes.TEXT_DEFAULT;
 		String ora = html?"":TelnetCodes.TEXT_ORANGE;
 
-		var result=switch (cmd) {
-			case "rv", "reals","iv", "integers" ->  replyToNumericalCmd(cmd,args);
+		var result = switch (d.cmd()) {
+			case "rv", "reals", "iv", "integers" -> replyToNumericalCmd(d.cmd(), args);
 			case "texts", "tv" ->  replyToTextsCmd(args);
 			case "flags", "fv" ->  replyToFlagsCmd(args, html);
 			case "rtvals", "rvs" -> replyToRtvalsCmd(args, html);
 			case "rtval", "real", "int", "integer","text","flag" -> {
-				int s = addRequest(wr, cmd, args);
+				int s = addRequest(d.getWritable(), d.cmd(), args);
 				yield s != 0 ? "Request added to " + args : "Request failed";
 			}
 			case "" -> {
-				removeWritable(wr);
+				removeWritable(d.getWritable());
 				yield "";
 			}
 			default ->  "! No such subcommand in rtvals: "+args;
@@ -445,9 +447,6 @@ public class RealtimeValues implements Commandable {
 		if( result.startsWith("!"))
 			return ora+result+reg;
 		return green+result+reg;
-	}
-	public String payloadCommand( String cmd, String args, Object payload){
-		return "! No such cmds in "+cmd;
 	}
 	public String replyToNumericalCmd( String cmd, String args ){
 

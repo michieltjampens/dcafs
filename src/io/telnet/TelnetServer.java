@@ -142,34 +142,33 @@ public class TelnetServer implements Commandable {
     }
 
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        var cmds = args.split(",");
-        if( cmd.equalsIgnoreCase("nb") || args.equalsIgnoreCase("nb")){
+    public String replyToCommand(Datagram d) {
+        var args = d.argList();
+        if (d.cmd().equalsIgnoreCase("nb") || args[0].equalsIgnoreCase("nb")) {
             int s = writables.size();
-            writables.remove(wr);
+            writables.remove(d.getWritable());
             return (s==writables.size())?"! Failed to remove":"Removed from targets";
         }else {
-            String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-            switch (cmds[0]) {
+            switch (args[0]) {
                 case "?" -> {
                     return doCmdHelp();
                 }
                 case "error" -> {
-                    if (cmds.length < 2)
+                    if (args.length < 2)
                         return "! Not enough arguments, telnet:error,message";
-                    var error = args.substring(6);
+                    var error = d.args().substring(6);
                     messages.add(error);
                     writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
                     return "";
                 }
                 case "broadcast" -> {
-                    return doBroadCastCmd(cmds,args);
+                    return doBroadCastCmd(args, d.args());
                 }
                 case "write" -> {
-                    var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
+                    var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(args[1])).toList();
                     if (wrs.isEmpty())
                         return "! No such id";
-                    var mes = TelnetCodes.TEXT_MAGENTA + wr.id() + ": " + args.substring(7 + cmds[1].length()) + TelnetCodes.TEXT_DEFAULT;
+                    var mes = TelnetCodes.TEXT_MAGENTA + d.originID() + ": " + d.args().substring(7 + args[1].length()) + TelnetCodes.TEXT_DEFAULT;
                     wrs.forEach(w -> w.writeLine(mes));
                     return mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
                 }
@@ -177,7 +176,7 @@ public class TelnetServer implements Commandable {
                     return "Currently has " + writables.size() + " broadcast targets.";
                 }
                 default -> {
-                    return "! No such subcommand in "+cmd+": "+cmds[0];
+                    return "! No such subcommand in " + d.getData();
                 }
             }
         }

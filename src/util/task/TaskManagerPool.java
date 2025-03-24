@@ -11,6 +11,7 @@ import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
+import worker.Datagram;
 
 import java.io.File;
 import java.io.IOException;
@@ -113,32 +114,32 @@ public class TaskManagerPool implements Commandable {
     }
     /* ******************************************* C O M M A N D A B L E ******************************************* */
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        String nl = html?"<br>":"\r\n";
+    public String replyToCommand(Datagram d) {
+        String nl = d.eol();
         StringJoiner response = new StringJoiner(nl);
-        String[] cmds = args.split(",");
+        String[] args = d.argList();
 
-        if( tasklists.isEmpty() && !cmds[0].equalsIgnoreCase("addnew") && !cmds[0].equalsIgnoreCase("add") && !cmds[0].equalsIgnoreCase("load"))
+        if (tasklists.isEmpty() && !args[0].equalsIgnoreCase("addnew") && !args[0].equalsIgnoreCase("add") && !args[0].equalsIgnoreCase("load"))
             return "! No TaskManagers active, only tm:add,id and tm:load,id available.";
 
-        switch( cmds[0] ) {
+        switch (args[0]) {
             case "?":
-                return doCmdHelp(html);
+                return doCmdHelp(d.asHtml());
             case "add":
-                return doAddCmd(cmds);
+                return doAddCmd(args);
             case "load":
-                if (cmds.length != 2)
+                if (args.length != 2)
                     return "! Not enough parameters, tm:load,id";
-                if (tasklists.get(cmds[1]) != null)
+                if (tasklists.get(args[1]) != null)
                     return "! Already a taskmanager with that id";
-                if (Files.notExists( scriptPath.resolve(cmds[1] + ".xml")))
+                if (Files.notExists(scriptPath.resolve(args[1] + ".xml")))
                     return "! No such script in the default location";
-                if (addTaskList(cmds[1], scriptPath.resolve( cmds[1] + ".xml")).reloadTasks()) {
+                if (addTaskList(args[1], scriptPath.resolve(args[1] + ".xml")).reloadTasks()) {
                     XMLfab.withRoot(Paths.settings(), "dcafs", "settings")
-                            .addChild("taskmanager", "tmscripts" + File.separator + cmds[1] + ".xml").attr("id", cmds[1]).build();
-                    return "Loaded " + cmds[1];
+                            .addChild("taskmanager", "tmscripts" + File.separator + args[1] + ".xml").attr("id", args[1]).build();
+                    return "Loaded " + args[1];
                 }
-                return "! Failed to load tasks from " + cmds[1];
+                return "! Failed to load tasks from " + args[1];
             case "reloadall": case "reload":
                 var join = new StringJoiner(nl);
                 for(TaskManager tam : tasklists.values() )
@@ -153,13 +154,13 @@ public class TaskManagerPool implements Commandable {
                 tasklists.keySet().forEach(response::add);
                 return response.toString();
             case "restored":
-                if( cmds.length != 2)
+                if (args.length != 2)
                     return "Missing id";
                 var j = new StringJoiner(nl);
-                 tasklists.values().forEach( tm -> j.add(tm.notifyRestored(cmds[1])));
+                tasklists.values().forEach(tm -> j.add(tm.notifyRestored(args[1])));
                  return j.toString();
             default:
-                return doSubCmd(cmds,nl);
+                return doSubCmd(args, nl);
         }
     }
     private String doCmdHelp( boolean html ){

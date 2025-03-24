@@ -724,9 +724,9 @@ public class TaskManager implements CollectorFuture {
 						if( task.value.startsWith(""+'"')){
 							resp = task.value.replace(""+'"',"");
 						}else {
-							resp = commandPool.executeCommand(Datagram.system(task.value), false, true);
+							resp = commandPool.executeCommand(Datagram.system(task.value), false);
 						}
-						commandPool.executeCommand(Datagram.system("matrix:say,"+task.stream+","+resp),false,true);
+						commandPool.executeCommand(Datagram.system("matrix", "say," + task.stream + "," + resp), false);
 						break;
 					case LOG: // Write the value in either status.log or error.log (and maybe send an email)
 						String[] spl = task.value.split(";");

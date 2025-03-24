@@ -1,27 +1,15 @@
 package das;
 
 import io.Writable;
+import worker.Datagram;
 
 public interface Commandable {
     /**
      * Respond to a cmd
-     * @param cmd The cmd to execute
-     * @param args The arguments for the cmd
-     * @param wr Thr writable from where the cmd comes from
-     * @param html True means the answer should be with html
+     * @param d The datagram containing all relevant info
      * @return The answer
      */
-    String replyToCommand(String cmd, String args, Writable wr, boolean html);
-
-    /**
-     * For cmd that require and object to be given along with it
-     * @param cmd The cmd to execute
-     * @param args The arguments for the cmd
-     * @param payload The object that is relevant for the cmd
-     * @return The answer
-     */
-    String payloadCommand( String cmd, String args, Object payload);
-
+    String replyToCommand(Datagram d);
     /**
      * Remove the given writable from the list of writable's in this object.
      * @param wr The writable to remove.

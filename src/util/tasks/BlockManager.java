@@ -205,12 +205,7 @@ public class BlockManager implements Commandable, Writable {
     }
 
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        return "";
-    }
-
-    @Override
-    public String payloadCommand(String cmd, String args, Object payload) {
+    public String replyToCommand(Datagram d) {
         return "";
     }
 

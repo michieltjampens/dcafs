@@ -645,10 +645,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	}
 	/* ***************************************************************************************************** */
 	@Override
-	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-		String find = cmd.toLowerCase().replaceAll("\\d+","_");
+	public String replyToCommand(Datagram d) {
+		var wr = d.getWritable();
+		var cmd = d.cmd();
+		var args = d.args();
+
+		String find = d.cmd().toLowerCase().replaceAll("\\d+", "_");
 		return switch( find ) {
-			case "ss", "streams" -> replyToStreamCommand(args, wr, html);
+			case "ss", "streams" -> replyToStreamCommand(d);
 			case "raw","stream" -> {
 				var res = addTargetRequest(args,wr);
 				yield (res?"":"! ")+"Request for "+cmd+":"+args+" "+(res?"ok":"failed");
@@ -678,25 +682,24 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	/**
 	 * The streampool can give replies to certain predetermined questions
-	 * @param request The question to ask
-	 * @param html Whether the answer should use html or regular line endings
+	 * @param d Original datagram with all info
 	 * @return The answer or Unknown Command if the question wasn't understood
 	 */
-	public String replyToStreamCommand(String request, Writable wr, boolean html) {
-
-		String[] cmds = request.split(",");
+	public String replyToStreamCommand(Datagram d) {
 		// Prepare the digger
 		var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
 		if( !dig.hasPeek("streams")) {
 			XMLfab.alterDigger(dig).ifPresent( x->x.addChild("streams").build());
 		}
 		dig.digDown("streams");
+
+		String[] cmds = d.argList();
 		if( cmds.length==1){
-			return doSingleCmd(cmds[0],html);
+			return doSingleCmd(cmds[0], d.asHtml());
 		}else if( Arrays.asList(NEWSTREAM).contains(cmds[0]) ){ // Meaning it's an add cmd
 			return doAddStreamCmd(cmds,dig);
 		}else{ // Meaning it's an alter/use cmd
-			return doAlterUseCmd(cmds, wr, dig);
+			return doAlterUseCmd(cmds, d.getWritable(), dig);
 		}
 	}
 	private String doSingleCmd( String cmd, boolean html){

@@ -75,7 +75,7 @@ public class CommandPool {
 	 * @param d The datagram to process
 	 */
 	public void emailResponse( Datagram d ) {
-		Logger.info( "Executing email command ["+d.getData()+"], origin: " + d.getOriginID() );
+		Logger.info("Executing email command [" + d.getData() + "], origin: " + d.originID());
 		emailResponse( d, "Bot Reply" );
 	}
 	/**
@@ -86,139 +86,100 @@ public class CommandPool {
 	public void emailResponse(Datagram d, String subject) {
 		/* If there's no valid queue, can't do anything */
 		if ( sendEmail!=null ) {
-			Logger.info("Asked to email to " + d.getOriginID() + " but no worker defined.");
+			Logger.info("Asked to email to " + d.originID() + " but no worker defined.");
 			return;
 		}
 		/* Notification to know if anyone uses the bot. */
-		if ( (!d.getOriginID().startsWith("admin") && !sendEmail.isAddressInRef("admin",d.getOriginID()) ) && subject.equalsIgnoreCase("Bot Reply")  ) {
-			sendEmail.sendEmail( Email.toAdminAbout("DCAFSbot").content("Received '" + d.getData() + "' command from " + d.getOriginID()) );
+		if ((!d.originID().startsWith("admin") && !sendEmail.isAddressInRef("admin", d.originID())) && subject.equalsIgnoreCase("Bot Reply")) {
+			sendEmail.sendEmail(Email.toAdminAbout("DCAFSbot").content("Received '" + d.getData() + "' command from " + d.originID()));
 		}
 		/* Processing of the question */
 		d.setData( d.getData().toLowerCase());
 
 		/* Writable is in case the question is for realtime received data */
-		String response = executeCommand( d, false, true );
+		String response = executeCommand(d, false);
 
 		if (!response.toLowerCase().contains(UNKNOWN_CMD)) {
 			response = response.replace("[33m ", "");
-			sendEmail.sendEmail( Email.to(d.getOriginID()).subject(subject).content(response.replace("\r\n", "<br>")));
+			sendEmail.sendEmail(Email.to(d.originID()).subject(subject).content(response.replace("\r\n", "<br>")));
 		} else {
 			sendEmail.sendEmail(
-					Email.to(d.getOriginID())
+					Email.to(d.originID())
 							.subject(subject)
-							.content("Euh " + d.getOriginID().substring(0, d.getOriginID().indexOf(".")) + ", no idea what to do with '" + d.getData() + "'..."));
+							.content("Euh " + d.originID().substring(0, d.originID().indexOf(".")) + ", no idea what to do with '" + d.getData() + "'..."));
 		}
 	}
-
-	/**
-	 * A question is asked to the BaseReq through this method, a Writable is
-	 * passed for streaming data questions
-	 *
-	 * @param d The datagram to process
-	 * @param remember If the command should be recorded in the raw data
-	 * @return The response to the command/question
-	 */
-	public String executeCommand(Datagram d, boolean remember) {
-		return executeCommand( d, remember, false);
-	}
-
 	/**
 	 * A question is asked to the BaseReq through this method, a Writable is
 	 * passed for streaming data questions
 	 * 
 	 * @param d The datagram to process
 	 * @param remember If the command should be recorded in the raw data
-	 * @param html     If the response should you html encoding or not
 	 * @return The response to the command/question
 	 */
-	public String executeCommand(Datagram d, boolean remember, boolean html) {
-
-		String question = d.getData();
+	public String executeCommand(Datagram d, boolean remember) {
 
 		if (remember) // If to store commands in the raw log (to have a full simulation when debugging)
-			Logger.tag("RAW").info("system\t" + question);
-
-		// If the question contains -r that means it shouldn't contain telnet code
-		boolean removeTelnetCodes=false;
-		if( question.contains( " -r")){
-			removeTelnetCodes=true;
-			question=question.replace(" -r","");
-		}
+			Logger.tag("RAW").info("system\t" + d.getData());
 
 		var wr = d.getWritable();
 
-		// Some receivers of the result prefer html style (if possible)
-		if( wr!=null && (wr.id().contains("matrix") || wr.id().startsWith("file:")))
-			html=true;
-
-		String[] split = new String[]{question,""};
-		if( question.contains(":")){ // might contain more than one ':' so split on the first one
-			split[0]=question.substring(0, question.indexOf(":"));
-			split[1]=question.substring(question.indexOf(":")+1);
-		}
-		split[0]=split[0].toLowerCase(); // make sure the cmd is in lowercase
-
 		// Check the repo's for a match for the given command
-		String result = findCommand(split, html, d);
+		String result = findCommand(d);
 
 		if( result.startsWith("! No such cmd group") ){
-			result = createMatrixNodeIfAsked(result,split[1]);
-			result = createEmailNodeIfAsked(result,split[1]);
+			result = createMatrixNodeIfAsked(result, d.args());
+			result = createEmailNodeIfAsked(result, d.args());
 		}
 		if( wr == null )
-			return result + (html ? "<br>" : "\r\n");
+			return result + (d.asHtml() ? "<br>" : "\r\n");
 
-		if( !wr.id().contains("telnet"))
-			removeTelnetCodes=true;
-
-		if( removeTelnetCodes ) // Remove the telnetcodes
+		if (!wr.id().contains("telnet")) // Remove the telnetcodes if not telnet
 			result = TelnetCodes.removeCodes(result);
 
 		if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
-			wr.writeLine(d.getOriginID()+"|"+result); // Send the data but add the origin in front
+			wr.writeLine(d.originID() + "|" + result); // Send the data but add the origin in front
 		}else if (wr.id().startsWith("file:")) { // if the target is a file
 			result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
 			result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
 			wr.writeLine(result); // send the result
 		}else if(!d.isSilent()) { // Check if the receiver actually wants the reply
-			wr.writeLine(d.getOriginID(),result);
+			wr.writeLine(d.originID(), result);
 		}
 
 		// If the receiver is a telnet session, change coloring on short results based on a ! prepended (! means bad news)
-		if( !html && wr.id().startsWith("telnet") && result.length()<150)
+		if (!d.asHtml() && wr.id().startsWith("telnet") && result.length() < 150)
 			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
 
-		return result + (html ? "<br>" : "\r\n");
+		return result + (d.asHtml() ? "<br>" : "\r\n");
 	}
 
-	private String findCommand(String[] split, boolean html, Datagram d) {
-		String result = checkLocalCommandables(split, html, d);// First check the standard commandables
+	private String findCommand(Datagram d) {
+		String result = checkLocalCommandables(d);// First check the standard commandables
 		if (!result.equals(UNKNOWN_CMD)) return result;// Meaning a standard first cmd
 
-		result = checkCommandables(split[0], split[1], html, d);// Check the stored Commandables
+		result = checkCommandables(d);// Check the stored Commandables
 		if (!result.equals(UNKNOWN_CMD)) return result; // So a stored one
 
-		result = checkTaskManagers(split[0], split[1], d.getWritable(), html);
+		result = checkTaskManagers(d);
 		if (!result.equals(UNKNOWN_CMD)) return result;// Check if it matches the id of a TaskManager
 
-		Logger.error("No cmd found with " + split[0] + ":" + split[1] + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
-		return "! No such cmd group: |" + split[0] + "|"; // No result, so probably bad cmd
+		Logger.error("No cmd found with " + d.getData() + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
+		return "! No such cmd group: |" + d.cmd() + "|"; // No result, so probably bad cmd
 	}
 
 	public void quickCommand(Datagram d) {
-		var cmd = d.getData().split(":", 2);
-		var arg = cmd.length == 2 ? cmd[1] : "";
 
-		var result = checkCommandables(cmd[0], arg, false, d);// Check the stored Commandables
+		var result = checkCommandables(d);// Check the stored Commandables
 		if (!result.equals(UNKNOWN_CMD)) return; // So a stored one
 
-		result = checkLocalCommandables(cmd, false, d);// First check the standard commandables
+		result = checkLocalCommandables(d);// First check the standard commandables
 		if (!result.equals(UNKNOWN_CMD)) return;// Meaning a standard first cmd
 
-		result = checkTaskManagers(cmd[0], arg, d.getWritable(), false);
+		result = checkTaskManagers(d);
 		if (!result.equals(UNKNOWN_CMD)) return;// Check if it matches the id of a TaskManager
 
-		Logger.error("No cmd found with " + cmd[0] + ":" + arg + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
+		Logger.error("No cmd found with " + d.cmd() + ":" + d.args() + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
 	}
 	private String createMatrixNodeIfAsked(String result, String subCmd){
 		if( result.contains("matrix")){
@@ -252,27 +213,25 @@ public class CommandPool {
 	}
 	/**
 	 * Checks if the cmd/question is for a standard commandable
-	 * @param split the question split on :
-	 * @param html True means the answer should use html
 	 * @return The answer
 	 */
-	private String checkLocalCommandables(String[] split, boolean html, Datagram d) {
-		var eol = html ? "<br>" : "\r\n"; // change the eol depending on html or not
+	private String checkLocalCommandables(Datagram d) {
+		var eol = d.asHtml() ? "<br>" : "\r\n"; // change the eol depending on html or not
 		var wr = d.getWritable();
-		return switch (split[0]) { // check if it's a built-in cmd instead of a commandable one
-			case "admin" -> AdminCmds.doADMIN(split[1],sendEmail,commandables.get("tm"), html);
-			case "help", "h", "?" -> doHelp(split, eol);
-			case "upgrade" -> doUPGRADE(split, wr, eol);
-			case "retrieve" -> doRETRIEVE(split, wr, eol);
-			case "sd" -> doShutDown(split, eol);
-			case "serialports" -> Tools.getSerialPorts(html);
-			case "conv" -> Tools.convertCoordinates(split[1].split(";"));
-			case "store" -> doStoreCommands( split[1], wr, html );
-			case "history" -> HistoryCmds.replyToCommand(split[1],html,Paths.settings().getParent());
-			case "log" -> doTinyLogCommands( split[1] );
-			case "commandable" -> doCommandable(split[1], (Commandable) d.payload());
+		return switch (d.cmd()) { // check if it's a built-in cmd instead of a commandable one
+			case "admin" -> AdminCmds.doADMIN(d.args(), sendEmail, commandables.get("tm"), d.asHtml());
+			case "help", "h", "?" -> doHelp(d.args(), eol);
+			case "upgrade" -> doUPGRADE(d.args(), wr);
+			case "retrieve" -> doRETRIEVE(d, eol);
+			case "sd" -> doShutDown(d.args(), eol);
+			case "serialports" -> Tools.getSerialPorts(d.asHtml());
+			case "conv" -> Tools.convertCoordinates(d.args().split(";"));
+			case "store" -> doStoreCommands(d.args(), wr, d.asHtml());
+			case "history" -> HistoryCmds.replyToCommand(d.args(), d.asHtml(), Paths.settings().getParent());
+			case "log" -> doTinyLogCommands(d.args());
+			case "commandable" -> doCommandable(d.args(), (Commandable) d.payload());
 			case "", "stop", "nothing" -> {
-				stopCommandable.forEach(c -> c.replyToCommand("","", wr, false));
+				stopCommandable.forEach(c -> c.replyToCommand(d));
 				yield "Clearing requests";
 			}
 			default -> UNKNOWN_CMD;
@@ -280,35 +239,27 @@ public class CommandPool {
 	}
 	/**
 	 * Check the list of Commandable's for the matching one and ask the question
-	 * @param cmd The cmd (group)
-	 * @param question The question to ask
-	 * @param html True means the answer should use html
 	 * @param d The original datagram send to ask the question
 	 * @return The answer
 	 */
-	private String checkCommandables(String cmd, String question, boolean html, Datagram d) {
-		final String f = cmd.replaceAll("\\d+","_"); // For special ones like sending data
+	private String checkCommandables(Datagram d) {
+		final String f = d.cmd().replaceAll("\\d+", "_"); // For special ones like sending data
 		var cmdOpt = commandables.entrySet().stream()
 				.filter( ent -> {
 					String key = ent.getKey();
-					if( key.equals(cmd)||key.equals(f))
+					if (key.equals(d.cmd()) || key.equals(f))
 						return true;
-					return Arrays.stream(key.split(";")).anyMatch(k->k.equals(cmd)||k.equals(f));
+					return Arrays.stream(key.split(";")).anyMatch(k -> k.equals(d.cmd()) || k.equals(f));
 				}).map(Map.Entry::getValue).findFirst();
 
 		if (cmdOpt.isEmpty())
 			return UNKNOWN_CMD;
 
 		// If requested cmd exists
-		String result;
-		if (d.payload() != null) {
-			result = cmdOpt.get().payloadCommand(cmd, question, d.payload());
-		} else {
-			result = cmdOpt.get().replyToCommand(cmd, question, d.getWritable(), html);
-		}
+		String result = cmdOpt.get().replyToCommand(d);
 		if (result == null || result.isEmpty()) {
-			Logger.error("Got a null as response to " + question);
-			return "! Something went wrong processing: " + question;
+			Logger.error("Got a null as response to " + d.getData());
+			return "! Something went wrong processing: " + d.getData();
 		}
 		return result;
 	}
@@ -316,25 +267,24 @@ public class CommandPool {
 	/**
 	 * If the cmd didn't have a corresponding commandable, check if there's a TaskManager of which the ID matches the cmd.
 	 * If so, the question is the task(set) to execute.
-	 * @param tmId The TaskManager id to look for
-	 * @param taskId The task(set) id
-	 * @param wr The writable of the object asking (if any)
-	 * @param html True means the answer should use html
 	 * @return The answer
 	 */
-	private String checkTaskManagers(String tmId, String taskId, Writable wr,boolean html){
-		var nl = html ? "<br>" : "\r\n";
+	private String checkTaskManagers(Datagram d) {
+		var nl = d.asHtml() ? "<br>" : "\r\n";
+		var tmId = d.cmd();
+		var taskId = d.args();
 
 		var tmCmd = commandables.get("tm");
 		if (tmCmd == null) {
 			Logger.warn("Tried to issue tm cmd without tm existing");
 			return UNKNOWN_CMD;
 		}
+		Datagram tmDg = Datagram.system("tm", "").writable(d.getWritable());
 		String res = switch (taskId) {
-			case "?", "list" ->
-					tmCmd.replyToCommand("tm", tmId + ",sets", wr, html) + nl + tmCmd.replyToCommand("tm", tmId + ",tasks", wr, html);
-			case "reload" -> tmCmd.replyToCommand("tm", tmId + ",reload", wr, html);
-			default -> tmCmd.replyToCommand("tm", tmId + ",run," + taskId, wr, html);
+			case "?", "list" -> tmCmd.replyToCommand(tmDg.args(tmId + ",sets")) + nl
+					+ tmCmd.replyToCommand(tmDg.args(tmId + ",tasks"));
+			case "reload" -> tmCmd.replyToCommand(tmDg.args(tmId + ",reload"));
+			default -> tmCmd.replyToCommand(tmDg.args(tmId + ",run," + taskId));
 		};
 		if (!res.toLowerCase().startsWith("! no such taskmanager") &&
 				!(res.toLowerCase().startsWith("! no taskmanager") && taskId.split(":").length==1))
@@ -342,15 +292,16 @@ public class CommandPool {
 		return UNKNOWN_CMD;
 	}
 	/* ****************************************** C O M M A N D A B L E ********************************************* */
-	private String doCmd( String id, String command, Writable wr){
+	private void doCmd(Datagram d) {
 		for( var cmd : commandables.entrySet() ){
 			var spl = cmd.getKey().split(";");
-			if( Arrays.stream(spl).anyMatch( x->x.equalsIgnoreCase(id)) ){
-				return cmd.getValue().replyToCommand(id,command,wr,false);
+			if (Arrays.stream(spl).anyMatch(x -> x.equalsIgnoreCase(d.cmd()))) {
+				cmd.getValue().replyToCommand(d);
+				return;
 			}
 		}
-		Logger.error("No "+id+" available");
-		return "! No "+id+" available";
+		Logger.error("No " + d.cmd() + " available");
+		d.cmd();
 	}
 	/* ********************************************************************************************/
 	/**
@@ -362,9 +313,9 @@ public class CommandPool {
 		var ans = StoreCmds.replyToCommand( subCmd, html );
 		if( !subCmd.startsWith("?")) {
 			if( subCmd.equalsIgnoreCase("global")) {
-				doCmd("rtvals","reload",wr);// reload the global rtvals
+				doCmd(Datagram.system("rtvals", "reload").writable(wr));// reload the global rtvals
 			}else{
-				doCmd("ss", subCmd.split(",")[0]+",reloadstore", wr);
+				doCmd(Datagram.system("ss", subCmd.split(",")[0] + ",reloadstore").writable(wr));
 			}
 		}
 		return ans;
@@ -396,15 +347,14 @@ public class CommandPool {
 	/**
 	 * Try to update a file received somehow (email or otherwise)
 	 * Current options: dcafs,script and settings (dcafs is wip)
-	 * 
-	 * @param request The full command update:something
+	 *
+	 * @param args The full command update:something
 	 * @param wr The 'writable' of the source of the command
-	 * @param eol The eol to use
 	 * @return Descriptive result of the command
 	 */
-	public String doUPGRADE(String[] request, Writable wr, String eol) {
-		
-		String[] spl = request[1].split(",");
+	public String doUPGRADE(String args, Writable wr) {
+
+		String[] spl = args.split(",");
 
 		return switch (spl[0]) {
 			case "?" -> {
@@ -421,7 +371,7 @@ public class CommandPool {
 	}
 	private String doUpgradeOfTaskManagerScript( String subCmd, Writable wr){
 		var tmCmd = commandables.get("tm");
-		var ori = tmCmd.replyToCommand("tm", "getpath," + subCmd, wr, false);
+		var ori = tmCmd.replyToCommand(Datagram.system("tm", "getpath," + subCmd).writable(wr));
 		if (ori.isEmpty())
 			return "! No such script";
 
@@ -435,7 +385,7 @@ public class CommandPool {
 				Files.move(refr, p, StandardCopyOption.REPLACE_EXISTING);// Overwrite
 
 				// somehow reload the script
-				return tmCmd.replyToCommand("tm", "reload," + subCmd, wr, false);// Reloads based on id
+				return tmCmd.replyToCommand(Datagram.system("tm", "reload," + subCmd).writable(wr));// Reloads based on id
 			} else {
 				Logger.warn("Didn't find the needed files.");
 				return "! Couldn't find the correct files. (maybe check spelling?)";
@@ -469,35 +419,34 @@ public class CommandPool {
 	/**
 	 * Command to retrieve a setup file, can be settings.xml or a script
 	 * fe. retrieve:script,scriptname.xml or retrieve:setup for the settings.xml
-	 * 
-	 * @param request The full command update:something
-	 * @param wr The 'writable' of the source of the command
+	 *
+	 * @param d The full datagram containing all relevant info
 	 * @param eol The eol to use
 	 * @return Descriptive result of the command, "Unknown command if not recognised
 	 */
-	public String doRETRIEVE(String[] request, Writable wr, String eol) {
+	public String doRETRIEVE(Datagram d, String eol) {
 		
 		if( sendEmail==null)
 			return "Can't retrieve without EmailWorker";
 
-		String[] spl = request[1].split(",");
-
-		return switch (spl[0]) {
+		return switch (d.args().split(",")[0]) {
 			case "?" -> {
 				StringJoiner join = new StringJoiner(eol, "", eol);
 				join.add("retrieve:tmscript,tm id,<email/ref> -> Request the given TaskManager script through email")
 						.add("retrieve:settings,<email/ref> -> Request the current settings.xml through email");
 				yield join.toString();
 			}
-			case "tmscript", "tmscripts" -> doRetrieveOfTaskManagerScript(spl,request,wr);
-			case "setup", "settings" -> doRetrieveOfSettingsFile(spl);
-			default -> "! No such subcommand in retrieve: " + spl[0];
+			case "tmscript", "tmscripts" -> doRetrieveOfTaskManagerScript(d);
+			case "setup", "settings" -> doRetrieveOfSettingsFile(d.args().split(","));
+			default -> "! No such subcommand in retrieve: " + d.args();
 		};
 	}
-	private String doRetrieveOfTaskManagerScript(String[] spl, String[] request, Writable wr){
+
+	private String doRetrieveOfTaskManagerScript(Datagram d) {
+		String[] spl = d.args().split(",");
 		if (spl.length < 3)
-			return "! Not enough arguments retrieve:type,tmid,email in " + request[0] + ":" + request[1];
-		var p = commandables.get("tm").replyToCommand("tm", "getpath," + spl[1], wr, false);
+			return "! Not enough arguments retrieve:type,tmid,email in " + d.getData();
+		var p = commandables.get("tm").replyToCommand(Datagram.system("tm", "getpath," + spl[1]).writable(d.getWritable()));
 		if (p.isEmpty())
 			return "! No such script";
 		sendEmail.sendEmail(Email.to(spl[2]).subject("Requested tm script: " + spl[1]).content("Nothing to say").attachment(p));
@@ -517,30 +466,30 @@ public class CommandPool {
 
 	/**
 	 * Execute command to shut down dcafs, can be either sd or shutdown or sd:reason
-	 * 
-	 * @param request The full command split on the first :
+	 *
+	 * @param arg The subcommand
 	 * @param eol The eol to use
 	 * @return Descriptive result of the command, "Unknown command if not recognised
 	 */
-	private String doShutDown( String[] request, String eol ){
-		if( request[1].equals("?") )
+	private String doShutDown(String arg, String eol) {
+		if (arg.equals("?"))
 			return "sd:reason -> Shutdown the program with the given reason, use force as reason to skip checks";
-		shutdownReason = request[1].isEmpty()?"Telnet requested shutdown":request[1];
+		shutdownReason = arg.isEmpty() ? "Telnet requested shutdown" : arg;
 		System.exit(0);                    
 		return "Shutting down program..."+ eol;
 	}
 	/**
 	 * Get some basic help info
-	 * 
-	 * @param request The full command split on the first :
+	 *
+	 * @param arg The argument given
 	 * @param eol The eol to use
 	 * @return Content of the help.txt or 'No telnetHelp.txt found' if not found
 	 */
-	private String doHelp( String[] request, String eol ){
+	private String doHelp(String arg, String eol) {
 
 		StringJoiner join = new StringJoiner(eol,"",eol);
-		join.setEmptyValue(UNKNOWN_CMD+": "+request[0]+":"+request[1]);
-		switch(request[1]){
+		join.setEmptyValue(UNKNOWN_CMD);
+		switch (arg) {
 			case "?":
 					join.add("help -> First use tips");
 				break;
@@ -576,7 +525,8 @@ public class CommandPool {
 			case "filter": return FilterForward.getHelp(eol);
 			case "math": break;
 			case "editor": return EditorForward.getHelp(eol);
-			default:	return "! No such subcommand in help: "+request[1];
+			default:
+				return "! No such subcommand in help: " + arg;
 		}
 		return join.toString();
 	}

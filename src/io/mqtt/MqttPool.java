@@ -136,15 +136,15 @@ public class MqttPool implements Commandable {
         }
     }
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        String[] cmds = args.split(",");
+    public String replyToCommand(Datagram d) {
+        String[] args = d.argList();
 
-        if( cmds.length==1 ) {
-            return doNoArgCmds(cmds[0],wr,html);
-        }else if( cmds[0].equalsIgnoreCase("addbroker")){
-            return doAddCmd( cmds );
+        if (args.length == 1) {
+            return doNoArgCmds(args[0], d.getWritable(), d.asHtml());
+        } else if (args[0].equalsIgnoreCase("addbroker")) {
+            return doAddCmd(args);
         }else{
-            return doArgCmds( cmd, cmds );
+            return doArgCmds(d.cmd(), args);
         }
     }
     private String doNoArgCmds( String cmd, Writable wr, boolean html ){
