@@ -30,7 +30,7 @@ public class EmailBlock extends AbstractBlock {
 
     @Override
     public boolean writeLine(String origin, String data) {
-        Logger.info(chainId() + " -> Reply: " + data);
+        Logger.info(id() + " -> Reply: " + data);
         var cmd = "email:send," + email.to() + "," + email.subject() + "," + email.content();
         cmd += data.startsWith("!") ? email.content() : data;
         Core.addToQueue(Datagram.system(cmd).payload(email).writable(this));
@@ -39,6 +39,6 @@ public class EmailBlock extends AbstractBlock {
     }
 
     public String toString() {
-        return chainId() + " -> Queued email:'" + email + "'";
+        return telnetId() + " -> " + email + ".";
     }
 }

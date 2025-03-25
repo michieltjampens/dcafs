@@ -136,8 +136,6 @@ public class DAS implements Commandable{
         /* Regular check if the system clock was changed */
         nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
 
-        blocks = new BlockManager(nettyGroup, rtvals);
-
         /* Build the stores in the sqltables, needs to be done at the end */
         dbManager.buildStores(rtvals);
         bootOK = true;
@@ -335,8 +333,12 @@ public class DAS implements Commandable{
             taskManagerPool.setStreamPool(streamManager);
         if (emailWorker != null)
             taskManagerPool.setEmailSending(emailWorker.getSender());
-        taskManagerPool.readFromXML();
-        addCommandable(taskManagerPool,"tm");
+        //taskManagerPool.readFromXML();
+        //  addCommandable(taskManagerPool,"tm");
+
+        var blockPool = new util.tasks.TaskManagerPool(rtvals, nettyGroup);
+        addCommandable(blockPool, "tm");
+
     }
     /* ******************************************  S T R E A M P O O L ***********************************************/
     /**

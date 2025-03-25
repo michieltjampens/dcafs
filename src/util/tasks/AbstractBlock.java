@@ -1,6 +1,9 @@
 package util.tasks;
 
 import io.Writable;
+import io.telnet.TelnetCodes;
+import org.apache.commons.lang3.math.NumberUtils;
+
 import java.util.StringJoiner;
 
 public abstract class AbstractBlock implements Writable {
@@ -14,7 +17,7 @@ public abstract class AbstractBlock implements Writable {
     void doNext() {
         if (next != null)
             next.start();
-        sendCallback(chainId() + " -> OK");
+        sendCallback(id() + " -> OK");
     }
 
     public void setNext(AbstractBlock next) {
@@ -22,10 +25,11 @@ public abstract class AbstractBlock implements Writable {
     }
 
     public AbstractBlock addNext(AbstractBlock block) {
+        if (block == null)
+            return null;
         if (next == null) {
-            if (block.order == -1) {
-                block.id = id;
-                block.order = order + 1;
+            if (block.id().isEmpty()) {
+                block.id(id);
             }
             next = block;
         } else {
@@ -40,7 +44,7 @@ public abstract class AbstractBlock implements Writable {
     }
 
     protected void doFailure() {
-        sendCallback(chainId() + " -> FAILURE");
+        sendCallback(id() + " -> FAILURE");
         if (failure != null)
             failure.start();
     }
@@ -63,28 +67,39 @@ public abstract class AbstractBlock implements Writable {
     }
 
     public String getInfo(StringJoiner info, String offset) {
-        if (order == 0 && !id.startsWith("Branch"))
-            info.add(offset + "Start of chain: " + id);
+
         info.add(offset + this);
-        if (next != null)
-            return next.getInfo(info, offset + "  ");
-        if (id.startsWith("Branch")) {
-            info.add(offset + "-End of the branch-");
-        } else {
-            info.add(offset + "-End of the chain-");
+        if (failure != null && failure.id().startsWith(id())) {
+            info.add("    " + failure);
+            addFailureInfo(failure, info);
         }
+        if (next != null)
+            return next.getInfo(info, offset);
         return info.toString();
     }
 
+    // Recursive method to handle failure chain
+    private void addFailureInfo(AbstractBlock failure, StringJoiner info) {
+        if (failure != null && failure.next != null) {
+            // Check if the next failure matches the desired pattern
+            if (failure.next.id().matches(".*\\|\\d+F\\d+$")) {
+                info.add("    " + failure.next);  // Add the next failure
+                addFailureInfo(failure.next, info);  // Recurse for next failure
+            }
+        }
+    }
     public void reset() {
         if (next != null)
             next.reset();
     }
 
+    public String telnetId() {
+        return TelnetCodes.TEXT_CYAN + id() + TelnetCodes.TEXT_DEFAULT;
+    }
     public AbstractBlock getLastBlock() {
         if (next == null)
             return this;
-        return getLastBlock();
+        return next.getLastBlock();
     }
     @Override
     public boolean writeString(String data) {
@@ -113,12 +128,41 @@ public abstract class AbstractBlock implements Writable {
 
     public void id(String id) {
         this.id = id;
-        if (next != null)
-            next.id(id);
     }
 
-    public String chainId() {
-        return id + "_" + order;
+    public void buildId(String id) {
+        if (!this.id.isEmpty())
+            return;
+
+        var split = id.split("\\|", 2);
+        if (split.length == 2) {
+            var nrs = split[1].split("F");
+            if (nrs.length == 2) {
+                var nr = NumberUtils.toInt(nrs[1]) + 1;
+                this.id = split[0] + "|" + nrs[0] + "F" + nr;
+            } else {
+                var nr = NumberUtils.toInt(nrs[0]) + 1;
+                this.id = split[0] + "|" + nr;
+            }
+        } else {
+            this.id = id + "|0";
+        }
+        if (failure != null)
+            failure.buildId(this.id + "F0");
+
+        if (next != null && next.id().isEmpty())
+            next.buildId(this.id);
+
+    }
+
+    public void resetId() {
+        if (id.isEmpty())
+            return;
+        id = "";
+        if (next != null)
+            next.resetId();
+        if (failure != null)
+            failure.resetId();
     }
     @Override
     public boolean isConnectionValid() {

@@ -18,13 +18,6 @@ public class DelayBlock extends AbstractBlock {
     public DelayBlock(EventLoopGroup eventLoop) {
         this.eventLoop = eventLoop;
     }
-
-    public DelayBlock(String id, EventLoopGroup eventLoop) {
-        this.eventLoop = eventLoop;
-        this.id = id;
-        order = 0;
-    }
-
     public DelayBlock useInterval(String initialDelay, String interval, int repeats) {
         this.interval = TimeTools.parsePeriodStringToSeconds(interval);
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(initialDelay);
@@ -55,7 +48,7 @@ public class DelayBlock extends AbstractBlock {
         } else {
             if (reps == 0) {
                 doFailure();
-                sendCallback(chainId() + " -> FAILURE");
+                sendCallback(id() + " -> FAILURE");
                 future.cancel(false);
             } else {
                 super.doNext();
@@ -74,11 +67,15 @@ public class DelayBlock extends AbstractBlock {
             next.reset();
     }
 
+    @Override
+    public AbstractBlock setFailureBlock(AbstractBlock failure) {
+        return this; // Delay block can't fail
+    }
     public String toString() {
         if (interval == 0) {
-            return chainId() + " -> Wait for " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS);
+            return telnetId() + " -> Wait for " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS) + ", then go to " + next.telnetId();
         }
-        return chainId() + " -> After " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS)
+        return telnetId() + " -> After " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS)
                 + " execute next, then repeat every " + TimeTools.convertPeriodToString(interval, TimeUnit.SECONDS)
                 + (repeats == -1 ? " indefinitely" : " for at most " + repeats + " times");
     }

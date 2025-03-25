@@ -20,7 +20,7 @@ public class CmdBlock extends AbstractBlock {
 
     @Override
     public boolean writeLine(String origin, String data) {
-        Logger.info(chainId() + " -> Reply: " + data);
+        Logger.info(id() + " -> Reply: " + data);
         if (data.startsWith("!")) {
             doFailure();
         } else {
@@ -30,6 +30,6 @@ public class CmdBlock extends AbstractBlock {
     }
 
     public String toString() {
-        return chainId() + " -> Queue's '" + cmd + "'";
+        return id() + " -> Queue's '" + cmd + "'";
     }
 }

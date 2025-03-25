@@ -69,6 +69,10 @@ public class Email {
 		deleteAttachment = delete;
 		return this;
 	}
+
+	public String toString() {
+		return "Email to " + to() + " about '" + subject() + "'";
+	}
 	/* ************************************************************************************************************** */
 	/**
 	 * Check if the object is valid

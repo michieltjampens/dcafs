@@ -227,8 +227,8 @@ public class ConditionBlock extends AbstractBlock {
     }
 
     public String toString() {
-        if (valid)
-            return chainId() + " -> Check if " + ori;
-        return chainId() + " -> Error in " + ori;
+        if (!valid)
+            return telnetId() + " -> Error in " + ori;
+        return telnetId() + " -> Check if " + ori + (failure == null ? "." : ". If not, go to " + failure.telnetId());
     }
 }

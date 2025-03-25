@@ -45,7 +45,7 @@ public class WritableBlock extends AbstractBlock {
                 doFailure();
             }
         } else {
-            Logger.error(chainId() + " -> Don't have a valid writable yet...");
+            Logger.error(id() + " -> Don't have a valid writable yet...");
         }
         return true;
     }
@@ -57,7 +57,7 @@ public class WritableBlock extends AbstractBlock {
     }
 
     public String toString() {
-        return chainId() + " -> Send '" + data + "' to " + dest;
+        return telnetId() + " -> Send '" + data + "' to " + dest;
     }
 
     @Override
@@ -65,14 +65,14 @@ public class WritableBlock extends AbstractBlock {
         if (info.equalsIgnoreCase("writable")) {
             target = (Writable) object;
             if (target != null) {
-                Logger.info(chainId() + " -> Received writable from " + target.id());
+                Logger.info(id() + " -> Received writable from " + target.id());
                 return true;
             } else {
-                Logger.info(chainId() + " -> Received null instead of response to " + dest);
+                Logger.info(id() + " -> Received null instead of response to " + dest);
                 return true;
             }
         } else {
-            Logger.warn(chainId() + " -> Given object with unknown info... ?" + info);
+            Logger.warn(id() + " -> Given object with unknown info... ?" + info);
         }
         return false;
     }

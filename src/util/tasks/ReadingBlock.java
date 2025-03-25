@@ -51,7 +51,7 @@ public class ReadingBlock extends AbstractBlock {
     }
 
     public String toString() {
-        return chainId() + " -> Waiting dor '" + data + "' from " + src + " for at most " + TimeTools.convertPeriodToString(timeout, TimeUnit.SECONDS);
+        return telnetId() + " -> Waiting dor '" + data + "' from " + src + " for at most " + TimeTools.convertPeriodToString(timeout, TimeUnit.SECONDS);
     }
 
     @Override
