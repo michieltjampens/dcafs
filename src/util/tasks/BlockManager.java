@@ -105,8 +105,10 @@ public class BlockManager implements Commandable, Writable {
                 start.updateChainId();
                 addStarter(start);
             }
-            dig.goUp();
+            //dig.goUp(); // reverse the digout
+            //dig.goUp(); // Go out of tasksets
         }
+        dig.goUp("tasklist");
         dig.digDown("tasks");
         for (var task : dig.digOut("task"))
             addStarter(processTask(task, null));
@@ -312,6 +314,7 @@ public class BlockManager implements Commandable, Writable {
 
         // Then reload
         parseXML(XMLdigger.goIn(scriptPath, "dcafs", "tasklist"));
+        startup.forEach(AbstractBlock::start);
         return true;
     }
 

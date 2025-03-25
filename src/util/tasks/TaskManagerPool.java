@@ -66,15 +66,10 @@ public class TaskManagerPool implements Commandable {
         return addTaskList(id, tm);
     }
 
-    /**
-     * Try to start the given taskset in all the tasklists
-     *
-     * @param taskId The taskset to start
-     */
-    public void startTask(String taskId) {
-        tasklists.values().forEach(tl -> tl.startTask(taskId));
+    public void startStartups() {
+        for (var tm : tasklists.values())
+            tm.start();
     }
-
     /**
      * Reload all the tasklists
      */
@@ -207,7 +202,7 @@ public class TaskManagerPool implements Commandable {
                 .comment("this will be shown when using " + cmds[1] + ":list")
                 .addParentToRoot("tasks", "Tasks are single commands to execute")
                 .comment("Below is an example task, this will be called on startup or if the script is reloaded")
-                .addChild("task", "tm:" + cmds[1] + "run,example").attr("output", "system").attr("delay", "1s")
+                .addChild("task", "tm:" + cmds[1] + ",run,example").attr("output", "system").attr("delay", "1s")
                 .comment("This task will wait a second and then start the example taskset")
                 .comment("A task doesn't need an id but it's allowed to have one")
                 .comment("Possible outputs: stream:id , system (default), log:info, email:ref, manager, telnet:info/warn/error")

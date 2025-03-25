@@ -14,13 +14,13 @@ public class CmdBlock extends AbstractBlock {
 
     @Override
     boolean start() {
-        Core.addToQueue(Datagram.system(cmd));
+        Core.addToQueue(Datagram.system(cmd).writable(this).toggleSilent());
         return true;
     }
 
     @Override
     public boolean writeLine(String origin, String data) {
-        Logger.info(id() + " -> Reply: " + data);
+        Logger.info(id() + "-> " + cmd + " => Reply: " + data);
         if (data.startsWith("!")) {
             doFailure();
         } else {

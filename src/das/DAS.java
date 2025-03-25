@@ -24,7 +24,6 @@ import util.data.RealtimeValues;
 import util.database.DatabaseManager;
 import util.gis.Waypoints;
 import util.task.TaskManagerPool;
-import util.tasks.BlockManager;
 import util.tools.FileMonitor;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -86,7 +85,7 @@ public class DAS implements Commandable{
     private long statusCheckInterval =3600;
     private String statusEmail="";
     private String statusMatrixRoom="";
-    private BlockManager blocks;
+    private util.tasks.TaskManagerPool blockPool;
 
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
@@ -336,7 +335,7 @@ public class DAS implements Commandable{
         //taskManagerPool.readFromXML();
         //  addCommandable(taskManagerPool,"tm");
 
-        var blockPool = new util.tasks.TaskManagerPool(rtvals, nettyGroup);
+        blockPool = new util.tasks.TaskManagerPool(rtvals, nettyGroup);
         addCommandable(blockPool, "tm");
 
     }
@@ -553,6 +552,10 @@ public class DAS implements Commandable{
         // Start the status checks if any of the possible outputs is actually usable
         if( (!statusMatrixRoom.isEmpty()||(emailWorker != null && !statusEmail.isEmpty())) && statusCheckInterval >0) // No use checking if we can't report on it or if it's disabled
             nettyGroup.schedule(this::checkStatus,20,TimeUnit.MINUTES); // First check, twenty minutes after startup
+
+        if (blockPool != null) {
+            blockPool.startStartups();
+        }
 
         Logger.info("Finished startAll");
     }
