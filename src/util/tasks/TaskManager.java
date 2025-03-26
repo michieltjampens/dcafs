@@ -55,58 +55,14 @@ public class TaskManager implements Writable {
         }
     }
 
-    public void parseXML(XMLdigger dig) {
+    public void readFromXml(XMLdigger dig) {
         if (dig.hasPeek("tasksets")) {
             dig.digDown("tasksets");
             AbstractBlock onFailure = null;
             // Process taskset
             for (var taskset : dig.digOut("taskset")) {
-                var id = taskset.attr("id", "");
-                var type = taskset.attr("type", "oneshot").split(":", 2);
-                var info = taskset.attr("info", "");
-                var start = new OriginBlock(id).setInfo(info);
-                var isStep = type[0].equalsIgnoreCase("step");
-
-                if (!isStep) {  // Everything starts at once so add splitter
-                    start.addNext(new SplitBlock(eventLoop).setInterval(type.length == 2 ? type[1] : ""));
-                    for (var task : taskset.digOut("task")) {
-                        if (start.addNext(processTask(task, null)) == null) {
-                            Logger.error(id + "(tm) -> Issue processing task, aborting.");
-                            return;
-                        }
-                    }
-                } else {
-                    for (var task : taskset.digOut("*")) {
-                        switch (task.tagName("")) {
-                            case "task" -> {
-                                processTask(task, start);
-                                if (onFailure != null) {
-                                    onFailure.setFailureBlock(start.getLastBlock());
-                                    onFailure = null;
-                                }
-                                if (type.length == 2)
-                                    start.addNext(new DelayBlock(eventLoop).useDelay(type[1]));
-                            }
-                            case "retry" -> {
-                                var result = parseRetry(task, start);
-                                if (result == null)
-                                    return;
-                                if (result[1] != null) {
-                                    onFailure = result[1];
-                                }
-                            }
-                            case "while" -> {
-
-                            }
-                            default -> start.addNext(parseNode(task));
-                        }
-                    }
-                }
-                start.updateChainId();
-                addStarter(start);
+                parseSet(taskset, onFailure);
             }
-            //dig.goUp(); // reverse the digout
-            //dig.goUp(); // Go out of tasksets
         }
         dig.goUp("tasklist");
         dig.digDown("tasks");
@@ -114,6 +70,51 @@ public class TaskManager implements Writable {
             addStarter(processTask(task, null));
     }
 
+    private void parseSet(XMLdigger taskset, AbstractBlock onFailure) {
+        var id = taskset.attr("id", "");
+        var type = taskset.attr("type", "oneshot").split(":", 2);
+        var info = taskset.attr("info", "");
+        var start = new OriginBlock(id).setInfo(info);
+        var isStep = type[0].equalsIgnoreCase("step");
+
+        if (!isStep) {  // Everything starts at once so add splitter
+            start.addNext(new SplitBlock(eventLoop).setInterval(type.length == 2 ? type[1] : ""));
+            for (var task : taskset.digOut("task")) {
+                if (start.addNext(processTask(task, null)) == null) {
+                    Logger.error(id + "(tm) -> Issue processing task, aborting.");
+                    return;
+                }
+            }
+        } else {
+            for (var task : taskset.digOut("*")) {
+                switch (task.tagName("")) {
+                    case "task" -> {
+                        processTask(task, start);
+                        if (onFailure != null) {
+                            onFailure.setFailureBlock(start.getLastBlock());
+                            onFailure = null;
+                        }
+                        if (type.length == 2)
+                            start.addNext(new DelayBlock(eventLoop).useDelay(type[1]));
+                    }
+                    case "retry" -> {
+                        var result = parseRetry(task, start);
+                        if (result == null)
+                            return;
+                        if (result[1] != null) {
+                            onFailure = result[1];
+                        }
+                    }
+                    case "while" -> {
+
+                    }
+                    default -> start.addNext(parseNode(task));
+                }
+            }
+        }
+        start.updateChainId();
+        addStarter(start);
+    }
     /**
      * Processes a task node
      *
@@ -185,24 +186,7 @@ public class TaskManager implements Writable {
 
         return switch (target[0]) {
             case "system", "cmd" -> new CmdBlock(Datagram.system(content));
-            case "stream" -> {
-                AbstractBlock block;
-                if (task.attr("interval", "").isEmpty()) { // If not an interval, not many repeats so don't use writable
-                    block = new CmdBlock(Datagram.system(target[1], content));
-                } else {
-                    block = new WritableBlock().setMessage(target[0] + ":" + target[1], content);
-                }
-                var reply = task.attr("reply", "");
-                if (!reply.isEmpty()) {
-                    reply = reply.replace("**", content); // ** means the data send
-                    var read = new ReadingBlock(eventLoop).setMessage("raw:" + target[1], reply, "2s");
-                    var count = new CounterBlock(3); // Default is 3 attempts
-                    read.setFailureBlock(count); // If read fails, go to count
-                    count.addNext(block);  // If count isn't 0 go back to sender
-                    block.addNext(read); // After sending, wait for read
-                }
-                yield block;
-            }
+            case "stream" -> handleStreamTarget(task, target, content);
             case "file" -> new WritableBlock().setMessage(target[0] + ":" + target[1], content);
             case "email" -> {
                 var subs = content.split(";", 2);
@@ -218,6 +202,25 @@ public class TaskManager implements Writable {
         };
     }
 
+    private AbstractBlock handleStreamTarget(XMLdigger task, String[] target, String content) {
+
+        AbstractBlock block;
+        if (task.attr("interval", "").isEmpty()) { // If not an interval, not many repeats so don't use writable
+            block = new CmdBlock(Datagram.system(target[1], content));
+        } else {
+            block = new WritableBlock().setMessage(target[0] + ":" + target[1], content);
+        }
+        var reply = task.attr("reply", "");
+        if (!reply.isEmpty()) {
+            reply = reply.replace("**", content); // ** means the data send
+            var read = new ReadingBlock(eventLoop).setMessage("raw:" + target[1], reply, "2s");
+            var count = new CounterBlock(3); // Default is 3 attempts
+            read.setFailureBlock(count); // If read fails, go to count
+            count.addNext(block);  // If count isn't 0 go back to sender
+            block.addNext(read); // After sending, wait for read
+        }
+        return block;
+    }
     private AbstractBlock[] parseRetry(XMLdigger task, AbstractBlock prev) {
         int retries = task.attr("retries", -1);
         String onFail = task.attr("onfail", "stop");
@@ -318,7 +321,7 @@ public class TaskManager implements Writable {
         startup.clear();
 
         // Then reload
-        parseXML(XMLdigger.goIn(scriptPath, "dcafs", "tasklist"));
+        readFromXml(XMLdigger.goIn(scriptPath, "dcafs", "tasklist"));
         startup.forEach(AbstractBlock::start);
         return true;
     }

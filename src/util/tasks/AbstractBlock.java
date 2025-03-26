@@ -80,12 +80,10 @@ public abstract class AbstractBlock {
 
     // Recursive method to handle failure chain
     private void addFailureInfo(AbstractBlock failure, StringJoiner info) {
-        if (failure != null && failure.next != null) {
-            // Check if the next failure matches the desired pattern
-            if (failure.next.id().matches(".*\\|\\d+F\\d+$")) {
-                info.add("    " + failure.next);  // Add the next failure
-                addFailureInfo(failure.next, info);  // Recurse for next failure
-            }
+        if (failure != null && failure.next != null &&
+                failure.next.id().matches(".*\\|\\d+F\\d+$")) { // Check if the next failure matches the desired pattern
+            info.add("    " + failure.next);  // Add the next failure
+            addFailureInfo(failure.next, info);  // Recurse for next failure
         }
     }
     public void reset() {

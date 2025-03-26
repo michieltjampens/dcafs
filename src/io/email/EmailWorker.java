@@ -26,7 +26,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
@@ -397,16 +400,14 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		}
 		// Allow a shorter version to email to admin, replace it to match the standard command
 		d.args(d.args().replace("toadmin,", "send,admin,"));
-
 		String[] cmds = d.argList();
-
 		return switch (cmds[0]) {
 			case "?" -> getHelp(d.asHtml());
 			case "reload" -> readFromXML()?"Settings reloaded":"! Reload failed";
 			case "refs" -> getEmailBook();
 			case "setup", "status" -> getSettings();
 			case "deliver" -> {
-				if (d.payload() == null && !(d.payload() instanceof Email))
+				if (d.payload() != null && !(d.payload() instanceof Email))
 					yield "! No valid payload in datagram";
 				if (cmds.length != 2)
 					yield "! Missing to";

@@ -39,8 +39,7 @@ public class ReadingBlock extends AbstractBlock implements Writable {
         }
         if (timeout > 0) {
             future = eventLoop.schedule(this::doFailure, timeout, TimeUnit.SECONDS);
-            if (cleanup != null)
-                cleanup.cancel(true);
+            cancelCleanupFuture();
             cleanup = eventLoop.schedule(this::doCleanup, 5 * timeout, TimeUnit.SECONDS);
         }
         active = true;
@@ -66,16 +65,14 @@ public class ReadingBlock extends AbstractBlock implements Writable {
             // Task moves on, so cancel data updates
             // Notify src that updates are no longer needed
             writableAsked = false; // Reset this for when executed again
-            future.cancel(true);
+            cancelFailureFuture();
         }
         return true;
     }
 
     public void reset() {
-        if (future != null && !future.isDone() && !future.isCancelled())
-            future.cancel(true);
-        if (cleanup != null && !cleanup.isDone() && !cleanup.isCancelled())
-            cleanup.cancel(true);
+        cancelFailureFuture();
+        cancelCleanupFuture();
         writableAsked = false;
 
         clean = true;
@@ -86,6 +83,15 @@ public class ReadingBlock extends AbstractBlock implements Writable {
             failure.reset();
     }
 
+    private void cancelFailureFuture() {
+        if (future != null && !future.isDone() && !future.isCancelled())
+            future.cancel(true);
+    }
+
+    private void cancelCleanupFuture() {
+        if (cleanup != null && !cleanup.isDone() && !cleanup.isCancelled())
+            cleanup.cancel(true);
+    }
     @Override
     public boolean isConnectionValid() {
         return writableAsked;

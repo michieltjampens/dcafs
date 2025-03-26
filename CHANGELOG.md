@@ -7,20 +7,32 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
-## 3.0.1 (wip)
-
-- Rewrote the taskmanager, functionality is the same for now. But now it's possible to add new things
-  in the future.
-- Refactored the commandable
-- Made dQueue static
-
-## 3.0.0 (22/03/25)
+## 3.0.0 (wip)
 
 This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 Major version bump because a lot has changed under the hood and major bump was overdue anyway.
 
 ### General
 - Fixed 140 issues found by Codacy. (none actually critical)
+  in the future.
+- Refactored the commandable, writable
+- Made dQueue static
+
+### Task Manager
+
+- Complete rewrite
+- Modular instead of the earlier monolith, that's the last legacy monolith torn down.
+- Most functionality is retained.
+- Added retry nodes to make those more flexible and potentially easier to understand.
+
+```xml
+
+<retry retries="5" onfail="stop"> <!-- onfail can be continue, then the rest of the task is done -->
+  <stream to="Board">C2;C4</stream>
+  <delay>20s</delay>
+  <req>{r:pump_warmup} equals 1</req> <!-- if this fails, the block is retried -->
+</retry>
+```
 
 ### Stream manager
 - If a stream is disconnected messages are no longer logged every attempt
