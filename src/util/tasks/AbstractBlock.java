@@ -11,6 +11,7 @@ public abstract class AbstractBlock {
     AbstractBlock next, failure;
     String id = "";
     int order = -1;
+    boolean clean = true;
 
     abstract boolean start();
 
@@ -26,7 +27,7 @@ public abstract class AbstractBlock {
 
     public AbstractBlock addNext(AbstractBlock block) {
         if (block == null)
-            return null;
+            return this;
         if (next == null) {
             if (block.id().isEmpty()) {
                 block.id(id);
@@ -88,10 +89,13 @@ public abstract class AbstractBlock {
         }
     }
     public void reset() {
-        if (next != null)
-            next.reset();
-        if (failure != null)
-            failure.reset();
+        if (!clean) {
+            clean = true;
+            if (next != null)
+                next.reset();
+            if (failure != null)
+                failure.reset();
+        }
     }
     public AbstractBlock getLastBlock() {
         if (next == null)

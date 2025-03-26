@@ -33,6 +33,7 @@ public class DelayBlock extends AbstractBlock {
 
     @Override
     boolean start() {
+        clean = false;
         if (interval == 0) {
             future = eventLoop.schedule(this::doNext, initialDelay, TimeUnit.SECONDS);
         } else {
@@ -60,11 +61,14 @@ public class DelayBlock extends AbstractBlock {
     @Override
     public void reset() {
         reps = repeats;
+        clean = true;
         if (future != null && !future.isDone() && !future.isCancelled())
             future.cancel(true);
 
         if (next != null)
             next.reset();
+        if (failure != null)
+            failure.reset();
     }
 
     @Override

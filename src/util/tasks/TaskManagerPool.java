@@ -17,7 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.StringJoiner;
 
 public class TaskManagerPool implements Commandable {
@@ -84,10 +83,6 @@ public class TaskManagerPool implements Commandable {
                 errors.add(tl.id() + " -> " + tl.getLastError());
         }
         return errors.toString();
-    }
-
-    public Optional<TaskManager> getTaskManager(String id) {
-        return Optional.ofNullable(tasklists.get(id));
     }
 
     /* ******************************************* C O M M A N D A B L E ******************************************* */

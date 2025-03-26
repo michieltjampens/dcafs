@@ -324,7 +324,7 @@ public class DAS implements Commandable{
      */
     private void addTaskManager() {
 
-        taskManagerPool = new util.tasks.TaskManagerPool(rtvals, nettyGroup);
+        taskManagerPool = new TaskManagerPool(rtvals, nettyGroup);
         addCommandable(taskManagerPool, "tm");
 
     }

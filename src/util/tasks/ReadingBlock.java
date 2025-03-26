@@ -44,6 +44,7 @@ public class ReadingBlock extends AbstractBlock implements Writable {
             cleanup = eventLoop.schedule(this::doCleanup, 5 * timeout, TimeUnit.SECONDS);
         }
         active = true;
+        clean = false;
         return true;
     }
 
@@ -77,8 +78,12 @@ public class ReadingBlock extends AbstractBlock implements Writable {
             cleanup.cancel(true);
         writableAsked = false;
 
+        clean = true;
+
         if (next != null)
             next.reset();
+        if (failure != null)
+            failure.reset();
     }
 
     @Override

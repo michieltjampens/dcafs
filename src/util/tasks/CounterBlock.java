@@ -2,22 +2,33 @@ package util.tasks;
 
 public class CounterBlock extends AbstractBlock {
     int count = -1;
-
+    int tempCount = -1;
     public CounterBlock(int cnt) {
-        this.count = cnt;
+        tempCount = cnt;
+        count = cnt;
     }
 
     @Override
     boolean start() {
-        if (count == 0) {
+        clean = false;
+        if (tempCount == 0) {
             doFailure();
         } else {
-            count--;
+            tempCount--;
             doNext();
         }
         return true;
     }
 
+    public void reset() {
+        tempCount = count;
+        clean = true;
+
+        if (next != null)
+            next.reset();
+        if (failure != null)
+            failure.reset();
+    }
     public String toString() {
         var returning = id().startsWith(next.id());
         if (count == -1) {

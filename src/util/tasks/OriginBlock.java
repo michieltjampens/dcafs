@@ -9,6 +9,7 @@ public class OriginBlock extends AbstractBlock {
 
     public OriginBlock(String id) {
         this.id = id;
+        Logger.info("Block created with id " + id);
     }
 
     public OriginBlock setInfo(String info) {

@@ -3,7 +3,6 @@ package util.tasks;
 import io.Writable;
 import io.email.Email;
 import io.netty.channel.EventLoopGroup;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
@@ -33,7 +32,6 @@ public class TaskManager implements Writable {
 
     public void setScriptPath(Path scriptPath) {
         this.scriptPath = scriptPath;
-        parseXML(XMLdigger.goIn(scriptPath, "dcafs", "tasklist"));
     }
 
     public Path getScriptPath() {
@@ -124,14 +122,14 @@ public class TaskManager implements Writable {
     private AbstractBlock processTask(XMLdigger task, AbstractBlock start) {
         var id = task.attr("id", "");
 
-        if (start == null)
-            start = new OriginBlock(id);
-
         // Handle req
         var reqAttr = task.attr("req", "");
         ConditionBlock req = null;
         if (!reqAttr.isEmpty())
             req = new ConditionBlock(rtvals).setCondition(reqAttr);
+
+        // Check if it's delayed
+        var delay = handleDelay(task);
 
         // Handle target
         var target = handleTarget(task);
@@ -139,54 +137,40 @@ public class TaskManager implements Writable {
             Logger.error(this.id + "(tm) -> Task '" + id + "' needs a valid target!");
             return null;
         }
-        // Check if it's delayed
-        if (handleDelayAndCombine(task, start, req, target))
-            return start;
-        return null;
+
+        // Combine it all
+        if (start != null)
+            return start.addNext(delay).addNext(req).addNext(target); // Build the chain, addnext checks for null
+
+        if (delay != null) // with delay
+            return delay.addNext(req).addNext(target);
+        if (req != null) // No delay but req
+            return req.addNext(target);
+        return target; // No delay and no req
     }
 
     /**
      * Parses and processes the delay information in a task node
      * @param task Digger pointing to the node
-     * @param start The block to attach to
      */
-    private boolean handleDelayAndCombine(XMLdigger task, AbstractBlock start, ConditionBlock req, AbstractBlock target) {
+    private AbstractBlock handleDelay(XMLdigger task) {
         var delay = task.attr("delay", "-1s");
         var interval = task.attr("interval", "");
-        var whileDelay = task.attr("while", "");
-
-        var block = new DelayBlock(eventLoop);
+        var delayBlock = new DelayBlock(eventLoop);
 
         if (!delay.equals("-1s")) {
-            block.useDelay(delay);
+            delayBlock.useDelay(delay);
         } else if (!interval.isEmpty()) {
             var periods = Tools.splitList(interval);
             var initial = periods[0];
             var recurring = periods.length == 2 ? periods[1] : periods[0];
             var repeats = task.attr("repeats", -1);
 
-            block.useInterval(initial, recurring, repeats);
-        } else if (!whileDelay.isEmpty()) { // While loop returns to delay block after target if successful
-            var split = Tools.splitList(whileDelay);
-            if (split.length != 2) {
-                Logger.error(id + "(tm) -> Missing period in " + whileDelay);
-                return false;
-            }
-            int retries = NumberUtils.toInt(split[1]);
-            block.useInterval(split[0], split[1], retries);
-            target.addNext(block); // Make sure the target returns to the delay
+            delayBlock.useInterval(initial, recurring, repeats);
         } else { // Without delay
-            if (req != null) // Add the req if any
-                start.addNext(req);
-            start.addNext(target); // Add the target
-            return true;
+            return null;
         }
-        // Common
-        start.addNext(block);
-        if (req != null) // Add the req if any
-            start.addNext(req);
-        start.addNext(target); // Add the target
-        return true;
+        return delayBlock;
     }
 
     /**
