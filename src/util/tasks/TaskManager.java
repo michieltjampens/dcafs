@@ -5,6 +5,7 @@ import io.email.Email;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.LookAndFeel;
+import util.data.NumericVal;
 import util.data.RealtimeValues;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -23,6 +24,7 @@ public class TaskManager implements Writable {
     RealtimeValues rtvals;
     Path scriptPath;
     String id;
+    ArrayList<NumericVal> sharedMem = new ArrayList<>();
 
     public TaskManager(String id, EventLoopGroup eventLoop, RealtimeValues rtvals) {
         this.eventLoop = eventLoop;
@@ -126,7 +128,7 @@ public class TaskManager implements Writable {
         var reqAttr = task.attr("req", "");
         ConditionBlock req = null;
         if (!reqAttr.isEmpty())
-            req = new ConditionBlock(rtvals).setCondition(reqAttr);
+            req = new ConditionBlock(rtvals, sharedMem).setCondition(reqAttr);
 
         // Check if it's delayed
         var delay = handleDelay(task);
@@ -242,7 +244,7 @@ public class TaskManager implements Writable {
         var interval = task.attr("interval", "0s");
         var condition = task.value("");
 
-        var cond = new ConditionBlock(rtvals).setCondition(condition);
+        var cond = new ConditionBlock(rtvals, sharedMem).setCondition(condition);
         var delay = new DelayBlock(eventLoop).useDelay(interval);
         cond.setFailureBlock(delay); // If condition fails, go to delay
         delay.setNext(counter);      // After delay go to the counter
@@ -256,7 +258,7 @@ public class TaskManager implements Writable {
         var content = node.value("");
         return switch (node.tagName("")) {
             case "delay" -> new DelayBlock(eventLoop).useDelay(content);
-            case "req" -> new ConditionBlock(rtvals).setCondition(content);
+            case "req" -> new ConditionBlock(rtvals, sharedMem).setCondition(content);
             case "stream" -> {
                 var id = node.attr("to", "");
                 yield new WritableBlock().setMessage(id, content);

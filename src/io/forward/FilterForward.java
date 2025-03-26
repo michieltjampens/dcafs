@@ -295,7 +295,7 @@ public class FilterForward extends AbstractForward {
                 .sorted() // so the highest one is at the bottom
                 .toArray(Integer[]::new);
 
-        var block = new ConditionBlock(rtvals).setCondition(value);
+        var block = new ConditionBlock(rtvals, null).setCondition(value);
         if (!block.isInvalid())
             return;
         rules.add( p -> {

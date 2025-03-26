@@ -1,8 +1,6 @@
 package util.math;
 
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 
 import java.math.BigDecimal;
@@ -62,106 +60,23 @@ public class MathFab {
         steps.clear(); // reset the steps
         ori=formula;
 
-        // First check if the amount of brackets is correct
-        int opens = StringUtils.countMatches(formula,"(");
-        int closes = StringUtils.countMatches(formula,")");
-        if( opens != closes ){
-            Logger.error("Brackets count doesn't match, (="+opens+" and )="+closes+ " in "+formula);
+        formula = MathUtils.checkBrackets(formula);
+        if (formula.isEmpty()) {
             return null;
         }
+        // words like sin,cos etc messes up the processing, replace with references
+        formula = MathUtils.replaceGeometricTerms(formula);
 
-
-        if( !formula.startsWith("(") || !formula.endsWith(")")) { // Then make sure it has surrounding brackets
-            formula = "(" + formula + ")";
-        }else{ // So on both sides, but unsure if enclosing
-             int cnt=0;
-
-             for( int pos=0; pos<formula.length();pos++ ){
-                 if(formula.charAt(pos)=='(')
-                     cnt++;
-                 if(formula.charAt(pos)==')')
-                     cnt--;
-                 if( cnt==0 && pos!=formula.length()-1){
-                     formula = "(" + formula + ")";
-                     break;
-                 }
-             }
-        }
-
-        // Replace to enable geometric stuff?
-        formula = formula.replace("cos(","1°(");
-        formula = formula.replace("cosd(","1°(");
-        formula = formula.replace("cosr(","2°(");
-
-        formula = formula.replace("sin(","3°(");
-        formula = formula.replace("sind(","3°(");
-        formula = formula.replace("sinr(","4°(");
-        formula = formula.replace("abs(","5°(");
-
-        // Remove unneeded brackets?
-        int dot=formula.indexOf("°(");
-        String cleanup;
-        while( dot !=-1 ){
-            cleanup=formula.substring(dot+2); // Get the formula without found °(
-            int close = cleanup.indexOf(")"); // find a closing bracket
-            String content = cleanup.substring(0,close);// Get te content of the bracket
-            if( NumberUtils.isCreatable(content) || content.matches("i\\d+")){ // If it's just a number or index
-                formula=formula.replace("°("+content+")","°"+content);
-            }
-            dot = cleanup.indexOf("°(");
-        }
-
-        var is = Pattern.compile("[i][0-9]{1,2}")// Extract all the references
-                .matcher(formula)
-                .results()
-                .map(MatchResult::group)
-                .distinct()
-                .sorted() // so the highest one is at the bottom
-                .toArray(String[]::new);
-        if( is.length==0 ){ // if there aren't any, then no inputs are required
-            requiredInputs = 0;
-        }else{ // if there are, the required inputs is the index of the highest one +1
-            requiredInputs = 1+Integer.parseInt(is[is.length-1].substring(1));
-        }
+        requiredInputs = determineReqInputs(formula);
 
         formula=formula.replace(" ",""); // But doesn't contain any spaces
+
         if( debug )
             Logger.info("Building: "+formula);
         // Next go through the brackets from left to right (inner)
-        var subFormulas = new ArrayList<String[]>(); // List to contain all the sub-formulas
-
-        while( formula.contains("(") ){ // Look for an opening bracket
-            int close = formula.indexOf(")"); // Find the first closing bracket
-            int look = close-1; // start looking from one position left of the closing bracket
-            int open = -1; // reset the open position to the not found value
-
-            while( look>=0 ){ // while we didn't traverse the full string
-                if( formula.charAt(look)=='(' ){ // is the current char an opening bracket?
-                    open = look; // if so, store this position
-                    break;// and quite the loop
-                }
-                look --;//if not, decrement the pointer
-            }
-            if( open !=-1 ){ // if the opening bracket was found
-                String part = formula.substring(open+1,close); // get the part between the brackets
-                var res = MathUtils.splitAndProcessExpression( part, subFormulas.size()-1,debug);
-                if( res.isEmpty()) {
-                    Logger.error("Failed to build because of issues during "+part);
-                    return null;
-                }
-                String piece = formula.substring(open,close+1); // includes the brackets
-                //if( res.size()==1 && res.get(0)[1].equalsIgnoreCase("0")&& res.get(0)[2].equalsIgnoreCase("+")){
-                  //  formula=formula.replace(piece,res.get(0)[0]);
-
-               // }else{
-                    subFormulas.addAll( res );    // split that part in the sub-formulas
-                    // replace the sub part in the original formula with a reference to the last sub-formula
-                    formula=formula.replace(piece,"o"+(subFormulas.size()-1));
-                //}
-            }else{
-                Logger.error("Didn't find opening bracket");
-            }
-        }
+        var subFormulas = processBrackets(formula, debug);
+        if (subFormulas.isEmpty())
+            return null;
 
         offset=subFormulas.size(); // To store the intermediate results, the array needs to hold space
         for( String[] sub : subFormulas ){ // now convert the sub-formulas into lambda's
@@ -176,6 +91,49 @@ public class MathFab {
         return this;
     }
 
+    private static ArrayList<String[]> processBrackets(String formula, boolean debug) {
+        var subFormulas = new ArrayList<String[]>(); // List to contain all the sub-formulas
+
+        while (formula.contains("(")) { // Look for an opening bracket
+            int close = formula.indexOf(")"); // Find the first closing bracket
+            int open = formula.substring(0, close).lastIndexOf("(");
+
+            if (open != -1) { // if the opening bracket was found
+                String part = formula.substring(open + 1, close); // get the part between the brackets
+                var res = MathUtils.splitAndProcessExpression(part, subFormulas.size() - 1, debug);
+                if (res.isEmpty()) {
+                    Logger.error("Failed to build because of issues during " + part);
+                    return subFormulas;
+                }
+                String piece = formula.substring(open, close + 1); // includes the brackets
+                //if( res.size()==1 && res.get(0)[1].equalsIgnoreCase("0")&& res.get(0)[2].equalsIgnoreCase("+")){
+                //  formula=formula.replace(piece,res.get(0)[0]);
+
+                // }else{
+                subFormulas.addAll(res);    // split that part in the sub-formulas
+                // replace the sub part in the original formula with a reference to the last sub-formula
+                formula = formula.replace(piece, "o" + (subFormulas.size() - 1));
+                //}
+            } else {
+                Logger.error("Didn't find opening bracket");
+            }
+        }
+        return subFormulas;
+    }
+
+    private static int determineReqInputs(String formula) {
+        var is = Pattern.compile("[i][0-9]{1,2}")// Extract all the references
+                .matcher(formula)
+                .results()
+                .map(MatchResult::group)
+                .distinct()
+                .sorted() // so the highest one is at the bottom
+                .toArray(String[]::new);
+        if (is.length == 0) // if there aren't any, then no inputs are required
+            return 0;
+        // if there are, the required inputs is the index of the highest one +1
+        return 1 + Integer.parseInt(is[is.length - 1].substring(1));
+    }
     /**
      * Solve the build equation using the given values
      * @param val The values to use
@@ -209,9 +167,8 @@ public class MathFab {
             Logger.error("Source data is null");
             return Optional.empty();
         }
-        if( requiredInputs > data.length ){
+        if (requiredInputs > data.length)
             throw new ArrayIndexOutOfBoundsException("MathFab -> Not enough elements given, need at least "+requiredInputs+" but got "+data.length);
-        }
 
         BigDecimal[] total = ArrayUtils.addAll(new BigDecimal[offset],data);
         if(debug)

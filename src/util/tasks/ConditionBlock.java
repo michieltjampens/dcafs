@@ -6,9 +6,9 @@ import util.data.RealVal;
 import util.data.RealtimeValues;
 import util.data.ValTools;
 import util.math.MathUtils;
-import util.tools.Tools;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
@@ -21,10 +21,11 @@ public class ConditionBlock extends AbstractBlock {
     int resultIndex;
     boolean negate = false;
     String ori;
-    ArrayList<NumericVal> sharedMem = new ArrayList<>();
+    ArrayList<NumericVal> sharedMem;
     boolean valid = true;
 
-    public ConditionBlock(RealtimeValues rtvals) {
+    public ConditionBlock(RealtimeValues rtvals, ArrayList<NumericVal> sharedMem) {
+        this.sharedMem = Objects.requireNonNullElseGet(sharedMem, ArrayList::new);
         this.rtvals = rtvals;
     }
 
@@ -32,17 +33,15 @@ public class ConditionBlock extends AbstractBlock {
         if (condition.isEmpty())
             return null;
         ori = condition;
-        build();
+        var exp = cleanExpression(condition);
+        // Figure out the realtime stuff and populate the sharedMemory with it
+        exp = populateSharedMemory(exp, rtvals, sharedMem);
+        if (exp.isEmpty()) {
+            valid = false;
+            return this;
+        }
+        build(exp);
         return this;
-    }
-
-    public boolean alterSharedMem(int index, double val) {
-        if (Double.isNaN(val))
-            return false;
-        while (sharedMem.size() <= index)
-            sharedMem.add(RealVal.newVal("", "i" + sharedMem.size()).value(0));
-        sharedMem.get(index).updateValue(val);
-        return true;
     }
     @Override
     public boolean start() {
@@ -68,31 +67,48 @@ public class ConditionBlock extends AbstractBlock {
         return pass;
     }
 
+    public String toString() {
+        if (!valid)
+            return telnetId() + " -> Error in " + ori;
+        return telnetId() + " -> Check if " + ori + (failure == null ? "." : ". If not, go to " + failure.telnetId());
+    }
     public boolean isInvalid() {
         return !valid;
     }
-    private void build() {
 
+    private static String cleanExpression(String ori) {
         if (ori.isEmpty()) {
             Logger.error("No expression to process.");
-            valid = false;
-            return;
+            return "";
         }
         // Fix the flag/issue negation and diff?
-        var exp = fixFlagAndIssueNegation();
+        var exp = fixFlagAndIssueNegation(ori);
 
         // Replace the words used for the comparisons with the math equivalent
         // e.g. below becomes < and so on
-        exp = Tools.mapExpressionToSymbols(exp); // rewrite to math symbols
+        return MathUtils.mapExpressionToSymbols(exp); // rewrite to math symbols
+    }
 
-        // Figure out the realtime stuff and populate the sharedMemory with it
-        exp = populateSharedMemory(exp);
-
+    private static String populateSharedMemory(String exp, RealtimeValues rtvals, ArrayList<NumericVal> sharedMem) {
         if (exp.isEmpty()) {
-            Logger.error("Couldn't process " + ori + ", vals missing");
-            valid = false;
-            return;
+            Logger.error("No expression to process.");
+            return "";
         }
+        if (rtvals != null) {
+            exp = ValTools.buildNumericalMem(rtvals, exp, sharedMem, 0);
+            if (exp.matches("i0"))
+                exp += "==1";
+        } else {
+            Logger.warn("No rtvals, skipping numerical mem");
+        }
+        if (exp.isEmpty()) {
+            Logger.error("Couldn't process " + exp + ", vals missing");
+            return "";
+        }
+        return exp;
+    }
+
+    private void build(String exp) {
 
         // Figure out the brackets?
         var subOp = splitInSubExpressions(exp);
@@ -116,10 +132,18 @@ public class ConditionBlock extends AbstractBlock {
                 Logger.error("CheckBox error during steps adding: " + e.getMessage());
             }
         });
-
     }
 
-    private String fixFlagAndIssueNegation() {
+    public boolean alterSharedMem(int index, double val) {
+        if (Double.isNaN(val))
+            return false;
+        while (sharedMem.size() <= index)
+            sharedMem.add(RealVal.newVal("", "i" + sharedMem.size()).value(0));
+        sharedMem.get(index).updateValue(val);
+        return true;
+    }
+
+    private static String fixFlagAndIssueNegation(String ori) {
         // Find comparisons optionally surrounded with curly brackets
         // Legacy or alternative notation for a flag is flag:value without a comparison (e.g. ==1)
         Pattern words = Pattern.compile("\\{?[!a-zA-Z:_]+[0-9]*[a-zA-Z]+\\d*}?");
@@ -137,33 +161,18 @@ public class ConditionBlock extends AbstractBlock {
         return expression;
     }
 
-    private String expandFlagOrIssueState(String exp, String compare) {
+    private static String expandFlagOrIssueState(String exp, String compare) {
         String name = compare.split(":")[1];
         var offset = compare.startsWith("!") ? 1 : 0;
         String type = compare.substring(offset, 1 + offset);
         return exp.replace(compare, "{" + type + ":" + name + "}==" + (compare.startsWith("!") ? "0" : "1"));
     }
 
-    private String populateSharedMemory(String exp) {
-        if (rtvals != null) {
-            exp = ValTools.buildNumericalMem(rtvals, exp, sharedMem, 0);
-            if (exp.matches("i0"))
-                exp += "==1";
-        } else {
-            Logger.warn("No rtvals, skipping numerical mem");
-        }
-        return exp;
-    }
-
-    private Optional<ArrayList<String>> splitInSubExpressions(String exp) {
-
-        if (!checkBrackets(exp)) {
-            valid = false;
+    private static Optional<ArrayList<String>> splitInSubExpressions(String exp) {
+        exp = MathUtils.checkBrackets(exp);
+        if (exp.isEmpty()) {
             return Optional.empty();
         }
-
-        if (exp.charAt(0) != '(') // Make sure it has surrounding brackets
-            exp = "(" + exp + ")";
 
         var subFormulas = new ArrayList<String>(); // List to contain all the sub-formulas
         // Fill the list by going through the brackets from left to right (inner)
@@ -207,31 +216,5 @@ public class ConditionBlock extends AbstractBlock {
         if (exp.length() != 2)
             subFormulas.add(exp);
         return Optional.of(subFormulas);
-    }
-
-    private boolean checkBrackets(String exp) {
-        int openCount = 0;
-        for (char ch : exp.toCharArray()) {
-            if (ch == '(') {
-                openCount++;
-            } else if (ch == ')') {
-                openCount--;
-                if (openCount < 0) {
-                    Logger.error("Order of open and closing brackets incorrect in " + exp);
-                    return false;
-                }
-            }
-        }
-        if (openCount != 0) {
-            Logger.error("Mismatched count of open and closing brackets in " + exp);
-            return false;
-        }
-        return true;
-    }
-
-    public String toString() {
-        if (!valid)
-            return telnetId() + " -> Error in " + ori;
-        return telnetId() + " -> Check if " + ori + (failure == null ? "." : ". If not, go to " + failure.telnetId());
     }
 }

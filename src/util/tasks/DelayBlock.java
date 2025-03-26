@@ -1,6 +1,7 @@
 package util.tasks;
 
 import io.netty.channel.EventLoopGroup;
+import org.tinylog.Logger;
 import util.tools.TimeTools;
 
 import java.util.concurrent.ScheduledFuture;
@@ -73,6 +74,7 @@ public class DelayBlock extends AbstractBlock {
 
     @Override
     public void setFailureBlock(AbstractBlock failure) {
+        Logger.warn(id + " -> Trying to set a failure block in a DelayBlock");
     }
     public String toString() {
         if (interval == 0) {

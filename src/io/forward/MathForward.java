@@ -150,7 +150,7 @@ public class MathForward extends AbstractForward {
      * Check the node for references to static values and odd those to the collection
      * @param dig A digger pointing to the MathForward
      */
-    private void digForFixedOperands(XMLdigger dig ){
+    private void digForFixedOperands(XMLdigger dig) {
         dig.peekOut("*")
                 .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
                 .forEach( def -> {
