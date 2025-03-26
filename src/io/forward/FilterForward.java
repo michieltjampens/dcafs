@@ -7,7 +7,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.math.MathUtils;
-import util.taskblocks.CheckBlock;
+import util.tasks.ConditionBlock;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
@@ -295,8 +295,8 @@ public class FilterForward extends AbstractForward {
                 .sorted() // so the highest one is at the bottom
                 .toArray(Integer[]::new);
 
-        var block = CheckBlock.prepBlock(null,value);
-        if( !block.build() )
+        var block = new ConditionBlock(rtvals).setCondition(value);
+        if (!block.isInvalid())
             return;
         rules.add( p -> {
             try {
@@ -307,7 +307,7 @@ public class FilterForward extends AbstractForward {
                         return false;
                     }
                 }
-                return block.start(null);
+                return block.start();
             } catch (ArrayIndexOutOfBoundsException e) {
                 Logger.error(id + "(ff) -> Index out of bounds when trying to find the number in "+p+" for math check.");
                 return false;

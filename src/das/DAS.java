@@ -23,7 +23,7 @@ import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.database.DatabaseManager;
 import util.gis.Waypoints;
-import util.task.TaskManagerPool;
+import util.tasks.TaskManagerPool;
 import util.tools.FileMonitor;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -63,11 +63,10 @@ public class DAS implements Commandable{
     private TelnetServer telnet; // Telnet server for the user CLI
 
     private RealtimeValues rtvals; // Pool of all the vals (realval,flagval,textval,intval) that hold realtime data
-
+    private TaskManagerPool taskManagerPool;
     /* Managers & Pools */
     private DatabaseManager dbManager; // Manager for the database interaction
     private MqttPool mqttPool; // Pool for the mqtt connections
-    private TaskManagerPool taskManagerPool; // Pool that holds the taskmanagers
     private CollectorPool collectorPool; // Pool of the collector objects (mainly filecollectors)
     private CommandPool commandPool; // Pool that holds the references to all the commandables
     private boolean bootOK = false; // Flag to show if booting went ok
@@ -85,7 +84,6 @@ public class DAS implements Commandable{
     private long statusCheckInterval =3600;
     private String statusEmail="";
     private String statusMatrixRoom="";
-    private util.tasks.TaskManagerPool blockPool;
 
     /* Threading */
     private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
@@ -326,17 +324,8 @@ public class DAS implements Commandable{
      */
     private void addTaskManager() {
 
-        taskManagerPool = new TaskManagerPool(rtvals, commandPool);
-
-        if (streamManager != null)
-            taskManagerPool.setStreamPool(streamManager);
-        if (emailWorker != null)
-            taskManagerPool.setEmailSending(emailWorker.getSender());
-        //taskManagerPool.readFromXML();
-        //  addCommandable(taskManagerPool,"tm");
-
-        blockPool = new util.tasks.TaskManagerPool(rtvals, nettyGroup);
-        addCommandable(blockPool, "tm");
+        taskManagerPool = new util.tasks.TaskManagerPool(rtvals, nettyGroup);
+        addCommandable(taskManagerPool, "tm");
 
     }
     /* ******************************************  S T R E A M P O O L ***********************************************/
@@ -447,7 +436,7 @@ public class DAS implements Commandable{
                     matrixClient.broadcast("Shutting down!");
 
                 // Run shutdown tasks
-                taskManagerPool.startTaskset("shutdown");
+                taskManagerPool.startTask("shutdown");
 
                 // SQLite & SQLDB
                 Logger.info("Flushing database buffers");
@@ -553,8 +542,8 @@ public class DAS implements Commandable{
         if( (!statusMatrixRoom.isEmpty()||(emailWorker != null && !statusEmail.isEmpty())) && statusCheckInterval >0) // No use checking if we can't report on it or if it's disabled
             nettyGroup.schedule(this::checkStatus,20,TimeUnit.MINUTES); // First check, twenty minutes after startup
 
-        if (blockPool != null) {
-            blockPool.startStartups();
+        if (taskManagerPool != null) {
+            taskManagerPool.startStartups();
         }
 
         Logger.info("Finished startAll");

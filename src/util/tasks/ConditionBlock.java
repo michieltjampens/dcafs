@@ -68,6 +68,9 @@ public class ConditionBlock extends AbstractBlock {
         return pass;
     }
 
+    public boolean isInvalid() {
+        return !valid;
+    }
     private void build() {
 
         if (ori.isEmpty()) {
