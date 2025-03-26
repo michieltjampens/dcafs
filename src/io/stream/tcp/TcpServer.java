@@ -249,9 +249,9 @@ public class TcpServer implements StreamListener, Commandable {
 			fab.addChild("cmd",h);
 		}
 		if( fab.build() ){
-			wr.writeLine(handler.id()+" Stored!");
+			wr.writeLine("", handler.id() + " Stored!");
 		}else{
-			wr.writeLine("Storing "+handler.id()+" failed");
+			wr.writeLine("", "Storing " + handler.id() + " failed");
 		}
 	}
 

@@ -56,7 +56,7 @@ public class MultiStream extends SerialStream{
 
                     if( !targets.isEmpty() ){ // If there are targets
                         try {
-                            targets.forEach(dt -> dt.writeLine(d.getData())); // send the payload
+                            targets.forEach(dt -> dt.writeLine(id, d.getData())); // send the payload
                             targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
                         }catch(Exception e){
                             Logger.error(id+" -> Something bad in multiplexer");
@@ -71,17 +71,6 @@ public class MultiStream extends SerialStream{
             }
         }
     }
-    /**
-     * Sending data that will be appended by the default newline string.
-     *
-     * @param message The data to send.
-     * @return True If nothing was wrong with the connection
-     */
-    @Override
-    public synchronized boolean writeLine(String message) {
-        return writeString(message + eol);
-    }
-
     /**
      * Sending data that won't be appended with anything
      *

@@ -400,7 +400,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			}
 		}
 		if( !targets.isEmpty() )
-			targets.removeIf(dt -> !dt.writeLine( load ) );
+			targets.removeIf(dt -> !dt.writeLine(id, load));
 	}
 
 	/**
@@ -556,26 +556,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	}
 	/* ***************************************** W R I T A B L E  ******************************************************/
 	@Override
-	public boolean writeString(String data) {
-		return false;
-	}
-
-	@Override
-	public boolean writeLine(String data) {
-		return false;
-	}
-
-	@Override
 	public boolean writeLine(String origin, String data) {
 		var topic = provide.get(origin);
 		topic = topic==null?origin.replace("_","/"):topic;
 		addWork(topic,data);
 		return true;
-	}
-
-	@Override
-	public boolean writeBytes(byte[] data) {
-		return false;
 	}
 
 	@Override
@@ -588,13 +573,4 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		return true;
 	}
 
-	@Override
-	public Writable getWritable() {
-		return this;
-	}
-
-	@Override
-	public boolean giveObject(String info, Object object) {
-		return false;
-	}
 }

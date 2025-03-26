@@ -216,13 +216,13 @@ public class FileMonitor implements Commandable {
         public int handleRead(String rec){
             position += rec.length();
             issue=false;
-            targets.forEach(wr->wr.writeLine(rec));
+            targets.forEach(wr -> wr.writeLine(id, rec));
             return action.apply(rec);
         }
         public void sendLine(String line){
             if( targets.isEmpty())
                 return;
-            targets.forEach(wr->wr.writeLine(line));
+            targets.forEach(wr -> wr.writeLine(id, line));
         }
         public int handleNoRead(){
             return action.apply("");

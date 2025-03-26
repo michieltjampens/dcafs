@@ -710,7 +710,7 @@ public class TaskManager implements CollectorFuture {
 									}
 									streams.getWritable(task.stream).ifPresent( task::setWritable );
 								}else{
-									ok=task.writable.writeLine( fill );
+									ok = task.writable.writeLine(id, fill);
 								}
 							}
 						}

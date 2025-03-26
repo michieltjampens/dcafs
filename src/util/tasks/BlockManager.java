@@ -1,7 +1,7 @@
 package util.tasks;
 
-import das.Commandable;
 import io.Writable;
+import io.email.Email;
 import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringJoiner;
 
-public class BlockManager implements Commandable, Writable {
+public class BlockManager implements Writable {
     HashMap<String, AbstractBlock> starters = new HashMap<>();
     ArrayList<AbstractBlock> startup = new ArrayList<>();
     EventLoopGroup eventLoop;
@@ -198,14 +198,33 @@ public class BlockManager implements Commandable, Writable {
         var content = task.value("");
 
         return switch (target[0]) {
-            case "system", "cmd" -> new CmdBlock().setCmd(content);
-            case "stream", "file" -> new WritableBlock().setMessage(target[0] + ":" + target[1], content);
+            case "system", "cmd" -> new CmdBlock(Datagram.system(content));
+            case "stream" -> {
+                AbstractBlock block;
+                if (task.attr("interval", "").isEmpty()) { // If not an interval, not many repeats so don't use writable
+                    block = new CmdBlock(Datagram.system(target[1], content));
+                } else {
+                    block = new WritableBlock().setMessage(target[0] + ":" + target[1], content);
+                }
+                var reply = task.attr("reply", "");
+                if (!reply.isEmpty()) {
+                    reply = reply.replace("**", content); // ** means the data send
+                    var read = new ReadingBlock(eventLoop).setMessage("raw:" + target[1], reply, "2s");
+                    var count = new CounterBlock(3); // Default is 3 attempts
+                    read.setFailureBlock(count); // If read fails, go to count
+                    count.addNext(block);  // If count isn't 0 go back to sender
+                    block.addNext(read); // After sending, wait for read
+                }
+                yield block;
+            }
+            case "file" -> new WritableBlock().setMessage(target[0] + ":" + target[1], content);
             case "email" -> {
                 var subs = content.split(";", 2);
-                yield new EmailBlock( target[1] ).subject(subs[0]).content(subs[1]);
+                var attachment = task.attr("attachment", "");
+                yield new EmailBlock(Email.to(target[1]).subject(subs[0]).content(subs[1]).attachment(attachment));
             }
             case "manager" -> new ControlBlock(this).setMessage(content);
-            case "telnet" -> new CmdBlock().setCmd("telnet:broadcast," + target[1] + "," + content);
+            case "telnet" -> new CmdBlock(Datagram.system("telnet", "broadcast," + target[1] + "," + content));
             default -> {
                 Logger.error(id + " (tm) -> Unknown target " + target[0]);
                 yield null;
@@ -261,10 +280,10 @@ public class BlockManager implements Commandable, Writable {
             case "email" -> {
                 var to = node.attr("to", "");
                 var subject = node.attr("subject", "");
-
-                yield new EmailBlock(to).subject(subject).content(content);
+                var attach = node.attr("attachment", "");
+                yield new EmailBlock(Email.to(to).subject(subject).content(content).attachment(attach));
             }
-            case "cmd", "system" -> new CmdBlock().setCmd(content);
+            case "cmd", "system" -> new CmdBlock(content);
             case "receive" -> {
                 var from = node.attr("from", "");
                 var timeout = node.attr("timeout", "0s");
@@ -384,27 +403,7 @@ public class BlockManager implements Commandable, Writable {
         return "TODO";
     }
     @Override
-    public String replyToCommand(Datagram d) {
-        return "";
-    }
-
-    @Override
-    public boolean removeWritable(Writable wr) {
-        return false;
-    }
-
-    @Override
     public boolean writeString(String data) {
-        return false;
-    }
-
-    @Override
-    public boolean writeLine(String data) {
-        return false;
-    }
-
-    @Override
-    public boolean writeBytes(byte[] data) {
         return false;
     }
 
@@ -415,18 +414,7 @@ public class BlockManager implements Commandable, Writable {
 
     @Override
     public boolean isConnectionValid() {
-        return false;
+        return true;
     }
-
-    @Override
-    public Writable getWritable() {
-        return null;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
-    }
-
 
 }

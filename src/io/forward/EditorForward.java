@@ -39,7 +39,7 @@ public class EditorForward extends AbstractForward{
 
         if( data.startsWith("corrupt")){
             String d = data;
-            targets.removeIf(t-> !t.writeLine(d) );
+            targets.removeIf(t -> !t.writeLine(id, d));
             return true;
         }
 

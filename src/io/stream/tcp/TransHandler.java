@@ -127,7 +127,7 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 
 		if( !targets.isEmpty() && !tempLabel.equals("system")){
 			String tosend = repeat+new String(data);
-			targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine( tosend )) );
+			targets.forEach(dt -> eventLoopGroup.submit(() -> dt.writeLine("", tosend)));
 			targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
 		}
    }
@@ -280,15 +280,6 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 	 */
 	private void useQueue(String cmd){
 		Core.addToQueue( Datagram.system(cmd).writable(this).toggleSilent() );
-	}
-	@Override
-	public Writable getWritable() {
-		return this;
-	}
-
-	@Override
-	public boolean giveObject(String info, Object object) {
-		return false;
 	}
 
 	/**

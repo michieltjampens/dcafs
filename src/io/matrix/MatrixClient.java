@@ -282,13 +282,13 @@ public class MatrixClient implements Writable, Commandable {
                         for( var cmd : room.getTriggeredCmds() )
                             Core.addToQueue(Datagram.system(cmd).writable(room).toggleSilent());
                         if( wr!=null) {
-                            wr.writeLine("Joined " + room.id() + " at " + room.url());
+                            wr.writeLine(id(), "Joined " + room.id() + " at " + room.url());
                         }
                         return true;
                     }
                     Logger.error("Failed to join the room.");
                     if( wr!=null)
-                        wr.writeLine("Failed to join "+room.id() +" because " +res.body() );
+                        wr.writeLine(id(), "Failed to join " + room.id() + " because " + res.body());
                     processError(res);
                     return false;
                 });
@@ -462,11 +462,11 @@ public class MatrixClient implements Writable, Commandable {
                             if( !roomid.isEmpty())
                                 shareFile(rooms.get(roomid).url(),mxc,path.getFileName().toString());
                             if( wr!=null)
-                                wr.writeLine("File upload succeeded");
+                                wr.writeLine(id(), "File upload succeeded");
                             return true;
                         }
                         if( wr!=null)
-                            wr.writeLine("File upload failed: "+res.body());
+                            wr.writeLine(id(), "File upload failed: " + res.body());
                         processError(res);
                         return false;
                     } );
@@ -494,13 +494,13 @@ public class MatrixClient implements Writable, Commandable {
                     .thenApply( res -> {
                         if( res.statusCode()==200){
                             if( wr!=null)
-                                wr.writeLine("File received");
+                                wr.writeLine(id(), "File received");
                             if( !originRoom.isEmpty())
                                 sendMessage(originRoom,"Downloaded the file.");
                         }else{
                             Logger.error(res);
                             if( wr!=null)
-                                wr.writeLine("File download failed with code: "+res.statusCode());
+                                wr.writeLine(id(), "File download failed with code: " + res.statusCode());
                             if( !originRoom.isEmpty())
                                 sendMessage(originRoom,"Download failed.");
                         }
@@ -710,11 +710,10 @@ public class MatrixClient implements Writable, Commandable {
     /* ******************* Writable **************************** */
     @Override
     public boolean writeString(String data) {
-        return writeLine(data);
+        return writeLine("", data);
     }
-
     @Override
-    public boolean writeLine(String data) {
+    public boolean writeLine(String origin, String data) {
         var d = data.split("\\|"); //0=room,1=from,2=data
         if( d.length<3) {
             if( rooms.size()==1){
@@ -727,7 +726,6 @@ public class MatrixClient implements Writable, Commandable {
         }
         return true;
     }
-    public boolean writeLine(String origin, String data) { return writeLine(data); }
     @Override
     public boolean writeBytes(byte[] data) {
         return false;
@@ -741,16 +739,6 @@ public class MatrixClient implements Writable, Commandable {
     @Override
     public boolean isConnectionValid() {
         return true;
-    }
-
-    @Override
-    public Writable getWritable() {
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
     }
 
     @Override

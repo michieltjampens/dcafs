@@ -242,7 +242,7 @@ public abstract class BaseStream {
             if( cmd.trigger==TRIGGER.HELLO || cmd.trigger==TRIGGER.WAKEUP ){ // These trigger involves writing to remote
                 Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data);
                 if( this instanceof Writable )
-                    ((Writable) this).writeLine(cmd.data);
+                    ((Writable) this).writeLine(id(), cmd.data);
                 continue;
             }
             Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data);

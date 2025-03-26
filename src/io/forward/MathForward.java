@@ -376,7 +376,7 @@ public class MathForward extends AbstractForward {
         if( count)
             badDataCount++;
         if( badDataCount==1 && count) { // only need to do this the first time
-            targets.stream().filter( t -> t.id().startsWith("editor")).forEach(t -> t.writeLine("corrupt:1"));
+            targets.stream().filter(t -> t.id().startsWith("editor")).forEach(t -> t.writeLine(id, "corrupt:1"));
         }
         if( badDataCount < 6) {
             if( !error.isEmpty())
@@ -674,9 +674,10 @@ public class MathForward extends AbstractForward {
             case "truewindspeed": return OP_TYPE.TRUEWINDSPEED;
             case "utm": return OP_TYPE.UTM;
             case "gdc": return OP_TYPE.GDC;
+            case "complex":
             default:
                 Logger.error(id+"(mf) -> Invalid op type given, using default complex");
-            case "complex": return OP_TYPE.COMPLEX;
+                return OP_TYPE.COMPLEX;
         }
     }
 

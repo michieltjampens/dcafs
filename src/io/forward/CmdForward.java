@@ -15,7 +15,7 @@ import java.util.StringJoiner;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
-public class CmdForward extends AbstractForward implements Writable {
+public class CmdForward extends AbstractForward {
     private final ArrayList<Cmd> cmds = new ArrayList<>();
     private final String delimiter="";
 

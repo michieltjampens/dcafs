@@ -166,13 +166,6 @@ public class TcpStream extends BaseStream implements Writable {
             return false;
         return handler.writeString(data);
     }
-
-    @Override
-    public boolean writeLine(String data) {
-        if( handler==null || !isConnectionValid())
-            return false;
-        return handler.writeLine(data);
-    }
     @Override
     public boolean writeLine(String origin, String data) {
         if( addDataOrigin )
@@ -184,14 +177,5 @@ public class TcpStream extends BaseStream implements Writable {
         if( handler==null || !isConnectionValid())
             return false;
         return handler.writeBytes(data);
-    }
-    @Override
-    public Writable getWritable(){
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
     }
 }

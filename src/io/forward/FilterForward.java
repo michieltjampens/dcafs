@@ -46,7 +46,7 @@ public class FilterForward extends AbstractForward {
 
             applyDataToStore(data);
         } else if (!reversed.isEmpty()) {
-            reversed.parallelStream().forEach( ns-> ns.writeLine(data) );
+            reversed.parallelStream().forEach(ns -> ns.writeLine(id, data));
         }
         if( !cmds.isEmpty())
             cmds.forEach( cmd-> Core.addToQueue(Datagram.system(cmd).writable(this)));
@@ -313,11 +313,6 @@ public class FilterForward extends AbstractForward {
                 return false;
             }
         });
-    }
-
-    @Override
-    public boolean writeLine(String data) {
-        return writeString(data);
     }
     public boolean doFilter( String data ){
 

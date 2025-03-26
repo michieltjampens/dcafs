@@ -1,5 +1,6 @@
 package util.tasks;
 
+import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
@@ -10,7 +11,7 @@ import java.util.StringJoiner;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-public class SplitBlock extends AbstractBlock {
+public class SplitBlock extends AbstractBlock implements Writable {
     ArrayList<AbstractBlock> nexts = new ArrayList<>();
     EventLoopGroup eventLoop;
     long interval = 0;
@@ -89,13 +90,14 @@ public class SplitBlock extends AbstractBlock {
     }
     public AbstractBlock addNext(AbstractBlock block) {
         block.id("Branch" + nexts.size());
-        block.setCallbackWritable(this);
+        if (interval != 0)
+            block.setCallbackWritable(this);
         nexts.add(block);
         return this;
     }
 
     @Override
-    public boolean writeLine(String data) {
+    public boolean writeLine(String origin, String data) {
         Logger.info("Callback? -> " + data);
         if (data.toLowerCase().contains("failure")) {
             Logger.info("Failure occurred, not executing remainder");
@@ -106,8 +108,8 @@ public class SplitBlock extends AbstractBlock {
     }
 
     @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
+    public boolean isConnectionValid() {
+        return true;
     }
 
     public String getInfo(StringJoiner info, String offset) {

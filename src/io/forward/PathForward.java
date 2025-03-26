@@ -476,9 +476,9 @@ public class PathForward {
                         targets.forEach(t -> Core.addToQueue(Datagram.system(pathOrData).writable(t).toggleSilent()));
                 case RTVALS -> {
                     var write = ValTools.parseRTline(pathOrData, "-999", rtvals);
-                    targets.forEach(x -> x.writeLine(write));
+                    targets.forEach(x -> x.writeLine(id, write));
                 }
-                case PLAIN -> targets.forEach(x -> x.writeLine(pathOrData));
+                case PLAIN -> targets.forEach(x -> x.writeLine(id, pathOrData));
                 case SQLITE -> {
                     if (buffer.isEmpty()) {
                         if (readOnce) {
@@ -501,7 +501,7 @@ public class PathForward {
                         }
                     } else {
                         String line = buffer.remove(0);
-                        targets.forEach(wr -> wr.writeLine(line));
+                        targets.forEach(wr -> wr.writeLine(id, line));
                     }
                 }
                 case FILE -> {
@@ -539,7 +539,7 @@ public class PathForward {
                                 }
                             }
                             String line = buffer.remove(0);
-                            targets.forEach(wr -> wr.writeLine(line));
+                            targets.forEach(wr -> wr.writeLine(id, line));
                             if (!label.isEmpty()) {
                                 Core.addToQueue(Datagram.build(line).label(label));
                             }

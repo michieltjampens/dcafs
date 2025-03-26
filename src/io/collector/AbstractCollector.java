@@ -57,11 +57,6 @@ public abstract class AbstractCollector implements Writable {
     public synchronized boolean writeString(String data) {
         return addData(data);
     }
-
-    @Override
-    public synchronized boolean writeLine(String data) {
-        return addData(data);
-    }
     @Override
     public synchronized boolean writeLine(String origin, String data) {
         return addData(data);

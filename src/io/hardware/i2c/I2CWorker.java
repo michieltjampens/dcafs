@@ -228,7 +228,7 @@ public class I2CWorker implements Commandable {
 
         var dev = devices.get(d.cmd());
         if( dev instanceof I2cUart uart){
-            uart.writeLine(d.args());
+            uart.writeLine("", d.args());
             return "Written '" + d.args() + "' to " + d.cmd();
         }
 
@@ -383,7 +383,7 @@ public class I2CWorker implements Commandable {
                             yield "Status requested for " + args[0] + " (result should follow...)";
                         }
                         case "clock" -> {
-                            uart.writeLine(TimeTools.formatNow("HH:mm:ss.SSS"));
+                            uart.writeLine("", TimeTools.formatNow("HH:mm:ss.SSS"));
                             yield "Sending current time";
                         }
                         default -> {

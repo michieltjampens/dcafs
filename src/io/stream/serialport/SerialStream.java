@@ -289,16 +289,6 @@ public class SerialStream extends BaseStream implements Writable {
     }
 
     /* ************************************** W R I T I N G ************************************************************/
-    /**
-     * Sending data that will be appended by the default newline string.
-     * 
-     * @param message The data to send.
-     * @return True If nothing was wrong with the connection
-     */
-    @Override
-    public synchronized boolean writeLine(String message) {
-        return writeString(message + eol);
-    }
     @Override
     public synchronized boolean writeLine(String origin, String message) {
         if( addDataOrigin )
@@ -372,16 +362,6 @@ public class SerialStream extends BaseStream implements Writable {
         if (serialPort == null || serialPort.bytesAwaitingWrite()>8000)
             return false;
         return serialPort.isOpen();
-    }
-
-    @Override
-    public Writable getWritable() {
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
     }
 
     @Override

@@ -184,7 +184,7 @@ public class ConfirmCollector extends AbstractCollector {
                 return false;
             }
             Logger.tag("TASK").debug(id+ " -> Sending '"+confirms.get(0).msg+"' to "+target.id()+" for attempt "+attempts);
-            target.writeLine(msg);
+            target.writeLine(id, msg);
             if( (confirms.size()>1||!confirms.get(0).reply.isEmpty()) || !timeout)
                 withTimeOut(timeoutSeconds+"s",scheduler);
             if(!reply.isEmpty())// Can't fail, so no attempts counted

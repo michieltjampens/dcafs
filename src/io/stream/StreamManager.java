@@ -326,7 +326,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 						txt=StringUtils.removeEnd(txt,"\\0");
 						written=((Writable)stream).writeString(txt);
 					}else{
-						written=((Writable)stream).writeLine(txt);
+						written = ((Writable) stream).writeLine("", txt);
 					}
 					if( !written )
 						Logger.error("writeString/writeLine failed to "+id+" for "+txt);

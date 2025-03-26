@@ -147,7 +147,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
 
     /**
      * Get the timestamp of when the last data was received
-     * @return The time in epoch milles or -1 if invalid handler
+     * @return The time in epoch millis or -1 if invalid handler
      */
     @Override
     public long getLastTimestamp() {
@@ -162,12 +162,6 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     @Override
     public boolean writeString(String data) {
         clients.forEach(x->x.writeString(data));
-        return serverOk;
-    }
-
-    @Override
-    public boolean writeLine(String data) {
-        clients.forEach(x->x.writeLine(data));
         return serverOk;
     }
     @Override
@@ -185,19 +179,9 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
         clients.forEach(x->x.writeBytes(data));
         return serverOk;
     }
-    @Override
-    public Writable getWritable(){
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
-    }
 
     @Override
     public void notifyIdle(BaseStream stream) {
-
     }
 
     @Override

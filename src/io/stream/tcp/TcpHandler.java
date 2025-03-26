@@ -44,7 +44,8 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
     public TcpHandler( String id ){
         this.id=id;
     }
-    public TcpHandler( String id,  Writable writable ){
+
+    public TcpHandler(String id, Writable writable) {
         this.id=id;
         this.writable=writable;
     }

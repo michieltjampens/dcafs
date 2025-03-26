@@ -6,7 +6,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 
 import java.util.StringJoiner;
 
-public abstract class AbstractBlock implements Writable {
+public abstract class AbstractBlock {
     Writable feedback, callback;
     AbstractBlock next, failure;
     String id = "";
@@ -38,9 +38,8 @@ public abstract class AbstractBlock implements Writable {
         return this;
     }
 
-    public AbstractBlock setFailureBlock(AbstractBlock failure) {
+    public void setFailureBlock(AbstractBlock failure) {
         this.failure = failure;
-        return this;
     }
 
     protected void doFailure() {
@@ -63,7 +62,7 @@ public abstract class AbstractBlock implements Writable {
 
     public void sendCallback(String data) {
         if (callback != null)
-            callback.writeLine(data);
+            callback.writeLine(id, data);
     }
 
     public String getInfo(StringJoiner info, String offset) {
@@ -91,45 +90,35 @@ public abstract class AbstractBlock implements Writable {
     public void reset() {
         if (next != null)
             next.reset();
-    }
-
-    public String telnetId() {
-        return TelnetCodes.TEXT_CYAN + id() + TelnetCodes.TEXT_DEFAULT;
+        if (failure != null)
+            failure.reset();
     }
     public AbstractBlock getLastBlock() {
         if (next == null)
             return this;
         return next.getLastBlock();
     }
-    @Override
-    public boolean writeString(String data) {
-        return false;
-    }
 
-    @Override
-    public boolean writeLine(String data) {
-        return false;
-    }
-
-    @Override
-    public boolean writeLine(String origin, String data) {
-        return false;
-    }
-
-    @Override
-    public boolean writeBytes(byte[] data) {
-        return false;
-    }
-
-    @Override
     public String id() {
         return id;
     }
 
+    public String telnetId() {
+        return TelnetCodes.TEXT_CYAN + id() + TelnetCodes.TEXT_DEFAULT;
+    }
     public void id(String id) {
         this.id = id;
     }
 
+    public void resetId() {
+        if (id.isEmpty())
+            return;
+        id = "";
+        if (next != null)
+            next.resetId();
+        if (failure != null)
+            failure.resetId();
+    }
     public void buildId(String id) {
         if (!this.id.isEmpty())
             return;
@@ -153,29 +142,5 @@ public abstract class AbstractBlock implements Writable {
         if (next != null && next.id().isEmpty())
             next.buildId(this.id);
 
-    }
-
-    public void resetId() {
-        if (id.isEmpty())
-            return;
-        id = "";
-        if (next != null)
-            next.resetId();
-        if (failure != null)
-            failure.resetId();
-    }
-    @Override
-    public boolean isConnectionValid() {
-        return true;
-    }
-
-    @Override
-    public Writable getWritable() {
-        return null;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
     }
 }

@@ -86,7 +86,7 @@ public class ModbusTCP extends TcpHandler{
             reg++;
         }
         if( !targets.isEmpty() ){
-            targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine(join.toString())));
+            targets.forEach(dt -> eventLoopGroup.submit(() -> dt.writeLine(id, join.toString())));
             targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
         }
     }

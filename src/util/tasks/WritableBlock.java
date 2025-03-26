@@ -5,55 +5,39 @@ import io.Writable;
 import org.tinylog.Logger;
 import worker.Datagram;
 
-public class WritableBlock extends AbstractBlock {
+public class WritableBlock extends AbstractBlock implements Writable {
     Writable target;
     String data;
     String dest;
-    int attempts = -1;
-    int tempAttempts = -1;
+    String cmd;
 
     public WritableBlock setMessage(String dest, String data) {
         this.data = data;
         this.dest = dest;
         var split = dest.split(":", 2);
-        var cmd = switch (split[0]) {
+        cmd = switch (split[0]) {
             case "stream", "raw" -> "ss:" + split[1] + ",reqwritable";
             case "file" -> "fc:" + split[1] + ",reqwritable";
             default -> "";
         };
-        if (!cmd.isEmpty())
-            Core.addToQueue(Datagram.system(cmd).writable(this));
+
         return this;
     }
 
-    public WritableBlock setAttempts(int attempts) {
-        this.attempts = attempts;
-        this.tempAttempts = attempts;
-        return this;
-    }
     @Override
     boolean start() {
         if (target != null) {
-            if (tempAttempts != 0) {
-                if (!target.writeLine(data)) {
-                    doFailure();
-                } else {
-                    tempAttempts--;
-                    doNext();
-                }
-            } else {
+            if (!target.writeLine(id, data)) {
                 doFailure();
+            } else {
+                doNext();
             }
         } else {
-            Logger.error(id() + " -> Don't have a valid writable yet...");
+            if (!cmd.isEmpty())
+                Core.addToQueue(Datagram.system(cmd).writable(this));
+            Logger.warn(id() + " -> Don't have a valid writable yet...");
         }
         return true;
-    }
-
-    public void reset() {
-        tempAttempts = attempts;
-        if (next != null)
-            next.reset();
     }
 
     public String toString() {
@@ -66,6 +50,11 @@ public class WritableBlock extends AbstractBlock {
             target = (Writable) object;
             if (target != null) {
                 Logger.info(id() + " -> Received writable from " + target.id());
+                if (!target.writeLine(id, data)) {
+                    doFailure();
+                } else {
+                    doNext();
+                }
                 return true;
             } else {
                 Logger.info(id() + " -> Received null instead of response to " + dest);
@@ -75,5 +64,15 @@ public class WritableBlock extends AbstractBlock {
             Logger.warn(id() + " -> Given object with unknown info... ?" + info);
         }
         return false;
+    }
+
+    @Override
+    public boolean writeLine(String origin, String data) {
+        return false;
+    }
+
+    @Override
+    public boolean isConnectionValid() {
+        return true;
     }
 }

@@ -6,8 +6,13 @@ Note: Version numbering: x.y.z
 
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
-- Writing to db stopped for some reason for a store in i2c without any error messages etc
- - Might be caused by reloading store because this isn't propagated to db's.
+
+## 3.0.1 (wip)
+
+- Rewrote the taskmanager, functionality is the same for now. But now it's possible to add new things
+  in the future.
+- Refactored the commandable
+- Made dQueue static
 
 ## 3.0.0 (wip)
 

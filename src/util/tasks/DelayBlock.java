@@ -68,8 +68,7 @@ public class DelayBlock extends AbstractBlock {
     }
 
     @Override
-    public AbstractBlock setFailureBlock(AbstractBlock failure) {
-        return this; // Delay block can't fail
+    public void setFailureBlock(AbstractBlock failure) {
     }
     public String toString() {
         if (interval == 0) {

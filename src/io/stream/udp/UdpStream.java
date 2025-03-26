@@ -137,11 +137,6 @@ public class UdpStream extends BaseStream implements Writable {
     public boolean writeString(String data) {
         return handler.writeString(data);
     }
-
-    @Override
-    public boolean writeLine(String data) {
-        return handler.writeLine(data);
-    }
     @Override
     public boolean writeLine(String origin, String data) {
         return handler.writeLine(data);
@@ -149,15 +144,6 @@ public class UdpStream extends BaseStream implements Writable {
     @Override
     public boolean writeBytes(byte[] data) {
         return handler.writeBytes(data);
-    }
-    @Override
-    public Writable getWritable() {
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
     }
 
 }

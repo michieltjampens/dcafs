@@ -1,6 +1,7 @@
 package util.tasks;
 
 import das.Core;
+import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import util.tools.TimeTools;
 import worker.Datagram;
@@ -8,7 +9,7 @@ import worker.Datagram;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-public class ReadingBlock extends AbstractBlock {
+public class ReadingBlock extends AbstractBlock implements Writable {
     String data;
     String src;
     EventLoopGroup eventLoop;
@@ -53,7 +54,6 @@ public class ReadingBlock extends AbstractBlock {
     public String toString() {
         return telnetId() + " -> Waiting dor '" + data + "' from " + src + " for at most " + TimeTools.convertPeriodToString(timeout, TimeUnit.SECONDS);
     }
-
     @Override
     public synchronized boolean writeLine(String origin, String data) {
         if (!active)
@@ -79,11 +79,6 @@ public class ReadingBlock extends AbstractBlock {
 
         if (next != null)
             next.reset();
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
     }
 
     @Override

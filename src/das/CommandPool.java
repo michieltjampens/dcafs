@@ -133,11 +133,11 @@ public class CommandPool {
 			result = TelnetCodes.removeCodes(result);
 
 		if( d.getLabel().startsWith("matrix")) { // and the label starts with matrix
-			wr.writeLine(d.originID() + "|" + result); // Send the data but add the origin in front
+			wr.writeLine(d.originID(), d.originID() + "|" + result); // Send the data but add the origin in front
 		}else if (wr.id().startsWith("file:")) { // if the target is a file
 			result = result.replace("<br>",System.lineSeparator()); // make sure it uses eol according to system
 			result = result.replaceAll("<.{1,2}>",""); // remove other simple html tags
-			wr.writeLine(result); // send the result
+			wr.writeLine(d.originID(), result); // send the result
 		}else if(!d.isSilent()) { // Check if the receiver actually wants the reply
 			wr.writeLine(d.originID(), result);
 		}

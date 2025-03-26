@@ -66,7 +66,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     }
     public void requestStatus(Writable wr){
         if( device == null){
-            wr.writeLine("! Device not connected, can't request status");
+            wr.writeLine(id, "! Device not connected, can't request status");
             return;
         }
 
@@ -118,7 +118,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
                 if( tempTarget!=null){
                     int state = status / 8192; // First 4 bits are state info
                     Logger.info(id+"(uart) -> Read: "+status+" -> state:"+Integer.toBinaryString(state)+" , size:"+size);
-                    tempTarget.writeLine("State: 0x"+Integer.toHexString(state)+" Buffer:"+size);
+                    tempTarget.writeLine(id, "State: 0x" + Integer.toHexString(state) + " Buffer:" + size);
                     tempTarget=null; // remove it
                 }else{
                     Logger.warn(id+"(uart) -> Status requested but no valid writable to write to");
@@ -168,11 +168,6 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     }
 
     @Override
-    public boolean writeLine(String data) {
-        return writeBytes( ArrayUtils.addAll(data.getBytes(),eolBytes) );
-    }
-
-    @Override
     public boolean writeLine(String origin, String data) {
         return writeString(data+eol);
     }
@@ -201,17 +196,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
 
     @Override
     public boolean isConnectionValid() {
-        return false;
-    }
-
-    @Override
-    public Writable getWritable() {
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
+        return true;
     }
 
     @Override

@@ -24,7 +24,7 @@ public class OriginBlock extends AbstractBlock {
     boolean start() {
         runs++;
         doNext();
-        Logger.info("Starting...");
+        Logger.info(id + " -> Starting...");
         return true;
     }
 

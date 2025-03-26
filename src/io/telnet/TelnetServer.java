@@ -155,7 +155,7 @@ public class TelnetServer implements Commandable {
                         return "! Not enough arguments, telnet:error,message";
                     var error = d.args().substring(6);
                     messages.add(error);
-                    writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
+                    writables.removeIf(w -> !w.writeLine("", TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
                     return "";
                 }
                 case "broadcast" -> {
@@ -166,7 +166,7 @@ public class TelnetServer implements Commandable {
                     if (wrs.isEmpty())
                         return "! No such id";
                     var mes = TelnetCodes.TEXT_MAGENTA + d.originID() + ": " + d.args().substring(7 + args[1].length()) + TelnetCodes.TEXT_DEFAULT;
-                    wrs.forEach(w -> w.writeLine(mes));
+                    wrs.forEach(w -> w.writeLine("", mes));
                     return mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
                 }
                 case "bt" -> {
@@ -205,7 +205,7 @@ public class TelnetServer implements Commandable {
                 }
             }
         }
-        writables.removeIf(w -> !w.writeLine(send + TelnetCodes.TEXT_DEFAULT));
+        writables.removeIf(w -> !w.writeLine("", send + TelnetCodes.TEXT_DEFAULT));
         return "Broadcasted";
     }
     public String payloadCommand( String cmd, String args, Object payload){

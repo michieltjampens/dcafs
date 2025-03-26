@@ -1,43 +1,42 @@
 package util.tasks;
 
 import das.Core;
+import io.Writable;
 import io.email.Email;
 import org.tinylog.Logger;
 import worker.Datagram;
 
-public class EmailBlock extends AbstractBlock {
+public class EmailBlock extends AbstractBlock implements Writable {
     Email email;
 
-    public EmailBlock( String to ) {
-        email = Email.to(to);
+    public EmailBlock(Email email) {
+        this.email = email;
     }
-
-    public EmailBlock subject(String subject) {
-        email.subject(subject);
-        return this;
-    }
-
-    public EmailBlock content(String content) {
-        email.content(content);
-        return this;
-    }
-
     @Override
     boolean start() {
-        Core.addToQueue(Datagram.system(email.content()).writable(this));
+
+        if (email.content().length() < 30) { // Commands are short
+            // Start by checking if the content is a command or just content
+            Core.addToQueue(Datagram.system(email.content()).writable(this));
+        } else { // No writable for now TODO
+            Core.addToQueue(Datagram.system("email:deliver").payload(email));//.writable(this));
+        }
         return true;
     }
 
     @Override
     public boolean writeLine(String origin, String data) {
         Logger.info(id() + " -> Reply: " + data);
-        var cmd = "email:send," + email.to() + "," + email.subject() + "," + email.content();
-        cmd += data.startsWith("!") ? email.content() : data;
-        Core.addToQueue(Datagram.system(cmd).payload(email).writable(this));
+        email.content(data.startsWith("!") ? email.content() : data);
+        Core.addToQueue(Datagram.system("email:deliver").payload(email).writable(this));
         doNext();
         return true;
     }
 
+    @Override
+    public boolean isConnectionValid() {
+        return true;
+    }
     public String toString() {
         return telnetId() + " -> " + email + ".";
     }

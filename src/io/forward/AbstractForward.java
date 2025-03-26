@@ -324,10 +324,6 @@ public abstract class AbstractForward implements Writable {
         return addData(data);
     }
     @Override
-    public boolean writeLine(String data) {
-        return addData(data);
-    }
-    @Override
     public boolean writeLine(String origin, String data) {
         return addData(data);
     }
@@ -342,14 +338,5 @@ public abstract class AbstractForward implements Writable {
     @Override
     public boolean isConnectionValid() {
         return valid;
-    }
-    @Override
-    public Writable getWritable(){
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
     }
 }
