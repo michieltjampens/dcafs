@@ -47,7 +47,7 @@ import java.util.stream.Stream;
 
 public class DAS implements Commandable{
 
-    private static final String version = "3.1.0";
+    private static final String version = "3.0.0";
 
     private String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
@@ -86,7 +86,7 @@ public class DAS implements Commandable{
     private String statusMatrixRoom="";
 
     /* Threading */
-    private final EventLoopGroup nettyGroup = new NioEventLoopGroup(); // Single group so telnet,trans and StreamManager can share it
+    private final EventLoopGroup nettyGroup = new NioEventLoopGroup(Math.min(12, Runtime.getRuntime().availableProcessors() * 2)); // Single group so telnet,trans and StreamManager can share it
 
     public DAS() {
 
