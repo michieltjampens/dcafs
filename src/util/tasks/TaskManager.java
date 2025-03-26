@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringJoiner;
 
-public class BlockManager implements Writable {
+public class TaskManager implements Writable {
     HashMap<String, AbstractBlock> starters = new HashMap<>();
     ArrayList<AbstractBlock> startup = new ArrayList<>();
     EventLoopGroup eventLoop;
@@ -25,7 +25,7 @@ public class BlockManager implements Writable {
     Path scriptPath;
     String id;
 
-    public BlockManager(String id, EventLoopGroup eventLoop, RealtimeValues rtvals) {
+    public TaskManager(String id, EventLoopGroup eventLoop, RealtimeValues rtvals) {
         this.eventLoop = eventLoop;
         this.rtvals = rtvals;
         this.id = id;

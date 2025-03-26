@@ -22,7 +22,7 @@ import java.util.StringJoiner;
 
 public class TaskManagerPool implements Commandable {
 
-    HashMap<String, BlockManager> tasklists = new HashMap<>();
+    HashMap<String, TaskManager> tasklists = new HashMap<>();
     RealtimeValues rtvals;
     final Path scriptPath = Paths.storage().resolve("tmscripts");
     EventLoopGroup eventLoop;
@@ -55,13 +55,13 @@ public class TaskManagerPool implements Commandable {
         });
     }
 
-    public BlockManager addTaskList(String id, BlockManager tl) {
+    public TaskManager addTaskList(String id, TaskManager tl) {
         tasklists.put(id, tl);
         return tl;
     }
 
-    public BlockManager addTaskList(String id, Path scriptPath) {
-        var tm = new BlockManager(id, eventLoop, rtvals);
+    public TaskManager addTaskList(String id, Path scriptPath) {
+        var tm = new TaskManager(id, eventLoop, rtvals);
         tm.setScriptPath(scriptPath);
         return addTaskList(id, tm);
     }
@@ -70,19 +70,23 @@ public class TaskManagerPool implements Commandable {
         for (var tm : tasklists.values())
             tm.start();
     }
+
+    public void startTask(String id) {
+        tasklists.values().forEach(tm -> tm.startTask(id));
+    }
     /**
      * Reload all the tasklists
      */
     public String reloadAll() {
         StringJoiner errors = new StringJoiner("\r\n");
-        for (BlockManager tl : tasklists.values()) {
+        for (TaskManager tl : tasklists.values()) {
             if (!tl.reloadTasks())
                 errors.add(tl.id() + " -> " + tl.getLastError());
         }
         return errors.toString();
     }
 
-    public Optional<BlockManager> getTaskManager(String id) {
+    public Optional<TaskManager> getTaskManager(String id) {
         return Optional.ofNullable(tasklists.get(id));
     }
 
@@ -117,11 +121,11 @@ public class TaskManagerPool implements Commandable {
             case "reloadall":
             case "reload":
                 var join = new StringJoiner(nl);
-                for (BlockManager tam : tasklists.values())
+                for (TaskManager tam : tasklists.values())
                     join.add(tam.id() + " -> " + (tam.reloadTasks() ? "Reloaded ok" : "Todo feedback"));
                 return join.toString();
             case "stopall":
-                for (BlockManager tam : tasklists.values())
+                for (TaskManager tam : tasklists.values())
                     tam.stopAll();
                 return "Stopped all TaskManagers.";
             case "list":
@@ -255,7 +259,7 @@ public class TaskManagerPool implements Commandable {
 
     }
 
-    private String doRunCmd(String[] cmds, BlockManager tm) {
+    private String doRunCmd(String[] cmds, TaskManager tm) {
         if (cmds.length < 3)
             return "! Not enough parameters, need tm:id,run,task(set)id";
 
