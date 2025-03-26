@@ -1,29 +1,23 @@
 package io.stream.tcp;
 
-import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.FixedLengthFrameDecoder;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
-import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLtools;
-import worker.Datagram;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.BlockingQueue;
 
 public class ModbusTCPStream extends TcpStream{
 
-    public ModbusTCPStream(BlockingQueue<Datagram> dQueue, Element stream) {
-        super(dQueue,stream);
+    public ModbusTCPStream(Element stream) {
+        super(stream);
 
     }
     public String getType(){
@@ -67,7 +61,7 @@ public class ModbusTCPStream extends TcpStream{
 
                     if( handler != null )
                         handler.disconnect();
-                    handler = new ModbusTCP( id, dQueue, ModbusTCPStream.this );
+                    handler = new ModbusTCP( id, ModbusTCPStream.this );
                     handler.setPriority(priority);
                     handler.setTargets(targets);
                     handler.setStreamListeners( listeners );

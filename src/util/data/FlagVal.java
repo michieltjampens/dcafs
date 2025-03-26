@@ -1,5 +1,6 @@
 package util.data;
 
+import das.Core;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
@@ -65,7 +66,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
 
         // Triggered Commands
         if ( dig.hasPeek("cmd") )
-            enableTriggeredCmds(dQueue);
+            enableTriggeredCmds();
         for (Element trigCmd : dig.peekOut("cmd")) {
             String trig = trigCmd.getAttribute("when");
             String cmd = trigCmd.getTextContent();
@@ -121,9 +122,9 @@ public class FlagVal extends AbstractVal implements NumericVal{
         /* Check if valid and issue commands if trigger is met */
         if( val!=state){ // If the value has changed
             if( val ){ // If the flag goes from FALSE to TRUE => raised
-                raisedList.forEach( c -> dQueue.add(Datagram.system(c.replace("$","true"))));
+                raisedList.forEach( c -> Core.addToQueue(Datagram.system(c.replace("$","true"))));
             }else{ // If the flag goes from TRUE to FALSE => lowered
-                loweredList.forEach( c -> dQueue.add(Datagram.system(c.replace("$","false"))));
+                loweredList.forEach( c -> Core.addToQueue(Datagram.system(c.replace("$","false"))));
             }
         }
         targets.forEach( x -> x.writeLine(id(),Boolean.toString(val)));

@@ -1,19 +1,19 @@
 package io.forward;
 
+import das.Core;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.math.MathUtils;
-import util.taskblocks.CheckBlock;
+import util.tasks.ConditionBlock;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.function.Predicate;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -25,11 +25,11 @@ public class FilterForward extends AbstractForward {
     private final ArrayList<AbstractForward> reversed = new ArrayList<>();
     private boolean negate=false; // If the filter is negated or not
 
-    public FilterForward(String id, String source, BlockingQueue<Datagram> dQueue ){
-        super(id,source,dQueue,null);
+    public FilterForward(String id, String source){
+        super(id,source,null);
     }
-    public FilterForward(Element ele, BlockingQueue<Datagram> dQueue  ){
-        super(dQueue,null);
+    public FilterForward(Element ele){
+        super(null);
         readFromXML(ele);
     }
 
@@ -46,10 +46,10 @@ public class FilterForward extends AbstractForward {
 
             applyDataToStore(data);
         } else if (!reversed.isEmpty()) {
-            reversed.parallelStream().forEach( ns-> ns.writeLine(data) );
+            reversed.parallelStream().forEach(ns -> ns.writeLine(id, data));
         }
         if( !cmds.isEmpty())
-            cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
+            cmds.forEach( cmd-> Core.addToQueue(Datagram.system(cmd).writable(this)));
 
         if( noTargets() && reversed.isEmpty() && store==null){
             valid=false;
@@ -295,8 +295,8 @@ public class FilterForward extends AbstractForward {
                 .sorted() // so the highest one is at the bottom
                 .toArray(Integer[]::new);
 
-        var block = CheckBlock.prepBlock(null,value);
-        if( !block.build() )
+        var block = new ConditionBlock(rtvals, null).setCondition(value);
+        if (!block.isInvalid())
             return;
         rules.add( p -> {
             try {
@@ -307,17 +307,12 @@ public class FilterForward extends AbstractForward {
                         return false;
                     }
                 }
-                return block.start(null);
+                return block.start();
             } catch (ArrayIndexOutOfBoundsException e) {
                 Logger.error(id + "(ff) -> Index out of bounds when trying to find the number in "+p+" for math check.");
                 return false;
             }
         });
-    }
-
-    @Override
-    public boolean writeLine(String data) {
-        return writeString(data);
     }
     public boolean doFilter( String data ){
 

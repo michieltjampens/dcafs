@@ -1,5 +1,6 @@
 package io.forward;
 
+import das.Core;
 import io.Writable;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -13,7 +14,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 /**
  * Abstract class to create a 'Forward'.
@@ -22,7 +22,6 @@ import java.util.concurrent.BlockingQueue;
  */
 public abstract class AbstractForward implements Writable {
 
-    protected final BlockingQueue<Datagram> dQueue;                        // Queue to send commands
     protected final ArrayList<String> cmds = new ArrayList<>();            // Commands to execute after processing
     protected final ArrayList<Writable> targets = new ArrayList<>();       // To where the data needs to be send
     protected final ArrayList<String[]> rulesString = new ArrayList<>();   // Readable info regarding rules
@@ -45,15 +44,13 @@ public abstract class AbstractForward implements Writable {
     protected final ArrayList<AbstractForward> nextSteps = new ArrayList<>();       // To where the data needs to be send
     protected AbstractForward parent;
 
-    protected AbstractForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
+    protected AbstractForward(String id, String source, RealtimeValues rtvals ){
         this.id=id;
         this.rtvals=rtvals;
         if( !source.isEmpty() )
             sources.add(source);
-        this.dQueue=dQueue;
     }
-    protected AbstractForward( BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
-        this.dQueue=dQueue;
+    protected AbstractForward( RealtimeValues rtvals){
         this.rtvals=rtvals;
     }
     public void setDebug( boolean debug ){
@@ -79,7 +76,7 @@ public abstract class AbstractForward implements Writable {
     protected void requestSource(){
         valid=true;
         if( parent == null ) {
-            sources.forEach(source -> dQueue.add(Datagram.system(source).writable(this)));
+            sources.forEach(source -> Core.addToQueue(Datagram.system(source).writable(this)));
         }else{
             parent.sendDataToStep(this); // Request data from parent
         }
@@ -327,10 +324,6 @@ public abstract class AbstractForward implements Writable {
         return addData(data);
     }
     @Override
-    public boolean writeLine(String data) {
-        return addData(data);
-    }
-    @Override
     public boolean writeLine(String origin, String data) {
         return addData(data);
     }
@@ -345,9 +338,5 @@ public abstract class AbstractForward implements Writable {
     @Override
     public boolean isConnectionValid() {
         return valid;
-    }
-    @Override
-    public Writable getWritable(){
-        return this;
     }
 }

@@ -1,7 +1,7 @@
 package io.hardware.i2c;
 
+import das.Core;
 import io.forward.MathForward;
-import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
@@ -12,9 +12,7 @@ import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 public class I2COpSet {
     public enum OUTPUT_TYPE{DEC,HEX,BIN,CHAR,NONE}
@@ -26,13 +24,13 @@ public class I2COpSet {
     private String info="";         // Info about what this group is supposed to do
     private OUTPUT_TYPE outType = OUTPUT_TYPE.NONE;
     boolean valid = true;
-    public I2COpSet(XMLdigger dig, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, String deviceId){
-        readFromXml(dig,rtvals,dQueue,deviceId);
+    public I2COpSet(XMLdigger dig, RealtimeValues rtvals, String deviceId){
+        readFromXml(dig,rtvals,deviceId);
     }
     public boolean isInvalid(){
         return !valid;
     }
-    public void readFromXml(XMLdigger digger, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue, String deviceId){
+    public void readFromXml(XMLdigger digger, RealtimeValues rtvals, String deviceId){
 
         id = digger.attr("id","");
         info = digger.attr("info","");  // Info abo
@@ -75,7 +73,7 @@ public class I2COpSet {
                 case "write" -> ops.add( new I2CWrite(altDig));
                 case "alter"-> ops.add( new I2CAlter(altDig));
                 case "math" -> altDig.current().ifPresent( x -> {
-                    var mf = new MathForward(x,dQueue,rtvals);
+                    var mf = new MathForward(x,rtvals);
                     if( mf.isReadOk() ) {
                         ops.add(mf);
                     }else{
@@ -91,7 +89,7 @@ public class I2COpSet {
                         if (ops.get(ops.size() - 1) instanceof MathForward mf) {
                             mf.setStore(store);
                             for( var db : store.dbInsertSets() )
-                                dQueue.add( Datagram.system("dbm:"+db[0]+",tableinsert,"+db[1]).payload(mf));
+                                Core.addToQueue( Datagram.system("dbm",db[0]+",tableinsert,"+db[1]).payload(mf));
                         } else { // Not added to a math
                             ops.add(store);
                         }

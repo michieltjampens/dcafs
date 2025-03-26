@@ -13,6 +13,7 @@ import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
+import worker.Datagram;
 
 import java.io.File;
 import java.io.IOException;
@@ -314,34 +315,32 @@ public class DatabaseManager implements QueryWriting, Commandable {
 
     /**
      * Execute a command related to databases
-
-     * @param wr The writable the command originated from
-     * @param html If the reply should be in html
+     * @param d Datagram containing all info needed to complete the command
      * @return The response or unknown command if no command was found
      */
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
+    public String replyToCommand(Datagram d) {
 
-        if( cmd.equalsIgnoreCase("myd"))
-            return doMYsqlDump(args);
+        if (d.cmd().equalsIgnoreCase("myd"))
+            return doMYsqlDump(d.args());
 
-        String[] cmds = args.split(",");
+        String[] args = d.argList();
 
-        if( cmds.length == 1){
-            return doOneArgCmd( cmds,html );
-        }else if( cmds[0].startsWith("add")){ // So the addmssql, addmysql, addmariadb and addsqlite
-            return doAddCmd(cmds,cmds[1]);
+        if (args.length == 1) {
+            return doOneArgCmd(args, d.asHtml());
+        } else if (args[0].startsWith("add")) { // So the addmssql, addmysql, addmariadb and addsqlite
+            return doAddCmd(args, args[1]);
         }else{
-            var dbOpt = getDatabase(cmds[0]);
+            var dbOpt = getDatabase(args[0]);
             if( dbOpt.isEmpty() ) {
-                Logger.error(cmd+":"+args+" -> Failed because no such database: "+cmds[0]);
-                return "! No such database: " + cmds[0];
+                Logger.error(d.getData() + " -> Failed because no such database: " + args[0]);
+                return "! No such database: " + args[0];
             }
             var db = dbOpt.get();
-            if( cmds.length==2 ){
-                return doTwoArgCmd(cmds,db,html);
+            if (args.length == 2) {
+                return doTwoArgCmd(args, db, d.asHtml());
             }else{
-                return doMultiArgCmd(cmds,cmd,db);
+                return doMultiArgCmd(d.cmd(), args, db);
             }
         }
     }
@@ -452,26 +451,27 @@ public class DatabaseManager implements QueryWriting, Commandable {
             return "Connecting to " + cmds[0] + " database...";
         }
     }
-    private String doAddColumnCmd( String[] cmds ){
-        if( cmds.length<4 )
+
+    private String doAddColumnCmd(String[] args) {
+        if (args.length < 4)
             return "! Not enough arguments: dbm:id,addcol,table,type:name";
 
-        if (!cmds[3].contains(":"))
+        if (!args[3].contains(":"))
             return "! Needs to be columtype:columnname";
 
         var dig = XMLdigger.goIn(Paths.settings(),"dcafs")
                 .digDown("databases"); // Go into the database node
-        dig.hasPeek("sqlite","id",cmds[0]);
+        dig.hasPeek("sqlite", "id", args[0]);
         if( dig.hasValidPeek() ){
-            dig.digDown("sqlite","id",cmds[0]);
-        }else if( dig.hasPeek("server","id",cmds[0]) ){
-            dig.digDown("server","id",cmds[0]);
+            dig.digDown("sqlite", "id", args[0]);
+        } else if (dig.hasPeek("server", "id", args[0])) {
+            dig.digDown("server", "id", args[0]);
         }else{
             return "! No such database node yet";
         }
         if( dig.isInvalid() )
             return "! No such database node yet";
-        dig.digDown("table","name",cmds[2]);
+        dig.digDown("table", "name", args[2]);
         if( dig.isInvalid() )
             return "! No such table node yet";
 
@@ -480,8 +480,8 @@ public class DatabaseManager implements QueryWriting, Commandable {
             return "! Failed to convert to fab?";
 
         var fab = fabOpt.get();
-        for (int a = 3; a < cmds.length; a++) {
-            var spl = cmds[a].split(":");
+        for (int a = 3; a < args.length; a++) {
+            var spl = args[a].split(":");
             switch (spl[0]) {
                 case "timestamp", "ts" -> spl[0] = "timestamp";
                 case "integer", "int", "i" -> spl[0] = "int";
@@ -501,18 +501,19 @@ public class DatabaseManager implements QueryWriting, Commandable {
         fab.build();
         return "Column(s) added";
     }
-    private String doTwoArgCmd( String[] cmds,SQLDB db, boolean html ){
-        return switch (cmds[1]) {
+
+    private String doTwoArgCmd(String[] args, SQLDB db, boolean html) {
+        return switch (args[1]) {
             case "fetch" -> {
                 if (db.getCurrentTables(false))
-                    yield "Tables fetched, run dbm:" + cmds[1] + ",tables to see result.";
+                    yield "Tables fetched, run dbm:" + args[1] + ",tables to see result.";
                 if (db.isValid(1))
                     yield "! Failed to get tables, but connection valid...";
                 yield "! Failed to get tables because connection not active.";
             }
             case "tables" -> db.getTableInfo(html ? "<br" : "\r\n");
             case "reload" -> {
-                var ok = reloadDatabase(cmds[0]);
+                var ok = reloadDatabase(args[0]);
                 yield ok ? "Database Reloaded" : "! Reload failed";
             }
             case "checkstore" -> {
@@ -531,56 +532,58 @@ public class DatabaseManager implements QueryWriting, Commandable {
             default -> "! No such command (or to few arguments)";
         };
     }
-    private String doMultiArgCmd( String[] cmds, String cmd, SQLDB db ){
-        return switch (cmds[1]) {
+
+    private String doMultiArgCmd(String cmd, String[] args, SQLDB db) {
+        return switch (args[1]) {
             case "tablexml" -> {
                 // Select the correct server node
                 var fab = XMLfab.withRoot(Paths.settings(), "dcafs", "databases");
-                if (fab.selectChildAsParent("server", "id", cmds[0]).isEmpty())
-                    fab.selectChildAsParent("sqlite", "id", cmds[0]);
-                if (fab.hasChild("table", "name", cmds[2]).isPresent())
+                if (fab.selectChildAsParent("server", "id", args[0]).isEmpty())
+                    fab.selectChildAsParent("sqlite", "id", args[0]);
+                if (fab.hasChild("table", "name", args[2]).isPresent())
                     yield "! Already present in xml, not adding";
 
-                int rs = db.writeTableToXml(fab, cmds[2]);
+                int rs = db.writeTableToXml(fab, args[2]);
                 yield rs == 0 ? "None added" : "Added " + rs + " tables to xml";
             }
             case "addrollover" -> {
-                if (cmds.length < 4)
+                if (args.length < 4)
                     yield "! Not enough arguments, needs to be dbm:dbid,addrollover,period,pattern";
                 if (db instanceof SQLiteDB) {
-                    var secs = (int) TimeTools.parsePeriodStringToSeconds(cmds[2]);
-                    var sql = ((SQLiteDB) db).setRollOver(cmds[3], secs, ChronoUnit.SECONDS);
+                    var secs = (int) TimeTools.parsePeriodStringToSeconds(args[2]);
+                    var sql = ((SQLiteDB) db).setRollOver(args[3], secs, ChronoUnit.SECONDS);
                     if( sql==null)
                         yield "! Bad arguments given, probably format?";
                     sql.writeToXml(XMLfab.withRoot(Paths.settings(), "dcafs", "databases"));
                     ((SQLiteDB) db).forceRollover();
                     yield "Rollover added";
                 }
-                yield "! " + cmds[0] + " is not an SQLite";
+                yield "! " + args[0] + " is not an SQLite";
             }
             case "addtable" -> {
-                if (DatabaseManager.addBlankTableToXML(cmds[0], cmds[2], cmds.length == 4 ? cmds[3] : "")) {
-                    if (cmds.length == 4)
-                        yield "Added a partially setup table to " + cmds[0] + " in the settings.xml, edit it to set column names etc";
-                    yield "Created tablenode for " + cmds[0] + " inside the db node";
+                if (DatabaseManager.addBlankTableToXML(args[0], args[2], args.length == 4 ? args[3] : "")) {
+                    if (args.length == 4)
+                        yield "Added a partially setup table to " + args[0] + " in the settings.xml, edit it to set column names etc";
+                    yield "Created tablenode for " + args[0] + " inside the db node";
                 }
                 yield "! Failed to add table to database node";
             }
-            case "addcolumn","addcol" -> doAddColumnCmd(cmds);
+            case "addcolumn", "addcol" -> doAddColumnCmd(args);
             case "store" -> {
-                if( insertStores(cmds[0],cmds[2] ) )
+                if (insertStores(args[0], args[2]))
                     yield "Wrote record";
-                Logger.error("Tried to do store on "+cmds[0]+"->"+cmds[2]+", but failed.");
+                Logger.error("Tried to do store on " + args[0] + "->" + args[2] + ", but failed.");
                 yield "! Failed to write record";
             }
-            case "prep" -> buildPrep(cmds[0],cmds[2],Arrays.copyOfRange(cmds,3,cmds.length))?"Wrote record":"! Failed to write record";
-            case "coltypes" ->  db.getTable(cmds[2]).map(SqlTable::getColumnTypes).orElse("! No such table: "+cmds[2]);
+            case "prep" ->
+                    buildPrep(args[0], args[2], Arrays.copyOfRange(args, 3, args.length)) ? "Wrote record" : "! Failed to write record";
+            case "coltypes" -> db.getTable(args[2]).map(SqlTable::getColumnTypes).orElse("! No such table: " + args[2]);
             case "doinserts" -> {
-                var alter = Tools.parseBool(cmds[2], true);
+                var alter = Tools.parseBool(args[2], true);
                 db.setDoInserts(alter);
                 yield "Set do inserts for " + db.id() + " to " + alter;
             }
-            default -> "! No such subcommand in " + cmd + ": " + cmds[0];
+            default -> "! No such subcommand in " + cmd + ": " + args[0];
         };
     }
     public String payloadCommand( String cmd, String args, Object payload){

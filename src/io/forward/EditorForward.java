@@ -1,5 +1,6 @@
 package io.forward;
 
+import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -18,7 +19,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -26,11 +26,11 @@ import java.util.regex.Pattern;
 public class EditorForward extends AbstractForward{
     private final ArrayList<Function<String,String>> edits = new ArrayList<>(); // Map of all the edits being done
 
-    public EditorForward(String id, String source, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
-        super(id,source,dQueue,rtvals);
+    public EditorForward(String id, String source, RealtimeValues rtvals ){
+        super(id,source,rtvals);
     }
-    public EditorForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals  ){
-        super(dQueue,rtvals);
+    public EditorForward(Element ele, RealtimeValues rtvals  ){
+        super(rtvals);
         readOk = readFromXML(ele);
     }
 
@@ -39,7 +39,7 @@ public class EditorForward extends AbstractForward{
 
         if( data.startsWith("corrupt")){
             String d = data;
-            targets.removeIf(t-> !t.writeLine(d) );
+            targets.removeIf(t -> !t.writeLine(id, d));
             return true;
         }
 
@@ -67,7 +67,7 @@ public class EditorForward extends AbstractForward{
             Logger.tag("RAW").info( id() + "\t" + data);
 
         if( !cmds.isEmpty())
-            cmds.forEach( cmd->dQueue.add(Datagram.system(cmd).writable(this)));
+            cmds.forEach( cmd-> Core.addToQueue(Datagram.system(cmd).writable(this)));
 
         applyDataToStore(data);
         // If there are no targets, no label, this no longer needs to be a target

@@ -5,10 +5,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.math.MathUtils;
 import util.tools.Tools;
-import worker.Datagram;
-
 import java.time.Instant;
-import java.util.concurrent.BlockingQueue;
 
 public class ModbusStream extends SerialStream{
 
@@ -16,8 +13,8 @@ public class ModbusStream extends SerialStream{
     private int index = 0;
     private boolean readyForWorker=false;
 
-    public ModbusStream(BlockingQueue<Datagram> dQueue, Element stream) {
-        super(dQueue,stream);
+    public ModbusStream(Element stream) {
+        super(stream);
         eol="";
     }
     @Override

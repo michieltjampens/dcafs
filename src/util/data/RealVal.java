@@ -37,7 +37,7 @@ public class RealVal extends NumberVal<Double>{
     /**
      * Create a new Realval based on a rtval real node
      * @param rtval The node
-     * @return The created node, still needs dQueue set
+     * @return The created node
      */
     public static Optional<RealVal> build(Element rtval,String altGroup){
         var read = readGroupAndName(rtval,altGroup);

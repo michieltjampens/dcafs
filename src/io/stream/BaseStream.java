@@ -1,5 +1,6 @@
 package io.stream;
 
+import das.Core;
 import io.Writable;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelOption;
@@ -20,14 +21,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 
 public abstract class BaseStream {
 
-    protected BlockingQueue<Datagram> dQueue;
-    
     /* Pretty much the local descriptor */
 	protected int priority = 1;				// Priority of the messages received, used by DataWorker
 	protected String label = "";			// The label that determines what needs to be done with a message
@@ -39,7 +38,7 @@ public abstract class BaseStream {
     protected long openedStamp;
     protected long passed = -1;							    // Time passed (in ms) between the last two received messages
 
-    protected ArrayList<Writable> targets = new ArrayList<>();
+    protected CopyOnWriteArrayList<Writable> targets = new CopyOnWriteArrayList<>();
     protected ArrayList<StreamListener> listeners = new ArrayList<>();
 
     protected String eol="\r\n";
@@ -59,12 +58,10 @@ public abstract class BaseStream {
     protected EventLoopGroup eventLoopGroup;		    // Eventloop used by the netty stuff
     protected boolean readerIdle=false;
 
-    protected BaseStream( String id, BlockingQueue<Datagram> dQueue){
+    protected BaseStream( String id){
         this.id=id;
-        this.dQueue=dQueue;
     }
-    protected BaseStream( BlockingQueue<Datagram> dQueue, Element stream ){
-        this.dQueue=dQueue;
+    protected BaseStream( Element stream ){
         readFromXML(stream);
     }
     public void setEventLoopGroup( EventLoopGroup eventLoopGroup ){
@@ -245,14 +242,14 @@ public abstract class BaseStream {
             if( cmd.trigger==TRIGGER.HELLO || cmd.trigger==TRIGGER.WAKEUP ){ // These trigger involves writing to remote
                 Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data);
                 if( this instanceof Writable )
-                    ((Writable) this).writeLine(cmd.data);
+                    ((Writable) this).writeLine(id(), cmd.data);
                 continue;
             }
             Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data);
             if( this instanceof Writable ){ // All the other triggers are executing cmds
-                dQueue.add( Datagram.system(cmd.data).writable((Writable)this) );
+                Core.addToQueue( Datagram.system(cmd.data).writable((Writable)this) );
             }else{
-                dQueue.add( Datagram.system(cmd.data) );
+                Core.addToQueue( Datagram.system(cmd.data) );
             }
         }
     }

@@ -5,12 +5,9 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
-import worker.Datagram;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public abstract class AbstractVal {
 
@@ -27,8 +24,6 @@ public abstract class AbstractVal {
 
     /* History */
     protected int keepHistory=0;
-
-    protected BlockingQueue<Datagram> dQueue;
 
     /* Requests */
     protected ArrayList<Writable> targets = new ArrayList<>();
@@ -120,11 +115,9 @@ public abstract class AbstractVal {
     /* **************************** Triggered Cmds ***************************************************************** */
     /**
      * Enable allowing triggered commands to be added
-     * @param dQueue The queue in which the datagram holding the command needs to be put
      */
-    public void enableTriggeredCmds(BlockingQueue<Datagram> dQueue){
-        if( hasTriggeredCmds())
-            this.dQueue=dQueue;
+    public void enableTriggeredCmds(){
+        hasTriggeredCmds();
     }
 
     /**

@@ -1,6 +1,7 @@
 package io.matrix;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.forward.MathForward;
@@ -31,7 +32,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 
 public class MatrixClient implements Writable, Commandable {
 
-    private static String root = "_matrix/";
+    private static final String root = "_matrix/";
     public static String client = root+"client/v3/";
     public static String media = root+"media/v3/";
 
@@ -73,7 +73,6 @@ public class MatrixClient implements Writable, Commandable {
     String since = "";
     HttpClient httpClient;
 
-    BlockingQueue<Datagram> dQueue;
     MathForward math;
     boolean downloadAll=true;
     Path dlFolder=Path.of("downloads");
@@ -89,8 +88,8 @@ public class MatrixClient implements Writable, Commandable {
     private static final String ROOM_ID_REGEX = "^[!][a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
     private static final String EVENT_ID_REGEX = "^\\$[a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
 
-    public MatrixClient(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals ){
-        this.dQueue=dQueue;
+    public MatrixClient(RealtimeValues rtvals ){
+
         math = new MathForward(null,rtvals);
         readFromXML();
     }
@@ -281,15 +280,15 @@ public class MatrixClient implements Writable, Commandable {
                         if( !room.entering().isEmpty())
                             sendMessage(room.url(), room.entering().replace("{user}",userName) );
                         for( var cmd : room.getTriggeredCmds() )
-                            dQueue.add(Datagram.system(cmd).writable(room).toggleSilent());
+                            Core.addToQueue(Datagram.system(cmd).writable(room).toggleSilent());
                         if( wr!=null) {
-                            wr.writeLine("Joined " + room.id() + " at " + room.url());
+                            wr.writeLine(id(), "Joined " + room.id() + " at " + room.url());
                         }
                         return true;
                     }
                     Logger.error("Failed to join the room.");
                     if( wr!=null)
-                        wr.writeLine("Failed to join "+room.id() +" because " +res.body() );
+                        wr.writeLine(id(), "Failed to join " + room.id() + " because " + res.body());
                     processError(res);
                     return false;
                 });
@@ -395,8 +394,8 @@ public class MatrixClient implements Writable, Commandable {
             }
         }else { // Respond to commands
             var d = Datagram.build(body).label("matrix").origin(originRoom + "|" + from);
-            d.writable(Objects.requireNonNullElse(room, this));
-            dQueue.add(d);
+            d.writable( Objects.requireNonNullElse(room, this) );
+            Core.addToQueue(d);
         }
     }
     public Optional<Room> roomByUrl(String url){
@@ -463,11 +462,11 @@ public class MatrixClient implements Writable, Commandable {
                             if( !roomid.isEmpty())
                                 shareFile(rooms.get(roomid).url(),mxc,path.getFileName().toString());
                             if( wr!=null)
-                                wr.writeLine("File upload succeeded");
+                                wr.writeLine(id(), "File upload succeeded");
                             return true;
                         }
                         if( wr!=null)
-                            wr.writeLine("File upload failed: "+res.body());
+                            wr.writeLine(id(), "File upload failed: " + res.body());
                         processError(res);
                         return false;
                     } );
@@ -495,13 +494,13 @@ public class MatrixClient implements Writable, Commandable {
                     .thenApply( res -> {
                         if( res.statusCode()==200){
                             if( wr!=null)
-                                wr.writeLine("File received");
+                                wr.writeLine(id(), "File received");
                             if( !originRoom.isEmpty())
                                 sendMessage(originRoom,"Downloaded the file.");
                         }else{
                             Logger.error(res);
                             if( wr!=null)
-                                wr.writeLine("File download failed with code: "+res.statusCode());
+                                wr.writeLine(id(), "File download failed with code: " + res.statusCode());
                             if( !originRoom.isEmpty())
                                 sendMessage(originRoom,"Download failed.");
                         }
@@ -513,7 +512,7 @@ public class MatrixClient implements Writable, Commandable {
                             sendMessage(originRoom, "Error when trying to download the file.");
                         }
                         return 0;
-                    });;
+                    });
         } catch (URISyntaxException | IOException e) {
             Logger.error(e);
             if( !originRoom.isEmpty())
@@ -711,11 +710,10 @@ public class MatrixClient implements Writable, Commandable {
     /* ******************* Writable **************************** */
     @Override
     public boolean writeString(String data) {
-        return writeLine(data);
+        return writeLine("", data);
     }
-
     @Override
-    public boolean writeLine(String data) {
+    public boolean writeLine(String origin, String data) {
         var d = data.split("\\|"); //0=room,1=from,2=data
         if( d.length<3) {
             if( rooms.size()==1){
@@ -728,7 +726,6 @@ public class MatrixClient implements Writable, Commandable {
         }
         return true;
     }
-    public boolean writeLine(String origin, String data) { return writeLine(data); }
     @Override
     public boolean writeBytes(byte[] data) {
         return false;
@@ -745,18 +742,14 @@ public class MatrixClient implements Writable, Commandable {
     }
 
     @Override
-    public Writable getWritable() {
-        return this;
-    }
+    public String replyToCommand(Datagram d) {
 
-    @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-
-        var cmds = args.split(",");
+        var args = d.argList();
+        var wr = d.getWritable();
 
         Path p;
         StringJoiner j = new StringJoiner("\r\n");
-        switch (cmds[0]) {
+        switch (args[0]) {
             case "?" -> {
                 j.add("Used to monitor a matrix room for messages and send messages.");
                 j.add("Rooms")
@@ -771,7 +764,7 @@ public class MatrixClient implements Writable, Commandable {
                 j.add("Other" )
                         .add("matrix:restart -> Log out & reload");
                 j.add("matrix:share,roomid,path -> Upload a file with the given path and share the link in the room");
-                return LookAndFeel.formatCmdHelp(j.toString(),html);
+                return LookAndFeel.formatCmdHelp(j.toString(), d.asHtml());
             }
             case "restart" -> {
                 readFromXML();
@@ -783,10 +776,10 @@ public class MatrixClient implements Writable, Commandable {
                 return j.toString();
             }
             case "join" -> {
-                if (cmds.length < 3)
+                if (args.length < 3)
                     return "! Not enough arguments: matrix:join,roomid,url";
-                var rs = Room.withID(cmds[1],this).url(cmds[2]);
-                rooms.put(cmds[1], rs);
+                var rs = Room.withID(args[1], this).url(args[2]);
+                rooms.put(args[1], rs);
                 joinRoom(rs, wr);
                 return "Tried to join room";
             }
@@ -798,22 +791,22 @@ public class MatrixClient implements Writable, Commandable {
                 return j.toString();
             }
             case "share" -> {
-                if (cmds.length < 3)
+                if (args.length < 3)
                     return "! Not enough arguments: matrix:share,roomid,filepath";
-                p = Path.of(cmds[2]);
+                p = Path.of(args[2]);
                 if (Files.exists(p)) {
-                    if (rooms.containsKey(cmds[1])) {
-                        sendFile(rooms.get(cmds[1]).url(), p, wr);
-                        return "File shared with " + cmds[1];
+                    if (rooms.containsKey(args[1])) {
+                        sendFile(rooms.get(args[1]).url(), p, wr);
+                        return "File shared with " + args[1];
                     }
-                    return "No such room (yet): " + cmds[1];
+                    return "No such room (yet): " + args[1];
                 }
                 return "! No such file";
             }
             case "upload" -> {
-                if (cmds.length < 2)
+                if (args.length < 2)
                     return "! Not enough arguments: matrix:upload,filepath";
-                p = Path.of(cmds[1]);
+                p = Path.of(args[1]);
                 if (Files.exists(p)) {
                     sendFile("", p, wr);
                     return "File uploaded.";
@@ -822,24 +815,24 @@ public class MatrixClient implements Writable, Commandable {
                 }
             }
             case "down" -> {
-                if (cmds.length < 2)
+                if (args.length < 2)
                     return "! Not enough arguments: matrix:down,filepath";
-                if (downloadFile(cmds[1], wr, "")) {
+                if (downloadFile(args[1], wr, "")) {
                     return "Valid file chosen";
                 } else {
                     return "! No such file";
                 }
             }
             case "addblank" -> {
-                MatrixClient.addBlankElement(Paths.settings(),cmds);
+                MatrixClient.addBlankElement(Paths.settings(), args);
                 return "Blank matrix node added";
             }
             case "addmacro" -> {
-                if (cmds.length < 2)
+                if (args.length < 2)
                     return "! Not enough arguments: matrix:addmacro,key,value";
                 var f = XMLfab.withRoot(Paths.settings(), "dcafs", "settings", "matrix");
-                f.addChild("macro", cmds[2]).attr("key", cmds[1]);
-                macros.put(cmds[1], cmds[2]);
+                f.addChild("macro", args[2]).attr("key", args[1]);
+                macros.put(args[1], args[2]);
                 return "Macro added to xml";
             }
             case "sync" -> {
@@ -847,14 +840,14 @@ public class MatrixClient implements Writable, Commandable {
                 return "Initiated sync";
             }
             default -> {
-                var room = rooms.get("matrix:"+cmds[0]);
+                var room = rooms.get("matrix:" + args[0]);
                 if( room != null) {
-                    if(cmds.length >= 2){
-                        switch(cmds[1]){
+                    if (args.length >= 2) {
+                        switch (args[1]) {
                             case "say", "txt" -> {
-                                if (cmds.length < 3)
+                                if (args.length < 3)
                                     return "! Not enough arguments: matrix:roomid,say/text,message";
-                                String what = args.substring(args.indexOf(cmds[1])+cmds[1].length()+1);
+                                String what = d.args().substring(d.args().indexOf(",") + 1);
                                 sendMessage( room.url(), what );
                                 return "Message send to "+room.id()+". (this doesn't mean it arrived)";
                             }
@@ -866,7 +859,7 @@ public class MatrixClient implements Writable, Commandable {
                     room.addTarget(wr);
                     return "Added "+wr.id()+" as target for room "+room.id();
                 }
-                return "! No such subcommand in " + cmd + ": " + cmds[0];
+                return "! No such subcommand in " + d.getData();
             }
         }
     }

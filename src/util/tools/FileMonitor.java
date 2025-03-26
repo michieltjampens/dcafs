@@ -1,10 +1,10 @@
 package util.tools;
 
 import das.Commandable;
+import das.Core;
 import io.Writable;
 import org.tinylog.Logger;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.io.FileInputStream;
@@ -24,11 +24,9 @@ public class FileMonitor implements Commandable {
     ArrayList<ReactionInfo> files = new ArrayList<>();
     static final int BUFFER_SIZE = 256;
     Path root;
-    BlockingQueue<Datagram> dQueue;
 
-    public FileMonitor(Path root, BlockingQueue<Datagram> dQueue){
+    public FileMonitor(Path root){
         this.root=root;
-        this.dQueue=dQueue;
 
         readFromXML();
     }
@@ -104,7 +102,7 @@ public class FileMonitor implements Commandable {
                     }
                 }else if( kind == ENTRY_MODIFY && fileName.equals(mon.getFilename()) ){
                     if( mon.hasCmd() ) {
-                        dQueue.add(Datagram.system(mon.getCmd()));
+                        Core.addToQueue(Datagram.system(mon.getCmd()));
                         Logger.info("Executing '"+mon.getCmd()+"' because modified "+mon.getFilename());
                     }
                     blank = read(wk,mon,"");
@@ -147,15 +145,15 @@ public class FileMonitor implements Commandable {
     }
 
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        if( cmd.equalsIgnoreCase("fm")){
-            var list = files.stream().filter( fm -> fm.id.equalsIgnoreCase(args)).toList();
+    public String replyToCommand(Datagram d) {
+        if (d.cmd().equalsIgnoreCase("fm")) {
+            var list = files.stream().filter(fm -> fm.id.equalsIgnoreCase(d.args())).toList();
             if( list.isEmpty())
                 return "No such filemonitor";
-            list.forEach( fm -> fm.addTarget(wr));
+            list.forEach(fm -> fm.addTarget(d.getWritable()));
             return "Target added";
         }
-        return "! No such subcommand in "+cmd+": "+args;
+        return "! No such subcommand in " + d.getData();
     }
     public String payloadCommand( String cmd, String args, Object payload){
         return "! No such cmds in "+cmd;
@@ -218,13 +216,13 @@ public class FileMonitor implements Commandable {
         public int handleRead(String rec){
             position += rec.length();
             issue=false;
-            targets.forEach(wr->wr.writeLine(rec));
+            targets.forEach(wr -> wr.writeLine(id, rec));
             return action.apply(rec);
         }
         public void sendLine(String line){
             if( targets.isEmpty())
                 return;
-            targets.forEach(wr->wr.writeLine(line));
+            targets.forEach(wr -> wr.writeLine(id, line));
         }
         public int handleNoRead(){
             return action.apply("");

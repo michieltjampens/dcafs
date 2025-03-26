@@ -6,10 +6,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.xml.XMLdigger;
-import worker.Datagram;
-
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,15 +22,15 @@ public class I2cOpper extends I2cDevice{
 	 * @param dev The digger pointing to the xml node about this
 	 * @param bus The controller on which this device is connected
 	 */
-	public I2cOpper(XMLdigger dev, I2cBus bus, BlockingQueue<Datagram> dQeueu ){
-		super(dev,bus,dQeueu);
+	public I2cOpper(XMLdigger dev, I2cBus bus){
+		super(dev,bus);
 
 		script = dev.attr("script", "").toLowerCase();
 		if( script.isEmpty()) // Might be a node instead of an attribute
 			script =  dev.peekAt("script").value("");
 	}
-	public I2cOpper( String id, I2cBus bus, int address, String script, BlockingQueue<Datagram> dQeueu){
-		super(id,address,bus,dQeueu);
+	public I2cOpper( String id, I2cBus bus, int address, String script){
+		super(id,address,bus);
 		this.script=script;
 		Logger.info("I2cOpper created for "+bus.id()+":"+address+" with script "+script+".");
 	}

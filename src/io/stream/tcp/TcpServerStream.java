@@ -1,5 +1,6 @@
 package io.stream.tcp;
 
+import das.Core;
 import io.Writable;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -20,7 +21,6 @@ import worker.Datagram;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.concurrent.BlockingQueue;
 
 public class TcpServerStream extends BaseStream implements Writable, StreamListener {
 
@@ -30,8 +30,8 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
     private int nr=0;
     private boolean serverOk=false;
-    public TcpServerStream(BlockingQueue<Datagram> dQueue, Element stream) {
-        super(dQueue,stream);
+    public TcpServerStream(Element stream) {
+        super(stream);
     }
     protected String getType(){
         return "tcpserver";
@@ -58,7 +58,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
                                 Logger.info(id+" -> Maximum amount of clients reached, close another one first");
                             }
                             // For some reason the handler needs to be remade in order to restore the connection...
-                            var handler = new TcpHandler( id+"client"+nr++, dQueue, TcpServerStream.this );
+                            var handler = new TcpHandler( id+"client"+nr++, TcpServerStream.this );
                             handler.setPriority(priority);
                             handler.setLabel(label);
                             handler.setTargets(targets);
@@ -147,7 +147,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
 
     /**
      * Get the timestamp of when the last data was received
-     * @return The time in epoch milles or -1 if invalid handler
+     * @return The time in epoch millis or -1 if invalid handler
      */
     @Override
     public long getLastTimestamp() {
@@ -162,12 +162,6 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     @Override
     public boolean writeString(String data) {
         clients.forEach(x->x.writeString(data));
-        return serverOk;
-    }
-
-    @Override
-    public boolean writeLine(String data) {
-        clients.forEach(x->x.writeLine(data));
         return serverOk;
     }
     @Override
@@ -185,14 +179,9 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
         clients.forEach(x->x.writeBytes(data));
         return serverOk;
     }
-    @Override
-    public Writable getWritable(){
-        return this;
-    }
 
     @Override
     public void notifyIdle(BaseStream stream) {
-
     }
 
     @Override
@@ -229,11 +218,11 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
 
             if( cmd.trigger==TRIGGER.HELLO || cmd.trigger==TRIGGER.WAKEUP ){ // These trigger involves writing to remote
                 Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data());
-                ((Writable) this).writeLine(origin,cmd.data());
+                this.writeLine(origin,cmd.data());
                 continue;
             }
             Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data());
-            dQueue.add( Datagram.system(cmd.data()).writable(this) );
+            Core.addToQueue( Datagram.system(cmd.data()).writable(this) );
         }
     }
     public int getClientCount(){

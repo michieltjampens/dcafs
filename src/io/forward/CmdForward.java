@@ -1,5 +1,6 @@
 package io.forward;
 
+import das.Core;
 import io.Writable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
@@ -11,16 +12,15 @@ import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
-public class CmdForward extends AbstractForward implements Writable {
+public class CmdForward extends AbstractForward {
     private final ArrayList<Cmd> cmds = new ArrayList<>();
-    private String delimiter="";
+    private final String delimiter="";
 
-    public CmdForward(Element ele, BlockingQueue<Datagram> dQueue, RealtimeValues rtvals  ){
-        super(dQueue,rtvals);
+    public CmdForward(Element ele, RealtimeValues rtvals  ){
+        super(rtvals);
         readOk = readFromXML(ele);
     }
     @Override
@@ -30,7 +30,7 @@ public class CmdForward extends AbstractForward implements Writable {
 
         cmds.forEach( cmd -> {
             // Replace the i's with rt data if any and send it away
-            dQueue.add(Datagram.system(cmd.applyData(split)));
+            Core.addToQueue(Datagram.system(cmd.applyData(split)));
         });
         targets.forEach(t->t.writeLine(id(), data));
         applyDataToStore(data);

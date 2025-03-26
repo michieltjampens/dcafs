@@ -54,20 +54,15 @@ public abstract class AbstractCollector implements Writable {
 
     /* **********************Writable implementation ****************************/
     @Override
-    public boolean writeString(String data) {
-        return addData(data);
-    }
-
-    @Override
-    public boolean writeLine(String data) {
+    public synchronized boolean writeString(String data) {
         return addData(data);
     }
     @Override
-    public boolean writeLine(String origin, String data) {
+    public synchronized boolean writeLine(String origin, String data) {
         return addData(data);
     }
     @Override
-    public boolean writeBytes(byte[] data) {
+    public synchronized boolean writeBytes(byte[] data) {
         return addData(new String(data));
     }
 
@@ -84,6 +79,10 @@ public abstract class AbstractCollector implements Writable {
         return this;
     }
 
+    @Override
+    public boolean giveObject(String info, Object object) {
+        return false;
+    }
     /* *********************** TIME OUT *******************************************/
     /**
      * Set a timeout for this collector, so it won't gather/wait indefinitely

@@ -4,6 +4,7 @@ import com.diozero.api.*;
 import com.diozero.api.function.DeviceEventConsumer;
 import com.diozero.sbc.LocalSystemInfo;
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
@@ -13,21 +14,17 @@ import util.data.RealtimeValues;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
-import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
 public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Commandable {
 
     private final HashMap<String,DigitalInputDevice> inputs = new HashMap<>();
     private final HashMap<Integer,ArrayList<IsrAction>> isrs = new HashMap<>();
-    private final BlockingQueue<Datagram> dQueue;
     private final CustomBoard board;
     private final RealtimeValues rtvals;
 
-    public InterruptPins(BlockingQueue<Datagram> dQueue, RealtimeValues rtvals){
-        this.dQueue=dQueue;
+    public InterruptPins(RealtimeValues rtvals){
         this.rtvals=rtvals;
         board = new CustomBoard(LocalSystemInfo.getInstance(), Paths.settings());
 
@@ -171,21 +168,19 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
     }
 
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        return "";
-    }
+    public String replyToCommand(Datagram d) {
+        if (d.payload() == null)
+            return "";
 
-    @Override
-    public String payloadCommand(String cmd, String arg, Object payload) {
-        var args = arg.split(",");
+        var args = d.argList();
         if( args[0].equals("watch") ){
             var input = inputs.get(args[1]);
             if( input == null ) {
                 Logger.error("(isr) -> Not a valid gpio given: "+args[1]);
                 return "! Not a valid gpio given: " + args[1];
             }
-            if( payload instanceof DeviceEventConsumer ) {
-                var dev = (DeviceEventConsumer<DigitalInputEvent>) payload;
+            if (d.payload() instanceof DeviceEventConsumer) {
+                var dev = (DeviceEventConsumer<DigitalInputEvent>) d.payload();
                 input.addListener(dev);
                 Logger.info("(isr) -> Added callback to "+args[1]);
                 return "Callback attached for "+args[1];
@@ -193,7 +188,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             Logger.error("(isr) -> Not proper layout for "+args[1]);
             return "! No proper payload for "+args[1];
         }
-        return "! Unknown cmd: "+cmd+":"+arg;
+        return "! Unknown cmd: " + d.getData();
     }
 
     @Override
@@ -268,7 +263,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
         }
         public void trigger(DigitalInputEvent event){
             Logger.debug("Interrupt -> {}", event);
-            cmds.forEach(cmd -> dQueue.add(Datagram.system(cmd)));
+            cmds.forEach(cmd -> Core.addToQueue(Datagram.system(cmd)));
         }
     }
 

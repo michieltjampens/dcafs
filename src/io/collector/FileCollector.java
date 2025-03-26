@@ -1,5 +1,6 @@
 package io.collector;
 
+import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -33,7 +34,6 @@ public class FileCollector extends AbstractCollector{
     ScheduledExecutorService scheduler;
 
     BlockingQueue<String> dataBuffer = new LinkedBlockingQueue<>();
-    private final BlockingQueue<Datagram> dQueue;                        // Queue to send commands
 
     private int byteCount=0;
     private Path destPath;
@@ -68,15 +68,13 @@ public class FileCollector extends AbstractCollector{
 
     private Future<?> flushFuture;
 
-    public FileCollector(String id, String timeoutPeriod, ScheduledExecutorService scheduler,BlockingQueue<Datagram> dQueue) {
+    public FileCollector(String id, String timeoutPeriod, ScheduledExecutorService scheduler) {
         super(id);
-        this.dQueue=dQueue;
         secondsTimeout = TimeTools.parsePeriodStringToSeconds(timeoutPeriod);
         this.scheduler=scheduler;
     }
-    public FileCollector(String id,BlockingQueue<Datagram> dQueue ){
+    public FileCollector(String id ){
         super(id);
-        this.dQueue=dQueue;
     }
     @Override
     public String id(){ return "fc:"+id;}
@@ -101,7 +99,7 @@ public class FileCollector extends AbstractCollector{
      * @param workpath The current workpath
      * @return A list of the found filecollectors
      */
-    public static List<FileCollector> createFromXml(List<Element> fcEles, ScheduledExecutorService scheduler, BlockingQueue<Datagram> dQueue, String workpath ) {
+    public static List<FileCollector> createFromXml(List<Element> fcEles, ScheduledExecutorService scheduler, String workpath ) {
         var fcs = new ArrayList<FileCollector>();
         if( scheduler==null){
             Logger.error("Need a valid scheduler to use FileCollectors");
@@ -112,7 +110,7 @@ public class FileCollector extends AbstractCollector{
             String id = dig.attr("id", "");
             if( id.isEmpty() )
                 continue;
-            var fc = new FileCollector(id,dQueue);
+            var fc = new FileCollector(id);
             fc.setScheduler(scheduler);
             fc.readFromXML(dig,workpath);
             fcs.add(fc);
@@ -380,7 +378,7 @@ public class FileCollector extends AbstractCollector{
         if( dataBuffer.isEmpty() ){
             // Timed out with empty buffer
             trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.IDLE)
-                             .forEach( tc->dQueue.add( Datagram.system(tc.cmd.replace("{path}",getPath().toString())).writable(this)) );
+                             .forEach( tc-> Core.addToQueue( Datagram.system(tc.cmd.replace("{path}",getPath().toString())).writable(this)) );
         }else{
             long dif = Instant.now().getEpochSecond() - lastData; // if there's a batchsize, that is primary
 
@@ -485,7 +483,7 @@ public class FileCollector extends AbstractCollector{
 
             // run the triggered commands
             trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.MAXSIZE)
-                    .forEach(tc->dQueue.add(Datagram.system(tc.cmd.replace("{path}",path)).writable(this)));
+                    .forEach(tc->Core.addToQueue(Datagram.system(tc.cmd.replace("{path}",path)).writable(this)));
 
         } catch (IOException e) {
             Logger.error(id + "(fc) -> Failed to write to "+ dest+" because "+e);
@@ -496,10 +494,10 @@ public class FileCollector extends AbstractCollector{
     @Override
     public void addSource( String source ){
         if( !this.source.isEmpty() ){
-            dQueue.add( Datagram.system("stop:"+this.source).writable(this) );
+            Core.addToQueue( Datagram.system("stop:"+this.source).writable(this) );
         }
         this.source=source;
-        dQueue.add( Datagram.system(source).writable(this) ); // request the data
+        Core.addToQueue( Datagram.system(source).writable(this) ); // request the data
     }
     /* ***************************** RollOver stuff *************************************************************** */
     public boolean setRollOver(String dateFormat, int rollCount, ChronoUnit unit, boolean zip ) {
@@ -590,7 +588,7 @@ public class FileCollector extends AbstractCollector{
                 }
                 // Triggered commands
                 trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.ROLLOVER)
-                        .forEach(tc->dQueue.add(Datagram.system(tc.cmd.replace("{path}",path)).writable(FileCollector.this)));
+                        .forEach(tc->Core.addToQueue(Datagram.system(tc.cmd.replace("{path}",path)).writable(FileCollector.this)));
 
             } catch (InterruptedException | ExecutionException | IOException | TimeoutException e) {
                 Logger.error(e);

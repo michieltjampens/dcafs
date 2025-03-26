@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -40,18 +39,18 @@ public class TelnetServer implements Commandable {
     int port = 2323;
     String title = "dcafs";
     String ignore = "";
-    
-    BlockingQueue<Datagram> dQueue;
+
     ArrayList<Writable> writables = new ArrayList<>();
     private final ArrayList<String> messages=new ArrayList<>();
     private String defColor = TelnetCodes.TEXT_LIGHT_GRAY;
     private final HashMap<String,ArrayList<String>> cmdHistory = new HashMap<>();
     private long maxAge=3600;
     private Path tinylogPath;
+    private final boolean bootOk;
 
-    public TelnetServer( BlockingQueue<Datagram> dQueue, EventLoopGroup eventGroup ) {
-        this.dQueue=dQueue;
+    public TelnetServer( EventLoopGroup eventGroup, boolean bootOk ) {
         this.workerGroup = eventGroup;
+        this.bootOk=bootOk;
         tinylogPath = Paths.storage();
         readSettingsFromXML();
     }
@@ -63,20 +62,18 @@ public class TelnetServer implements Commandable {
     }
 
     public void readSettingsFromXML( ) {
-        if( dQueue != null ) {
-            var dig = Paths.digInSettings("settings").digDown("telnet");
-            if( dig.isValid()){
-                port = dig.attr("port",2323);
-                title = dig.attr( "title", "DCAFS");
-                ignore = dig.attr( "ignore", "");
-                defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
-                dig.goUp();
-                maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
-                var pth = dig.peekAt("tinylog").value("");
-                tinylogPath = pth.isEmpty()?Paths.storage():Path.of(pth);
-            }else {
-                addBlankTelnetToXML();
-            }
+        var dig = Paths.digInSettings("settings").digDown("telnet");
+        if( dig.isValid()){
+            port = dig.attr("port",2323);
+            title = dig.attr( "title", "DCAFS");
+            ignore = dig.attr( "ignore", "");
+            defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
+            dig.goUp();
+            maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
+            var pth = dig.peekAt("tinylog").value("");
+            tinylogPath = pth.isEmpty()?Paths.storage():Path.of(pth);
+        }else {
+            addBlankTelnetToXML();
         }
     }
     public static void addBlankTelnetToXML( ){
@@ -99,7 +96,7 @@ public class TelnetServer implements Commandable {
                                 .addLast( new ReadTimeoutHandler(1800) );// close connection after set time without traffic
 
                         // and then business logic.
-                        TelnetHandler handler = new TelnetHandler( dQueue,ignore ) ;
+                        TelnetHandler handler = new TelnetHandler( ignore,bootOk ) ;
                         handler.setTitle(title);
                         var remoteIp = ch.remoteAddress().getAddress().toString().substring(1);
                         cmdHistory.computeIfAbsent(remoteIp, k -> new ArrayList<>());
@@ -142,42 +139,41 @@ public class TelnetServer implements Commandable {
     }
 
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        var cmds = args.split(",");
-        if( cmd.equalsIgnoreCase("nb") || args.equalsIgnoreCase("nb")){
+    public String replyToCommand(Datagram d) {
+        var args = d.argList();
+        if (d.cmd().equalsIgnoreCase("nb") || args[0].equalsIgnoreCase("nb")) {
             int s = writables.size();
-            writables.remove(wr);
+            writables.remove(d.getWritable());
             return (s==writables.size())?"! Failed to remove":"Removed from targets";
         }else {
-            String reg=html?"":TelnetCodes.TEXT_DEFAULT;
-            switch (cmds[0]) {
+            switch (args[0]) {
                 case "?" -> {
                     return doCmdHelp();
                 }
                 case "error" -> {
-                    if (cmds.length < 2)
+                    if (args.length < 2)
                         return "! Not enough arguments, telnet:error,message";
-                    var error = args.substring(6);
+                    var error = d.args().substring(6);
                     messages.add(error);
-                    writables.removeIf(w -> !w.writeLine(TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
+                    writables.removeIf(w -> !w.writeLine("", TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
                     return "";
                 }
                 case "broadcast" -> {
-                    return doBroadCastCmd(cmds,args);
+                    return doBroadCastCmd(args, d.args());
                 }
                 case "write" -> {
-                    var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(cmds[1])).toList();
+                    var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(args[1])).toList();
                     if (wrs.isEmpty())
                         return "! No such id";
-                    var mes = TelnetCodes.TEXT_MAGENTA + wr.id() + ": " + args.substring(7 + cmds[1].length()) + TelnetCodes.TEXT_DEFAULT;
-                    wrs.forEach(w -> w.writeLine(mes));
+                    var mes = TelnetCodes.TEXT_MAGENTA + d.originID() + ": " + d.args().substring(7 + args[1].length()) + TelnetCodes.TEXT_DEFAULT;
+                    wrs.forEach(w -> w.writeLine("", mes));
                     return mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
                 }
                 case "bt" -> {
                     return "Currently has " + writables.size() + " broadcast targets.";
                 }
                 default -> {
-                    return "! No such subcommand in "+cmd+": "+cmds[0];
+                    return "! No such subcommand in " + d.getData();
                 }
             }
         }
@@ -209,7 +205,7 @@ public class TelnetServer implements Commandable {
                 }
             }
         }
-        writables.removeIf(w -> !w.writeLine(send + TelnetCodes.TEXT_DEFAULT));
+        writables.removeIf(w -> !w.writeLine("", send + TelnetCodes.TEXT_DEFAULT));
         return "Broadcasted";
     }
     public String payloadCommand( String cmd, String args, Object payload){

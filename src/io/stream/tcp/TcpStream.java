@@ -1,29 +1,22 @@
 package io.stream.tcp;
 
-import io.stream.BaseStream;
 import io.Writable;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.FixedLengthFrameDecoder;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
-import io.netty.util.concurrent.FutureListener;
+import io.stream.BaseStream;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import util.tools.Tools;
-import util.xml.XMLtools;
-import worker.Datagram;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.BlockingQueue;
 
 public class TcpStream extends BaseStream implements Writable {
 
@@ -33,8 +26,8 @@ public class TcpStream extends BaseStream implements Writable {
     Bootstrap bootstrap;        // Bootstrap for TCP connections
     static int bufferSize = 2048;     // How many bytes are stored before a dump
 
-    public TcpStream(BlockingQueue<Datagram> dQueue, Element stream) {
-        super(dQueue,stream);
+    public TcpStream(Element stream) {
+        super(stream);
     }
     protected String getType(){
         return "tcp";
@@ -93,7 +86,7 @@ public class TcpStream extends BaseStream implements Writable {
                         idle= handler.isIdle(); // Keep this so it survives
                     }
                     // For some reason the handler needs to be remade in order to restore the connection...
-                    handler = new TcpHandler( id, dQueue, TcpStream.this );
+                    handler = new TcpHandler( id, TcpStream.this );
                     handler.setPriority(priority);
                     handler.setLabel(label);
                     handler.setTargets(targets);
@@ -173,13 +166,6 @@ public class TcpStream extends BaseStream implements Writable {
             return false;
         return handler.writeString(data);
     }
-
-    @Override
-    public boolean writeLine(String data) {
-        if( handler==null || !isConnectionValid())
-            return false;
-        return handler.writeLine(data);
-    }
     @Override
     public boolean writeLine(String origin, String data) {
         if( addDataOrigin )
@@ -191,9 +177,5 @@ public class TcpStream extends BaseStream implements Writable {
         if( handler==null || !isConnectionValid())
             return false;
         return handler.writeBytes(data);
-    }
-    @Override
-    public Writable getWritable(){
-        return this;
     }
 }

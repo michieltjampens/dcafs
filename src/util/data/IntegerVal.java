@@ -3,14 +3,8 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.tools.TimeTools;
 import util.xml.XMLdigger;
-import worker.Datagram;
-
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 public class IntegerVal extends NumberVal<Integer>{
 
@@ -42,7 +36,7 @@ public class IntegerVal extends NumberVal<Integer>{
      * Create a new IntegerVal based on a rtval real node
      * @param rtval The node
      * @param group The group the node is found in
-     * @return The created node, still needs dQueue set
+     * @return The created node
      */
     public static Optional<IntegerVal> build(Element rtval, String group){
 

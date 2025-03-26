@@ -24,11 +24,8 @@ import worker.Datagram;
 
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.BlockingQueue;
 
 public class TcpServer implements StreamListener, Commandable {
-
-	private BlockingQueue<Datagram> dQueue; // TransHandler can also process other commands if given this queue
 
 	private int serverPort = 5542; // The port the server is active on default is 5542
 	private ChannelFuture serverFuture;
@@ -66,15 +63,6 @@ public class TcpServer implements StreamListener, Commandable {
 		}
 		return active;
 	}
-	/**
-	 * Set the queue worked on by a @see BaseWorker
-	 * 
-	 * @param dQueue The queue from the BaseWorker
-	 */
-	public void setDataQueue(BlockingQueue<Datagram> dQueue) {
-		this.dQueue = dQueue;
-	}
-
 	/**
 	 * Read the settings related to the transserver from the settings.xml
 	 * @return True if no hiccups
@@ -133,7 +121,7 @@ public class TcpServer implements StreamListener, Commandable {
 							ch.pipeline().addLast("decoder", new ByteArrayDecoder());
 							ch.pipeline().addLast("encoder", new ByteArrayEncoder());
 
-							TransHandler handler = new TransHandler("system", dQueue);
+							TransHandler handler = new TransHandler("system");
 							handler.setListener(TcpServer.this);
 							handler.setEventLoopGroup(workerGroup);
 							clients.add(handler);
@@ -261,9 +249,9 @@ public class TcpServer implements StreamListener, Commandable {
 			fab.addChild("cmd",h);
 		}
 		if( fab.build() ){
-			wr.writeLine(handler.id()+" Stored!");
+			wr.writeLine("", handler.id() + " Stored!");
 		}else{
-			wr.writeLine("Storing "+handler.id()+" failed");
+			wr.writeLine("", "Storing " + handler.id() + " failed");
 		}
 	}
 
@@ -291,44 +279,45 @@ public class TcpServer implements StreamListener, Commandable {
 	}
 	/**
 	 * Execute and reply to commands given in as a readable string
-	 * @param cmd the command
-	 * @param wr the writable to send the answer to
+	 * @param d The datagram containing all info needed to process the command
 	 * @return the reply
 	 */
 	@Override
-	public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-		String[] cmds = args.split(",");
+	public String replyToCommand(Datagram d) {
+		String[] args = d.argList();
+		var wr = d.getWritable();
 
 		if( !active ) {
-			if(cmds[0].equalsIgnoreCase("start")&&cmds.length==2){
-				if( setServerPort(NumberUtils.toInt(cmds[1],-1)) )
-					return "Server started on "+cmds[1];
+			if (args[0].equalsIgnoreCase("start") && args.length == 2) {
+				if (setServerPort(NumberUtils.toInt(args[1], -1)))
+					return "Server started on " + args[1];
 				return "Invalid port number given.";
 			}else{
 				return "No server active yet, use ts:start,port to start one";
 			}
 		}
-		if( cmds[0].equals("create"))
+		if (args[0].equals("create"))
 			return "! Server already exists";
 
-		Optional<TransHandler> hOpt = cmds.length>1?getHandler(cmds[1]):Optional.empty();
+		Optional<TransHandler> hOpt = args.length > 1 ? getHandler(args[1]) : Optional.empty();
 
-		switch( cmds[0] ){
+		switch (args[0]) {
 			case "?":
-				return doCmdHelp(html);
+				return doCmdHelp(d.asHtml());
 			case "store":
 				if( hOpt.isEmpty() )
 					return "Invalid id";
 				var handler = hOpt.get();
-				handler.setID(cmds.length==3?cmds[2]:handler.id());
+				handler.setID(args.length == 3 ? args[2] : handler.id());
 				storeHandler(handler,wr);
 				return "Stored";
 			case "add":
-				return doAddCmd( cmds );
+				return doAddCmd(args);
 			case "clear":
-				return getHandler(cmds[1]).map( h -> {
+				return getHandler(args[1]).map(h -> {
 					h.clearRequests();
-					return cmds[1]+"  cleared.";}).orElse("No such client: "+cmds[1]);
+					return args[1] + "  cleared.";
+				}).orElse("No such client: " + args[1]);
 			case "defaults":
 				StringJoiner lines = new StringJoiner("\r\n");
 				defaults.forEach( (id,val) -> lines.add(id+" -> "+val.ip+" => "+String.join(",",val.commands)));
@@ -338,17 +327,17 @@ public class TcpServer implements StreamListener, Commandable {
 					return "Defaults reloaded";
 				return "Reload failed";
 			case "alter":
-				return doAlterCmd(cmds,hOpt.orElse(null));
+				return doAlterCmd(args, hOpt.orElse(null));
 			case "trans" :
-				if( cmds.length!=2)
+				if (args.length != 2)
 					return "Not enough arguments, need trans:id";
-				cmds[1]="forward"+cmds[1];
+				args[1] = "forward" + args[1];
 			case "forward":
-				return doForwardCmd( cmds,hOpt.orElse(null),wr );
+				return doForwardCmd(args, hOpt.orElse(null), wr);
 			case "": case "list": 
 				return "Server running on port "+serverPort+"\r\n"+getClientList();
 			default:
-				return "! No such subcommand in "+cmd+": "+args;
+				return "! No such subcommand in " + d.getData();
 		}
 	}
 	private String doCmdHelp( boolean html ){

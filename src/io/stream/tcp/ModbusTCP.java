@@ -4,12 +4,10 @@ import io.Writable;
 import io.netty.channel.ChannelHandlerContext;
 import org.tinylog.Logger;
 import util.tools.Tools;
-import worker.Datagram;
 
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public class ModbusTCP extends TcpHandler{
     private int index=0;
@@ -18,11 +16,11 @@ public class ModbusTCP extends TcpHandler{
     private final String[] origin = new String[]{"","","","reg","AI",""};
     private Long passed;
 
-    public ModbusTCP(String id, BlockingQueue<Datagram> dQueue) {
-        super(id, dQueue);
+    public ModbusTCP(String id) {
+        super(id);
     }
-    public ModbusTCP( String id,BlockingQueue<Datagram> dQueue, Writable writable ){
-        this(id,dQueue);
+    public ModbusTCP( String id, Writable writable ){
+        this(id);
         this.writable=writable;
     }
     @Override
@@ -88,7 +86,7 @@ public class ModbusTCP extends TcpHandler{
             reg++;
         }
         if( !targets.isEmpty() ){
-            targets.forEach( dt -> eventLoopGroup.submit(()->dt.writeLine(join.toString())));
+            targets.forEach(dt -> eventLoopGroup.submit(() -> dt.writeLine(id, join.toString())));
             targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
         }
     }

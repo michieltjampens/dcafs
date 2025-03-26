@@ -29,7 +29,7 @@ public class Waypoint implements Comparable<Waypoint>{
 	private double lastDist=-1;
 
 	private STATE state=STATE.UNKNOWN;
-	private boolean temp=false;
+	private final boolean temp=false;
 	private final String id;
 	private double bearing=0;
 

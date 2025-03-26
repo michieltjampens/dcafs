@@ -65,30 +65,21 @@ public class Room implements Writable {
     }
     /* Writable */
     @Override
-    public boolean writeLine(String data) {
-        return client.writeLine(data);
-    }
-
-    @Override
     public boolean writeLine(String origin, String data) {
         return client.writeLine(origin,data);
     }
 
     @Override
     public boolean writeBytes(byte[] data) {
-        return writeLine(new String(data));
+        return writeLine("", new String(data));
     }
     @Override
     public boolean writeString(String data) {
-        return writeLine(data);
+        return writeLine("", data);
     }
     @Override
     public boolean isConnectionValid() {
         return connected;
     }
 
-    @Override
-    public Writable getWritable() {
-        return this;
-    }
 }

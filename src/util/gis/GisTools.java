@@ -232,7 +232,6 @@ public class GisTools {
     public static Function<BigDecimal[],BigDecimal> procToUTM( String lat, String lon, Integer[] indexes ){
         int latIndex = findIndex(lat);
         int lonIndex = findIndex(lon);
-        ;
 
         var latVal = lat.startsWith("i")? 0 : NumberUtils.toDouble(lat);
         var lonVal = lon.startsWith("i")? 0 : NumberUtils.toDouble(lon);

@@ -1,7 +1,9 @@
 package io.hardware.i2c;
 
-import com.diozero.api.*;
+import com.diozero.api.DigitalInputEvent;
+import com.diozero.api.RuntimeIOException;
 import com.diozero.api.function.DeviceEventConsumer;
+import das.Core;
 import io.Writable;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -16,7 +18,6 @@ import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.BlockingQueue;
 
 public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<DigitalInputEvent> {
 
@@ -28,7 +29,8 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     private boolean irqTriggered=false;
     private int eolFound = 0;
     private Writable tempTarget;
-    private enum WAITING_FOR {IDLE,STATUS,CONF,UNKNOWN};
+    private enum WAITING_FOR {IDLE,STATUS,CONF,UNKNOWN}
+
     private WAITING_FOR requested = WAITING_FOR.IDLE;
 
     private int baudrate=38400;
@@ -37,8 +39,8 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     private final ArrayList<byte[]> writeData=new ArrayList<>();
     private boolean debug=false;
 
-    public I2cUart( XMLdigger dig, I2cBus bus, BlockingQueue<Datagram>  dQueue){
-        super(dig,bus,dQueue);
+    public I2cUart( XMLdigger dig, I2cBus bus){
+        super(dig,bus);
 
         eol = Tools.getDelimiterString(dig.peekAt("eol").value(eol));
         eolBytes=eol.getBytes();
@@ -46,7 +48,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
         var irq = dig.peekAt("irq").value("");
         if( !irq.isEmpty() ) { // Meaning an irq has been defined for this port
             Logger.info( id+"(i2c) -> Found irq node with "+irq+" requesting watch");
-            dQueue.add(Datagram.system("isr:watch," + irq).payload(this));
+            Core.addToQueue(Datagram.system("isr","watch," + irq).payload(this));
         }
         var serialSettings = dig.peekAt("serialsettings").value("");
         var bd = NumberUtils.toInt(serialSettings.split(",")[0]);
@@ -64,7 +66,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     }
     public void requestStatus(Writable wr){
         if( device == null){
-            wr.writeLine("! Device not connected, can't request status");
+            wr.writeLine(id, "! Device not connected, can't request status");
             return;
         }
 
@@ -116,7 +118,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
                 if( tempTarget!=null){
                     int state = status / 8192; // First 4 bits are state info
                     Logger.info(id+"(uart) -> Read: "+status+" -> state:"+Integer.toBinaryString(state)+" , size:"+size);
-                    tempTarget.writeLine("State: 0x"+Integer.toHexString(state)+" Buffer:"+size);
+                    tempTarget.writeLine(id, "State: 0x" + Integer.toHexString(state) + " Buffer:" + size);
                     tempTarget=null; // remove it
                 }else{
                     Logger.warn(id+"(uart) -> Status requested but no valid writable to write to");
@@ -166,12 +168,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     }
 
     @Override
-    public boolean writeLine(String data) {
-        return writeBytes( ArrayUtils.addAll(data.getBytes(),eolBytes) );
-    }
-
-    @Override
-    public boolean writeLine(String origin, String data) {;
+    public boolean writeLine(String origin, String data) {
         return writeString(data+eol);
     }
 
@@ -199,12 +196,7 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
 
     @Override
     public boolean isConnectionValid() {
-        return false;
-    }
-
-    @Override
-    public Writable getWritable() {
-        return this;
+        return true;
     }
 
     @Override

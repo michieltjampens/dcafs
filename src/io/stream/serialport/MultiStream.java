@@ -8,7 +8,6 @@ import worker.Datagram;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.concurrent.BlockingQueue;
 
 public class MultiStream extends SerialStream{
 
@@ -19,8 +18,8 @@ public class MultiStream extends SerialStream{
     private final int idPosition=2;
     private static final byte deviceId='1';
 
-    public MultiStream(BlockingQueue<Datagram> dQueue, Element stream) {
-	    super(dQueue,stream);
+    public MultiStream(Element stream) {
+	    super(stream);
         recBuffer = ByteBuffer.wrap(rec);
         eol = "";
     }
@@ -53,11 +52,11 @@ public class MultiStream extends SerialStream{
                                          .label(label)
                                          .origin(id+":"+(char)rec[idPosition]);
                     recBuffer.position(0); // reset position to start of buffer
-                    Logger.info("Message found and forwarded: "+d.getData()+" from "+d.getOriginID()); // debug info
+                    Logger.info("Message found and forwarded: " + d.getData() + " from " + d.originID()); // debug info
 
                     if( !targets.isEmpty() ){ // If there are targets
                         try {
-                            targets.forEach(dt -> dt.writeLine(d.getData())); // send the payload
+                            targets.forEach(dt -> dt.writeLine(id, d.getData())); // send the payload
                             targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
                         }catch(Exception e){
                             Logger.error(id+" -> Something bad in multiplexer");
@@ -72,17 +71,6 @@ public class MultiStream extends SerialStream{
             }
         }
     }
-    /**
-     * Sending data that will be appended by the default newline string.
-     *
-     * @param message The data to send.
-     * @return True If nothing was wrong with the connection
-     */
-    @Override
-    public synchronized boolean writeLine(String message) {
-        return writeString(message + eol);
-    }
-
     /**
      * Sending data that won't be appended with anything
      *

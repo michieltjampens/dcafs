@@ -1,6 +1,7 @@
 package io.collector;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
@@ -19,19 +20,16 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
 
 public class CollectorPool implements Commandable, CollectorFuture {
 
     private final Map<String, FileCollector> fileCollectors = new HashMap<>();
 
-    private final BlockingQueue<Datagram> dQueue;
     private final EventLoopGroup nettyGroup;
     private final RealtimeValues rtvals;
 
-    public CollectorPool(BlockingQueue<Datagram> dQueue, EventLoopGroup nettyGroup, RealtimeValues rtvals ){
+    public CollectorPool(EventLoopGroup nettyGroup, RealtimeValues rtvals ){
 
-        this.dQueue=dQueue;
         this.nettyGroup=nettyGroup;
         this.rtvals=rtvals;
 
@@ -40,9 +38,9 @@ public class CollectorPool implements Commandable, CollectorFuture {
     }
 
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        return switch( cmd ) {
-            case "fc" -> doFileCollectorCmd(args, html);
+    public String replyToCommand(Datagram d) {
+        return switch (d.cmd()) {
+            case "fc" -> doFileCollectorCmd(d);
             case "mc" -> "No commands yet";
             default -> "Wrong commandable...";
         };
@@ -72,7 +70,6 @@ public class CollectorPool implements Commandable, CollectorFuture {
                         XMLdigger.goIn(Paths.storage().resolve("settings.xml"),"dcafs","collectors")
                                 .peekOut("file"),
                         nettyGroup,
-                        dQueue,
                         Paths.storage().toString() )
                 .forEach( this::addFileCollector );
     }
@@ -84,7 +81,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
     private void addFileCollector( FileCollector fc ){
         Logger.info("Created "+fc.id());
         fileCollectors.put(fc.id().substring(3),fc); // remove the fc: from the front
-        dQueue.add( Datagram.system(fc.getSource()).writable(fc) ); // request the data
+        Core.addToQueue( Datagram.system(fc.getSource()).writable(fc) ); // request the data
     }
 
     /**
@@ -105,22 +102,23 @@ public class CollectorPool implements Commandable, CollectorFuture {
      * @return The created object
      */
     private FileCollector createFileCollector(String id ){
-        var fc = new FileCollector(id,"1m",nettyGroup,dQueue);
+        var fc = new FileCollector(id,"1m",nettyGroup);
         fileCollectors.put(id, fc);
         return fc;
     }
-    private String doFileCollectorCmd( String args, boolean html ) {
-        String[] cmds = args.split(",");
+
+    private String doFileCollectorCmd(Datagram d) {
+        String[] cmds = d.argList();
 
         if( cmds.length==1){
-            return singleArgCommands(cmds[0],html);
+            return singleArgCommands(cmds[0], d.asHtml());
         }else if( cmds[0].equalsIgnoreCase("addnew")||cmds[0].equalsIgnoreCase("add") ){
            return addNewCommand(cmds);
         }else{
             var fco = fileCollectors.get(cmds[0]);
             if( fco == null )
                 return "! Invalid id given: "+cmds[0];
-            return doGeneralCommands( cmds, fco );
+            return doGeneralCommands(d, fco);
         }
     }
     private String singleArgCommands(String cmd, boolean html){
@@ -184,7 +182,8 @@ public class CollectorPool implements Commandable, CollectorFuture {
         return "FileCollector " + cmds[1] + " created and added to xml.";
     }
     /* ********************************** G E N E R A L  C O M M A N D S ******************************************* */
-    private String doGeneralCommands( String[] cmds, FileCollector fco ){
+    private String doGeneralCommands(Datagram d, FileCollector fco) {
+        var cmds = d.argList();
 
         var fab = Paths.fabInSettings("collectors")
                     .selectOrAddChildAsParent("file", "id", fco.id());
@@ -240,6 +239,10 @@ public class CollectorPool implements Commandable, CollectorFuture {
             case "perms" -> {
                 fileCollectors.values().forEach(f -> FileTools.setAllPermissions(f.getPath().getParent()));
                 yield "Tried to alter permissions";
+            }
+            case "reqwritable" -> {
+                d.getWritable().giveObject("writable", fco.getWritable());
+                yield "Writable given";
             }
             default -> "! No such subcommand for fc:id : " + cmds[1];
         };

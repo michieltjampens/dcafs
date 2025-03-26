@@ -6,21 +6,24 @@ public interface Writable {
      * @param data The data to write
      * @return True if this was successful
      */
-    boolean writeString(String data);
+    default boolean writeString(String data) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
 
     /**
      * Write a line that has the eol appended
      * @param data The data to write
      * @return True if this was successful
      */
-    boolean writeLine(String data);
     boolean writeLine(String origin, String data);
     /**
      * Write the given data bytes
      * @param data The bytes to write
      * @return True if successful
      */
-    boolean writeBytes( byte[] data);
+    default boolean writeBytes(byte[] data) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
     /**
      * Get the id of the object implementing Writable
      * @return The (preferably unique) id for the implementing object
@@ -32,5 +35,11 @@ public interface Writable {
      */
     boolean isConnectionValid();
 
-    Writable getWritable();
+    default Writable getWritable() {
+        return this;
+    }
+
+    default boolean giveObject(String info, Object object) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
 }

@@ -11,6 +11,7 @@ import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLfab;
+import worker.Datagram;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -206,7 +207,7 @@ public class AdminCmds {
 
             // do wake up stuff
             if( tmCmd != null ){
-                tmCmd.replyToCommand("tm","run,*:wokeup",null,false);
+                tmCmd.replyToCommand(Datagram.system("tm", "run,*:wokeup"));
             }
         } catch (IOException | InterruptedException e) {
             Logger.error(e);

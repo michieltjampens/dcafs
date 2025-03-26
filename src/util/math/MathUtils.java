@@ -270,38 +270,9 @@ public class MathUtils {
      */
     public static Function<Double,Boolean> parseSingleCompareFunction( String op ){
         var comparePattern = Pattern.compile("[><=!][=]?");
-        String ori = op;
-        op=op.replace("->","-");
+        var ori = op;
 
-        // between 40 and 50
-        if( op.startsWith("between") ){
-            op=op.replace("between ",">");
-            op=op.replace(" and ", ";<");
-        }
-        if( op.startsWith("not between") ){
-            op=op.replace("not between ","<=");
-            op=op.replace(" and ", ";>=");
-        }
-        if( op.startsWith("from ") ){
-            op=op.replace("from ",">");
-            op=op.replace(" to ", ";<");
-            op=op.replace(" till ", ";<");
-        }
-        if( op.contains(" through ")){
-            op=op.replace(" through ", "<=$<=");
-        }
-        // 15 < x <= 25   or x <= 25
-        op = op.replace("not below ",">=");   // retain support for below
-        op = op.replace("not above ","<=");   // retain support for above
-        op = op.replace("at least ",">=");
-        op = op.replace("below ","<");   // retain support for below
-        op = op.replace("above ",">");   // retain support for above
-        op = op.replace("equals ","=="); // retain support for equals
-        op = op.replace("not ","!="); // retain support for not equals
-        op = op.replace("++","+=1");
-        op = op.replace("--","-=1");
-
-        op = op.replace(" ",""); // remove all spaces
+        op = mapExpressionToSymbols(op);
 
         // At this point it should no longer contain letters, they should all have been replaced
         if( Pattern.matches("",op)) {
@@ -340,6 +311,79 @@ public class MathUtils {
         return x -> fu1.apply(x) && fu2.apply(x);
     }
 
+    /**
+     * Replaces the string equivalent of the math compare symbols to the symbols fe. below -> <
+     *
+     * @param op The operation to convert
+     * @return The operation after conversion
+     */
+    public static String mapExpressionToSymbols(String op) {
+
+        op = op.replace("->", "-");
+
+        op = op.replace(" and ", " && ");
+        op = op.replace(" exor ", " !| ");
+        op = op.replace(" or ", " || ");
+
+        // between 40 and 50
+        if (op.startsWith("between")) {
+            op = op.replace("between ", ">");
+            op = op.replace(" and ", ";<");
+        }
+        if (op.startsWith("not between")) {
+            op = op.replace("not between ", "<=");
+            op = op.replace(" and ", ";>=");
+        }
+        if (op.startsWith("from ")) {
+            op = op.replace("from ", ">");
+            op = op.replace(" to ", ";<");
+            op = op.replace(" till ", ";<");
+        }
+        if (op.contains(" through ")) {
+            op = op.replace(" through ", "<=$<=");
+        }
+        // 15 < x <= 25   or x <= 25
+        op = op.replace("not below ", ">=");   // retain support for below
+        op = op.replace("not above ", "<=");   // retain support for above
+        op = op.replace("at least ", ">=");
+        op = op.replace("below ", "<");   // retain support for below
+        op = op.replace("above ", ">");   // retain support for above
+        op = op.replace("equals ", "=="); // retain support for equals
+        op = op.replace("not ", "!="); // retain support for not equals
+        op = op.replace("++", "+=1");
+        op = op.replace("--", "-=1");
+
+        // diff?
+        op = op.replace(" diff ", "~");
+
+        return op.replace(" ", "");
+    }
+
+    public static String replaceGeometricTerms(String formula) {
+        // Replace to enable geometric stuff?
+        formula = formula.replace("cos(", "1°(");
+        formula = formula.replace("cosd(", "1°(");
+        formula = formula.replace("cosr(", "2°(");
+
+        formula = formula.replace("sin(", "3°(");
+        formula = formula.replace("sind(", "3°(");
+        formula = formula.replace("sinr(", "4°(");
+        formula = formula.replace("abs(", "5°(");
+
+        // Remove unneeded brackets?
+        int dot = formula.indexOf("°(");
+        String cleanup;
+        while (dot != -1) {
+            cleanup = formula.substring(dot + 2); // Get the formula without found °(
+            int close = cleanup.indexOf(")"); // find a closing bracket
+            String content = cleanup.substring(0, close);// Get te content of the bracket
+            if (NumberUtils.isCreatable(content) || content.matches("i\\d+")) { // If it's just a number or index
+                formula = formula.replace("°(" + content + ")", "°" + content);
+            }
+            dot = cleanup.indexOf("°(");
+        }
+        return formula;
+    }
     /**
      * Convert the given fixed value and comparison to a function that requires another double and return if correct
      * @param fixed The fixed part of the comparison

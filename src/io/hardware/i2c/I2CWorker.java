@@ -22,20 +22,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 
 public class I2CWorker implements Commandable {
     private final HashMap<String, I2cDevice> devices = new HashMap<>();
     private final Path scriptsPath = Paths.storage().resolve("i2cscripts"); // Path to the scripts
     private final EventLoopGroup eventloop; // Executor to run the opsets
     private final RealtimeValues rtvals;
-    private final BlockingQueue<Datagram> dQueue;
     private final ArrayList<I2cBus> busses = new ArrayList<>();
 
-    public I2CWorker( EventLoopGroup eventloop, RealtimeValues rtvals, BlockingQueue<Datagram> dQueue) {
+    public I2CWorker( EventLoopGroup eventloop, RealtimeValues rtvals) {
         this.rtvals=rtvals;
         this.eventloop=eventloop;
-        this.dQueue=dQueue;
         readFromXML();
     }
     /* ************************* READ XML SETTINGS *******************************************/
@@ -65,7 +62,7 @@ public class I2CWorker implements Commandable {
                 if(i2c_bus.hasPeek("device")) {
                     for (var device : i2c_bus.digOut("device")) {
                         cnt++;
-                        var dev = new I2cOpper(device, bus, dQueue);
+                        var dev = new I2cOpper(device, bus);
                         loadSet(dev);
                         devices.put(dev.id(), dev);
                     }
@@ -73,7 +70,7 @@ public class I2CWorker implements Commandable {
                 }
                 for( var device : i2c_bus.digOut("uart")){
                     cnt++;
-                    var dev = new I2cUart( device,bus,dQueue);
+                    var dev = new I2cUart( device,bus);
                     devices.put(dev.id,dev);
                 }
             }
@@ -108,7 +105,7 @@ public class I2CWorker implements Commandable {
 
         var defOut = dig.attr("output","");
         for( var c : dig.digOut("i2cop")){
-            var set = new I2COpSet(c,rtvals,dQueue,device.id());
+            var set = new I2COpSet(c,rtvals,device.id());
             set.setOutputType(defOut);
             if( set.isInvalid()) {
                 Logger.error(device.id() + " (i2c) -> Failed to process " + script + "->" + set.id() + ", check logs.");
@@ -222,21 +219,22 @@ public class I2CWorker implements Commandable {
         return cnt!=0;
     }
     @Override
-    public String replyToCommand(String cmd, String args, Writable wr, boolean html) {
-        String[] cmds = args.split(",");
-        String cyan = html?"":TelnetCodes.TEXT_CYAN;
-        String gr=html?"":TelnetCodes.TEXT_GREEN;
-        String reg=html?"":TelnetCodes.TEXT_DEFAULT;
+    public String replyToCommand(Datagram d) {
 
-        var dev = devices.get(cmd);
+        String[] args = d.argList();
+        String cyan = d.asHtml() ? "" : TelnetCodes.TEXT_CYAN;
+        String gr = d.asHtml() ? "" : TelnetCodes.TEXT_GREEN;
+        String reg = d.asHtml() ? "" : TelnetCodes.TEXT_DEFAULT;
+
+        var dev = devices.get(d.cmd());
         if( dev instanceof I2cUart uart){
-            uart.writeLine(args);
-            return "Written '"+args+"' to "+cmd;
+            uart.writeLine("", d.args());
+            return "Written '" + d.args() + "' to " + d.cmd();
         }
 
-        switch (cmds[0]) {
+        switch (args[0]) {
             case "?" -> {
-                StringJoiner join = new StringJoiner(html ? "<br>" : "\r\n");
+                StringJoiner join = new StringJoiner(d.asHtml() ? "<br>" : "\r\n");
                 join.add(cyan + "Create/load devices/scripts" + reg)
                         .add(gr + "  i2c:detect,bus" + reg + " -> Detect the devices connected on the given bus")
                         .add(gr + "  i2c:adddevice,id,bus,address,scriptid" + reg + " -> Add a device on bus at hex address that uses script,"
@@ -262,14 +260,14 @@ public class I2CWorker implements Commandable {
                 return getListeners();
             }
             case "debug" -> {
-                if (cmds.length == 2) {
-                    setDebug(cmds[1].equalsIgnoreCase("on"));
-                    return "Debug " + cmds[1];
+                if (args.length == 2) {
+                    setDebug(args[1].equalsIgnoreCase("on"));
+                    return "Debug " + args[1];
                 }
                 return "! Incorrect number of variables: i2c:debug,on/off";
             }
             case "addscript" -> {
-                if (cmds.length != 2)
+                if (args.length != 2)
                     return "! Incorrect number of arguments: i2c:addscript,scriptid";
                 if (!Files.isDirectory(scriptsPath)) {
                     try {
@@ -278,16 +276,16 @@ public class I2CWorker implements Commandable {
                         Logger.error(e);
                     }
                 }
-                if( Files.exists(scriptsPath.resolve(cmds[1] + ".xml")))
+                if (Files.exists(scriptsPath.resolve(args[1] + ".xml")))
                     return "! Already a script with that name, try again?";
-                XMLfab.withRoot(scriptsPath.resolve(cmds[1] + ".xml"), "i2cscript").attr("id", cmds[1])
+                XMLfab.withRoot(scriptsPath.resolve(args[1] + ".xml"), "i2cscript").attr("id", args[1])
                         .addParentToRoot("i2cop", "An empty operation set to start with")
                         .attr("id", "setid").attr("info", "what this does").attr("bits","8")
                         .build();
                 return "Script added";
             }
             case "adddevice" -> {
-                if (cmds.length != 5)
+                if (args.length != 5)
                     return "! Incorrect number of arguments: i2c:adddevice,id,bus,hexaddress,scriptid";
                 if (!Files.isDirectory(scriptsPath)) {
                     try {
@@ -296,24 +294,24 @@ public class I2CWorker implements Commandable {
                         Logger.error(e);
                     }
                 }
-                var bus = getBus( NumberUtils.toInt(cmds[2]) );
-                var opper = new I2cOpper(cmds[1],bus,NumberUtils.createInteger(cmds[3]),cmds[4],dQueue);
+                var bus = getBus(NumberUtils.toInt(args[2]));
+                var opper = new I2cOpper(args[1], bus, NumberUtils.createInteger(args[3]), args[4]);
                 if( !opper.probeIt() )
-                    return "! Probing " + cmds[3] + " on bus " + cmds[2] + " failed";
+                    return "! Probing " + args[3] + " on bus " + args[2] + " failed";
 
-                devices.put(cmds[1],opper);
+                devices.put(args[1], opper);
 
                 var fab = Paths.fabInSettings("i2c");
-                fab.selectOrAddChildAsParent("bus","controller",cmds[2]);
-                fab.selectOrAddChildAsParent("device").attr("id",cmds[1]);
-                fab.addChild("address").content(cmds[3]);
-                fab.addChild("script").content(cmds[4]);
+                fab.selectOrAddChildAsParent("bus", "controller", args[2]);
+                fab.selectOrAddChildAsParent("device").attr("id", args[1]);
+                fab.addChild("address").content(args[3]);
+                fab.addChild("script").content(args[4]);
                 fab.build();
 
                 // Check if the script already exists, if not build it
-                var p = scriptsPath.resolve(cmds[4] + (cmds[4].endsWith(".xml")?"":".xml"));
+                var p = scriptsPath.resolve(args[4] + (args[4].endsWith(".xml") ? "" : ".xml"));
                 if (!Files.exists(p)) {
-                    XMLfab.withRoot(p, "i2cscript").attr("id", cmds[4])
+                    XMLfab.withRoot(p, "i2cscript").attr("id", args[4])
                             .addParentToRoot("i2cop", "An empty operation set to start with")
                             .attr("id", "setid").attr("info", "what this does")
                             .attr("bits","8")
@@ -325,8 +323,8 @@ public class I2CWorker implements Commandable {
                 return "Device added, using existing script";
             }
             case "detect" -> {
-                if (cmds.length == 2) {
-                    return I2CWorker.detectI2Cdevices(Integer.parseInt(cmds[1]));
+                if (args.length == 2) {
+                    return I2CWorker.detectI2Cdevices(Integer.parseInt(args[1]));
                 } else {
                     return "! Incorrect number of arguments: i2c:detect,bus";
                 }
@@ -343,58 +341,58 @@ public class I2CWorker implements Commandable {
                 return join.toString();
             }
             case "busreset" -> {
-                if (cmds.length == 2) {
-                    var bus = busses.get(Integer.parseInt(cmds[1]));
+                if (args.length == 2) {
+                    var bus = busses.get(Integer.parseInt(args[1]));
                     if( bus==null)
                         return "! Bus not in use.";
                     bus.reset();
-                    return "Bus "+cmds[1]+" object reset, this didn't do anything to the bus itself!";
+                    return "Bus " + args[1] + " object reset, this didn't do anything to the bus itself!";
                 } else {
                     return "! Incorrect number of arguments: i2c:busreset,bus";
                 }
             }
             case "" -> {
-                return removeWritable(wr)?"ok":"failed";
+                return removeWritable(d.getWritable()) ? "ok" : "failed";
             }
             default -> {
-                if (cmds.length == 1) { // single arguments points to a data request
+                if (args.length == 1) { // single arguments points to a data request
                     StringBuilder oks = new StringBuilder();
                     for (var device : devices.entrySet()) {
-                        if (device.getKey().matches(cmds[0])) {
-                            device.getValue().addTarget(wr);
+                        if (device.getKey().matches(args[0])) {
+                            device.getValue().addTarget(d.getWritable());
                             if (!oks.isEmpty())
                                 oks.append(", ");
                             oks.append(device.getKey());
                         }
                     }
                     if (!oks.isEmpty())
-                        return "Request from " + wr.id() + " accepted for i2c:" + oks;
+                        return "Request from " + d.originID() + " accepted for i2c:" + oks;
 
-                    Logger.error("! No matches for i2c:" + cmds[0] + " requested by " + wr.id());
-                    return "! No such subcommand in "+cmd+": "+args;
+                    Logger.error("! No matches for i2c:" + args[0] + " requested by " + d.originID());
+                    return "! No such subcommand in " + d.getData();
                 }
-                var device = devices.get(cmds[0]);
+                var device = devices.get(args[0]);
                 if( device == null)
-                    return "! No such device id: "+cmds[0];
-                if( cmds[1].equalsIgnoreCase("?") && device instanceof I2cOpper opper ) {
+                    return "! No such device id: " + args[0];
+                if (args[1].equalsIgnoreCase("?") && device instanceof I2cOpper opper) {
                     return opper.getOpsInfo(true);
                 }else if( device instanceof I2cUart uart ){
-                    return switch( cmds[1] ){
+                    return switch (args[1]) {
                         case "status" ->{
-                            uart.requestStatus(wr);
-                            yield "Status requested for "+cmds[0]+" (result should follow...)";
+                            uart.requestStatus(d.getWritable());
+                            yield "Status requested for " + args[0] + " (result should follow...)";
                         }
                         case "clock" -> {
-                            uart.writeLine(TimeTools.formatNow("HH:mm:ss.SSS"));
+                            uart.writeLine("", TimeTools.formatNow("HH:mm:ss.SSS"));
                             yield "Sending current time";
                         }
                         default -> {
-                            Logger.warn("No such subcmd yet: "+cmds[1]);
-                            yield "! No such subcmd yet: "+cmds[1];
+                            Logger.warn("No such subcmd yet: " + args[1]);
+                            yield "! No such subcmd yet: " + args[1];
                         }
                     };
                 }
-                return queueWork(cmds[0], ArrayUtils.remove(cmds,0) );
+                return queueWork(args[0], ArrayUtils.remove(args, 0));
             }
         }
     }

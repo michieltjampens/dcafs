@@ -1,6 +1,7 @@
 package io.stream.serialport;
 
 import com.fazecast.jSerialComm.*;
+import das.Core;
 import io.Writable;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -13,7 +14,6 @@ import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.time.Instant;
-import java.util.concurrent.BlockingQueue;
 
 /**
  * Variant of the StreamHandler class that is
@@ -26,8 +26,8 @@ public class SerialStream extends BaseStream implements Writable {
     int eolFound=0;
     byte[] eolBytes;
     ByteBuf buffer;
-    public SerialStream(BlockingQueue<Datagram> dQueue, Element stream) {
-        super(dQueue,stream);
+    public SerialStream(Element stream) {
+        super(stream);
     }
 
     protected String getType(){
@@ -191,8 +191,8 @@ public class SerialStream extends BaseStream implements Writable {
         }
 
         // Implement the use of labels
-        if( !label.isEmpty() && dQueue !=null ) { // No use adding to queue without label
-            dQueue.add( Datagram.build(msg).label(label).priority(priority).writable(this) );
+        if( !label.isEmpty() ) { // No use adding to queue without label
+            Core.addToQueue( Datagram.build(msg).label(label).priority(priority).writable(this) );
         }
 
         forwardData(msg);
@@ -289,16 +289,6 @@ public class SerialStream extends BaseStream implements Writable {
     }
 
     /* ************************************** W R I T I N G ************************************************************/
-    /**
-     * Sending data that will be appended by the default newline string.
-     * 
-     * @param message The data to send.
-     * @return True If nothing was wrong with the connection
-     */
-    @Override
-    public synchronized boolean writeLine(String message) {
-        return writeString(message + eol);
-    }
     @Override
     public synchronized boolean writeLine(String origin, String message) {
         if( addDataOrigin )
@@ -372,11 +362,6 @@ public class SerialStream extends BaseStream implements Writable {
         if (serialPort == null || serialPort.bytesAwaitingWrite()>8000)
             return false;
         return serialPort.isOpen();
-    }
-
-    @Override
-    public Writable getWritable() {
-        return this;
     }
 
     @Override

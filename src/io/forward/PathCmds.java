@@ -6,6 +6,7 @@ import org.tinylog.Logger;
 import util.data.StoreCmds;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
+import worker.Datagram;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,13 +19,14 @@ public class PathCmds {
 
     private static final String[] FILTERS = {"start","nostart","end","items","contain","c_start","c_end","minlength","maxlength","nmea","regex","math"};
 
-    public static String replyToCommand(String request, boolean html ){
+    public static String replyToCommand(Datagram d) {
 
-        var cmds= request.split(",");
-        String id = cmds[0];
+        var args = d.argList();
+
+        String id = args[0];
 
         if( id.equalsIgnoreCase("?"))
-            return getCmdHelp(html);
+            return getCmdHelp(d.asHtml());
 
         // Prepare the digger
         var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
@@ -36,10 +38,10 @@ public class PathCmds {
             return "! No paths yet";
 
         dig.digDown("path","id",id);
-        if (cmds[1].equalsIgnoreCase("new")
-                || cmds[1].equalsIgnoreCase("xml")) {
+        if (args[1].equalsIgnoreCase("new")
+                || args[1].equalsIgnoreCase("xml")) {
             if (dig.isInvalid())
-                return createPath(cmds, Paths.settings(), id);
+                return createPath(args, Paths.settings(), id);
             return "! Already a path with that id, pick something else?";
         }
         if (dig.isInvalid())
@@ -50,7 +52,7 @@ public class PathCmds {
         if( fabOpt.isEmpty())
             return "! No valid fab created";
 
-        return processCommand( cmds, request, dig, fabOpt.get() );
+        return processCommand(d, dig, fabOpt.get());
     }
     /* ***************************** H E L P *********************************************************** */
     private static String getCmdHelp(boolean html){
@@ -123,13 +125,15 @@ public class PathCmds {
         };
     }
     /* ************************************************************************************************* */
-    private static String processCommand( String[] cmds, String request, XMLdigger dig, XMLfab fab ){
-        return switch( cmds[1]) {
+    private static String processCommand(Datagram d, XMLdigger dig, XMLfab fab) {
+        var args = d.argList();
+
+        return switch (args[1]) {
             /* Commands that affect the path */
             case "delimiter", "delim" -> {
-                if (cmds.length < 3)
+                if (args.length < 3)
                     yield "! Not enough arguments: pf:id,delim/delimiter,newdelimiter";
-                var deli = cmds.length == 4 ? "," : cmds[2];
+                var deli = args.length == 4 ? "," : args[2];
                 fab.attr("delimiter", deli);
                 fab.build();
                 yield "Set the delimiter to '" + deli + "'";
@@ -140,9 +144,9 @@ public class PathCmds {
                 yield "Removed all steps";
             }
             case "delete" -> {
-                if( cmds.length < 3 || cmds[2].equals("all")){
+                if (args.length < 3 || args[2].equals("all")) {
                     fab.up();
-                    fab.removeChild("path", "id", cmds[0]);
+                    fab.removeChild("path", "id", args[0]);
                     fab.build();
                     yield "Deleted the path completely";
                 }else{
@@ -154,20 +158,20 @@ public class PathCmds {
                 }
             }
             case "src" -> {
-                if (cmds.length < 3)
+                if (args.length < 3)
                     yield "! Not enough arguments: pf:id,src,newsrc";
-                fab.attr("src", cmds[2])
+                fab.attr("src", args[2])
                         .build();
-                yield "Set the src to '" + cmds[2] + "'";
+                yield "Set the src to '" + args[2] + "'";
             }
             /* Commands to add a simple step at the end */
-            case "addif" -> addIfBranch( cmds, fab );
-            case "addfilter", "addf" -> addFilterBranch(cmds,dig,fab );
-            case "addeditor", "adde" -> addEditorBranch(cmds,request,dig,fab );
-            case "addmath", "addm" -> addMathBranch(cmds,dig,fab );
-            case "addcmd", "addc" -> addCmdBranch(cmds,dig,fab );
-            case "store" -> doStoreBranch(cmds);
-            default ->  "unknown command: pf:"+request;
+            case "addif" -> addIfBranch(args, fab);
+            case "addfilter", "addf" -> addFilterBranch(args, dig, fab);
+            case "addeditor", "adde" -> addEditorBranch(args, d.args(), dig, fab);
+            case "addmath", "addm" -> addMathBranch(args, dig, fab);
+            case "addcmd", "addc" -> addCmdBranch(args, dig, fab);
+            case "store" -> doStoreBranch(args);
+            default -> "unknown command: pf:" + String.join(",", args);
         };
     }
     private static String addIfBranch(String[] cmds, XMLfab fab){
@@ -252,14 +256,15 @@ public class PathCmds {
         fab.build();
         return "Filter added";
     }
-    private static String addEditorBranch( String[] cmds, String request, XMLdigger dig, XMLfab fab ){
-        if (cmds.length < 4)
+
+    private static String addEditorBranch(String[] args, String fullArg, XMLdigger dig, XMLfab fab) {
+        if (args.length < 4)
             return "! Not enough arguments: pf:id,addeditor,type,value";
 
         // Now get the value that can contain ,
-        int a = request.indexOf(cmds[2] + ",");
-        a += cmds[2].length() + 1;
-        var value = request.substring(a);
+        int a = fullArg.indexOf(args[2] + ",");
+        a += args[2].length() + 1;
+        var value = fullArg.substring(a);
 
         // fab is pointing at path node, needs to know if last item is an editor or not
         dig.digDown("*").toLastSibling();
@@ -273,7 +278,7 @@ public class PathCmds {
         } else {
             fab.addChild("editor").down();
         }
-        return EditorCmds.addEditor(fab, cmds[2], value);
+        return EditorCmds.addEditor(fab, args[2], value);
     }
     private static String addCmdBranch( String[] cmds, XMLdigger dig, XMLfab fab ){
         if (cmds.length < 3)

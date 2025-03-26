@@ -7,6 +7,13 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
+## 3.0.1 (wip)
+
+- Rewrote the taskmanager, functionality is the same for now. But now it's possible to add new things
+  in the future.
+- Refactored the commandable
+- Made dQueue static
+
 ## 3.0.0 (22/03/25)
 
 This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
