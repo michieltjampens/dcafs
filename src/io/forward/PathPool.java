@@ -8,13 +8,11 @@ import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.database.QueryWriting;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.util.HashMap;
@@ -38,53 +36,26 @@ public class PathPool implements Commandable {
      * Read the paths stored in the settings.xml and imported
      */
     public void readPathsFromXML(){
-        var xmlOpt = XMLtools.readXML(Paths.settings());
-        if( xmlOpt.isEmpty()) {
-            Logger.error("ForwardPool -> Failed to read xml at "+Paths.settings());
-            return;
-        }
 
         Logger.info("Loading paths...");
         // Reset the rtval stores
         clearStores();
 
         // From the paths section
-        XMLdigger.goIn(Paths.settings(),"dcafs","paths").peekOut("path").forEach(
-                pathEle -> {
+        XMLdigger.goIn(Paths.settings(), "dcafs", "paths").digOut("path").forEach(
+                pathDig -> {
                     PathForward path = new PathForward(rtvals,nettyGroup,qw);
-                    path.readFromXML( pathEle,Paths.settings().getParent() );
-                    var p = paths.get(path.id());
-                    if( p!=null) {
-                        p.lastTargets().forEach(path::addTarget); // Pass targets on to the new path
-                        p.getTargets().forEach(path::addTarget);
-                        p.stop();
-                        paths.remove(p.id());
+                    path.readFromXML(pathDig, Paths.storage());
+                    var oldPath = paths.get(path.id());
+                    if (oldPath != null) { //meaning it exists already
+                        oldPath.lastTargets().forEach(path::addTarget); // Pass targets on to the new path
+                        oldPath.getTargets().forEach(path::addTarget);
+                        oldPath.stop();
+                        paths.remove(oldPath.id());
                     }
                     paths.put(path.id(),path);
                 }
         );
-
-        // From the streams section
-        XMLdigger.goIn(Paths.settings(),"dcafs","streams").peekOut("stream").stream()
-                .filter( e -> XMLtools.hasChildByTag(e,"path")) // Only those with a path node
-                .map( e -> XMLtools.getFirstChildByTag(e,"path").get())
-                .forEach(
-                        pathEle -> {
-                            PathForward path = new PathForward(rtvals,nettyGroup,qw);
-                            var parentId = XMLtools.getStringAttribute((Element) pathEle.getParentNode(), "id", "");
-                            // The functionality to import a path, relies on an attribute while this will be a content instead but may be...
-                            if( !pathEle.hasAttribute("import")) {
-                                var importPath = pathEle.getTextContent();
-                                if (importPath.isEmpty()) {
-                                    Logger.error("Empty content in path node for " + parentId);
-                                    return;
-                                }
-                                pathEle.setAttribute("import", pathEle.getTextContent());
-                                pathEle.setTextContent("");
-                            }
-                            pathEle.setAttribute("src","raw:"+parentId);
-                            path.readFromXML(pathEle,Paths.settings().getParent());
-                        });
         Logger.info("Finished loading paths");
     }
     @Override
@@ -102,12 +73,12 @@ public class PathPool implements Commandable {
                         p.removeTarget(d.getWritable());
                     return "Remove received";
                 }else {
-                    var sp = d.argList();
-                    var p = paths.get(sp[0]);
+                    var args = d.argList();
+                    var p = paths.get(args[0]);
                     if (p == null)
                         return "No such path (yet): " + d.args();
-                    if( sp.length==2){
-                        p.addTarget(d.getWritable(), sp[1]);
+                    if (args.length == 2) {
+                        p.addTarget(d.getWritable(), args[1]);
                     }else{
                         p.addTarget(d.getWritable());
                     }
@@ -154,7 +125,7 @@ public class PathPool implements Commandable {
                 var dig = Paths.digInSettings("paths");
                 if ( !dig.hasPeek("path","id",args[0]))
                     return "! No such path " + args[0];
-                var result = paths.get(args[1]).readFromXML( dig.currentTrusted(), Paths.storage());
+                var result = paths.get(args[1]).readFromXML(dig, Paths.storage());
                 return result.isEmpty() ? "Path reloaded" : result;
             }
             case "clear" -> { // Clear the path node and reload
@@ -171,11 +142,10 @@ public class PathPool implements Commandable {
             case "list" -> { // Get a listing of all the steps in the path
                 String green = d.asHtml() ? "" : TelnetCodes.TEXT_GREEN;
                 String reg = d.asHtml() ? "" : TelnetCodes.TEXT_DEFAULT;
-                StringJoiner join = new StringJoiner(d.asHtml() ? "<br>" : "\r\n");
+                StringJoiner join = new StringJoiner(d.eol());
                 join.setEmptyValue("No paths yet");
-                paths.forEach((key, value) -> {
-                    String src = key + " src: " + value.src();
-                    join.add(green+ "Path: " + src + reg);//.add(value.toString()).add("");
+                paths.forEach((id, pf) -> {
+                    join.add(green + "Path: " + id + " src: " + pf.src() + reg);//.add(value.toString()).add("");
                 });
                 return join.toString();
             }
@@ -191,26 +161,18 @@ public class PathPool implements Commandable {
         var args = d.argList();
         var pf = paths.get(args[0]);
 
-        switch (args[1]) {
-            case "debug" -> {
-                return doDebugCmd(args, d.getWritable(), pf);
-            }
+        return switch (args[1]) {
+            case "debug" -> doDebugCmd(args, d.getWritable(), pf);
             case "reload" -> { // Reload the given path
                 var dig = Paths.digInSettings("paths");
                 if ( !dig.hasPeek("path","id",args[0]))
-                    return "! No such path " + args[0];
-                var result = paths.get(args[1]).readFromXML( dig.usePeek().currentTrusted(), Paths.storage() );
-                return result.isEmpty() ? "Path reloaded" : result;
+                    yield "! No such path " + args[0];
+                var result = paths.get(args[1]).readFromXML(dig.usePeek(), Paths.storage());
+                yield result.isEmpty() ? "Path reloaded" : result;
             }
-            case "list" -> {
-                return pf == null
-                            ? "! No such path: " + args[0]
-                        : "Path: " + pf.id() + (d.asHtml() ? "<br>" : "\r\n") + pf;
-            }
-            default -> {
-                return doRequest(d);
-            }
-        }
+            case "list" -> pf == null ? "! No such path: " + args[0] : "Path: " + pf.id() + d.eol() + pf;
+            default -> doRequest(d);
+        };
     }
     private String doDebugCmd( String[] args, Writable wr, PathForward pf){
         if (pf == null)
@@ -254,7 +216,7 @@ public class PathPool implements Commandable {
                 dig.usePeek();
                 if (!paths.containsKey(args[0])) // Exists in xml but not in map
                     paths.put( args[0], new PathForward(rtvals, nettyGroup, qw) );
-                var rep = paths.get(args[0]).readFromXML(dig.currentTrusted(), Paths.storage() );
+                var rep = paths.get(args[0]).readFromXML(dig, Paths.storage());
                 Core.addToQueue(Datagram.system("dbm","reloadstores"));
                 if (!rep.isEmpty() && !res.startsWith("Path ") && !res.startsWith("Set ")) // empty is good, starting means new so not full
                     res = rep;

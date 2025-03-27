@@ -6,6 +6,7 @@ import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
+
 import java.util.ArrayList;
 
 public class I2CAlter implements I2COp{
@@ -39,34 +40,34 @@ public class I2CAlter implements I2COp{
             case "xor" -> operand=OPERAND.XOR;
             default -> operand=OPERAND.NONE;
         }
-
-        if( operand==OPERAND.NONE ){ // Meaning childnodes?
-            for( var d : digger.digOut("*")){
-                if( d.value("+").equalsIgnoreCase("+")){
-                    Logger.error("(i2c) -> No value given in alter op node, aborting");
-                    ops.clear();
-                    return;
-                }
-                switch (d.tagName("")) {
-                    case "or" -> ops.add( new Operation(OPERAND.OR, d.value("0x00")) );
-                    case "not" -> ops.add( new Operation(OPERAND.NOT, d.value("0x00")) );
-                    case "and" -> ops.add( new Operation(OPERAND.AND, d.value("0x00")) );
-                    case "xor" -> ops.add( new Operation(OPERAND.XOR, d.value("0x00")) );
-                    default -> {
-                        Logger.error("(i2c) -> Alter wasn't given correct tag name: '"+d.tagName("")+"'");
-                        operand = OPERAND.NONE;
-                        ops.clear();
-                        return;
-                    }
-                }
-                if( !ops.get(ops.size()-1).correctLength(bits/8)) {
-                    Logger.error("(i2c) -> Not enough bytes in alter op for "+Integer.toHexString(reg)+"h, aborting.");
+        if (operand != OPERAND.NONE) {
+            ops.add(new Operation(operand, digger.value("0x00")));
+            return;
+        }
+        // Meaning childnodes?
+        for (var d : digger.digOut("*")) {
+            if (d.value("+").equalsIgnoreCase("+")) {
+                Logger.error("(i2c) -> No value given in alter op node, aborting");
+                ops.clear();
+                return;
+            }
+            switch (d.tagName("")) {
+                case "or" -> ops.add(new Operation(OPERAND.OR, d.value("0x00")));
+                case "not" -> ops.add(new Operation(OPERAND.NOT, d.value("0x00")));
+                case "and" -> ops.add(new Operation(OPERAND.AND, d.value("0x00")));
+                case "xor" -> ops.add(new Operation(OPERAND.XOR, d.value("0x00")));
+                default -> {
+                    Logger.error("(i2c) -> Alter wasn't given correct tag name: '" + d.tagName("") + "'");
+                    operand = OPERAND.NONE;
                     ops.clear();
                     return;
                 }
             }
-        }else{
-            ops.add(new Operation(operand, digger.value("0x00")));
+            if (!ops.get(ops.size() - 1).correctLength(bits / 8)) {
+                Logger.error("(i2c) -> Not enough bytes in alter op for " + Integer.toHexString(reg) + "h, aborting.");
+                ops.clear();
+                return;
+            }
         }
     }
     @Override
@@ -97,10 +98,11 @@ public class I2CAlter implements I2COp{
 
         if (device.inDebug())
             Logger.info(device.id() + "(i2c) -> After alter:" + Tools.fromBytesToHexString(rec));
+
         boolean changed=false;
-        for(int a=0;a<ori.length&&!changed;a++){
+        for (int a = 0; a < ori.length && !changed; a++)
             changed = ori[a] != rec[a];
-        }
+
         if( changed ) {
             rec = ArrayUtils.insert(0, rec, reg);   // Add the register at the front
             device.getDevice().writeBytes(rec);
@@ -115,7 +117,6 @@ public class I2CAlter implements I2COp{
         byte[] alter;
 
         Operation(OPERAND op, String value ){
-
             if( value.contains("0x")|| value.contains("h")){ // meaning hex
                 alter = Tools.fromHexStringToBytes( value );
             }else{ // binary?

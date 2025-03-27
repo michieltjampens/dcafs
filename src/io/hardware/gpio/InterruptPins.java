@@ -34,96 +34,122 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
         return board;
     }
     private void readFromXml(){
-        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","gpios");
-        if( dig.isValid() ){
-            for( var isrDig: dig.digOut("gpio")){
-                int pin = isrDig.attr("nr",-1);
-                PinInfo pinInfo;
-                if( pin == -1 ){
-                    var name = isrDig.attr("name","");
-                    pinInfo = board.getByName(name);
-                    if( pinInfo==null){
-                        Logger.error("Couldn't find math for pin name <"+name+">");
-                        continue;
-                    }else{
-                        Logger.info( "Matched "+name+" to "+pinInfo.getName());
-                    }
-                }else{
-                    pinInfo = board.getByGpioNumber(pin).orElse(null);
-                    if( pinInfo==null){
-                        Logger.error("Couldn't find math for pin nr "+pin);
-                        continue;
-                    }else{
-                        Logger.info( "Matched pin nr "+pin+" to "+pinInfo.getName());
-                    }
-                }
-                if( isrDig.hasPeek("interrupt") ) {
-                    isrDig.usePeek();
-                    GpioEventTrigger trigger = switch (isrDig.attr("edge", "falling")) {
-                        case "falling" -> GpioEventTrigger.FALLING;
-                        case "rising" -> GpioEventTrigger.RISING;
-                        case "both" -> GpioEventTrigger.BOTH;
-                        default -> GpioEventTrigger.NONE;
-                    };
-                    GpioPullUpDown pud = switch (isrDig.attr("pull", "none")) {
-                        case "up" -> GpioPullUpDown.PULL_UP;
-                        case "down" -> GpioPullUpDown.PULL_DOWN;
-                        default -> GpioPullUpDown.NONE;
-                    };
-                    var ic = addGPIO(pinInfo, trigger, pud);
+        var dig = Paths.digInSettings("gpios");
 
-                    if (ic.isPresent()) {
-                        if( isrDig.hasPeek("cmd")){
-                            var cmds = isrDig.digOut("cmd");
-                            var list = cmds.stream().map( cmd -> cmd.value("")).collect(Collectors.toSet());
-                            addIsrAction(pinInfo.getDeviceNumber(), new IsrCmd(list));
-                        }else {
-                            if( isrDig.hasPeek("counter") ) {
-                                var val = isrDig.peekAt("counter").value("");
-                                var intOpt = rtvals.getIntegerVal(val);
-                                if (intOpt.isPresent()) {
-                                    Logger.info("(isr) -> Added counting isr saving to "+val
-                                                        +" after interrupt on "+pinInfo.getDeviceNumber()+".");
-                                    addIsrAction(pinInfo.getDeviceNumber(), new IsrCounter(intOpt.get()));
-                                } else {
-                                    Logger.error("(isr) -> No such int yet '" + val + "'");
-                                }
-                            }
-                            if( isrDig.hasPeek("frequency") ){
-                                var samples = isrDig.peekAt("frequency").attr("samples",2);
-                                var updateRate = isrDig.attr("updaterate",1);
-                                var val = isrDig.value("");
+        if (!dig.isValid())
+            return;
 
-                                var realOpt = rtvals.getRealVal(val);
-                                if (realOpt.isPresent()) {
-                                    Logger.info("(isr) -> Added frequency isr saving to "+val
-                                                    +" after interrupt on "+pinInfo.getDeviceNumber()+".");
-                                    addIsrAction( pinInfo.getDeviceNumber(), new IsrFrequency(realOpt.get(), samples, updateRate) );
-                                } else {
-                                    Logger.error("(isr) -> No such real yet '" + val + "'");
-                                }
-                            }
-                            if( isrDig.hasPeek("period") ){
-                                if( trigger != GpioEventTrigger.BOTH){
-                                    Logger.error("(i2c) -> Period isr requires triggering on 'both' edges.");
-                                }else {
-                                    var idle = isrDig.peekAt("period").attr("idle", true);
-                                    var val = isrDig.value("");
-                                    var periodOpt = rtvals.getRealVal(val);
-                                    if (periodOpt.isEmpty()) {
-                                        Logger.error("(isr) -> No such real " + val + ".");
-                                    } else {
-                                        Logger.info("(isr) -> Added period isr saving to "+val+" with idle "+(idle?"high":"low"));
-                                        addIsrAction( pinInfo.getDeviceNumber(), new IsrPeriod(periodOpt.get(), idle) );
-                                    }
-                                }
-                            }
-                        }
-                    }
+        for (var isrDig : dig.digOut("gpio")) {
+            int pin = isrDig.attr("nr", -1);
+            PinInfo pinInfo;
+            if (pin == -1) {
+                var name = isrDig.attr("name", "");
+                pinInfo = board.getByName(name);
+                if (pinInfo == null) {
+                    Logger.error("Couldn't find math for pin name <" + name + ">");
+                    continue;
                 }
+                Logger.info("Matched " + name + " to " + pinInfo.getName());
+            } else {
+                pinInfo = board.getByGpioNumber(pin).orElse(null);
+                if (pinInfo == null) {
+                    Logger.error("Couldn't find math for pin nr " + pin);
+                    continue;
+                }
+                Logger.info("Matched pin nr " + pin + " to " + pinInfo.getName());
+            }
+
+            if (!isrDig.hasPeek("interrupt"))
+                continue;
+            isrDig.usePeek();
+
+            var trigger = initializeGpioTrigger(isrDig, pinInfo);
+            if (trigger == null)
+                return;
+
+            if (isrDig.hasPeek("cmd")) {
+                var list = isrDig.digOut("cmd").stream()
+                        .map(cmd -> cmd.value(""))
+                        .collect(Collectors.toSet());
+                addIsrAction(pinInfo.getDeviceNumber(), new IsrCmd(list));
+                continue;
+            }
+
+            peekAtCounter(isrDig, pinInfo);
+            peekAtFrequency(isrDig, pinInfo);
+            peekAtPeriod(isrDig, pinInfo, trigger);
+        }
+    }
+
+    private GpioEventTrigger initializeGpioTrigger(XMLdigger isrDig, PinInfo pinInfo) {
+        GpioEventTrigger trigger = switch (isrDig.attr("edge", "falling")) {
+            case "falling" -> GpioEventTrigger.FALLING;
+            case "rising" -> GpioEventTrigger.RISING;
+            case "both" -> GpioEventTrigger.BOTH;
+            default -> GpioEventTrigger.NONE;
+        };
+        GpioPullUpDown pud = switch (isrDig.attr("pull", "none")) {
+            case "up" -> GpioPullUpDown.PULL_UP;
+            case "down" -> GpioPullUpDown.PULL_DOWN;
+            default -> GpioPullUpDown.NONE;
+        };
+
+        if (addGPIO(pinInfo, trigger, pud).isEmpty())
+            return trigger;
+        return null;
+    }
+
+    private void peekAtCounter(XMLdigger isrDig, PinInfo pinInfo) {
+        if (!isrDig.hasPeek("counter"))
+            return;
+        var val = isrDig.value("");
+        var intOpt = rtvals.getIntegerVal(val);
+        if (intOpt.isPresent()) {
+            Logger.info("(isr) -> Added counting isr saving to " + val
+                    + " after interrupt on " + pinInfo.getDeviceNumber() + ".");
+            addIsrAction(pinInfo.getDeviceNumber(), new IsrCounter(intOpt.get()));
+        } else {
+            Logger.error("(isr) -> No such int yet '" + val + "'");
+        }
+    }
+
+    private void peekAtFrequency(XMLdigger isrDig, PinInfo pinInfo) {
+        if (!isrDig.hasPeek("frequency"))
+            return;
+
+        var samples = isrDig.attr("samples", 2);
+        var updateRate = isrDig.attr("updaterate", 1);
+        var val = isrDig.value("");
+
+        var realOpt = rtvals.getRealVal(val);
+        if (realOpt.isPresent()) {
+            Logger.info("(isr) -> Added frequency isr saving to " + val
+                    + " after interrupt on " + pinInfo.getDeviceNumber() + ".");
+            addIsrAction(pinInfo.getDeviceNumber(), new IsrFrequency(realOpt.get(), samples, updateRate));
+        } else {
+            Logger.error("(isr) -> No such real yet '" + val + "'");
+        }
+    }
+
+    private void peekAtPeriod(XMLdigger isrDig, PinInfo pinInfo, GpioEventTrigger trigger) {
+        if (!isrDig.hasPeek("period"))
+            return;
+
+        if (trigger != GpioEventTrigger.BOTH) {
+            Logger.error("(i2c) -> Period isr requires triggering on 'both' edges.");
+        } else {
+            var idle = isrDig.peekAt("period").attr("idle", true);
+            var val = isrDig.value("");
+            var periodOpt = rtvals.getRealVal(val);
+            if (periodOpt.isEmpty()) {
+                Logger.error("(isr) -> No such real " + val + ".");
+            } else {
+                Logger.info("(isr) -> Added period isr saving to " + val + " with idle " + (idle ? "high" : "low"));
+                addIsrAction(pinInfo.getDeviceNumber(), new IsrPeriod(periodOpt.get(), idle));
             }
         }
     }
+
     private void addIsrAction( int pin, IsrAction action ){
         var list = isrs.get(pin);
         if( list == null ) {
@@ -255,7 +281,8 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             }
         }
     }
-    private class IsrCmd implements IsrAction{
+
+    private static class IsrCmd implements IsrAction {
         ArrayList<String> cmds = new ArrayList<>();
 
         public IsrCmd( Set<String> list ){

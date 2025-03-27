@@ -40,7 +40,7 @@ public class PathForward {
     EventLoopGroup nettyGroup; // Threaded processing is done with this
 
     String id; // The id of the path
-    ArrayList<AbstractForward> stepsForward = new ArrayList<>(); // The steps to take in the path
+    private final ArrayList<AbstractForward> stepsForward = new ArrayList<>(); // The steps to take in the path
     Path workPath; // The path to the working folder of dcafs
 
     private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
@@ -64,7 +64,8 @@ public class PathForward {
     public String src(){
         return src;
     }
-    public String readFromXML( Element pathEle, Path workpath ){
+
+    public String readFromXML(XMLdigger dig, Path workpath) {
 
         // Reset things
         var oldTargets = new ArrayList<>(targets);
@@ -76,55 +77,53 @@ public class PathForward {
         // if any future is active, stop it
         customs.forEach(CustomSrc::stop);
 
-        if( stepsForward!=null && !stepsForward.isEmpty()) {// If this is a reload, reset the steps
+        if (!stepsForward.isEmpty()) {// If this is a reload, reset the steps
             stepsForward.forEach( step -> Core.addToQueue(Datagram.system("nothing").writable(step))); // stop asking for data
             stepsForward.forEach( AbstractForward::invalidate ); // Make sure these get removed as targets
             lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
         }
-        var dig = XMLdigger.goIn(pathEle);
+
         id = dig.attr("id","");
+        src = dig.attr("src", "");
         String delimiter = dig.attr("delimiter","");
-        this.src = dig.attr("src","");
 
         var importPathOpt = dig.attr("import",null,null);
-        if( importPathOpt.isPresent() ) {
+        if (importPathOpt.isPresent()) { // If present overwrite the digger
             var importPath = importPathOpt.get();
             if( !importPath.isAbsolute()) // If the path isn't absolute
                 importPath = workPath.resolve(importPath); // Make it so
+
             dig = XMLdigger.goIn(importPath,"dcafs","path");
-            if( dig.isValid() ){
-                if( id.isEmpty())
-                    id=dig.attr("id","");
-                delimiter=dig.attr("delimiter",delimiter);
-                Logger.info(id+"(pf) -> Valid path script found at "+importPath);
-            }else{
-                Logger.error(id+"(pf) -> No valid path script found: "+importPath);
-                error="No valid path script found: "+importPath;
-                String error = XMLtools.checkXML(importPath);
-                if( !error.isEmpty())
-                    Core.addToQueue(Datagram.system("telnet:error,PathForward: "+error));
+            if (!dig.isValid()) {
+                Logger.error(id + "(pf) -> No valid path script found: " + importPath);
+                error = "No valid path script found: " + importPath;
+                String xmlError = XMLtools.checkXML(importPath);
+                if (!xmlError.isEmpty())
+                    Core.addToQueue(Datagram.system("telnet:error,PathForward: " + error));
                 return error;
             }
+            // Using a new digger, so check id and delimiter that might not have been set
+            id = id.isEmpty() ? dig.attr("id", "") : id; // Earlier id has priority
+            delimiter = dig.attr("delimiter", delimiter); // This delimiter has priority
+            Logger.info(id + "(pf) -> Valid path script found at " + importPath);
         }
         var steps = dig.peekOut("*");
-        if(!steps.isEmpty()) {
-            stepsForward = new ArrayList<>();
-        }else{
+        if (steps.isEmpty()) {
             error = "No child nodes found";
             return error;
         }
+
         // If the step doesn't have a source and it's the first step
-        var stepSrc = XMLtools.getStringAttribute(steps.get(0), "src", "");
-        if (stepsForward.isEmpty() && stepSrc.isEmpty())
+        if (stepsForward.isEmpty() && XMLtools.getStringAttribute(steps.get(0), "src", "").isEmpty())
             steps.get(0).setAttribute("src", src);
 
         // Now process all the steps
         var validData = addSteps(steps, delimiter,null);
-
-        if( !oldTargets.isEmpty()&&!stepsForward.isEmpty()){ // Restore old requests
+        // Restore old requests
+        if (!oldTargets.isEmpty() && !stepsForward.isEmpty())
             oldTargets.forEach(this::addTarget);
-        }
+
         if (!lastStep().map(AbstractForward::noTargets).orElse(false) || validData)
             reloadSrc();
 
@@ -135,8 +134,8 @@ public class PathForward {
         valid=true;
         error="";
 
-        if( this.src.isEmpty() && customs.isEmpty()){
-            Logger.error(id()+" -> This path doesn't have a src!");
+        if (src.isEmpty() && customs.isEmpty()) {
+            Logger.error(id() + "(pf) -> This path doesn't have a src!");
         }
         return "";
     }
@@ -144,27 +143,26 @@ public class PathForward {
     public void reloadSrc() {
         if (customs.isEmpty()) { // If no custom sources
             if (stepsForward.isEmpty()) {
-                Logger.error(id + " -> No steps to take, this often means something went wrong processing it");
-            } else {
-                Core.addToQueue(Datagram.system("stop").writable(stepsForward.get(0)));
-                Core.addToQueue(Datagram.system(src).writable(stepsForward.get(0))); // Request it
+                Logger.error(id + "(pf) -> No steps to take, this often means something went wrong processing it");
+                return;
             }
-        } else {// If custom sources
-            if (!stepsForward.isEmpty()) { // and there are steps
-                targets.add(stepsForward.get(0));
-                customs.forEach(CustomSrc::start);
-            }
+            Core.addToQueue(Datagram.system("stop").writable(stepsForward.get(0)));
+            Core.addToQueue(Datagram.system(src).writable(stepsForward.get(0))); // Request it
+        } else if (!stepsForward.isEmpty()) { // and there are steps
+            targets.add(stepsForward.get(0));
+            customs.forEach(CustomSrc::start);
         }
     }
+
     private boolean addSteps( ArrayList<Element> steps, String delimiter, AbstractForward parent ){
         boolean reqData=false;
-        String prevTag = "";
 
+        String prevTag = "";
         for( Element step : steps ){
             var dig = XMLdigger.goIn(step);
             if(step.getTagName().endsWith("src")){
                 maxBufferSize = dig.attr("buffer",2500);
-                customs.add( new CustomSrc(step));
+                customs.add(new CustomSrc(step));
                 continue;
             }
             // If this step doesn't have a delimiter, alter it
@@ -179,7 +177,6 @@ public class PathForward {
                 }
             }
             parent = switch( step.getTagName() ){
-
                 case "case" -> {
                     FilterForward ff = new FilterForward(step);
                     // Now link to the source
@@ -243,8 +240,7 @@ public class PathForward {
         return child;
     }
     public void clearStores(){
-        if( stepsForward!=null)
-            stepsForward.forEach( x -> x.removeStoreVals(rtvals));
+        stepsForward.forEach(x -> x.removeStoreVals(rtvals));
     }
 
     public boolean isValid(){
@@ -254,7 +250,7 @@ public class PathForward {
     public String debugStep( String step, Writable wr ){
         var join = new StringJoiner(", ", "Request for ", " received");
         join.setEmptyValue("No such step");
-        boolean ok=false;
+        var ok = false;
         for( var sf : stepsForward ) {
             sf.removeTarget(wr);
             if( step.equals("*") || sf.id.equalsIgnoreCase(step)) {
@@ -280,6 +276,7 @@ public class PathForward {
 
         for( var ab : stepsForward )
             ab.removeTarget(wr);
+
         if( !customs.isEmpty() ){
             if( step == -1){
                 targets.add(wr);
@@ -297,32 +294,29 @@ public class PathForward {
         return "Request for "+s.getXmlChildTag()+":"+s.id+" received";
     }
     public Optional<AbstractForward> lastStep(){
-        if( stepsForward == null || stepsForward.isEmpty())
+        if (stepsForward.isEmpty())
             return Optional.empty();
         var step = stepsForward.get(stepsForward.size()-1);
         return Optional.ofNullable(step.getLastStep());
     }
 
     public ArrayList<Writable> lastTargets() {
-        var stepOpt = lastStep();
-        if (stepOpt.isEmpty())
-            return new ArrayList<>();
-        var step = stepOpt.get();
-        return step.targets;
+        return lastStep().map(af -> af.targets).orElse(new ArrayList<>());
     }
     public String toString(){
-        var join = new StringJoiner("\r\n");
-        if (customs.isEmpty() && stepsForward == null || stepsForward.isEmpty())
+        if (customs.isEmpty() && stepsForward.isEmpty())
             return "Nothing in the path yet";
 
+        var join = new StringJoiner("\r\n");
         customs.forEach(c->join.add(c.toString()));
-        if(stepsForward!=null) {
-            for (AbstractForward abstractForward : stepsForward) {
-                join.add("|-> " + abstractForward.toString()).add("");
-            }
-            if( !stepsForward.isEmpty() )
-                join.add( "=> gives the data from "+stepsForward.get(stepsForward.size()-1).id() );
-        }
+
+        if (stepsForward.isEmpty())
+            return join.toString();
+
+        for (var af : stepsForward)
+            join.add("|-> " + af.toString()).add("");
+
+        join.add("=> gives the data from " + stepsForward.get(stepsForward.size() - 1).id());
         return join.toString();
     }
     public ArrayList<Writable> getTargets(){
@@ -364,7 +358,7 @@ public class PathForward {
      * @param wr The writable to remove
      */
     public void removeTarget( Writable wr){
-        if( stepsForward==null||stepsForward.isEmpty() ) {
+        if (stepsForward.isEmpty()) {
             targets.remove(wr);// Stop giving data
         }else{
             for( var step : stepsForward )
@@ -390,19 +384,17 @@ public class PathForward {
         ScheduledFuture<?> future;
         ArrayList<String> buffer;
         ArrayList<Path> files;
-
         long lineCount=1;
         long sendLines=0;
         int multiLine=1;
-
         String label="";
-
         boolean readOnce=false;
-
         static long skipLines = 0; // How many lines to skip at the beginning of a file (fe to skip header)
+
         public CustomSrc( Element node){
             readFromElement(node);
         }
+
         public void readFromElement( Element sub ){
 
             var dig = XMLdigger.goIn(sub);

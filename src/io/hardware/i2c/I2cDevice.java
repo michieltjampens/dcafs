@@ -44,7 +44,7 @@ public class I2cDevice{
             Logger.warn(id+" (i2c) -> Invalid address given.");
         }
         if( id.isEmpty() || address==0 ) {
-            Logger.error("Tried to create i2c-uart, but no id nor address.");
+            Logger.error("(i2c) -> Tried to create i2c-uart, but no id nor address.");
             valid=false;
         }else{
             Logger.info("(i2c) -> Created "+id+" ("+Integer.toHexString(address)+") for controller "+bus.id());
@@ -169,22 +169,23 @@ public class I2cDevice{
         return Duration.between(timestamp,Instant.now()).getSeconds();
     }
     protected void forwardData( String message){
-        if( !targets.isEmpty() ){
-            try {
-                targets.parallelStream().forEach(dt -> {
-                    try {
-                        dt.writeLine(id,message);
-                    } catch (Exception e) {
-                        Logger.error(id + "(i2c) -> Something bad while writeLine to " + dt.id());
-                        Logger.error(e);
-                    }
-                });
-                targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
-            }catch(Exception e){
-                Logger.error(id+" -> Something bad in i2c port");
-                Logger.error(e);
-            }
+        Logger.tag("RAW").warn(id() + "\t" + message);
+        if (targets.isEmpty())
+            return;
+
+        try {
+            targets.parallelStream().forEach(dt -> {
+                try {
+                    dt.writeLine(id, message);
+                } catch (Exception e) {
+                    Logger.error(id + "(i2c) -> Something bad while writeLine to " + dt.id());
+                    Logger.error(e);
+                }
+            });
+            targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
+        } catch (Exception e) {
+            Logger.error(id + " -> Something bad in i2c port");
+            Logger.error(e);
         }
-        Logger.tag("RAW").warn( id() + "\t" + message );
     }
 }

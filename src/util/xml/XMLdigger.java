@@ -231,7 +231,7 @@ public class XMLdigger {
      * @param tag The tag to look for.
      * @return True if found.
      */
-    public boolean hasPeek(String tag ){
+    public boolean hasPeek(String tag) {
         peekAt(tag);
         peeked = hasValidPeek();
         return peeked;
@@ -579,7 +579,7 @@ public class XMLdigger {
             return false;
         if( peeked )
             return peek!=null && peek.hasAttribute(tag);
-        return  last.hasAttribute(tag);
+        return last.hasAttribute(tag);
     }
 
     /**

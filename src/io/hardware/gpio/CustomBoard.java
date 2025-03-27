@@ -67,9 +67,9 @@ public class CustomBoard extends GenericLinuxArmBoardInfo {
         }
     }
     protected static Collection<DeviceMode> parseModes(String modeValues) {
-        if (modeValues.isEmpty()) {
+        if (modeValues.isEmpty())
             return EnumSet.noneOf(DeviceMode.class);
-        }
+
         return Arrays.stream(Tools.splitList(modeValues)).map(mode -> DeviceMode.valueOf(mode.trim().toUpperCase()))
                 .collect(Collectors.toSet());
     }
@@ -79,20 +79,21 @@ public class CustomBoard extends GenericLinuxArmBoardInfo {
         join.add("Amount of mapped pins: "+getGpios().size() );
         for( var map :  getGpios().entrySet() ){
             var pin = getByName(map.getValue().getName());
-            if (pin!=null ) {
-                try( var device = DigitalInputDevice.Builder.builder(pin).build()) {
-                    var name = map.getValue().getName();
-                    if( name.isEmpty())
-                        name = device.getName();
-                    join.add("Nr: "+device.getGpio()+" -> Name:"+name+" State:"+(device.getValue()?"high":"low") );
-                }catch( com.diozero.api.NoSuchDeviceException e){
-                    Logger.error(e);
-                    join.add("Build failed: "+map.getKey()+" -> "+map.getValue().getName() );
-                }catch( com.diozero.api.DeviceAlreadyOpenedException d){
-                    join.add("In use: "+map.getKey()+" -> "+map.getValue().getName() );
-                }
-            }else{
-                join.add("Not found: "+map.getKey()+" -> "+map.getValue().getName());
+            if (pin == null) {
+                join.add("Not found: " + map.getKey() + " -> " + map.getValue().getName());
+                continue;
+            }
+
+            try (var device = DigitalInputDevice.Builder.builder(pin).build()) {
+                var name = map.getValue().getName();
+                if (name.isEmpty())
+                    name = device.getName();
+                join.add("Nr: " + device.getGpio() + " -> Name:" + name + " State:" + (device.getValue() ? "high" : "low"));
+            } catch (com.diozero.api.NoSuchDeviceException e) {
+                Logger.error(e);
+                join.add("Build failed: " + map.getKey() + " -> " + map.getValue().getName());
+            } catch (com.diozero.api.DeviceAlreadyOpenedException d) {
+                join.add("In use: " + map.getKey() + " -> " + map.getValue().getName());
             }
         }
         return join.toString();
