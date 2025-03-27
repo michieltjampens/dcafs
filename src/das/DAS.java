@@ -95,7 +95,7 @@ public class DAS implements Commandable{
             return;
         Logger.info("Program booting");
 
-        var digger = XMLdigger.goIn( Paths.settings(),"dcafs"); // Use digger to go through settings.xml
+        var digger = Paths.digInSettings(); // Use digger to go through settings.xml
 
         digForSettings( digger );   // Dig for the settings node
 
@@ -128,7 +128,7 @@ public class DAS implements Commandable{
         digForFileMonitor(digger);  // Add Filemonitor
         digForMatrix( digger );     // Add matrix
         addMqttPool();              // Add MQTT
-        addTaskManager();           // Add Taskmanagers
+        addTaskManagerPool();           // Add Taskmanagers
 
         /* Regular check if the system clock was changed */
         nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
@@ -144,11 +144,11 @@ public class DAS implements Commandable{
     }
     private void figureOutPaths(){
         // Determine working dir based on the classpath
-
-        tinylogPath = Paths.storage().toString();
         if( Files.exists(Paths.settings())){
             var digger = XMLdigger.goIn(Paths.settings(),"dcafs","settings");
             tinylogPath = digger.peekAt("tinylog").value(Paths.storage().toString());
+        } else {
+            tinylogPath = Paths.storage().toString();
         }
 
         System.out.println("Workpath lib: "+Paths.storage()); // System because logger isn't initiated yet
@@ -163,7 +163,7 @@ public class DAS implements Commandable{
     private boolean checkSettingsFile(){
         if (Files.notExists(Paths.settings())) { // Check if the settings.xml exists
             Logger.warn("No Settings.xml file found, creating new one. Searched path: "
-                    + Paths.settings().toFile().getAbsolutePath());
+                    + Paths.settings().toAbsolutePath());
             createXML(); // doesn't exist so create it
         }
 
@@ -180,14 +180,14 @@ public class DAS implements Commandable{
      */
     private void digForSettings( XMLdigger digger ){
         if( digger.hasPeek("settings") ){
-            digger.digDown("settings");
+            digger.usePeek();
             var age = digger.peekAt("maxrawage").value("1h");
             maxRawAge = TimeTools.parsePeriodStringToSeconds(age);
             if( maxRawAge==0){
                 Logger.error("Invalid maxrawage value: "+age+" defaulting to 1 hour.");
             }
             if( digger.hasPeek("statuscheck") ){
-                digger.digDown("statuscheck");
+                digger.usePeek();
                 var check = digger.peekAt("checkinterval").value("1h");
                 statusCheckInterval = TimeTools.parsePeriodStringToSeconds(check);
                 statusEmail = digger.peekAt("email").value(statusEmail);
@@ -250,13 +250,9 @@ public class DAS implements Commandable{
      * @param digger The digger for the settings file with dcafs root
      */
     private void digForCollectors( XMLdigger digger ) {
-        if (digger.hasPeek("collectors")) {
-            collectorPool = new CollectorPool( nettyGroup, rtvals);
-            addCommandable(collectorPool, "fc");
-            addCommandable(collectorPool, "mc");
-        } else {
-            Logger.info("No collectors defined in xml");
-        }
+        collectorPool = new CollectorPool(nettyGroup, rtvals);
+        addCommandable(collectorPool, "fc");
+        addCommandable(collectorPool, "mc");
     }
     /**
      * Check the digger for the GPIO/ISR node and process if found
@@ -322,11 +318,9 @@ public class DAS implements Commandable{
     /**
      * Create a TaskManager to handle tasklist scripts
      */
-    private void addTaskManager() {
-
+    private void addTaskManagerPool() {
         taskManagerPool = new TaskManagerPool(rtvals, nettyGroup);
         addCommandable(taskManagerPool, "tm");
-
     }
     /* ******************************************  S T R E A M P O O L ***********************************************/
     /**
@@ -334,16 +328,16 @@ public class DAS implements Commandable{
      */
     private void addStreamManager() {
 
-       streamManager = new StreamManager(nettyGroup,rtvals);
-       addCommandable(streamManager,"ss","streams"); // general commands
-       addCommandable(streamManager,"s_","h_");      // sending data to a stream
-       addCommandable(streamManager,"raw","stream"); // getting data from a stream
-       addCommandable(streamManager,""); // stop sending data
+        streamManager = new StreamManager(nettyGroup, rtvals);
+        addCommandable(streamManager, "ss", "streams"); // general commands
+        addCommandable(streamManager, "s_", "h_");      // sending data to a stream
+        addCommandable(streamManager, "raw", "stream"); // getting data from a stream
+        addCommandable(streamManager, ""); // stop sending data
 
-       streamManager.readSettingsFromXML();
+        streamManager.readSettingsFromXML();
         streamManager.getStreamIDs().map(id -> streamManager.getStream(id))
                 .flatMap(Optional::stream) // Only get the valid results
-                .filter(bs -> !(bs instanceof UdpServer))
+                .filter(bs -> !(bs instanceof UdpServer)) //Can't send data so ignore
                 .forEach(bs -> addCommandable(streamManager, bs.id()));
     }
     public Optional<Writable> getStreamWritable( String id ){

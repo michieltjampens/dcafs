@@ -24,7 +24,6 @@ import java.util.StringJoiner;
 public class CollectorPool implements Commandable, CollectorFuture {
 
     private final Map<String, FileCollector> fileCollectors = new HashMap<>();
-
     private final EventLoopGroup nettyGroup;
     private final RealtimeValues rtvals;
 
@@ -45,9 +44,6 @@ public class CollectorPool implements Commandable, CollectorFuture {
             default -> "Wrong commandable...";
         };
     }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
-    }
 
     public void flushAll(){
         fileCollectors.values().forEach(FileCollector::flushNow);
@@ -67,8 +63,8 @@ public class CollectorPool implements Commandable, CollectorFuture {
     private void loadFileCollectors(){
         fileCollectors.clear();
         FileCollector.createFromXml(
-                        XMLdigger.goIn(Paths.storage().resolve("settings.xml"),"dcafs","collectors")
-                                .peekOut("file"),
+                        Paths.digInSettings("collectors")
+                                .digOut("file"),
                         nettyGroup,
                         Paths.storage().toString() )
                 .forEach( this::addFileCollector );
@@ -108,28 +104,29 @@ public class CollectorPool implements Commandable, CollectorFuture {
     }
 
     private String doFileCollectorCmd(Datagram d) {
-        String[] cmds = d.argList();
+        String[] args = d.argList();
 
-        if( cmds.length==1){
-            return singleArgCommands(cmds[0], d.asHtml());
-        }else if( cmds[0].equalsIgnoreCase("addnew")||cmds[0].equalsIgnoreCase("add") ){
-           return addNewCommand(cmds);
+        if (args.length == 1) {
+            return singleArgCommands(args[0], d.asHtml());
+        } else if (args[0].equalsIgnoreCase("addnew") || args[0].equalsIgnoreCase("add")) {
+            return addNewCommand(args);
         }else{
-            var fco = fileCollectors.get(cmds[0]);
+            var fco = fileCollectors.get(args[0]);
             if( fco == null )
-                return "! Invalid id given: "+cmds[0];
+                return "! Invalid id given: " + args[0];
             return doGeneralCommands(d, fco);
         }
     }
-    private String singleArgCommands(String cmd, boolean html){
-        return switch (cmd) {
+
+    private String singleArgCommands(String arg, boolean html) {
+        return switch (arg) {
             case "?" -> getHelp(html);
             case "reload" -> {
                 loadFileCollectors();
                 yield "Reloaded all filecollectors";
             }
             case "list" -> getFileCollectorsList(html ? "<br" : "\r\n");
-            default -> "! No such subcommand in fc : "+cmd;
+            default -> "! No such subcommand in fc : " + arg;
         };
     }
 
@@ -138,7 +135,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
      * @param html Whether to format it in html or not (and thus telnet)
      * @return The formatted help info
      */
-    private String getHelp(boolean html){
+    private static String getHelp(boolean html) {
         StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
         join.add( "The FileCollectors store data from sources in files with custom headers and optional rollover.");
         join.add( "Create/Reload the FileCollector" )
@@ -171,7 +168,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
         if (cmds.length < 4)
             return "! Not enough arguments given: fc:addnew,id,src,path";
 
-        FileCollector.addBlankToXML(XMLfab.withRoot(Paths.settings(), "dcafs"), cmds[1], cmds[2], cmds[3]);
+        FileCollector.addBlankToXML(Paths.fabInSettings(""), cmds[1], cmds[2], cmds[3]);
         var fc = createFileCollector(cmds[1]);
         fc.addSource(cmds[2]);
         if (Path.of(cmds[3]).isAbsolute()) {
@@ -183,51 +180,51 @@ public class CollectorPool implements Commandable, CollectorFuture {
     }
     /* ********************************** G E N E R A L  C O M M A N D S ******************************************* */
     private String doGeneralCommands(Datagram d, FileCollector fco) {
-        var cmds = d.argList();
+        var args = d.argList();
 
         var fab = Paths.fabInSettings("collectors")
                     .selectOrAddChildAsParent("file", "id", fco.id());
 
-        return switch (cmds[1]) {
-            case "addrollover" ->  doRollOverCmd( fco,cmds,Paths.settings() );
+        return switch (args[1]) {
+            case "addrollover" -> doRollOverCmd(fco, args, Paths.settings());
             case "addheader" -> {
-                if (cmds.length < 3)
-                    yield "! Wrong amount of arguments -> fc:addheader,id,header";
+                if (args.length < 3)
+                    yield "! Wrong amount of arguments -> fc:id,addheader,header";
                 fco.flushNow();
-                fco.addHeaderLine(cmds[2]);
-                fab.addChild("header", cmds[2]).build();
+                fco.addHeaderLine(args[2]);
+                fab.addChild("header", args[2]).build();
                 yield "Header line added to " + fco.id();
             }
-            case "addcmd" -> doAddcmdCmd( fco, cmds, fab );
+            case "addcmd" -> doAddcmdCmd(fco, args, fab);
             case "addsizelimit" -> {
-                if (cmds.length != 4)
+                if (args.length != 4)
                     yield "! Wrong amount of arguments -> fc:id,addsizelimit,size,zip?";
-                fco.setMaxFileSize(cmds[2], Tools.parseBool(cmds[3], false));
-                fab.addChild("sizelimit", cmds[2]).attr("zip", cmds[3]).build();
+                fco.setMaxFileSize(args[2], Tools.parseBool(args[3], false));
+                fab.addChild("sizelimit", args[2]).attr("zip", args[3]).build();
                 yield "Size limit added to " + fco.id();
             }
             case "path" -> {
-                fco.setPath(Path.of(cmds[2]), Paths.storage().toString());
-                fab.alterChild("path", cmds[2]).build();
+                fco.setPath(Path.of(args[2]), Paths.storage().toString());
+                fab.alterChild("path", args[2]).build();
                 yield "Altered the path";
             }
             case "sizelimit" -> {
-                fco.setMaxFileSize(cmds[2]);
-                fab.alterChild("sizelimit", cmds[2]).build();
-                yield "Altered the size limit to " + cmds[2];
+                fco.setMaxFileSize(args[2]);
+                fab.alterChild("sizelimit", args[2]).build();
+                yield "Altered the size limit to " + args[2];
             }
             case "eol" -> {
-                fco.setLineSeparator(Tools.fromEscapedStringToBytes(cmds[2]));
-                yield alterAttribute(fab,cmds[1],cmds[2]);
+                fco.setEol(Tools.fromEscapedStringToBytes(args[2]));
+                yield alterAttribute(fab, args[1], args[2]);
             }
-            case "charset" -> alterAttribute(fab,cmds[1],cmds[2]);
+            case "charset" -> alterAttribute(fab, args[1], args[2]);
             case "src" -> {
-                fco.addSource(cmds[2]);
-                yield alterAttribute(fab,cmds[1],cmds[2]);
+                fco.addSource(args[2]);
+                yield alterAttribute(fab, args[1], args[2]);
             }
             case "reload" -> {
                 var opt = XMLfab.withRoot(Paths.settings(), "dcafs", "collectors")
-                        .getChild("file", "id", cmds[1]);
+                        .getChild("file", "id", args[1]);
 
                 if( opt.isEmpty() )
                     yield "! Couldn't find file";
@@ -244,12 +241,12 @@ public class CollectorPool implements Commandable, CollectorFuture {
                 d.getWritable().giveObject("writable", fco.getWritable());
                 yield "Writable given";
             }
-            default -> "! No such subcommand for fc:id : " + cmds[1];
+            default -> "! No such subcommand for fc:id : " + args[1];
         };
     }
     private String alterAttribute( XMLfab fab, String attr, String value){
         fab.attr( attr,value).build();
-        return "Attribute "+ attr+" altered to " + value;
+        return "Attribute " + attr + " altered to " + value;
     }
     private String doRollOverCmd( FileCollector fco, String[] cmds, Path settingsPath ){
         if (cmds.length < 6)
@@ -271,10 +268,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
         if (!cmds[2].contains(":"))
             return "! No valid trigger:cmd pair in: " + cmds[2];
 
-        String[] sub = {"", ""};
-        sub[0] = cmds[2].substring(0, cmds[2].indexOf(":"));
-        sub[1] = cmds[2].substring(sub[0].length() + 1);
-
+        String[] sub = cmds[2].split(":", 2);
         if (fc.addTriggerCommand(sub[0], sub[1])) {
             fab.addChild("cmd", sub[1]).attr("trigger", sub[0]).build();
             return "Triggered command added to " + fc.id();

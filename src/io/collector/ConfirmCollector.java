@@ -86,7 +86,7 @@ public class ConfirmCollector extends AbstractCollector {
     public String getStored(){
         StringJoiner join = new StringJoiner("\r\n");
         int a=0;
-        for(Confirm c : confirms ){
+        for (Confirm c : confirms) {
             join.add( a+") "+c.msg +" -> "+c.reply);
             a++;
         }

@@ -9,8 +9,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
 import java.nio.file.*;
+import java.nio.file.FileSystem;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
@@ -240,24 +240,26 @@ public class FileTools {
      * @param filePath The path to the file to zip
      * @return The absolute path of the resulting file or null if something failed
      */
-	public static Path zipFile( Path filePath ) {
+    public static Optional<Path> zipFile(Path filePath, boolean deleteOriginal) {
 
         if(Files.notExists(filePath) )
-            return null;
+            return Optional.empty();
         try (ZipOutputStream zos = new ZipOutputStream( new FileOutputStream(filePath+".zip") ) ) {
             zos.putNextEntry(new ZipEntry(filePath.getFileName().toString()));                                               
             zos.write( Files.readAllBytes(filePath), 0, (int)Files.size(filePath));
             zos.closeEntry();
             Logger.debug("Created ZIP: "+filePath.getFileName()+".zip");
+            if (deleteOriginal)
+                Files.deleteIfExists(filePath);
             if(filePath.getParent()!=null)
-                return Path.of( filePath.getParent().toString(),filePath.getFileName()+".zip").toAbsolutePath();
-            return Path.of( filePath.getFileName()+".zip").toAbsolutePath();
+                return Optional.of(Path.of(filePath.getParent().toString(), filePath.getFileName() + ".zip").toAbsolutePath());
+            return Optional.of(Path.of(filePath.getFileName() + ".zip").toAbsolutePath());
         } catch (FileNotFoundException ex) {
             Logger.error("The file %s does not exist", filePath);
-            return null;
+            return Optional.empty();
         } catch (NullPointerException |  IOException e) {
             Logger.error(e);
-            return null;
+            return Optional.empty();
         }
     }
     /**

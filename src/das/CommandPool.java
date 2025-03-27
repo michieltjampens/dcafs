@@ -41,7 +41,6 @@ public class CommandPool {
 			if( !stopCommandable.contains(cmdbl))
 				stopCommandable.add(cmdbl);
 		}else{
-			// No use in having repeated commandables, if the commandable is already in the map, add the id to the key
 			var old = commandables.get(id);
 			if (old == null) {
 				commandables.put(id, cmdbl);
@@ -66,7 +65,7 @@ public class CommandPool {
 	/* ************************************ * R E S P O N S E *************************************************/
 
 	/**
-	 * When the result of the datagram should be send to an email
+	 * When the result of the datagram should be sent to an email
 	 * @param d The datagram to process
 	 */
 	public void emailResponse( Datagram d ) {
@@ -89,7 +88,7 @@ public class CommandPool {
 			sendEmail.sendEmail(Email.toAdminAbout("DCAFSbot").content("Received '" + d.getData() + "' command from " + d.originID()));
 		}
 		/* Processing of the question */
-		d.setData( d.getData().toLowerCase());
+		d.setData(d.getData().toLowerCase());
 
 		/* Writable is in case the question is for realtime received data */
 		String response = executeCommand(d, false);
@@ -146,7 +145,7 @@ public class CommandPool {
 		if (!d.asHtml() && wr.id().startsWith("telnet") && result.length() < 150)
 			result = (result.startsWith("!")?TelnetCodes.TEXT_ORANGE:TelnetCodes.TEXT_GREEN)+result+TelnetCodes.TEXT_DEFAULT;
 
-		return result + (d.asHtml() ? "<br>" : "\r\n");
+		return result + d.eol();
 	}
 
 	private String findCommand(Datagram d) {
@@ -263,7 +262,6 @@ public class CommandPool {
 	 * @return The answer
 	 */
 	private String checkTaskManagers(Datagram d) {
-		var nl = d.asHtml() ? "<br>" : "\r\n";
 		var tmId = d.cmd();
 		var taskId = d.args();
 
@@ -274,7 +272,7 @@ public class CommandPool {
 		}
 		Datagram tmDg = Datagram.system("tm", "").writable(d.getWritable());
 		String res = switch (taskId) {
-			case "?", "list" -> tmCmd.replyToCommand(tmDg.args(tmId + ",sets")) + nl
+			case "?", "list" -> tmCmd.replyToCommand(tmDg.args(tmId + ",sets")) + d.eol()
 					+ tmCmd.replyToCommand(tmDg.args(tmId + ",tasks"));
 			case "reload" -> tmCmd.replyToCommand(tmDg.args(tmId + ",reload"));
 			default -> tmCmd.replyToCommand(tmDg.args(tmId + ",run," + taskId));
@@ -474,7 +472,7 @@ public class CommandPool {
 	 * @param eol The eol to use
 	 * @return Content of the help.txt or 'No telnetHelp.txt found' if not found
 	 */
-	private String doHelp(String arg, String eol) {
+	private static String doHelp(String arg, String eol) {
 
 		StringJoiner join = new StringJoiner(eol,"",eol);
 		join.setEmptyValue(UNKNOWN_CMD);
@@ -519,6 +517,4 @@ public class CommandPool {
 		}
 		return join.toString();
 	}
-
-
 }

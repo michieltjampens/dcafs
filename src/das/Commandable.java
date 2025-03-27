@@ -15,7 +15,7 @@ public interface Commandable {
      * @param wr The writable to remove.
      * @return The result of trying to remove, true means ok.
      */
-    boolean removeWritable( Writable wr);
+    boolean removeWritable(Writable wr);
     /*
      * Implementation info
      * -> If the amount of args are wrong return: "! Wrong amount of arguments -> <proper cmd>"

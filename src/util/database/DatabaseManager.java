@@ -653,12 +653,10 @@ public class DatabaseManager implements QueryWriting, Commandable {
                     // zip it?
                     var dump = Paths.storage().resolve(cmds[2]);
                     if (Files.exists( dump )) {
-                        if (FileTools.zipFile(dump) == null) {
+                        if (FileTools.zipFile(dump, true).isEmpty()) {
                             Logger.error("Dump of " + cmds[1] + " created, but zip failed");
                             yield "! Dump created, failed zipping.";
                         }
-                        // Delete the original file
-                        Files.deleteIfExists(dump);
                     } else {
                         Logger.error("Dump of " + cmds[1] + " failed.");
                         yield "! No file created...";

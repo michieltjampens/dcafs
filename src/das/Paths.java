@@ -3,6 +3,7 @@ package das;
 import org.apache.commons.lang3.SystemUtils;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
+
 import java.nio.file.Path;
 
 public class Paths {
@@ -46,10 +47,16 @@ public class Paths {
     public static Path settings(){
         return SETTINGS_XML_PATH;
     }
+
+    public static XMLdigger digInSettings() {
+        return XMLdigger.goIn(Paths.settings(), "dcafs");
+    }
     public static XMLdigger digInSettings( String sub ){
         return XMLdigger.goIn(Paths.settings(),"dcafs",sub);
     }
     public static XMLfab fabInSettings( String sub ){
+        if (sub.isEmpty())
+            return XMLfab.withRoot(Paths.settings(), "dcafs");
         return XMLfab.withRoot(Paths.settings(),"dcafs",sub);
     }
 

@@ -74,15 +74,6 @@ public abstract class AbstractCollector implements Writable {
     public boolean isConnectionValid() {
         return valid;
     }
-    @Override
-    public Writable getWritable() {
-        return this;
-    }
-
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
-    }
     /* *********************** TIME OUT *******************************************/
     /**
      * Set a timeout for this collector, so it won't gather/wait indefinitely
@@ -93,13 +84,6 @@ public abstract class AbstractCollector implements Writable {
     public void withTimeOut(String timeoutPeriod, ScheduledExecutorService scheduler ){
         secondsTimeout = TimeTools.parsePeriodStringToSeconds(timeoutPeriod);
         Logger.tag("TASK").debug(id+" -> Collector started with timeout of "+secondsTimeout+"s");
-        timeoutFuture = scheduler.schedule(new TimeOut(), secondsTimeout, TimeUnit.SECONDS );
-    }
-
-    protected class TimeOut implements Runnable{
-        @Override
-        public void run() {
-            timedOut();
-        }
+        timeoutFuture = scheduler.schedule(this::timedOut, secondsTimeout, TimeUnit.SECONDS);
     }
 }

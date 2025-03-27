@@ -3,19 +3,18 @@ package worker;
 import io.Writable;
 
 /**
- * Simple storage class that holds the raw data before processing
+ * Simple storage class that holds a command and optional extras
  */
 public class Datagram {
 
-    //String data;             // The received data
-    String cmd;
-    String args;
+    String cmd;              // The command grouo
+    String args;             // The arguments for the command
     int priority = 1;        // The priority of the data source
     String label="";         // The label of the data source
     String originID ="";     // ID of the origin of the message
-    Writable writable;       //
-    Object payload;          //
-    boolean silent = true;
+    Writable writable;       // Writable of the sender
+    Object payload;          // Optional payload in the message
+    boolean silent = true;   // Whether feedback is given
 
     public Datagram(String data){
         var spl = data.split(":", 2);
@@ -33,17 +32,21 @@ public class Datagram {
     }
 
     public String originID() {
+        if (originID.isEmpty() && writable != null)
+            return writable.id();
         return originID;
     }
 
+    /* Cmd */
     public String cmd() {
         return cmd;
     }
-
     public Datagram cmd(String cmd) {
         this.cmd = cmd;
         return this;
     }
+
+    /* Args */
     public String args() {
         return args;
     }
@@ -57,6 +60,7 @@ public class Datagram {
         return this;
     }
 
+    /* Combined cmd and args */
     public String getData(){
         return cmd + ":" + args;
     }
@@ -65,28 +69,28 @@ public class Datagram {
         cmd = spl[0];
         args = spl.length == 2 ? spl[1] : "";
     }
+
+    /* Other stuff */
     public String getLabel(){ return label.toLowerCase(); }
     public boolean isSilent(){ return silent;}
-
 
     /* ***************************** Fluid API ******************************************* */
     public static Datagram build(String message){
         return new Datagram(message);
     }
-    public static Datagram build(byte[] message){
+
+    public static Datagram build(byte[] message) {
         return new Datagram(new String(message));
     }
-
     public static Datagram build(String cmd, String args) {
         return new Datagram(cmd, args);
     }
-
     public static Datagram system(String message){
-        return Datagram.build(message).label("system");
+        return Datagram.build(message).label("cmd");
     }
 
     public static Datagram system(String cmd, String args) {
-        return Datagram.build(cmd, args).label("system");
+        return Datagram.build(cmd, args).label("cmd");
     }
     public Datagram label(String label){
         this.label=label;
@@ -103,8 +107,6 @@ public class Datagram {
      */
     public Datagram writable(Writable writable){
         this.writable=writable;
-        if(originID.isEmpty())
-            this.originID=writable.id();
         return this;
     }
     public Datagram origin( String origin ){
@@ -124,7 +126,7 @@ public class Datagram {
     }
 
     public boolean asHtml() {
-        return writable != null && (writable.id().contains("matrix") || writable.id().startsWith("file:"));
+        return writable != null && (writable.id().contains("matrix") || writable.id().startsWith("email:"));
     }
 
     public String eol() {

@@ -3,7 +3,6 @@ package io.collector;
 import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -14,7 +13,6 @@ import worker.Datagram;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -26,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.*;
 
@@ -37,7 +36,7 @@ public class FileCollector extends AbstractCollector{
 
     private int byteCount=0;
     private Path destPath;
-    private String lineSeparator = System.lineSeparator();
+    private String eol = System.lineSeparator();
     private final ArrayList<String> headers= new ArrayList<>();
     private final Charset charSet = StandardCharsets.UTF_8;
     private int batchSize = 10;
@@ -94,19 +93,18 @@ public class FileCollector extends AbstractCollector{
     }
     /**
      * Read the elements and build the FileCollectors based on the content
-     * @param fcEles The filecollector elements
+     * @param fcDigs The filecollector xmldiggers
      * @param scheduler A Scheduler used for timeouts, writes etc
      * @param workpath The current workpath
      * @return A list of the found filecollectors
      */
-    public static List<FileCollector> createFromXml(List<Element> fcEles, ScheduledExecutorService scheduler, String workpath ) {
+    public static List<FileCollector> createFromXml(List<XMLdigger> fcDigs, ScheduledExecutorService scheduler, String workpath) {
         var fcs = new ArrayList<FileCollector>();
         if( scheduler==null){
             Logger.error("Need a valid scheduler to use FileCollectors");
             return fcs;
         }
-        for( Element fcEle : fcEles ) {
-            var dig = XMLdigger.goIn(fcEle);
+        for (var dig : fcDigs) {
             String id = dig.attr("id", "");
             if( id.isEmpty() )
                 continue;
@@ -144,14 +142,16 @@ public class FileCollector extends AbstractCollector{
         /* Size limit */
         trigCmds.clear();
         if( dig.hasPeek("sizelimit") ){
+            dig.usePeek();
             boolean zip = dig.attr("zip",false);
             var size = dig.value("");
             if( !size.isEmpty())
                 setMaxFileSize(size.toLowerCase(),zip);
+            dig.goUp();
         }
 
         /* Changing defaults */
-        setLineSeparator( Tools.fromEscapedStringToBytes( dig.attr("eol",System.lineSeparator())) );
+        setEol(Tools.fromEscapedStringToBytes(dig.attr("eol", System.lineSeparator())));
 
         /* Triggered */
         dig.digOut("cmd").forEach( cmd -> {
@@ -170,7 +170,7 @@ public class FileCollector extends AbstractCollector{
      * @param dig The digger to look into
      */
     private void digForFlush( XMLdigger dig ){
-        if(  dig.hasPeek("flush") ){
+        if (dig.hasPeek("flush")) {
             dig.usePeek();
             setBatchsize( dig.attr("batchsize",Integer.MAX_VALUE));
             if( scheduler != null ) {
@@ -184,6 +184,7 @@ public class FileCollector extends AbstractCollector{
     }
     private void digForRollover( XMLdigger dig ){
         if( dig.hasPeek("rollover")){
+            dig.usePeek();
             String period = dig.attr("period","").toLowerCase();
             var rollCount = NumberUtils.toInt(period.replaceAll("\\D",""));
             var unit = period.replaceAll("[^a-z]","");
@@ -284,7 +285,7 @@ public class FileCollector extends AbstractCollector{
         if( !path.isAbsolute()) {
             destPath = Path.of(workPath).resolve(path);
         }else{
-            destPath=path;
+            destPath = path;
         }
         Logger.info(id+"(fc) -> Path set to "+destPath);
     }
@@ -322,7 +323,7 @@ public class FileCollector extends AbstractCollector{
      */
     public void setTimeOut( String timeoutPeriod, ScheduledExecutorService scheduler ){
         secondsTimeout = TimeTools.parsePeriodStringToSeconds(timeoutPeriod);
-        this.scheduler=scheduler;
+        this.scheduler = scheduler;
         Logger.info(id+"(fc) -> Setting flush period to "+secondsTimeout+"s");
     }
 
@@ -339,8 +340,8 @@ public class FileCollector extends AbstractCollector{
      * Change the line separator, by default this is the system one
      * @param eol Alter the line separater/eol characters
      */
-    public void setLineSeparator( String eol ){
-        this.lineSeparator=eol;
+    public void setEol(String eol) {
+        this.eol = eol;
     }
 
     @Override
@@ -352,9 +353,8 @@ public class FileCollector extends AbstractCollector{
         byteCount += data.length();
         lastData = Instant.now().getEpochSecond();
 
-        if( timeoutFuture==null || timeoutFuture.isDone() || timeoutFuture.isCancelled() ){
-            timeoutFuture = scheduler.schedule(new TimeOut(), secondsTimeout, TimeUnit.SECONDS );
-        }
+        if (timeoutFuture == null || timeoutFuture.isDone() || timeoutFuture.isCancelled())
+            timeoutFuture = scheduler.schedule(this::timedOut, secondsTimeout, TimeUnit.SECONDS);
 
         if( dataBuffer.size() > batchSize && batchSize !=-1){
             Logger.debug(id+ "(fc) -> Buffer matches batchsize");
@@ -367,9 +367,8 @@ public class FileCollector extends AbstractCollector{
      * Force the collector to flush the data, used in case of urgent flushing (fe. before shutdown)
      */
     public void flushNow(){
-        if( flushFuture==null||flushFuture.isCancelled() || flushFuture.isDone()) {
+        if (flushFuture == null || flushFuture.isCancelled() || flushFuture.isDone())
             flushFuture = scheduler.submit(() -> appendData(getPath()));
-        }
     }
     @Override
     protected void timedOut() {
@@ -380,17 +379,13 @@ public class FileCollector extends AbstractCollector{
             trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.IDLE)
                              .forEach( tc-> Core.addToQueue( Datagram.system(tc.cmd.replace("{path}",getPath().toString())).writable(this)) );
         }else{
-            long dif = Instant.now().getEpochSecond() - lastData; // if there's a batchsize, that is primary
-
-            if( batchSize==-1 )
-                dif = Instant.now().getEpochSecond() - firstData; // if there's no batchsize
-
+            long dif = Instant.now().getEpochSecond() - batchSize == -1 ? firstData : lastData; // if there's a batchsize use first, that is primary
             if( dif >= secondsTimeout-1 ) {
                 flushNow();
-                timeoutFuture = scheduler.schedule(new TimeOut(), secondsTimeout, TimeUnit.SECONDS );
+                timeoutFuture = scheduler.schedule(this::timedOut, secondsTimeout, TimeUnit.SECONDS);
             }else{
                 long next = secondsTimeout - dif;
-                timeoutFuture = scheduler.schedule(new TimeOut(), next, TimeUnit.SECONDS );
+                timeoutFuture = scheduler.schedule(this::timedOut, next, TimeUnit.SECONDS);
             }
         }
     }
@@ -408,34 +403,20 @@ public class FileCollector extends AbstractCollector{
         boolean isNewFile = false;
         if( Files.notExists(dest) ){
             isNewFile=true;
-            if( Files.notExists(dest.toAbsolutePath().getParent()) ) {
-                try { // So first create the dir structure
-                    Files.createDirectories(dest.toAbsolutePath().getParent());
-                } catch (FileAlreadyExistsException fee) {
-                    Logger.debug("Tried to make a directory that already exists... -> " + dest.toAbsolutePath().getParent());
-                } catch (IOException e) {
-                    Logger.error(e);
-                    return;
-                }
-            }
-        }else if( headerChanged ){ // File already exists and the header changed, rename the old and start a new file
-            Path renamed = null;
-            for (int a = 1; a < 1000; a++) { // Find a name that isn't used yet
-                renamed = Path.of(dest.toString().replace(".", "." + a + "."));
-                // Check if the desired name or zipped version already is available
-                if (Files.notExists(renamed))
-                    break;
-            }
-            try {
-                Files.move(dest, dest.resolveSibling(renamed));
+            var parent = dest.toAbsolutePath().getParent();
+            try { // Create the dir structure if it doesn't exist yet
+                Files.createDirectories(parent);
             } catch (IOException e) {
-                Logger.error(id + "(fc) -> Failed to write to "+ dest+" because "+e);
+                Logger.error(id + "(fc) -> " + e.getMessage());
                 return;
             }
+        }else if( headerChanged ){ // File already exists and the header changed, rename the old and start a new file
+            if (renameOldFile(id, dest).isEmpty())
+                return;
             isNewFile=true;
         }
 
-        StringJoiner join = new StringJoiner( lineSeparator,"",lineSeparator );
+        StringJoiner join = new StringJoiner(eol, "", eol);
         if( !headers.isEmpty() && isNewFile ) // the file doesn't exist yet and headers are defined
             headers.forEach( hdr -> join.add(hdr.replace("{file}",dest.getFileName().toString()))); // Add the headers
 
@@ -446,58 +427,85 @@ public class FileCollector extends AbstractCollector{
                 join.add(line);
             cnt--;
         }
-
+        // Reset counter
         byteCount=0;
+
+        writeData(join.toString(), dest);
+    }
+
+    private void writeData(String data, Path dest) {
         try {
-            if( join.toString().isBlank() )// Don't write empty lines
+            if (data.isBlank())// Don't write empty lines
                 return;
+            var isNewFile = Files.notExists(dest);
+            Files.writeString(dest, data, charSet, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Logger.debug(id + "(fc) Written " + data.length() + " bytes to " + dest.getFileName().toString());
 
-            Files.writeString(dest, join.toString(), charSet, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            Logger.debug("Written " + join.toString().length() + " bytes to " + dest.getFileName().toString());
-
-            if(isNewFile)
+            if (isNewFile)
                 FileTools.setAllPermissions(dest);
 
-            // If max size isn't used or isn't reached return
-            if( maxBytes == -1 || Files.size(dest) < maxBytes  )
-                return;
-
-            Path renamed=null;
-            for( int a=1;a<1000;a++){
-                renamed = Path.of(dest.toString().replace(".", "."+a+"."));
-                // Check if the desired name or zipped version already is available
-                if( Files.notExists(renamed) && Files.notExists(Path.of(renamed+".zip")) )
-                    break;
-            }
-            Logger.debug("Renamed to "+ renamed);
-
-            Files.move(dest, dest.resolveSibling(renamed)); // rename the file
-            String path ;
-            if (zipMaxBytes) { // if wanted, zip it
-                FileTools.zipFile(renamed);
-                Files.deleteIfExists(renamed);
-                path = renamed+".zip";
-            }else{
-                path = renamed.toString();
-            }
-
-            // run the triggered commands
-            trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.MAXSIZE)
-                    .forEach(tc->Core.addToQueue(Datagram.system(tc.cmd.replace("{path}",path)).writable(this)));
+            renameIfToBig(dest);
 
         } catch (IOException e) {
-            Logger.error(id + "(fc) -> Failed to write to "+ dest+" because "+e);
+            Logger.error(id + "(fc) -> Failed to write to " + dest + " because " + e);
         }
     }
 
+    private void renameIfToBig(Path dest) throws IOException {
+        // If max size isn't used or isn't reached return
+        if (maxBytes == -1 || Files.size(dest) < maxBytes)
+            return;
+
+        var renamedOpt = renameOldFile(id, dest);// rename the file
+        if (renamedOpt.isEmpty())
+            return;
+        var renamed = renamedOpt.get();
+        String path;
+        if (zipMaxBytes) { // if needed, zip it
+            if (FileTools.zipFile(renamed, true).isEmpty())
+                return;
+            path = renamed + ".zip";
+        } else {
+            path = renamed.toString();
+        }
+
+        // run the triggered commands
+        trigCmds.stream().filter(tc -> tc.trigger == TRIGGERS.MAXSIZE)
+                .forEach(tc -> Core.addToQueue(Datagram.system(tc.cmd.replace("{path}", path)).writable(this)));
+    }
+
+    /**
+     * Add a numbeer to the end of this file making sure it doesn't make a file originally there
+     *
+     * @param id       The id of the source of the request
+     * @param original The path of the file to rename
+     * @return The path or empty if something went wrong
+     */
+    private static Optional<Path> renameOldFile(String id, Path original) {
+        Path renamed = null;
+        for (int a = 1; a < 1000; a++) { // Find a name that isn't used yet
+            renamed = Path.of(original.toString().replaceFirst("\\.(?=[^.]+$)", "." + a + "."));
+            // Check if the desired name or zipped version already is available
+            if (Files.notExists(renamed) && Files.notExists(Path.of(renamed + ".zip")))
+                break;
+        }
+        try {
+            Files.move(original, renamed);
+            Logger.debug(id + "(fc) -> Renamed to " + renamed);
+        } catch (IOException e) {
+            Logger.error(id + "(fc) -> Failed to write to " + original + " because " + e);
+            return Optional.empty();
+        }
+        return Optional.of(renamed);
+    }
     /* ***************************** Overrides  ******************************************************************* */
     @Override
-    public void addSource( String source ){
-        if( !this.source.isEmpty() ){
-            Core.addToQueue( Datagram.system("stop:"+this.source).writable(this) );
+    public void addSource(String src) {
+        if (!source.isEmpty()) { // Stop the current one before using the new
+            Core.addToQueue(Datagram.system("stop:" + source).writable(this));
         }
-        this.source=source;
-        Core.addToQueue( Datagram.system(source).writable(this) ); // request the data
+        source = src;
+        Core.addToQueue(Datagram.system(src).writable(this)); // request the data
     }
     /* ***************************** RollOver stuff *************************************************************** */
     public boolean setRollOver(String dateFormat, int rollCount, ChronoUnit unit, boolean zip ) {
@@ -537,8 +545,8 @@ public class FileCollector extends AbstractCollector{
         try{
             if (ldt != null)
                 currentForm = ldt.format(format);
-        }catch( java.time.temporal.UnsupportedTemporalTypeException f ){
-            Logger.error(id() + " -> Format given is unsupported! Creation cancelled.");
+        }catch( java.time.temporal.UnsupportedTemporalTypeException f) {
+            Logger.error(id() + "(fc) -> Format given is unsupported! Creation cancelled. -> "+format);
         }
     }
     private class DoRollOver implements Runnable {
@@ -549,7 +557,7 @@ public class FileCollector extends AbstractCollector{
         }
         @Override
         public void run() {
-            Logger.info(id+"(fc) -> Doing rollover");
+            Logger.info(id + "(fc) -> Doing rollover.");
 
             Path old = getPath();
             flushNow();
@@ -570,11 +578,10 @@ public class FileCollector extends AbstractCollector{
                 if( zippedRoll ){
                     var res = flushFuture.get(5,TimeUnit.SECONDS); // Writing should be done in 5 seconds...
                     if( res==null) { // if zipping and append is finished
-                        Path zip = FileTools.zipFile(old);
-                        if (zip != null) {
-                            Files.deleteIfExists(old);
+                        var zipOpt = FileTools.zipFile(old, true);
+                        if (zipOpt.isPresent()) {
                             Logger.info(id + "(fc) -> Zipped " + old.toAbsolutePath());
-                            path = zip.toString();
+                            path = zipOpt.get().toString();
                         } else {
                             Logger.error(id + "(fc) -> Failed to zip " + old.toString());
                             path=old.toString();
@@ -582,15 +589,15 @@ public class FileCollector extends AbstractCollector{
                     }else{
                         path=old.toString();
                     }
-                }else{
-                    Logger.info("Not zipping");
+                } else {
+                    Logger.info(id + "(fc) -> Not zipping");
                     path=old.toString();
                 }
                 // Triggered commands
                 trigCmds.stream().filter( tc -> tc.trigger==TRIGGERS.ROLLOVER)
                         .forEach(tc->Core.addToQueue(Datagram.system(tc.cmd.replace("{path}",path)).writable(FileCollector.this)));
 
-            } catch (InterruptedException | ExecutionException | IOException | TimeoutException e) {
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 Logger.error(e);
             }
         }
