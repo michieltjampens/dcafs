@@ -21,7 +21,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.StringJoiner;
 
 public class CommandPool {
 
@@ -194,7 +197,7 @@ public class CommandPool {
 	private String createEmailNodeIfAsked( String result, String subCmd){
 		if( result.contains("email")){
 			if( subCmd.equals("add")) {
-				if( EmailWorker.addBlankElement(Paths.settings(),true,false) ) {
+				if (EmailWorker.addBlankElement(true, false)) {
 					result = "Blank email element added to settings.xml, go fill it in!";
 				}else{
 					result = "! No valid settings.xml?";
@@ -243,12 +246,12 @@ public class CommandPool {
 	 */
 	private String checkCommandables( Datagram d ) {
 		final String f = d.cmd().replaceAll("\\d+", "_"); // For special ones like sending data
-		var cmdOpt = Optional.ofNullable(commandables.get(f));
-		if (cmdOpt.isEmpty())
+		var commandable = commandables.get(f);
+		if (commandable == null)
 			return UNKNOWN_CMD;
 
 		// If requested cmd exists
-		String result = cmdOpt.get().replyToCommand(d);
+		String result = commandable.replyToCommand(d);
 		if (result == null || result.isEmpty()) {
 			Logger.error("Got a null as response to " + d.getData());
 			return "! Something went wrong processing: " + d.getData();

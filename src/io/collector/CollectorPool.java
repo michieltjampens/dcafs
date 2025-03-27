@@ -12,7 +12,6 @@ import util.data.RealtimeValues;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
-import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
@@ -223,14 +222,12 @@ public class CollectorPool implements Commandable, CollectorFuture {
                 yield alterAttribute(fab, args[1], args[2]);
             }
             case "reload" -> {
-                var opt = XMLfab.withRoot(Paths.settings(), "dcafs", "collectors")
-                        .getChild("file", "id", args[1]);
-
-                if( opt.isEmpty() )
-                    yield "! Couldn't find file";
+                var dig = Paths.digInSettings("collectors").digDown("file", "id", args[1]);
+                if (dig.isInvalid())
+                    yield "! Couldn't find file in xml";
 
                 fco.flushNow();
-                fco.readFromXML(XMLdigger.goIn(opt.get()), Paths.storage().toString());
+                fco.readFromXML(dig, Paths.storage().toString());
                 yield "Reloaded";
             }
             case "perms" -> {

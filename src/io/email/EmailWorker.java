@@ -6,7 +6,10 @@ import das.Paths;
 import io.Writable;
 import io.collector.BufferCollector;
 import io.collector.CollectorFuture;
-import jakarta.activation.*;
+import jakarta.activation.CommandMap;
+import jakarta.activation.DataHandler;
+import jakarta.activation.FileDataSource;
+import jakarta.activation.MailcapCommandMap;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
 import jakarta.mail.search.FlagTerm;
@@ -17,7 +20,6 @@ import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.io.IOException;
@@ -121,23 +123,18 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		inboxSession = Session.getDefaultInstance(new Properties());
 		alterInboxProps(inboxSession.getProperties());
 
+		CommandMap.setDefaultCommandMap(getMailcapCommandMap());
+		ready = true;
+	}
+
+	private static MailcapCommandMap getMailcapCommandMap() {
 		MailcapCommandMap mc = (MailcapCommandMap) CommandMap.getDefaultCommandMap();
 		mc.addMailcap("text/html;; x-java-content-handler=com.sun.mail.handlers.text_html");
 		mc.addMailcap("text/xml;; x-java-content-handler=com.sun.mail.handlers.text_xml");
 		mc.addMailcap("text/plain;; x-java-content-handler=com.sun.mail.handlers.text_plain");
 		mc.addMailcap("multipart/*;; x-java-content-handler=com.sun.mail.handlers.multipart_mixed");
 		mc.addMailcap("message/rfc822;; x-java-content-handler=com.sun.mail.handlers.message_rfc822");
-		CommandMap.setDefaultCommandMap(mc);
-		ready=true;
-	}
-
-	/**
-	 * Request the queue in which emails are place for sending
-	 * 
-	 * @return The BlockingQueue to hold the emails to send
-	 */
-	public EmailSending getSender(){
-		return this;
+		return mc;
 	}
 	/**
 	 * Get the amount of emails in the retry queue, meaning those that need to be send again.
@@ -160,7 +157,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 		// Sending
 		xml.digDown("*"); // Get all child nodes of 'email'
-		while( xml.iterate()){
+		while (xml.iterate()) {
 			switch (xml.tagName("")) {
 				case "outbox" -> {
 					if (xml.hasPeek("server")) {
@@ -202,49 +199,45 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	 */
 	private void readEmailBook( Element email ){
 		emailBook.clear();  // Clear previous references
-		XMLdigger xml = XMLdigger.goIn(email).digDown("entry"); // dig to entries
 
-		while( xml.iterate() ){
-			String addresses = xml.value("");
-			String ref = xml.attr( "ref", "");
+		for (var entry : XMLdigger.goIn(email).digOut("entry")) {
+			String addresses = entry.value("");
+			String ref = entry.attr("ref", "");
 			if( !ref.isBlank() && !addresses.isBlank() ){
 				addTo(ref, addresses);
 			}else{
-				Logger.warn("email book entry has empty ref or address");
+				Logger.warn("Email book entry has empty ref or address");
 			}
 		}
 	}
 	private void readPermits( Element perms){
 		permits.clear(); // clear previous permits
-		XMLdigger xml = XMLdigger.goIn(perms).digDown("*");
-
-		while( xml.iterate() ){ // Go through the denies
-			boolean denies = xml.tagName("").equals("denies");
-			var ref = xml.attr("ref","");
-			String val = xml.value("");
+		for (var permit : XMLdigger.goIn(perms).digOut("*")) { // Go through the denies
+			boolean denies = permit.tagName("").equals("denies");
+			var ref = permit.attr("ref", "");
+			String val = permit.value("");
 
 			if(ref.isEmpty() || val.isEmpty()){
 				Logger.warn("Empty permit ref/val!");
 				continue;
 			}
-			boolean regex = xml.attr("regex",false);
+			boolean regex = permit.attr("regex", false);
 			permits.add(new Permit(denies, ref, val, regex));
 		}
 	}
 	/**
 	 * This creates the bare settings in the xml
-	 * 
-	 * @param settingsPath Path to the settings.xml
+	 *
 	 * @param sendEmails Whether to include sending emails
 	 * @param receiveEmails Whether to include checking for emails
 	 * @return True if changes were written to the xml
 	 */
-	public static boolean addBlankElement(Path settingsPath, boolean sendEmails, boolean receiveEmails ){
-		var fab = XMLfab.withRoot(settingsPath, "dcafs","settings");
+	public static boolean addBlankElement(boolean sendEmails, boolean receiveEmails) {
+		var fab = Paths.fabInSettings("settings");
 		if( fab.getChild("email").isPresent() ) // Don't overwrite if already exists?
 			return false;
 
-		fab.digRoot(XML_PARENT_TAG);
+		fab.digRoot("email");
 
 		if( sendEmails ){
 			fab.addParentToRoot("outbox","Settings related to sending")
@@ -267,20 +260,15 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	}
 
 	private boolean writePermits(){
-		if( Paths.settings() != null ){
-			var fab = XMLfab.withRoot(Paths.settings(),"dcafs","settings","email");
-			fab.selectOrAddChildAsParent("permits");
-			fab.clearChildren();
-			for( var permit : permits ){
-				fab.addChild(permit.denies?"deny":"allow",permit.value).attr("ref",permit.ref);
-				if(permit.regex)
-					fab.attr("regex","yes");
-			}
-			return fab.build();
-		}else{
-			Logger.error("Tried to write permits but no valid xml yet");
-			return false;
+		var fab = Paths.fabInSettings("settings").digRoot("email");
+		fab.selectOrAddChildAsParent("permits");
+		fab.clearChildren();
+		for (var permit : permits) {
+			fab.addChild(permit.denies ? "deny" : "allow", permit.value).attr("ref", permit.ref);
+			if (permit.regex)
+				fab.attr("regex", "yes");
 		}
+		return fab.build();
 	}
 	/**
 	 * Add an email address to an id
@@ -291,11 +279,11 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	public void addTo(String id, String email){
 		String old = emailBook.get(id);				// Get any emailadresses already linked with the id, if any
 		email = email.replace(";", ",");		// Multiple emailaddresses should be separated with a colon, so alter any semi-colons
+
 		if( old != null && !old.isBlank()){	// If an emailadres was already linked, add the new one(s) to it
-			emailBook.put(id, old+","+email);
-		}else{									// If not, put the new one
-			emailBook.put(id, email);
-		}		
+			email = old + "," + email;
+		}
+		emailBook.put(id, email);
 		Logger.info( "Set "+id+" to "+ emailBook.get(id)); // Add this addition to the status log
 	}
 	/**
@@ -303,10 +291,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	 * @return Listing of all the emails and references in the emailbook
 	 */
 	public String getEmailBook( ){
-		StringJoiner b = new StringJoiner( "\r\n", "-Emailbook-\r\n", "");		
-		for( Map.Entry<String,String> ele : emailBook.entrySet()){
-			b.add(ele.getKey()+" -> "+ele.getValue() );
-		}
+		StringJoiner b = new StringJoiner( "\r\n", "-Emailbook-\r\n", "");
+		emailBook.forEach((id, val) -> b.add(id + " -> " + val));
 		return b.toString();
 	}
 	/**
@@ -379,19 +365,21 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	 */
 	public boolean isAddressInRef( String ref, String address ){
 		String list = emailBook.get(ref);
+		if (list == null)
+			return false;
 		return list.contains(address);
 	}
 	@Override
 	public String replyToCommand(Datagram d) {
 
 		if (d.args().equalsIgnoreCase("addblank")) {
-			if( EmailWorker.addBlankElement(  Paths.settings(), true,true) )
+			if (EmailWorker.addBlankElement(true, true))
 				return "Adding default email settings";
 			return "! Failed to add default email settings";
 		}
 		if( !ready ){
 			if (d.args().equals("reload")
-					&& XMLfab.withRoot(Paths.settings(), "dcafs","settings").getChild("email").isPresent() ){
+					&& Paths.digInSettings("settings").hasPeek("email")) {
 				if( !readFromXML() )
 					return "! No proper email node yet";
 			}else{
@@ -408,11 +396,11 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			case "setup", "status" -> getSettings();
 			case "deliver" -> {
 				if (d.payload() != null && !(d.payload() instanceof Email))
-					yield "! No valid payload in datagram";
+					yield "! No valid payload in datagram.";
 				if (cmds.length != 2)
 					yield "! Missing to";
 				sendEmail((Email) d.payload());
-				yield "Added email to queue";
+				yield "Added email to queue.";
 			}
 			case "send" -> {
 				if (cmds.length != 4)
@@ -422,7 +410,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				cmds[2] = cmds[2].replace("{localtime}", TimeTools.formatNow("HH:mm"));
 				cmds[2] = cmds[2].replace("{utctime}", TimeTools.formatUTCNow("HH:mm"));
 				sendEmail(Email.to(cmds[1]).subject(cmds[2]).content(cmds[3]));
-				yield "Tried to send email";
+				yield "Tried to send email.";
 			}
 			case "checknow" -> {
 				checker.cancel(false);
@@ -433,7 +421,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				if (cmds.length != 2)
 					yield "! Wrong amount of arguments -> email:interval,period (fe.5m for minutes)";
 				checkIntervalSeconds = (int) TimeTools.parsePeriodStringToSeconds(cmds[1]);
-				yield "Interval changed to " + checkIntervalSeconds + " seconds (todo:save to settings.xml)";
+				yield "Interval changed to " + checkIntervalSeconds + " seconds (todo:save to settings.xml).";
 			}
 			case "addallow", "adddeny" -> doAddAllowDenyCmd(cmds);
 			case "spam" -> {
@@ -443,7 +431,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			default -> "! No such subcommand in email: " + d.args();
 		};
 	}
-	private String getHelp( boolean html ){
+
+	private static String getHelp(boolean html) {
 		StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
 		b.add("EmailWorker takes care of sending and receiving emails.")
 				.add( "email:reload -> Reload the settings found in te XML.")
@@ -462,7 +451,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		}
 		boolean regex = cmds.length == 4 && Tools.parseBool(cmds[3], false);
 		permits.add(new Permit(cmds[0].equals("adddeny"), cmds[1], cmds[2], regex));
-		return writePermits() ? "Permit added" : "! Failed to write to xml";
+		return writePermits() ? "Permit added." : "! Failed to write to xml";
 	}
 	/**
 	 * Send an email
@@ -687,53 +676,49 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			return false;
 		}
 
+		path = insertAttachment(path, email, message);
+		if (path == null)
+			return false;
+
+		BodyPart messageBodyPart = new MimeBodyPart();  // Create the message part
+		messageBodyPart.setContent(email.content, "text/html");// Fill the message
+		Multipart multipart = new MimeMultipart();// Create a multipart message
+		multipart.addBodyPart(messageBodyPart);   // Set text message part
+
+		// Part two is attachment
+		messageBodyPart = new MimeBodyPart();
+		messageBodyPart.setDataHandler(new DataHandler(new FileDataSource(String.valueOf(path))));
+		messageBodyPart.setFileName(path.getFileName().toString());
+		multipart.addBodyPart(messageBodyPart);
+
+		message.setContent(multipart); // Add the attachment info to the message
+		return true;
+	}
+
+	private Path insertAttachment(Path path, Email email, Message message) {
 		try {
 			if (Files.notExists(path)) { // If the attachment doesn't exist
 				email.attachment = "";
 				message.setContent(email.content, "text/html");
 				message.setSubject( message.getSubject() + " [attachment not found!]"); // Notify the receiver that is should have had an attachment
-				return false;
+				return null;
 			} else if (Files.size(path) > doZipFromSizeMB * megaByte ) { // If the attachment is larger than the zip limit
 				FileTools.zipFile(path, false); // zip it
-				attach += ".zip"; // rename attachment
 				Logger.info("File zipped because of size larger than " + doZipFromSizeMB + "MB. Zipped size:" + Files.size(path) / megaByte + "MB");
-				path = Path.of(attach);// Changed the file to archive, zo replace file
+				path = Path.of(path.toString() + ".zip");
 				if (Files.size(path) > maxSizeMB * megaByte) { // If the zip file it too large to send, maybe figure out way to split?
 					email.attachment = "";
 					message.setContent(email.content, "text/html");
 					message.setSubject(message.getSubject() + " [ATTACHMENT REMOVED because size constraint!]");
 					Logger.info("Removed attachment because to big (>" + maxSizeMB + "MB)");
-					return false;
+					return null;
 				}
 			}
-		} catch (IOException e) {
+		} catch (IOException | MessagingException e) {
 			Logger.error(e);
-			return false;
+			return null;
 		}
-
-		// Create the message part
-		BodyPart messageBodyPart = new MimeBodyPart();
-
-		// Fill the message
-		messageBodyPart.setContent(email.content, "text/html");
-
-		// Create a multipart message
-		Multipart multipart = new MimeMultipart();
-
-		// Set text message part
-		multipart.addBodyPart(messageBodyPart);
-
-		// Part two is attachment
-		messageBodyPart = new MimeBodyPart();
-		DataSource source = new FileDataSource(attach);
-		messageBodyPart.setDataHandler(new DataHandler(source));
-		messageBodyPart.setFileName(Path.of(attach).getFileName().toString());
-		multipart.addBodyPart(messageBodyPart);
-
-		// Add the attachment info to the message
-		message.setContent(multipart);
-
-		return true;
+		return path;
 	}
 	/**
 	 * Set the properties for sending emails
@@ -747,11 +732,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		props.put( MAIL_SMTP_CONNECTIONTIMEOUT, TIMEOUT_MILLIS);
 	}
 	private List<String> findTo( String from ){
-		if( from.startsWith(inbox.user)){
-			var ar = new ArrayList<String>();
-			ar.add("echo");
-			return ar;
-		}
+		if (from.startsWith(inbox.user))
+			return List.of("echo");
 		return emailBook.entrySet().stream().filter(e -> e.getValue().contains(from)).map(Map.Entry::getKey).collect(Collectors.toList());
 	}
 
@@ -771,14 +753,10 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		if( from.startsWith(inbox.user+"@") )
 			return false;
 
-		if( !permits.isEmpty() ){
-			for( Permit permit : permits){
-				if ( matchesPermit( permit,refs,from,subject ) ){
-					return permit.denies;
-				}
-			}
-		}
-		return deny;
+		return permits.stream()
+				.filter(permit -> matchesPermit(permit, refs, from, subject))
+				.findFirst()
+				.map(permit -> permit.denies).orElse(deny);
 	}
 
 	/**
@@ -819,41 +797,12 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 			boolean ok = false;
 
 			try( Store inboxStore = inboxSession.getStore("imaps")) {	// Store implements autoCloseable
-
 				inboxStore.connect( inbox.server, inbox.port, inbox.user, inbox.pass );
-				
-			    Folder inbox = inboxStore.getFolder( "INBOX" );
-			    inbox.open( Folder.READ_WRITE );				
-			    // Fetch unseen messages from inbox folder
-			    Message[] messages = inbox.search(
-			        new FlagTerm(new Flags(Flags.Flag.SEEN), false));
 
-			    if( messages.length == 0 ) // No message means nothing to do
+			    // Fetch unseen messages from inbox folder
+				if (!processInbox(inboxStore))
 					return;
 
-				Logger.info( "Messages found: "+messages.length );
-			    for ( Message message : messages ) {
-					String from = message.getFrom()[0].toString();
-					from = from.substring(from.indexOf("<")+1, from.length()-1);
-					String cmd = message.getSubject();
-
-					if( doEarlyAbortChecks(from,message) )
-						continue;
-
-					String to = message.getRecipients(Message.RecipientType.TO)[0].toString();
-					String body = getTextFromMessage(message);
-
-					if( checkifForAnother( message, to, from, body ) )
-						continue;
-
-					maxQuickChecks = 5;
-					Logger.info("Command: " + cmd + " from: " + from );
-
-					processAttachments( message );
-					processCommand( cmd, from, body );
-
-					message.setFlag(Flags.Flag.DELETED, true);
-				}
 				ok=true;
 				lastInboxConnect = Instant.now().toEpochMilli();							    		
 			}catch(com.sun.mail.util.MailConnectException  f ){	
@@ -882,6 +831,42 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	   }
 	}
 
+	private boolean processInbox(Store inboxStore) throws MessagingException, IOException {
+
+		Folder inbox = inboxStore.getFolder("INBOX");
+		inbox.open(Folder.READ_WRITE);
+
+		Message[] messages = inbox.search(
+				new FlagTerm(new Flags(Flags.Flag.SEEN), false));
+
+		if (messages.length == 0) // No message means nothing to do
+			return false;
+
+		Logger.info("Messages found: " + messages.length);
+		for (Message message : messages) {
+			String from = message.getFrom()[0].toString();
+			from = from.substring(from.indexOf("<") + 1, from.length() - 1);
+			String cmd = message.getSubject();
+
+			if (doEarlyAbortChecks(from, message))
+				continue;
+
+			String to = message.getRecipients(Message.RecipientType.TO)[0].toString();
+			String body = getTextFromMessage(message);
+
+			if (checkifForAnother(message, to, from, body))
+				continue;
+
+			maxQuickChecks = 5;
+			Logger.info("Command: " + cmd + " from: " + from);
+
+			processAttachments(message);
+			processCommand(cmd, from, body);
+
+			message.setFlag(Flags.Flag.DELETED, true);
+		}
+		return true;
+	}
 	/**
 	 * Check the origin of the email to see if that origin is actually allowed to talk to dcafs
 	 * @param from The origin

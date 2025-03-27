@@ -65,14 +65,14 @@ public class EditorCmds {
             value = value.substring(in + 1);
         }
         String comment="";
-        if( type.equals("rexsplit")){
+        if (type.equals("rexsplit") || type.equals("regexsplit")) {
             comment="Find matches on " + value + " then concatenate with " + deli;
         }else if( type.equals("resplit")){
             comment="Split on " + deli + " then combine according to " + value;
         }
         fab.comment(comment);
         fab.addChild(type,value);
-        if( type.equals("rexsplit")){
+        if (type.equals("rexsplit") || type.equals("regexsplit")) {
             fab.attr("type","rexsplit");
         }else if( type.equals("resplit")){
             fab.attr("delimiter", deli)

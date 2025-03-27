@@ -102,14 +102,19 @@ public class MathForward extends AbstractForward {
         }
 
         // Check for other subnodes besides 'op' those will be considered def's to reference in the op
-        digForFixedOperands(dig);
+        digForFixedOperands(dig, defines);
 
         boolean oldValid = valid; // Store the current state of valid
 
         // First go through all the ops and to find all references to real/int/flag and determine highest i(ndex) used
-        if (!digForMaxTempIndex(dig)) {
+        var maxIndex = digForMaxTempIndex(id, dig);
+        if (maxIndex == -1) {
+            parsedOk = false;
             return false;
         }
+        while (maxIndex >= temps.size())
+            temps.add(BigDecimal.ZERO);
+
         // Find all the references to realtime values
         for (var ops : dig.peekOut("op")){
             if (!findRtvals(ops.getTextContent())) {
@@ -150,7 +155,7 @@ public class MathForward extends AbstractForward {
      * Check the node for references to static values and odd those to the collection
      * @param dig A digger pointing to the MathForward
      */
-    private void digForFixedOperands(XMLdigger dig) {
+    private static void digForFixedOperands(XMLdigger dig, HashMap<String, String> defines) {
         dig.peekOut("*")
                 .stream().filter( ele -> !ele.getTagName().equalsIgnoreCase("op"))
                 .forEach( def -> {
@@ -168,8 +173,9 @@ public class MathForward extends AbstractForward {
      * collection to hold that many elements
      * @param dig A digger pointing to the MathForward
      */
-    private boolean digForMaxTempIndex(XMLdigger dig ){
+    private static int digForMaxTempIndex(String id, XMLdigger dig) {
         var pattern = Pattern.compile("t[0-9]{1,2}");
+        int max = 0;
         try {
             for (var opNode : dig.peekOut("op")) {
                 // Find all the temp indexes
@@ -188,20 +194,18 @@ public class MathForward extends AbstractForward {
                         .orElse(0); // Default to 0 if no valid indexes are found
 
                 // Increase the temp collection so all will fit
-                while (maxIndex >= temps.size())
-                    temps.add(BigDecimal.ZERO); // Fill in zero for the future temp
+                max = Math.max(maxIndex, max);
             }
+            return max;
         }catch( IllegalArgumentException e ){
             Logger.error(id + "(mf) -> "+e.getMessage() );
-            parsedOk=false; //Parsing failed, so set the fla
-            return false;
+            return -1;
         }
-        return true;
     }
     private void digForOpsProcessing(XMLdigger dig ){
         dig.digOut("op").forEach( ops -> {
             try {
-                var type= fromStringToOPTYPE(ops.attr( "type", "complex"));
+                var type = fromStringToOPTYPE(id, ops.attr("type", "complex"));
                 switch (Objects.requireNonNull(type)) {
                     case COMPLEX -> addStdOperation(
                             ops.value(""),
@@ -262,7 +266,7 @@ public class MathForward extends AbstractForward {
 
         // If we got to this point, processing went fine so reset badDataCount
         if( badDataCount != 0 )
-            Logger.info(id+" (mf) -> Executed properly after previous issues, resetting bad count" );
+            Logger.info(id + " (mf) -> Executed properly after previous issues, resetting bad count.");
         badDataCount=0;
 
         // Use multithreading so the Writable's don't have to wait for the whole process
@@ -470,10 +474,9 @@ public class MathForward extends AbstractForward {
         if( !expression.contains("=") ) // If this doesn't contain a '=' it's no good
             return handleSingleIndexOp(expression,cmd,scale);
 
-        //String exp = expression;
-        var split = expression.split("[+-/*^]?="); // split into result and operation (i0 = i1+2 -> [i0][i1+2]
 
-        handleCompoundAssignment(split, expression);
+        // split into result and operation (i0 = i1+2 -> [i0][i1+2]
+        var split = handleCompoundAssignment(expression);
 
         // Process destination references (like i0, i1, t0, etc.)
         var dest = split[0].split(",");
@@ -482,11 +485,12 @@ public class MathForward extends AbstractForward {
         expression = map.getValue();
 
         // Check if the destination is a realval or integerval and not an i
-        if( (dest[0].toLowerCase().startsWith("{d") || dest[0].toLowerCase().startsWith("{r")) && dest.length==1) {
+        dest[0] = dest[0].toLowerCase();
+        if ((dest[0].startsWith("{d") || dest[0].startsWith("{r")) && dest.length == 1) {
             if( split[1].matches("i[0-9]{1,3}")){ // the expression is only reference to an i
                 return Optional.of(addOp( NumberUtils.toInt(split[1].substring(1),-1), expression,cmd,scale ));
             }else{
-                index= -2;
+                index = -2;
             }
         }
 
@@ -526,7 +530,8 @@ public class MathForward extends AbstractForward {
         rulesString.add(new String[]{"complex", String.valueOf(index),expression});
         return Optional.of(op); // return the one that was added last
     }
-    private String normalizeExpression( String expression ){
+
+    private static String normalizeExpression(String expression) {
         // Support ++ and --
         return expression.replace("++","+=1")
                 .replace("--","-=1")
@@ -540,15 +545,18 @@ public class MathForward extends AbstractForward {
             return Optional.empty();
         }
     }
-    private void handleCompoundAssignment(String[] split, String exp){
+
+    private static String[] handleCompoundAssignment(String exp) {
         // The expression might be a simple i0 *= 2, so replace such with i0=i0*2 because of the way it's processed
         // A way to know this is the case, is that normally the summed length of the split items is one lower than
         // the length of the original expression (because the = ), if not that means an operand was in front of '='
+        var split = exp.split("[+-/*^]?=");
         int lengthAfterSplit = split[0].length()+split[1].length();
         if( lengthAfterSplit+1 != exp.length()){ // Support += -= *= and /= fe. i0+=1
             String[] spl = exp.split("="); //[0]:i0+ [1]:1
             split[1]=spl[0]+split[1]; // split[1]=i0+1
         }
+        return split;
     }
     private Map.Entry<Integer,String> getDestinationIndex(String[] split, String[] dest, String expression ){
           // It's allowed that the result is written to more than one destination
@@ -663,22 +671,21 @@ public class MathForward extends AbstractForward {
      * Convert a string version of OP_TYPE to the enum
      * @return The resulting enum value
      */
-    private OP_TYPE fromStringToOPTYPE(String optype) {
-        switch(optype.toLowerCase()){
-
-            case "scale": return OP_TYPE.SCALE;
-            case "ln": return OP_TYPE.LN;
-            case "salinity": return OP_TYPE.SALINITY;
-            case "svc": return OP_TYPE.SVC;
-            case "truewinddir": return OP_TYPE.TRUEWINDDIR;
-            case "truewindspeed": return OP_TYPE.TRUEWINDSPEED;
-            case "utm": return OP_TYPE.UTM;
-            case "gdc": return OP_TYPE.GDC;
-            case "complex":
-            default:
-                Logger.error(id+"(mf) -> Invalid op type given, using default complex");
-                return OP_TYPE.COMPLEX;
-        }
+    private static OP_TYPE fromStringToOPTYPE(String id, String optype) {
+        return switch (optype.toLowerCase()) {
+            case "scale" -> OP_TYPE.SCALE;
+            case "ln" -> OP_TYPE.LN;
+            case "salinity" -> OP_TYPE.SALINITY;
+            case "svc" -> OP_TYPE.SVC;
+            case "truewinddir" -> OP_TYPE.TRUEWINDDIR;
+            case "truewindspeed" -> OP_TYPE.TRUEWINDSPEED;
+            case "utm" -> OP_TYPE.UTM;
+            case "gdc" -> OP_TYPE.GDC;
+            default -> {
+                Logger.error(id + "(mf) -> Invalid op type given, using default complex");
+                yield OP_TYPE.COMPLEX;
+            }
+        };
     }
 
     /**

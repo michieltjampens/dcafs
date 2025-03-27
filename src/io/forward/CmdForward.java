@@ -1,7 +1,6 @@
 package io.forward;
 
 import das.Core;
-import io.Writable;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -17,7 +16,6 @@ import java.util.regex.Pattern;
 
 public class CmdForward extends AbstractForward {
     private final ArrayList<Cmd> cmds = new ArrayList<>();
-    private final String delimiter="";
 
     public CmdForward(Element ele, RealtimeValues rtvals  ){
         super(rtvals);

@@ -26,7 +26,7 @@ public class StoreCollector extends AbstractCollector {
     public boolean readFromXML(Element fwElement, RealtimeValues rtvals) {
         tis.clear(); // Clear any links that might already exist
         id = fwElement.getAttribute("id"); // Will need an id for the store
-        ValStore.build(fwElement,id,rtvals).ifPresent( x->store=x ); // Get the store
+        store = ValStore.build(fwElement, id, rtvals).orElse(null); // Get the store
         return store!=null;
     }
     /**

@@ -420,18 +420,8 @@ public class EditorForward extends AbstractForward{
             Logger.warn(id+"(ef)-> No original data referenced in the resplit");
         }
 
-        int[] indexes = new int[is.length];
-
-        for( int a=0;a<is.length;a++){
-            indexes[a] = Integer.parseInt(is[a].substring(1));
-        }
-
-        String deli;
-        if( delimiter.equalsIgnoreCase("*")){
-            deli="\\*";
-        }else{
-            deli=delimiter;
-        }
+        int[] indexes = Arrays.stream(is).mapToInt(i -> NumberUtils.toInt(i.substring(1))).toArray();
+        String deli = delimiter.equals("*") ? "\\*" : delimiter;
 
         Function<String,String> edit = input ->
         {

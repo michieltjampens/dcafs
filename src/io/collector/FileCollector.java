@@ -119,13 +119,13 @@ public class FileCollector extends AbstractCollector{
 
         /* Source and destination */
         addSource( dig.attr("src",""));
-        var path = dig.attr("path",null,Path.of(workpath));
-        if( path.isEmpty() ){
+        var path = dig.attr("path", null, Path.of(workpath)).orElse(null);
+        if (path == null) {
             Logger.error(id+"(fc) -> No valid destination given");
             return;
         }
 
-        setPath(path.get());
+        setPath(path);
         Logger.info("Trying to alter permissions");
         FileTools.setAllPermissions(getPath().getParent());
 
@@ -456,10 +456,10 @@ public class FileCollector extends AbstractCollector{
         if (maxBytes == -1 || Files.size(dest) < maxBytes)
             return;
 
-        var renamedOpt = renameOldFile(id, dest);// rename the file
-        if (renamedOpt.isEmpty())
+        var renamed = renameOldFile(id, dest).orElseGet(null);// rename the file
+        if (renamed == null)
             return;
-        var renamed = renamedOpt.get();
+
         String path;
         if (zipMaxBytes) { // if needed, zip it
             if (FileTools.zipFile(renamed, true).isEmpty())
@@ -579,13 +579,13 @@ public class FileCollector extends AbstractCollector{
                     var res = flushFuture.get(5,TimeUnit.SECONDS); // Writing should be done in 5 seconds...
                     if( res==null) { // if zipping and append is finished
                         var zipOpt = FileTools.zipFile(old, true);
-                        if (zipOpt.isPresent()) {
+                        path = zipOpt.map(zip -> {
                             Logger.info(id + "(fc) -> Zipped " + old.toAbsolutePath());
-                            path = zipOpt.get().toString();
-                        } else {
-                            Logger.error(id + "(fc) -> Failed to zip " + old.toString());
-                            path=old.toString();
-                        }
+                            return zip.toString();
+                        }).orElseGet(() -> {
+                            Logger.error(id + "(fc) -> Failed to zip " + old.toAbsolutePath());
+                            return old.toString();
+                        });
                     }else{
                         path=old.toString();
                     }

@@ -181,9 +181,8 @@ public abstract class AbstractForward implements Writable {
         delimiter=dig.attr("delim",delimiter,true); // Could have been shortened
 
         log = dig.attr("log",false); // Logging to raw files or not
-        if( log ){ // this counts as a target, so enable it
+        if (log) // this counts as a target, so enable it
             valid=true;
-        }
 
         /* Sources */
         sources.clear();
@@ -201,9 +200,8 @@ public abstract class AbstractForward implements Writable {
      */
     public void setStore( ValStore store ){
         this.store=store;
-        if( !valid && store!=null){
+        if (!valid && store != null)
             requestSource();
-        }
     }
 
     /**
@@ -278,8 +276,7 @@ public abstract class AbstractForward implements Writable {
     }
 
     protected void sendDataToStep( AbstractForward step ){
-        var matchOpt = nextSteps.stream().filter( ns -> ns==step).findFirst();
-        if( matchOpt.isPresent()) {
+        if (nextSteps.stream().anyMatch(ns -> ns == step)) {
             requestSource();
         }else{
             Logger.error( id()+" -> No match found for "+step.id() );
@@ -292,13 +289,12 @@ public abstract class AbstractForward implements Writable {
     }
     protected AbstractForward getStepById( String id){
         for( var next : nextSteps ){
-            if(next.id.equalsIgnoreCase(id) ) {
+            if (next.id.equalsIgnoreCase(id))
                 return next;
-            }else{ // Check the sub?
-                var step = next.getStepById(id);
-                if( step!=null)
-                    return step;
-            }
+            // Check the sub?
+            var step = next.getStepById(id);
+            if (step != null)
+                return step;
         }
         Logger.warn("No step found with id "+id);
         return null;
@@ -313,10 +309,7 @@ public abstract class AbstractForward implements Writable {
         return total;
     }
     protected String firstParentId(){
-        String oriId=id;
-        if( parent != null)
-            oriId = parent.firstParentId();
-        return oriId;
+        return parent != null ? parent.firstParentId() : id;
     }
     /* **********************Writable implementation ****************************/
     @Override

@@ -291,9 +291,9 @@ public class FilterForward extends AbstractForward {
                 .results()
                 .distinct()
                 .map(MatchResult::group)
-                .map( s-> NumberUtils.toInt(s.substring(1)))
+                .mapToInt(s -> NumberUtils.toInt(s.substring(1)))
                 .sorted() // so the highest one is at the bottom
-                .toArray(Integer[]::new);
+                .toArray();
 
         var block = new ConditionBlock(rtvals, null).setCondition(value);
         if (!block.isInvalid())
@@ -317,8 +317,7 @@ public class FilterForward extends AbstractForward {
     public boolean doFilter( String data ){
 
         for( Predicate<String> check : rules ){
-            boolean result = check.test(data);
-            if( !result || negate ){
+            if (!check.test(data) || negate) {
                 if( debug )
                     Logger.info(id+" -> "+data + " -> Failed");
                 return false;
