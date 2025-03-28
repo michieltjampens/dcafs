@@ -4,14 +4,15 @@ import com.diozero.api.DeviceAlreadyOpenedException;
 import com.diozero.api.DeviceBusyException;
 import com.diozero.api.I2CDevice;
 import com.diozero.api.RuntimeIOException;
+import das.Commandable;
 import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
-import das.Commandable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
@@ -21,7 +22,11 @@ import worker.Datagram;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Objects;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 public class I2CWorker implements Commandable {
     private final HashMap<String, I2cDevice> devices = new HashMap<>();
@@ -46,46 +51,46 @@ public class I2CWorker implements Commandable {
 
         int cnt=0;
         var dig = Paths.digInSettings("i2c");
+        if (dig.isInvalid())
+            return "! Didn't find i2c node in settings file";
 
-        if( dig.isValid() ){
-            Logger.info("Found settings for a I2C bus");
-            var debug = dig.attr("debug",false);
+        Logger.info("Found settings for a I2C bus");
+        var debug = dig.attr("debug", false);
 
-            for( var i2c_bus : dig.digOut("bus") ){
-                int controller = i2c_bus.attr("controller", -1);
-                Logger.info("(i2c) -> Reading devices on the I2C bus of controller "+controller);
-                if( controller ==-1 ){
-                    Logger.error("(i2c) -> Invalid controller number given.");
-                    continue;
-                }
-                var bus = getBus(controller);
-                if(i2c_bus.hasPeek("device")) {
-                    for (var device : i2c_bus.digOut("device")) {
-                        cnt++;
-                        var dev = new I2cOpper(device, bus);
-                        loadSet(dev);
-                        devices.put(dev.id(), dev);
-                    }
-                    i2c_bus.goUp();
-                }
-                for( var device : i2c_bus.digOut("uart")){
-                    cnt++;
-                    var dev = new I2cUart( device,bus);
-                    devices.put(dev.id,dev);
-                }
+        for (var i2c_bus : dig.digOut("bus")) {
+            int controller = i2c_bus.attr("controller", -1);
+            Logger.info("(i2c) -> Reading devices on the I2C bus of controller " + controller);
+            if (controller == -1) {
+                Logger.error("(i2c) -> Invalid controller number given.");
+                continue;
             }
-            if( devices.size()==cnt)
-                return "Found all devices";
-
-            setDebug(debug);
+            var bus = getBus(controller);
+            if (i2c_bus.hasPeek("device")) {
+                for (var device : i2c_bus.digOut("device")) {
+                    cnt++;
+                    var dev = new I2cOpper(device, bus);
+                    loadSet(dev);
+                    devices.put(dev.id(), dev);
+                }
+                i2c_bus.goUp();
+            }
+            for (var device : i2c_bus.digOut("uart")) {
+                cnt++;
+                var dev = new I2cUart(device, bus);
+                devices.put(dev.id, dev);
+            }
         }
-        return "Found "+devices+" on checked busses, while looking for "+cnt+" devices";
+        if (devices.size() == cnt)
+            return "Found all devices";
+
+        setDebug(debug);
+        return "! Found " + devices + " on checked busses, while looking for " + cnt + " devices";
     }
     private I2cBus getBus( int controller ){
         while(busses.size() <= controller)
             busses.add(null);
         if( busses.get(controller)==null)
-            busses.set( controller, new I2cBus(controller,eventloop));
+            busses.set(controller, new I2cBus(controller, eventloop));
         return busses.get(controller);
     }
     private void loadSet(I2cOpper device ){
@@ -123,10 +128,11 @@ public class I2CWorker implements Commandable {
     public String getDeviceList() {
         if( devices.isEmpty())
             return "! No devices yet.";
-        StringJoiner join = new StringJoiner("\r\n");
+
         Logger.info("i2c list size:"+devices.size());
-        devices.forEach((key, device) -> join.add(key+" -> "+device.toString()));
-        return join.toString();
+        return devices.entrySet().stream()
+                .map(set -> set.getKey() + " -> " + set.getValue())
+                .collect(Collectors.joining("\r\n"));
     }
     public int getDeviceCount(){
         return devices.size();
@@ -151,7 +157,7 @@ public class I2CWorker implements Commandable {
      */
     public String getListeners(){
         StringJoiner join = new StringJoiner("\r\n");
-        join.setEmptyValue("None yet");
+        join.setEmptyValue("! No devices yet");
         devices.forEach( (id,device) -> join.add( id+" -> "+device.getWritableIDs()));
         return join.toString();
     }
@@ -163,10 +169,7 @@ public class I2CWorker implements Commandable {
      */
     public void setDebug(boolean debug ){
         devices.values().forEach( device -> device.setDebug(debug));
-        busses.forEach(x->{
-            if(x!=null)
-                x.setDebug(debug);
-        });
+        busses.stream().filter(Objects::nonNull).forEach(bus -> bus.setDebug(debug));
     }
 
     /**
@@ -222,9 +225,6 @@ public class I2CWorker implements Commandable {
     public String replyToCommand(Datagram d) {
 
         String[] args = d.argList();
-        String cyan = d.asHtml() ? "" : TelnetCodes.TEXT_CYAN;
-        String gr = d.asHtml() ? "" : TelnetCodes.TEXT_GREEN;
-        String reg = d.asHtml() ? "" : TelnetCodes.TEXT_DEFAULT;
 
         var dev = devices.get(d.cmd());
         if( dev instanceof I2cUart uart){
@@ -232,172 +232,162 @@ public class I2CWorker implements Commandable {
             return "Written '" + d.args() + "' to " + d.cmd();
         }
 
-        switch (args[0]) {
-            case "?" -> {
-                StringJoiner join = new StringJoiner(d.asHtml() ? "<br>" : "\r\n");
-                join.add(cyan + "Create/load devices/scripts" + reg)
-                        .add(gr + "  i2c:detect,bus" + reg + " -> Detect the devices connected on the given bus")
-                        .add(gr + "  i2c:adddevice,id,bus,address,scriptid" + reg + " -> Add a device on bus at hex address that uses script,"
-                                +" create new script if it doesn't exist yet")
-                        .add(gr + "  i2c:addscript,scriptid" + reg + " -> Adds a blank i2c script to the default folder")
-                        .add(gr + "  i2c:reload" + reg + " -> Check for devices and reload the scripts")
-                        .add("").add(cyan + " Get info" + reg)
-                        .add(gr + "  i2c:list" + reg + " -> List all registered devices with i2cscript")
-                        .add(gr + "  i2c:listeners" + reg + " -> List all the devices with their listeners")
-                        .add("").add(cyan + " Other" + reg)
-                        .add(gr + "  i2c:debug,on/off" + reg + " -> Enable or disable extra debug feedback in logs")
-                        .add(gr + "  i2c:device,setid" + reg + " -> Use the given i2cop on the device")
-                        .add(gr + "  i2c:id" + reg + " -> Request the data received from the given id (can be regex)");
-                return join.toString();
-            }
-            case "list" -> {
-                return getDeviceList();
-            }
-            case "reload" -> {
-                return readFromXML();
-            }
-            case "listeners" -> {
-                return getListeners();
-            }
+        return switch (args[0]) {
+            case "?" -> getCmdHelp(d.asHtml());
+            case "list" -> getDeviceList();
+            case "reload" -> readFromXML();
+            case "listeners" -> getListeners();
+
             case "debug" -> {
                 if (args.length == 2) {
                     setDebug(args[1].equalsIgnoreCase("on"));
-                    return "Debug " + args[1];
+                    yield "Debug " + args[1];
                 }
-                return "! Incorrect number of variables: i2c:debug,on/off";
+                yield "! Incorrect number of variables: i2c:debug,on/off";
             }
-            case "addscript" -> {
-                if (args.length != 2)
-                    return "! Incorrect number of arguments: i2c:addscript,scriptid";
-                if (!Files.isDirectory(scriptsPath)) {
-                    try {
-                        Files.createDirectories(scriptsPath);
-                    } catch (IOException e) {
-                        Logger.error(e);
-                    }
-                }
-                if (Files.exists(scriptsPath.resolve(args[1] + ".xml")))
-                    return "! Already a script with that name, try again?";
-                XMLfab.withRoot(scriptsPath.resolve(args[1] + ".xml"), "i2cscript").attr("id", args[1])
-                        .addParentToRoot("i2cop", "An empty operation set to start with")
-                        .attr("id", "setid").attr("info", "what this does").attr("bits","8")
-                        .build();
-                return "Script added";
-            }
-            case "adddevice" -> {
-                if (args.length != 5)
-                    return "! Incorrect number of arguments: i2c:adddevice,id,bus,hexaddress,scriptid";
-                if (!Files.isDirectory(scriptsPath)) {
-                    try {
-                        Files.createDirectories(scriptsPath);
-                    } catch (IOException e) {
-                        Logger.error(e);
-                    }
-                }
-                var bus = getBus(NumberUtils.toInt(args[2]));
-                var opper = new I2cOpper(args[1], bus, NumberUtils.createInteger(args[3]), args[4]);
-                if( !opper.probeIt() )
-                    return "! Probing " + args[3] + " on bus " + args[2] + " failed";
-
-                devices.put(args[1], opper);
-
-                var fab = Paths.fabInSettings("i2c");
-                fab.selectOrAddChildAsParent("bus", "controller", args[2]);
-                fab.selectOrAddChildAsParent("device").attr("id", args[1]);
-                fab.addChild("address").content(args[3]);
-                fab.addChild("script").content(args[4]);
-                fab.build();
-
-                // Check if the script already exists, if not build it
-                var p = scriptsPath.resolve(args[4] + (args[4].endsWith(".xml") ? "" : ".xml"));
-                if (!Files.exists(p)) {
-                    XMLfab.withRoot(p, "i2cscript").attr("id", args[4])
-                            .addParentToRoot("i2cop", "An empty operation set to start with")
-                            .attr("id", "setid").attr("info", "what this does")
-                            .attr("bits","8")
-                            .build();
-                    readFromXML(); // Reload to enable changes
-                    return "Device added, created blank script at " + p;
-                }
-                readFromXML();  // Reload to enable changes
-                return "Device added, using existing script";
-            }
+            case "addscript" -> doAddScriptCmd(args);
+            case "adddevice" -> doAddDeviceCmd(args);
             case "detect" -> {
-                if (args.length == 2) {
-                    return I2CWorker.detectI2Cdevices(Integer.parseInt(args[1]));
-                } else {
-                    return "! Incorrect number of arguments: i2c:detect,bus";
-                }
-            }
-            case "businfo" ->{
-                var join = new StringJoiner("\r\n");
-                busses.forEach( b -> {
-                    if (b == null) {
-                        join.add("Null??");
-                    } else {
-                        join.add(b.getInfo());
-                    }
-                });
-                return join.toString();
-            }
-            case "busreset" -> {
-                if (args.length == 2) {
-                    var bus = busses.get(Integer.parseInt(args[1]));
-                    if( bus==null)
-                        return "! Bus not in use.";
-                    bus.reset();
-                    return "Bus " + args[1] + " object reset, this didn't do anything to the bus itself!";
-                } else {
-                    return "! Incorrect number of arguments: i2c:busreset,bus";
-                }
-            }
-            case "" -> {
-                return removeWritable(d.getWritable()) ? "ok" : "failed";
-            }
-            default -> {
-                if (args.length == 1) { // single arguments points to a data request
-                    StringBuilder oks = new StringBuilder();
-                    for (var device : devices.entrySet()) {
-                        if (device.getKey().matches(args[0])) {
-                            device.getValue().addTarget(d.getWritable());
-                            if (!oks.isEmpty())
-                                oks.append(", ");
-                            oks.append(device.getKey());
-                        }
-                    }
-                    if (!oks.isEmpty())
-                        return "Request from " + d.originID() + " accepted for i2c:" + oks;
+                if (args.length == 2)
+                    yield I2CWorker.detectI2Cdevices(Integer.parseInt(args[1]));
+                yield "! Incorrect number of arguments: i2c:detect,bus";
 
-                    Logger.error("! No matches for i2c:" + args[0] + " requested by " + d.originID());
-                    return "! No such subcommand in " + d.getData();
-                }
-                var device = devices.get(args[0]);
-                if( device == null)
-                    return "! No such device id: " + args[0];
-                if (args[1].equalsIgnoreCase("?") && device instanceof I2cOpper opper) {
-                    return opper.getOpsInfo(true);
-                }else if( device instanceof I2cUart uart ){
-                    return switch (args[1]) {
-                        case "status" ->{
-                            uart.requestStatus(d.getWritable());
-                            yield "Status requested for " + args[0] + " (result should follow...)";
-                        }
-                        case "clock" -> {
-                            uart.writeLine("", TimeTools.formatNow("HH:mm:ss.SSS"));
-                            yield "Sending current time";
-                        }
-                        default -> {
-                            Logger.warn("No such subcmd yet: " + args[1]);
-                            yield "! No such subcmd yet: " + args[1];
-                        }
-                    };
-                }
-                return queueWork(args[0], ArrayUtils.remove(args, 0));
+            }
+            case "businfo" -> busses.stream().filter(Objects::nonNull).map(I2cBus::getInfo)
+                    .collect(Collectors.joining("\r\b"));
+            case "busreset" -> {
+                if (args.length != 2)
+                    yield "! Incorrect number of arguments: i2c:busreset,bus";
+                var bus = busses.get(Integer.parseInt(args[1]));
+                if (bus == null)
+                    yield "! Bus not in use.";
+                bus.reset();
+                yield "Bus " + args[1] + " object reset, this didn't do anything to the bus itself!";
+            }
+            case "" -> removeWritable(d.getWritable()) ? "ok" : "failed";
+            default -> doDefaultCmd(d);
+        };
+    }
+
+    private static String getCmdHelp(boolean html) {
+        var join = new StringJoiner("\r\n");
+        join.add("Create/load devices/scripts")
+                .add("i2c:detect,bus -> Detect the devices connected on the given bus")
+                .add("i2c:adddevice,id,bus,address,scriptid -> Add a device on bus at hex address that uses script,"
+                        + " create new script if it doesn't exist yet")
+                .add("i2c:addscript,scriptid -> Adds a blank i2c script to the default folder")
+                .add("i2c:reload -> Check for devices and reload the scripts")
+                .add(" Get info")
+                .add("i2c:list -> List all registered devices with i2cscript")
+                .add("i2c:listeners -> List all the devices with their listeners")
+                .add(" Other")
+                .add("i2c:debug,on/off -> Enable or disable extra debug feedback in logs")
+                .add("i2c:device,setid -> Use the given i2cop on the device")
+                .add("i2c:id -> Request the data received from the given id (can be regex)");
+        return LookAndFeel.formatCmdHelp(join.toString(), html);
+    }
+
+    private String doAddScriptCmd(String[] args) {
+        if (args.length != 2)
+            return "! Incorrect number of arguments: i2c:addscript,scriptid";
+        if (!Files.isDirectory(scriptsPath)) {
+            try {
+                Files.createDirectories(scriptsPath);
+            } catch (IOException e) {
+                Logger.error(e);
             }
         }
+        if (Files.exists(scriptsPath.resolve(args[1] + ".xml")))
+            return "! Already a script with that name, try again?";
+        XMLfab.withRoot(scriptsPath.resolve(args[1] + ".xml"), "i2cscript").attr("id", args[1])
+                .addParentToRoot("i2cop", "An empty operation set to start with")
+                .attr("id", "setid").attr("info", "what this does").attr("bits", "8")
+                .build();
+        return "Script added";
     }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such payload cmd in "+cmd;
+
+    private String doAddDeviceCmd(String[] args) {
+        if (args.length != 5)
+            return "! Incorrect number of arguments: i2c:adddevice,id,bus,hexaddress,scriptid";
+        if (!Files.isDirectory(scriptsPath)) {
+            try {
+                Files.createDirectories(scriptsPath);
+            } catch (IOException e) {
+                Logger.error(e);
+            }
+        }
+        var bus = getBus(NumberUtils.toInt(args[2]));
+        var opper = new I2cOpper(args[1], bus, NumberUtils.createInteger(args[3]), args[4]);
+        if (!opper.probeIt())
+            return "! Probing " + args[3] + " on bus " + args[2] + " failed";
+
+        devices.put(args[1], opper);
+
+        var fab = Paths.fabInSettings("i2c");
+        fab.selectOrAddChildAsParent("bus", "controller", args[2]);
+        fab.selectOrAddChildAsParent("device").attr("id", args[1]);
+        fab.addChild("address").content(args[3]);
+        fab.addChild("script").content(args[4]);
+        fab.build();
+
+        // Check if the script already exists, if not build it
+        var p = scriptsPath.resolve(args[4] + (args[4].endsWith(".xml") ? "" : ".xml"));
+        if (!Files.exists(p)) {
+            XMLfab.withRoot(p, "i2cscript").attr("id", args[4])
+                    .addParentToRoot("i2cop", "An empty operation set to start with")
+                    .attr("id", "setid").attr("info", "what this does")
+                    .attr("bits", "8")
+                    .build();
+            readFromXML(); // Reload to enable changes
+            return "Device added, created blank script at " + p;
+        }
+        readFromXML();  // Reload to enable changes
+        return "Device added, using existing script";
+    }
+
+    private String doDefaultCmd(Datagram d) {
+        var args = d.argList();
+
+        if (args.length == 1) { // single arguments points to a data request
+            StringBuilder oks = new StringBuilder();
+            for (var device : devices.entrySet()) {
+                if (device.getKey().matches(args[0])) {
+                    device.getValue().addTarget(d.getWritable());
+                    if (!oks.isEmpty())
+                        oks.append(", ");
+                    oks.append(device.getKey());
+                }
+            }
+            if (!oks.isEmpty())
+                return "Request from " + d.originID() + " accepted for i2c:" + oks;
+
+            Logger.error("! No matches for i2c:" + args[0] + " requested by " + d.originID());
+            return "! No such subcommand in " + d.getData();
+        }
+        var device = devices.get(args[0]);
+        if (device == null)
+            return "! No such device id: " + args[0];
+
+        if (args[1].equalsIgnoreCase("?") && device instanceof I2cOpper opper)
+            return opper.getOpsInfo(true);
+
+        if (device instanceof I2cUart uart) {
+            return switch (args[1]) {
+                case "status" -> {
+                    uart.requestStatus(d.getWritable());
+                    yield "Status requested for " + args[0] + " (result should follow...)";
+                }
+                case "clock" -> {
+                    uart.writeLine("", TimeTools.formatNow("HH:mm:ss.SSS"));
+                    yield "Sending current time";
+                }
+                default -> {
+                    Logger.warn("No such subcmd yet: " + args[1]);
+                    yield "! No such subcmd yet: " + args[1];
+                }
+            };
+        }
+        return queueWork(args[0], ArrayUtils.remove(args, 0));
     }
     /**
      * Add work to the worker
@@ -416,9 +406,9 @@ public class I2CWorker implements Commandable {
             return "! Invalid because unknown device '" + id + "'";
         }
         var setId = setIdParams[0];
-        if ( dev instanceof I2cOpper opper) {
+        if (dev instanceof I2cOpper opper)
             return opper.queueSet(setIdParams)?"Set "+setId+" on "+opper.id() +" queued.":("! No such setId '"+setId+"'");
-        }
+
         return "! Device is an uart, not running op sets.";
     }
 

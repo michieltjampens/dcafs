@@ -82,18 +82,17 @@ public class I2CRead implements I2COp{
         }
         Logger.debug("Reading block...");
         byte[] rec = new byte[recBytes];
-        if(reg==-1){
+        if (reg == -1) {
             rec = device.getDevice().readBytes(recBytes);
         }else if( recBytes==1 ){
             rec[0] = device.getDevice().readByteData((byte)reg);
-        }else {
+        } else {
             device.getDevice().readNoStop((byte) reg, rec, false);
         }
         if( device.inDebug())
             Logger.info(device.id()+"(i2c) -> Read: "+Tools.fromBytesToHexString(rec));
-        if( bitsets!=null ){
+        if (bitsets != null)
             return convertNibblesToDouble(rec,bitsets,msbFirst);
-        }
         return convertBytesToDouble(rec,bits,msbFirst,signed);
     }
     /**
@@ -108,40 +107,47 @@ public class I2CRead implements I2COp{
     public static ArrayList<Double> convertBytesToDouble(byte[] bytes, int bits, boolean msbFirst, boolean signed){
 
         int[] intResults = new int[bytes.length];
-        ArrayList<Double> dbs = new ArrayList<>();
-
-        for( int a=0;a<bytes.length;a++){
-            intResults[a]=bytes[a]<0?bytes[a]+256:bytes[a];
-        }
+        for (int a = 0; a < bytes.length; a++)
+            intResults[a] = bytes[a] < 0 ? bytes[a] + 256 : bytes[a];
 
         int match = bytes.length%(bits/8);
         if( match !=0 )
             System.out.println("Mismatch between bytes received and bits aggregated, bytes mismatch: "+match);
 
-        if( bits%8 == 0){ // works up to 32bit
-            int msbmod = msbFirst?1:-1;
-            int first = msbFirst?0:bits/8-1;
-            for (int a = first; a < bytes.length; a += bits / 8) {
-                double total = 0;
-                for (int b = 0; b < bits / 8 && (a + b) < intResults.length && (a + b) > -1; b++) {
-                    total += intResults[a + msbmod*b];
-                    if (b != bits / 8 - 1)
-                        total *= 256;
-                }
-                if( signed ) {
-                    total = switch (bits) {
-                        case 8 -> MathUtils.toSigned8bit((int)total);
-                        case 16 -> MathUtils.toSigned16bit((int)total);
-                        case 24 -> MathUtils.toSigned24bit((int)total);
-                        case 32 -> MathUtils.toSigned32bit((int)total);
-                        default -> total;
-                    };
-                }
-                dbs.add(total);
+        if (bits % 8 == 0) // works up to 32bit
+            return multipleOfEight(intResults, bytes, bits, msbFirst, signed);
+        return notMultipleOfEight(intResults, bytes, bits, msbFirst, signed);
+    }
+
+    private static ArrayList<Double> multipleOfEight(int[] intResults, byte[] bytes, int bits, boolean msbFirst, boolean signed) {
+        ArrayList<Double> dbs = new ArrayList<>();
+        int msbMod = msbFirst ? 1 : -1;
+        int first = msbFirst ? 0 : bits / 8 - 1;
+
+        for (int a = first; a < bytes.length; a += bits / 8) {
+            double total = 0;
+            for (int b = 0; b < bits / 8 && (a + b) < intResults.length && (a + b) > -1; b++) {
+                total += intResults[a + msbMod * b];
+                if (b != bits / 8 - 1)
+                    total *= 256;
             }
-            return dbs;
+            if (signed) {
+                total = switch (bits) {
+                    case 8 -> MathUtils.toSigned8bit((int) total);
+                    case 16 -> MathUtils.toSigned16bit((int) total);
+                    case 24 -> MathUtils.toSigned24bit((int) total);
+                    case 32 -> MathUtils.toSigned32bit((int) total);
+                    default -> total;
+                };
+            }
+            dbs.add(total);
         }
+        return dbs;
+    }
+
+    private static ArrayList<Double> notMultipleOfEight(int[] intResults, byte[] bytes, int bits, boolean msbFirst, boolean signed) {
         int temp;
+        ArrayList<Double> dbs = new ArrayList<>();
         switch (bits) {
             //TODO Shift in the other direction and LSB/MSB first
             case 10 -> { // take the full first byte and only the 2 MSB of the second
@@ -174,8 +180,6 @@ public class I2CRead implements I2COp{
     }
     public static ArrayList<Double> convertNibblesToDouble(byte[] bytes, int[] bits, boolean msbFirst){
 
-        ArrayList<Double> dbs = new ArrayList<>();
-
         // Convert the bytes to a hex string to easily work with nibbles
         String nibs = Tools.fromBytesToHexString(bytes);
         nibs = nibs.replace("0x","").replace(" ","");
@@ -183,9 +187,11 @@ public class I2CRead implements I2COp{
         int n = Arrays.stream(bits).sum()/4;
         if( n > nibs.length() ) {
             Logger.error("Not enough nibbles to convert, needed "+n+" ori: "+nibs);
-            return dbs;
+            return new ArrayList<>();
         }
+
         int pos=0;
+        ArrayList<Double> dbs = new ArrayList<>();
         for( int nibbles : bits ){
             nibbles /=4; // Single character
             var hex = "0x"+ nibs.substring(pos,pos+nibbles);

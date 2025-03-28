@@ -76,7 +76,7 @@ public class PathPool implements Commandable {
                     var args = d.argList();
                     var p = paths.get(args[0]);
                     if (p == null)
-                        return "No such path (yet): " + d.args();
+                        return "! No such path (yet): " + d.args();
                     if (args.length == 2) {
                         p.addTarget(d.getWritable(), args[1]);
                     }else{
@@ -126,7 +126,7 @@ public class PathPool implements Commandable {
                 if ( !dig.hasPeek("path","id",args[0]))
                     return "! No such path " + args[0];
                 var result = paths.get(args[1]).readFromXML(dig, Paths.storage());
-                return result.isEmpty() ? "Path reloaded" : result;
+                return result.isEmpty() ? "Path reloaded." : result;
             }
             case "clear" -> { // Clear the path node and reload
                 XMLfab.withRoot(Paths.settings(), "dcafs", "paths").clearChildren().build();

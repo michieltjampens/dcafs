@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class PathForward {
 
@@ -170,60 +171,49 @@ public class PathForward {
                 step.setAttribute("delimiter",delimiter);
             // If this step doesn't have an id, alter it
             if( !step.hasAttribute("id")) {
-                if(parent==null) {
-                    step.setAttribute("id", id + "_" + stepsForward.size());
-                }else{
-                    step.setAttribute("id", parent.firstParentId()+"_"+parent.siblings() );
-                }
+                var altId = parent == null ? id + "_" + stepsForward.size() : parent.firstParentId() + "_" + parent.siblings();
+                step.setAttribute("id", altId);
             }
             parent = switch( step.getTagName() ){
-                case "case" -> {
+                case "case", "if" -> {
                     FilterForward ff = new FilterForward(step);
                     // Now link to the source
-                    checkParent( parent,ff,prevTag);
+                    checkParent(parent, ff, prevTag);
                     // Go deeper
-                    var subs = new ArrayList<>(dig.currentSubs());
-                    reqData |= addSteps( subs, delimiter, ff);
-                    yield parent; // This doesn't alter the parent
-                }
-                case "if" -> {
-                    FilterForward ff = new FilterForward(step);
-                    // Now link to the source
-                    checkParent( parent,ff, prevTag);
-                    // Go deeper
-                    var subs = new ArrayList<>(dig.currentSubs());
-                    reqData |= addSteps( subs, delimiter, ff);
-                    yield ff; //
+                    reqData |= addSteps(new ArrayList<>(dig.currentSubs()), delimiter, ff);
+                    yield step.getTagName().equals("case") ? parent : ff; // This doesn't alter the parent
                 }
                 case "filter" -> checkParent( parent,new FilterForward(step), prevTag );
                 case "math" ->   checkParent( parent,new MathForward(step, rtvals,defines), prevTag );
                 case "editor" -> checkParent( parent,new EditorForward(step, rtvals), prevTag );
                 case "cmd" -> checkParent( parent,new CmdForward(step, rtvals), prevTag );
                 case "defines" -> {
-                    for( var ele :dig.currentSubs()){
-                        defines.put(ele.getTagName(),ele.getTextContent());
-                    }
+                    dig.currentSubs().forEach(ele -> defines.put(ele.getTagName(), ele.getTextContent()));
                     yield parent; // This doesn't alter the parent
                 }
-                case "store" -> {
-                    var storeOpt = ValStore.build(step,id,rtvals);
-                    if( storeOpt.isPresent()) { // If processed properly
-                        var store = storeOpt.get();
-                        if( parent != null ) {
-                            parent.setStore(store);
-                            for (var db : store.dbInsertSets())
-                                Core.addToQueue(Datagram.system("dbm:" + db[0] + ",tableinsert," + db[1]).payload(parent));
-                        }else{ // No parent node, so it's the only node in the path...?
-                            Logger.warn("Still to implement a path that only contains a store, should be in the stream instead");
-                        }
-                    }
-                    yield parent; // This doesn't alter the parent
-                }
+                case "store" -> addStoreStep(parent, step);
                 default -> parent;
             };
             prevTag=step.getTagName();
         }
         return reqData;
+    }
+
+    private AbstractForward addStoreStep(AbstractForward parent, Element step) {
+        if (parent == null) {// No parent node, so it's the only node in the path...?
+            Logger.warn("Still to implement a path that only contains a store, put the store in the stream instead");
+            return null;
+        }
+
+        var store = ValStore.build(step, id, rtvals).orElse(null);
+        if (store == null)
+            return parent;
+
+        parent.setStore(store);
+        for (var db : store.dbInsertSets())
+            Core.addToQueue(Datagram.system("dbm:" + db[0] + ",tableinsert," + db[1]).payload(parent));
+
+        return parent; // This doesn't alter the parent
     }
     private AbstractForward checkParent( AbstractForward parent, AbstractForward child, String prevTag){
         if (parent==null){ // No parent so root of the path, so get the source of the path and it's a step
@@ -270,9 +260,9 @@ public class PathForward {
     }
     public String debugStep( int step, Writable wr ){
         if( wr==null )
-            return "No proper writable received";
+            return "! No proper writable received";
         if( step >= stepsForward.size() )
-            return "Wanted step "+step+" but only "+stepsForward.size()+" available";
+            return "! Wanted step " + step + " but only " + stepsForward.size() + " available";
 
         for( var ab : stepsForward )
             ab.removeTarget(wr);
@@ -287,7 +277,7 @@ public class PathForward {
         }else if(step !=-1 && step < stepsForward.size() ){
             stepsForward.get(step).addTarget(wr);
         }else{
-            return "Failed to request data, bad index given";
+            return "! Failed to request data, bad index given";
         }
         var s = stepsForward.get(step);
 
@@ -305,7 +295,7 @@ public class PathForward {
     }
     public String toString(){
         if (customs.isEmpty() && stepsForward.isEmpty())
-            return "Nothing in the path yet";
+            return "! Nothing in the path yet";
 
         var join = new StringJoiner("\r\n");
         customs.forEach(c->join.add(c.toString()));
@@ -471,76 +461,80 @@ public class PathForward {
                     targets.forEach(x -> x.writeLine(id, write));
                 }
                 case PLAIN -> targets.forEach(x -> x.writeLine(id, pathOrData));
-                case SQLITE -> {
+                case SQLITE -> writeFromSQLite();
+                case FILE -> writeFromFile();
+            }
+        }
+
+        private void writeFromSQLite() {
+            if (!buffer.isEmpty()) {
+                String line = buffer.remove(0);
+                targets.forEach(wr -> wr.writeLine(id, line));
+                return;
+            }
+            if (readOnce) {
+                stop();
+                return;
+            }
+            var lite = SQLiteDB.createDB("custom", Path.of(path));
+            var dataOpt = lite.doSelect(pathOrData);
+            lite.disconnect(); //disconnect the database after retrieving the data
+
+            if (dataOpt.isEmpty()) {
+                Logger.error("Tried to read from db but failed: " + path);
+                return;
+            }
+            readOnce = true;
+            for (var record : dataOpt.get()) {
+                buffer.add(record.stream().map(Object::toString).collect(Collectors.joining(";")));
+            }
+        }
+
+        private void writeFromFile() {
+            try {
+                for (int a = 0; a < multiLine; a++) {
                     if (buffer.isEmpty()) {
-                        if (readOnce) {
-                            stop();
+                        // If the list of files is empty, stop
+                        if (files.isEmpty()) {
+                            future.cancel(true);
+                            Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " finished at " + Instant.now()));
                             return;
                         }
-                        var lite = SQLiteDB.createDB("custom", Path.of(path));
-                        var dataOpt = lite.doSelect(pathOrData);
-                        lite.disconnect(); //disconnect the database after retrieving the data
-                        if (dataOpt.isPresent()) {
-                            var data = dataOpt.get();
-                            readOnce = true;
-                            for (var d : data) {
-                                StringJoiner join = new StringJoiner(";");
-                                d.stream().map(Object::toString).forEach(join::add);
-                                buffer.add(join.toString());
-                            }
-                        }else{
-                            Logger.error("Tried to read from db but failed: "+path);
-                        }
-                    } else {
-                        String line = buffer.remove(0);
-                        targets.forEach(wr -> wr.writeLine(id, line));
-                    }
-                }
-                case FILE -> {
-                    try {
-                        for (int a = 0; a < multiLine; a++) {
+                        var currentFile = files.get(0);
+                        buffer.addAll(FileTools.readLines(currentFile, lineCount, maxBufferSize));
+                        lineCount += buffer.size();
+                        if (lineCount / 1000 == 0)
+                            Logger.info("Read " + lineCount + " lines");
+
+                        if (buffer.size() < maxBufferSize) { // Buffer wasn't full, so file read till end
+                            Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " processed " + currentFile + " at " + Instant.now()));
+                            Logger.info("Finished processing " + currentFile);
+                            files.remove(0);
+                            lineCount = 1 + skipLines; // First line is at 1, so add any that need to be skipped
+
                             if (buffer.isEmpty()) {
-                                // If the list of files is empty, stop
                                 if (files.isEmpty()) {
                                     future.cancel(true);
-                                    Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
+                                    Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " finished at " + Instant.now()));
                                     return;
                                 }
 
-                                buffer.addAll(FileTools.readLines(files.get(0), lineCount, maxBufferSize));
+                                Logger.info("Started processing " + files.get(0) + " at " + Instant.now());
+                                // Buffer isn't full, so fill it up
+                                buffer.addAll(FileTools.readLines(files.get(0), lineCount, maxBufferSize - buffer.size()));
                                 lineCount += buffer.size();
-                                if( lineCount/1000==0)
-                                    Logger.info("Read "+lineCount+" lines");
-                                if (buffer.size() < maxBufferSize) { // Buffer wasn't full, so file read till end
-                                    Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " processed " + files.get(0)+" at "+ Instant.now()));
-                                    Logger.info("Finished processing " + files.get(0));
-                                    files.remove(0);
-                                    lineCount = 1+skipLines; // First line is at 1, so add any that need to be skipped
-                                    if (buffer.isEmpty()) {
-                                        if (!files.isEmpty()) {
-                                            Logger.info("Started processing " + files.get(0)+ " at "+Instant.now() );
-                                            // Buffer isn't full, so fill it up
-                                            buffer.addAll(FileTools.readLines(files.get(0), lineCount, maxBufferSize-buffer.size()));
-                                            lineCount += buffer.size();
-                                        } else {
-                                            future.cancel(true);
-                                            Core.addToQueue(Datagram.system("telnet:broadcast,info," + id + " finished at "+ Instant.now()));
-                                            return;
-                                        }
-                                    }
-                                }
                             }
-                            String line = buffer.remove(0);
-                            targets.forEach(wr -> wr.writeLine(id, line));
-                            if (!label.isEmpty()) {
-                                Core.addToQueue(Datagram.build(line).label(label));
-                            }
-                            sendLines++;
                         }
-                    } catch (Exception e) {
-                        Logger.error(e);
                     }
+                    String line = buffer.remove(0);
+                    targets.forEach(wr -> wr.writeLine(id, line));
+                    if (!label.isEmpty())
+                        Core.addToQueue(Datagram.build(line).label(label));
+
+                    sendLines++;
                 }
+            } catch (Exception e) {
+                Logger.error(e);
             }
         }
         public String toString(){

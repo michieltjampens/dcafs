@@ -142,18 +142,18 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
     private void processRead( byte[] data ){
         for ( byte datum : data) {
             readBuffer.writeByte(datum);
-            if (datum == eolBytes[eolFound]) {
-                eolFound++;
-                if (eolFound == eolBytes.length) { // Got whole eol
-                    var rec = new byte[readBuffer.readableBytes()-eolFound];
-                    readBuffer.readBytes(rec); // Read the bytes, but omit the eol
-                    readBuffer.clear(); // ignore the eol
-                    var res = new String(rec);
-                    Logger.tag("RAW").warn( id() + "\t" + res );
-                    forwardData( res );
-                    eolFound = 0;
-                }
-            } else {
+            if (datum != eolBytes[eolFound]) {
+                eolFound = 0;
+                continue;
+            }
+            eolFound++;
+            if (eolFound == eolBytes.length) { // Got whole eol
+                var rec = new byte[readBuffer.readableBytes() - eolFound];
+                readBuffer.readBytes(rec); // Read the bytes, but omit the eol
+                readBuffer.clear(); // ignore the eol
+                var res = new String(rec);
+                Logger.tag("RAW").warn(id() + "\t" + res);
+                forwardData(res);
                 eolFound = 0;
             }
         }
