@@ -96,14 +96,12 @@ public class I2cUart extends I2cDevice implements Writable, DeviceEventConsumer<
             int size = status % 8192;  // Next 12 bits are buffer used size
             if( debug )
                 Logger.info("Status: "+status);
-            if( requested == WAITING_FOR.UNKNOWN ){
-                if (size != 0) {
-                    try {
-                        data = new byte[size];
-                        device.readNoStop((byte)5,data,false);
-                    }catch( RuntimeIOException e ){
-                        Logger.error(id+"(uart) -> Runtime exception when trying to read: "+e.getMessage());
-                    }
+            if (requested == WAITING_FOR.UNKNOWN && size != 0) {
+                try {
+                    data = new byte[size];
+                    device.readNoStop((byte) 5, data, false);
+                } catch (RuntimeIOException e) {
+                    Logger.error(id + "(uart) -> Runtime exception when trying to read: " + e.getMessage());
                 }
             }
 

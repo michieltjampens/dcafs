@@ -1,6 +1,5 @@
 package util.xml;
 
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.*;
@@ -19,20 +18,20 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFileAttributes;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
+import java.util.stream.IntStream;
 
 public class XMLtools {
 
@@ -208,14 +207,17 @@ public class XMLtools {
 			Logger.error("Element is null when looking for "+tag);
 			return Optional.empty();
 		}
-		var list = element.getChildNodes();
-		for( int a=0;a<list.getLength();a++){
-			if(list.item(a) instanceof Element ele) {
-				if (ele.getTagName().equalsIgnoreCase(tag) || tag.equals("*"))
-					return Optional.of(ele);
-			}
+		if (tag == null) {
+			Logger.error("Tag is null");
+			return Optional.empty();
 		}
-		return Optional.empty();
+		var list = element.getChildNodes();
+		return IntStream.range(0, list.getLength())
+				.mapToObj(list::item)
+				.filter(node -> node instanceof Element)
+				.map(node -> (Element) node)
+				.filter(ele -> ele.getTagName().equalsIgnoreCase(tag) || tag.equals("*"))
+				.findFirst();
 	}
 	/**
 	 * Check the given element for a child node with a specific tag

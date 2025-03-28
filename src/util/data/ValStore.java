@@ -1,6 +1,5 @@
 package util.data;
 
-import io.forward.AbstractForward;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.math.MathUtils;
@@ -228,49 +227,9 @@ public class ValStore {
         return !valid;
     }
     public void shareRealtimeValues(RealtimeValues rtv){
-        for( int index=0;index<rtvals.size();index++){
-            var val = rtvals.get(index);
-
-            if (val instanceof RealVal rv) {
-                if (rtv.addRealVal(rv) == AbstractForward.RESULT.EXISTS)
-                    rtvals.set(index, rtv.getRealVal(val.id()).get());
-            } else if (val instanceof IntegerVal iv) {
-                if (rtv.addIntegerVal(iv) == AbstractForward.RESULT.EXISTS)
-                    rtvals.set(index, rtv.getIntegerVal(val.id()).get());
-            } else if (val instanceof FlagVal fv) {
-                if (rtv.addFlagVal(fv) == AbstractForward.RESULT.EXISTS)
-                    rtvals.set(index, rtv.getFlagVal(val.id()).get());
-            } else if (val instanceof TextVal tv) {
-                if (rtv.addTextVal(tv) == AbstractForward.RESULT.EXISTS)
-                    rtvals.set(index, rtv.getTextVal(val.id()).get());
-            }
-        }
-        for( var set : valMap.entrySet() ){
-            var val = set.getValue();
-            if (val instanceof RealVal rv) {
-                if (rtv.addRealVal(rv) == AbstractForward.RESULT.EXISTS)
-                    valMap.put(set.getKey(),rtv.getRealVal(val.id()).get());
-            } else if (val instanceof IntegerVal iv) {
-                if (rtv.addIntegerVal(iv) == AbstractForward.RESULT.EXISTS)
-                    valMap.put(set.getKey(), rtv.getIntegerVal(val.id()).get());
-            } else if (val instanceof FlagVal fv) {
-                if (rtv.addFlagVal(fv) == AbstractForward.RESULT.EXISTS)
-                    valMap.put(set.getKey(),rtv.getFlagVal(val.id()).get());
-            } else if (val instanceof TextVal tv) {
-                if (rtv.addTextVal(tv) == AbstractForward.RESULT.EXISTS)
-                    valMap.put(set.getKey(),rtv.getTextVal(val.id()).get());
-            }
-        }
-        for( int index=0;index<calVal.size();index++){
-            var val = calVal.get(index);
-            if( val instanceof RealVal ){
-                if( rtv.addRealVal((RealVal)val) == AbstractForward.RESULT.EXISTS)
-                    calVal.set(index, rtv.getRealVal(val.id()).get());
-            }else if( val instanceof IntegerVal ){
-                if( rtv.addIntegerVal((IntegerVal)val) == AbstractForward.RESULT.EXISTS)
-                    calVal.set(index, rtv.getIntegerVal(val.id()).get());
-            }
-        }
+        rtvals.replaceAll(rtv::AddIfNewAndRetrieve);
+        valMap.replaceAll((k, v) -> rtv.AddIfNewAndRetrieve(v));
+        calVal.replaceAll(rtv::AddIfNewAndRetrieve);
     }
     public void removeRealtimeValues( RealtimeValues rtv){
         rtvals.forEach(rtv::removeVal);

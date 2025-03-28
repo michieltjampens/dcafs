@@ -306,11 +306,9 @@ public abstract class BaseStream {
         }
         var f = bootstrap.connect(ipsock).awaitUninterruptibly();
         f.addListener((FutureListener<Void>) future -> {
-            if (!f.isSuccess()) {
-                if(LookAndFeel.isNthAttempt(connectionAttempts)) {
-                    String cause = String.valueOf(future.cause());
-                    Logger.error(id + " -> Failed to connect: " + cause.substring(cause.indexOf(":") + 1));
-                }
+            if (!f.isSuccess() && LookAndFeel.isNthAttempt(connectionAttempts)) {
+                String cause = String.valueOf(future.cause());
+                Logger.error(id + " -> Failed to connect: " + cause.substring(cause.indexOf(":") + 1));
             }
         });
         if (f.isCancelled()) {

@@ -168,6 +168,29 @@ public class RealtimeValues implements Commandable {
 			textVals.remove( val.id());
 		}
 	}
+
+	/**
+	 * Adds the AbstractVal to the appropriate collection if not in it yet and returns the val at the key
+	 *
+	 * @param val The val to add if new
+	 * @return The final val at the key
+	 */
+	public AbstractVal AddIfNewAndRetrieve(AbstractVal val) {
+		if (val instanceof RealVal rv) {
+			var ori = realVals.putIfAbsent(val.id(), rv);
+			return ori == null ? rv : ori;
+		} else if (val instanceof IntegerVal iv) {
+			var ori = integerVals.putIfAbsent(val.id(), iv);
+			return ori == null ? iv : ori;
+		} else if (val instanceof FlagVal fv) {
+			var ori = flagVals.putIfAbsent(val.id(), fv);
+			return ori == null ? fv : ori;
+		} else if (val instanceof TextVal tv) {
+			var ori = textVals.putIfAbsent(val.id(), tv);
+			return ori == null ? tv : ori;
+		}
+		return null;
+	}
 	/* ************************************ R E A L V A L ***************************************************** */
 	/**
 	 * Add a RealVal to the collection if it doesn't exist yet

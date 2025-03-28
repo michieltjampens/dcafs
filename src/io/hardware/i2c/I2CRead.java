@@ -92,7 +92,7 @@ public class I2CRead implements I2COp{
         if( device.inDebug())
             Logger.info(device.id()+"(i2c) -> Read: "+Tools.fromBytesToHexString(rec));
         if (bitsets != null)
-            return convertNibblesToDouble(rec,bitsets,msbFirst);
+            return convertNibblesToDouble(rec, bitsets);
         return convertBytesToDouble(rec,bits,msbFirst,signed);
     }
     /**
@@ -153,7 +153,7 @@ public class I2CRead implements I2COp{
             case 10 -> { // take the full first byte and only the 2 MSB of the second
                 for (int a = 0; a < bytes.length; a += 2) {
                     temp = intResults[a] * 4 + intResults[a + 1] / 64;
-                    dbs.add( (double) (signed ? MathUtils.toSigned12bit(temp) : temp));
+                    dbs.add((double) (signed ? MathUtils.toSigned10bit(temp) : temp));
                 }
             }
             //TODO Shift in the other direction and LSB/MSB first
@@ -178,7 +178,8 @@ public class I2CRead implements I2COp{
         }
         return dbs;
     }
-    public static ArrayList<Double> convertNibblesToDouble(byte[] bytes, int[] bits, boolean msbFirst){
+
+    public static ArrayList<Double> convertNibblesToDouble(byte[] bytes, int[] bits) {
 
         // Convert the bytes to a hex string to easily work with nibbles
         String nibs = Tools.fromBytesToHexString(bytes);

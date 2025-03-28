@@ -348,22 +348,9 @@ public class I2CWorker implements Commandable {
     private String doDefaultCmd(Datagram d) {
         var args = d.argList();
 
-        if (args.length == 1) { // single arguments points to a data request
-            StringBuilder oks = new StringBuilder();
-            for (var device : devices.entrySet()) {
-                if (device.getKey().matches(args[0])) {
-                    device.getValue().addTarget(d.getWritable());
-                    if (!oks.isEmpty())
-                        oks.append(", ");
-                    oks.append(device.getKey());
-                }
-            }
-            if (!oks.isEmpty())
-                return "Request from " + d.originID() + " accepted for i2c:" + oks;
+        if (args.length == 1) // single arguments points to a data request
+            return doSingleArgCmd(d);
 
-            Logger.error("! No matches for i2c:" + args[0] + " requested by " + d.originID());
-            return "! No such subcommand in " + d.getData();
-        }
         var device = devices.get(args[0]);
         if (device == null)
             return "! No such device id: " + args[0];
@@ -388,6 +375,24 @@ public class I2CWorker implements Commandable {
             };
         }
         return queueWork(args[0], ArrayUtils.remove(args, 0));
+    }
+
+    private String doSingleArgCmd(Datagram d) {
+        var args = d.argList();
+        var oks = new StringBuilder();
+        devices.entrySet().stream()
+                .filter(device -> device.getKey().matches(args[0]))
+                .forEach(dev -> {
+                    dev.getValue().addTarget(d.getWritable());
+                    if (!oks.isEmpty())
+                        oks.append(", ");
+                    oks.append(dev.getKey());
+                });
+        if (!oks.isEmpty())
+            return "Request from " + d.originID() + " accepted for i2c:" + oks;
+
+        Logger.error("! No matches for i2c:" + args[0] + " requested by " + d.originID());
+        return "! No such subcommand in " + d.getData();
     }
     /**
      * Add work to the worker
