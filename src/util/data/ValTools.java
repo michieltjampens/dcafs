@@ -8,7 +8,6 @@ import util.tools.Tools;
 
 import java.util.ArrayList;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
@@ -36,28 +35,28 @@ public class ValTools {
 
         for( var p : pairs ) {
             boolean ok=false;
-            if (p.length == 2) {
-                for( int pos=0;pos<nums.size();pos++ ){ // go through the known realVals
-                    var d = nums.get(pos);
-                    if( d.id().equalsIgnoreCase(p[1])) { // If a match is found
-                        exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + (offset + pos));
-                        exp = exp.replace(p[0] + ":" + p[1], "i" + (offset + pos));
-                        ok=true;
-                        break;
-                    }
-                }
-                if( ok )
-                    continue;
-
-                int index = findOrAddValue( p[1], p[0],  rtvals, nums, offset);
-                if( index == -1 )
-                    return "";
-
-                exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + index);
-                exp = exp.replace(p[0] + ":" + p[1], "i" + index);
-            }else{
-                Logger.error( "Pair containing odd amount of elements: "+String.join(":",p));
+            if (p.length != 2) {
+                Logger.error("Pair containing odd amount of elements: " + String.join(":", p));
+                continue;
             }
+            for (int pos = 0; pos < nums.size(); pos++) { // go through the known realVals
+                var d = nums.get(pos);
+                if (d.id().equalsIgnoreCase(p[1])) { // If a match is found
+                    exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + (offset + pos));
+                    exp = exp.replace(p[0] + ":" + p[1], "i" + (offset + pos));
+                    ok = true;
+                    break;
+                }
+            }
+            if (ok)
+                continue;
+
+            int index = findOrAddValue(p[1], p[0], rtvals, nums, offset);
+            if (index == -1)
+                return "";
+
+            exp = exp.replace("{" + p[0] + ":" + p[1] + "}", "i" + index);
+            exp = exp.replace(p[0] + ":" + p[1], "i" + index);
         }
         // Figure out the rest?
         var found = words.matcher(exp).results().map(MatchResult::group).toList();
@@ -75,27 +74,26 @@ public class ValTools {
     }
     private static int findOrAddValue( String id, String type, RealtimeValues rtvals, ArrayList<NumericVal> nums, int offset) {
         int index;
-        Optional<? extends NumericVal> value;
-        switch (type) {
-            case "d", "double", "r", "real" -> value = rtvals.getRealVal(id);
-            case "int", "i" -> value = rtvals.getIntegerVal(id);
-            case "f", "flag", "b" -> value = rtvals.getFlagVal(id);
-            default -> throw new IllegalArgumentException("Unknown type: " + type);
-        }
 
-        if (value.isPresent()) {
-            NumericVal val = value.get();
-            index = nums.indexOf(val);
-            if (index == -1) {
-                nums.add(val);
-                index = nums.size() - 1;
-            }
-            index += offset;
-        } else {
+        var value = switch (type) {
+            case "d", "double", "r", "real" -> rtvals.getRealVal(id);
+            case "int", "i" -> rtvals.getIntegerVal(id);
+            case "f", "flag", "b" -> rtvals.getFlagVal(id);
+            default -> throw new IllegalArgumentException("Unknown type: " + type);
+        };
+
+        if (value.isEmpty()) {
             Logger.error("Couldn't find a " + type + " with id " + id);
             return -1; // Or any other sentinel value indicating failure
         }
-        return index;
+
+        NumericVal val = value.get();
+        index = nums.indexOf(val);
+        if (index == -1) {
+            nums.add(val);
+            index = nums.size() - 1;
+        }
+        return index + offset;
     }
     /**
      * Process an expression that contains both numbers and references and figure out the result
@@ -150,32 +148,32 @@ public class ValTools {
 
         var pairs = Tools.parseKeyValue(line,true);
         for( var p : pairs ){
-            if(p.length==2) {
-                switch (p[0]) {
-                    case "d", "r", "double", "real" -> {
-                        var d = rtvals.getReal(p[1], Double.NaN);
-                        if (!Double.isNaN(d) || !error.isEmpty())
-                            line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : String.valueOf(d));
-                    }
-                    case "i", "int", "integer" -> {
-                        var i = rtvals.getIntegerVal(p[1]).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE);
-                        if (i != Integer.MAX_VALUE)
-                            line = line.replace("{" + p[0] + ":" + p[1] + "}", String.valueOf(i));
-                    }
-                    case "t", "text" -> {
-                        String t = rtvals.getTextVal(p[1]).map(TextVal::value).orElse(error);
-                        if (!t.isEmpty())
-                            line = line.replace("{" + p[0] + ":" + p[1] + "}", t);
-                    }
-                    case "f", "b", "flag" -> {
-                        var d = rtvals.getFlagVal(p[1]);
-                        var r = d.map(FlagVal::toString).orElse(error);
-                        if (!r.isEmpty())
-                            line = line.replace("{" + p[0] + ":" + p[1] + "}", r);
-                    }
+            if (p.length != 2) {
+                line = replaceTime(p[0], line, rtvals);
+                continue;
+            }
+            switch (p[0]) {
+                case "d", "r", "double", "real" -> {
+                    var d = rtvals.getReal(p[1], Double.NaN);
+                    if (!Double.isNaN(d) || !error.isEmpty())
+                        line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : String.valueOf(d));
                 }
-            }else{
-                line = replaceTime( p[0],line,rtvals );
+                case "i", "int", "integer" -> {
+                    var i = rtvals.getIntegerVal(p[1]).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE);
+                    if (i != Integer.MAX_VALUE)
+                        line = line.replace("{" + p[0] + ":" + p[1] + "}", String.valueOf(i));
+                }
+                case "t", "text" -> {
+                    String t = rtvals.getTextVal(p[1]).map(TextVal::value).orElse(error);
+                    if (!t.isEmpty())
+                        line = line.replace("{" + p[0] + ":" + p[1] + "}", t);
+                }
+                case "f", "b", "flag" -> {
+                    var d = rtvals.getFlagVal(p[1]);
+                    var r = d.map(FlagVal::toString).orElse(error);
+                    if (!r.isEmpty())
+                        line = line.replace("{" + p[0] + ":" + p[1] + "}", r);
+                }
             }
         }
         var lower = line.toLowerCase();
@@ -211,78 +209,81 @@ public class ValTools {
 
         var found = words.matcher(line).results().map(MatchResult::group).toList();
         for( var word : found ){
-            String replacement;
-            if( word.contains(":")){ // Check if the word contains a : with means it's {d:id} etc
-                var id = word.split(":")[1];
-
-                replacement = switch (word.charAt(0) ){
-                    case 'd','r' -> {
-                        if( !rv.hasReal(id) ){
-                            Logger.error("No such real "+id+", extracted from "+line); // notify
-                            if( !error.equalsIgnoreCase("ignore")) // if errors should be ignored
-                                yield error;
-                        }
-                        yield String.valueOf(rv.getReal(id, Double.NaN));
-                    }
-                    case 'i' -> {
-                        if( !rv.hasInteger(id) ) { // ID found
-                            Logger.error("No such integer "+id+", extracted from "+line); // notify
-                            if( !error.equalsIgnoreCase("ignore")) // if errors should be ignored
-                                yield error;
-                        }
-                        yield String.valueOf(rv.getIntegerVal(id).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
-                    }
-                    case 'f'-> {
-                        if (!rv.hasFlag(id)) {
-                            Logger.error("No such flag " + id + ", extracted from " + line);
-                            if (!error.equalsIgnoreCase("ignore"))
-                                yield error;
-                        }
-                        yield rv.getFlagState(id) ? "1" : "0";
-                    }
-                    case 't', 'T' -> {
-                        if (!rv.hasText(id)){
-                          if(word.charAt(0) == 'T') {
-                              rv.setText(id, "");
-                          }else{
-                              Logger.error("No such text " + id + ", extracted from " + line);
-                              if (!error.equalsIgnoreCase("ignore"))
-                                  yield error;
-                          }
-                          yield "";
-                        }else{
-                            yield rv.getTextVal(id).map(TextVal::value).orElse("");
-                        }
-                    }
-                    default -> {
-                        Logger.error("No such type: "+word.charAt(0));
-                        yield error;
-                    }
-                };
-            }else { // If it doesn't contain : it could be anything...
-                if (rv.hasReal(word)) { //first check for real
-                    replacement = String.valueOf(rv.getReal(word, Double.NaN));
-                } else { // if not
-                    if( rv.hasInteger(word)){
-                        replacement = String.valueOf(rv.getIntegerVal(word).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
-                    }else {
-                        if (rv.hasText(word)) { //next, try text
-                            replacement = rv.getTextVal(word).map(TextVal::value).orElse("");
-                        } else if (rv.hasFlag(word)) { // if it isn't a text, check if it's a flag
-                            replacement = rv.getFlagState(word) ? "1" : "0";
-                        } else{
-                            Logger.error("Couldn't process " + word + " found in " + line); // log it and abort
-                            return error;
-                        }
-                    }
-                }
-            }
+            // Check if the word contains a : with means it's {d:id} etc, if not it could be anything
+            String replacement = word.contains(":") ? findReplacement(rv, word, line, error)
+                    : checkRealtimeValues(rv, word, line, error);
             assert replacement != null;
-            if( replacement.equalsIgnoreCase(error))
+            if (replacement.equalsIgnoreCase(error))
                 return error;
-            if( !replacement.isEmpty() )
-                line = line.replace(word,replacement);
+            if (!replacement.isEmpty())
+                line = line.replace(word, replacement);
         }
         return line;
+    }
+
+    private static String findReplacement(RealtimeValues rv, String word, String line, String error) {
+        var id = word.split(":")[1];
+        return switch (word.charAt(0)) {
+            case 'd', 'r' -> {
+                if (!rv.hasReal(id)) {
+                    Logger.error("No such real " + id + ", extracted from " + line); // notify
+                    if (!error.equalsIgnoreCase("ignore")) // if errors should be ignored
+                        yield error;
+                }
+                yield String.valueOf(rv.getReal(id, Double.NaN));
+            }
+            case 'i' -> {
+                if (!rv.hasInteger(id)) { // ID found
+                    Logger.error("No such integer " + id + ", extracted from " + line); // notify
+                    if (!error.equalsIgnoreCase("ignore")) // if errors should be ignored
+                        yield error;
+                }
+                yield String.valueOf(rv.getIntegerVal(id).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
+            }
+            case 'f' -> {
+                if (!rv.hasFlag(id)) {
+                    Logger.error("No such flag " + id + ", extracted from " + line);
+                    if (!error.equalsIgnoreCase("ignore"))
+                        yield error;
+                }
+                yield rv.getFlagState(id) ? "1" : "0";
+            }
+            case 't', 'T' -> {
+                if (!rv.hasText(id)) {
+                    if (word.charAt(0) == 'T') {
+                        rv.setText(id, "");
+                    } else {
+                        Logger.error("No such text " + id + ", extracted from " + line);
+                        if (!error.equalsIgnoreCase("ignore"))
+                            yield error;
+                    }
+                    yield "";
+                } else {
+                    yield rv.getTextVal(id).map(TextVal::value).orElse("");
+                }
+            }
+            default -> {
+                Logger.error("No such type: " + word.charAt(0));
+                yield error;
+            }
+        };
+    }
+
+    private static String checkRealtimeValues(RealtimeValues rv, String word, String line, String error) {
+        if (rv.hasReal(word))  //first check for real
+            return String.valueOf(rv.getReal(word, Double.NaN));
+
+        // if not
+        if (rv.hasInteger(word)) {
+            return String.valueOf(rv.getIntegerVal(word).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
+        }
+        if (rv.hasText(word)) { //next, try text
+            return rv.getTextVal(word).map(TextVal::value).orElse("");
+        }
+        if (rv.hasFlag(word)) { // if it isn't a text, check if it's a flag
+            return rv.getFlagState(word) ? "1" : "0";
+        }
+        Logger.error("Couldn't process " + word + " found in " + line); // log it and abort
+        return error;
     }
 }

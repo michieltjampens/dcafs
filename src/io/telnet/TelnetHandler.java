@@ -48,7 +48,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	private long elapsed=-1;
 	private String format="HH:mm:ss.SSS";
 	private String default_text_color=TelnetCodes.TEXT_LIGHT_GRAY;
-	boolean bootOk=true;
+	boolean bootOk;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
@@ -103,12 +103,10 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 									.resolve("errors_"+ TimeTools.formatUTCNow("yyMMdd") +".log"),15);
 			boolean wait = true;
 			for( String d : data){
-				if( d.startsWith( "20") ) {
+				if (d.startsWith("20"))
 					wait = false;
-				}
-				if(!wait) {
+				if (!wait)
 					writeLine(d);
-				}
 			}
 			writeLine("Press <enter> to shut down dcafs...");
 		}
@@ -162,9 +160,8 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 		writeString(newLine); // Without this, the reply will overwrite the data
 
-		if( !bootOk ){
+		if (!bootOk)
 			System.exit(0);
-		}
 
 		distributeMessage(
 				Datagram.build(rec)
@@ -176,7 +173,6 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 
 	public void distributeMessage( Datagram d ){
 		d.label( LABEL+":"+repeat );
-
 		d.setData(d.getData().stripLeading()); // Remove leading empty spaces if any
 
 		if( d.getData().endsWith("!!") ) {
@@ -216,9 +212,9 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 			writeLine("ID already in use");
 		}else{
 			var fabOpt = XMLfab.alterDigger(dig);
-			fabOpt.ifPresent( x-> {
-				x.addChild("client").attr("id",id).attr("host",remote.getHostName());
-				x.build();
+			fabOpt.ifPresent(fab -> {
+				fab.addChild("client").attr("id", id).attr("host", remote.getHostName());
+				fab.build();
 			});
 			writeLine("ID set to "+id);
 		}
@@ -228,7 +224,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		var split = new String[2];
 		String[] cmds = {"prefix", "ts", "ds", "id?", "es", "prefixid", "?"}; // Cmds that don't require arguments
 
-		String cmd = d.getData().substring(2);
+		String cmd = d.getData().substring(2); // remove >>
 		if(cmd.startsWith(">")) // If three are used
 			cmd=cmd.substring(1);
 
@@ -281,7 +277,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}
 	}
 
-	private String doTelnetCmdHelp() {
+	private static String doTelnetCmdHelp() {
 		var join = new StringJoiner("\r\n");
 		join.add("Commands available in a Telnet session");
 		join.add(">>>id? -> Returns the current id if set")
@@ -332,7 +328,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         // Close the connection when an exception is raised, but don't send messages if it's related to remote ignore	
 		String addr = ctx.channel().remoteAddress().toString();
-		Core.addToQueue( Datagram.system("nb"));
+		Core.addToQueue(Datagram.system("nb"));
 		if (cause instanceof TooLongFrameException){	
 			Logger.warn("Unexpected exception caught"+cause.getMessage()+" "+addr, true); 
 			ctx.flush();
@@ -409,7 +405,6 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	}
 	public synchronized boolean writeBytes( byte[] data ){
 		if( channel != null && channel.isActive()){
-			//var hex = Tools.fromBytesToHexString(data);
 			channel.writeAndFlush(data);
 			lastSendMessage = new String(data);	// Store the message for future reference
 			return true;
@@ -422,16 +417,6 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		if( channel==null)
 			return false;
 		return channel.isActive();
-	}
-
-	@Override
-	public Writable getWritable() {
-		return this;
-	}
-
-	@Override
-	public boolean giveObject(String info, Object object) {
-		return false;
 	}
 
 	/* ***********************************************************************************************************/
@@ -462,7 +447,6 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	public String id() {
 		return "telnet:"+(id.isEmpty()?LABEL:id);
 	}
-
 
 	public void setCmdHistory(ArrayList<String> history) {
 		hist=history;

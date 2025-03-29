@@ -28,8 +28,8 @@ public class FlagVal extends AbstractVal implements NumericVal{
     private String trueRegex;
     private final ArrayList<String> FALSE = new ArrayList<>();
     private String falseRegex;
-    private FlagVal(){}
 
+    private FlagVal(){}
     /**
      * Construct a new FlagVal
      * @param group The group the flag belongs to
@@ -44,17 +44,18 @@ public class FlagVal extends AbstractVal implements NumericVal{
     }
 
     /* **************************** C O N S T R U C T I N G ******************************************************* */
-    public static Optional<FlagVal> build(Element rtval, String group){
-        var read = readGroupAndName(rtval,group);
+    public static Optional<FlagVal> build(Element flagEle, String group) {
+        var read = readGroupAndName(flagEle, group);
         if( read == null)
             return Optional.empty();
-        return Optional.of(FlagVal.newVal(read[0],read[1]).reload(rtval));
+        return Optional.of(FlagVal.newVal(read[0], read[1]).reload(flagEle));
     }
-    public FlagVal reload(Element rtval){
+
+    public FlagVal reload(Element flagEle) {
         reset(); // reset is needed if this is called because of reload
         name(name);
 
-        var dig = XMLdigger.goIn(rtval);
+        var dig = XMLdigger.goIn(flagEle);
 
         group( dig.attr("group", group()));
         defState( dig.attr("default", defState));
@@ -67,14 +68,21 @@ public class FlagVal extends AbstractVal implements NumericVal{
         // Triggered Commands
         if ( dig.hasPeek("cmd") )
             enableTriggeredCmds();
+
         for (Element trigCmd : dig.peekOut("cmd")) {
             String trig = trigCmd.getAttribute("when");
             String cmd = trigCmd.getTextContent();
             addTriggeredCmd(trig, cmd);
         }
         // Parsing
+        digParsing(dig);
+        return this;
+    }
+
+    private void digParsing(XMLdigger dig) {
         if( dig.hasPeek("true"))
             TRUE.clear();
+
         for (Element parse : dig.peekOut("true")) {
             if( parse.hasAttribute("delimiter")){
                 var trues = parse.getTextContent().split(parse.getAttribute("delimiter"));
@@ -104,7 +112,6 @@ public class FlagVal extends AbstractVal implements NumericVal{
         if( !FALSE.isEmpty() && falseRegex!=null ){
             Logger.error(id()+" -> Can't combine both fixed and regex based for false flag");
         }
-        return this;
     }
     public FlagVal value(String state ){
         parseValue(state);
@@ -164,14 +171,16 @@ public class FlagVal extends AbstractVal implements NumericVal{
         if (TRUE.isEmpty() && !trueRegex.isEmpty() && state.matches(trueRegex)) {
             value(true);
             return true;
-        }else if( TRUE.contains(state) ) {
+        }
+        if (TRUE.contains(state)) {
             value(true);
             return true;
         }
         if (FALSE.isEmpty() && !falseRegex.isEmpty() && state.matches(falseRegex)) {
             value(false);
             return true;
-        }else if( FALSE.contains(state)) {
+        }
+        if (FALSE.contains(state)) {
             value(false);
             return true;
         }
@@ -193,7 +202,7 @@ public class FlagVal extends AbstractVal implements NumericVal{
     public String asValueString() {
         return toString();
     }
-    public Object valueAsObject(){return state;}
+
     /**
      * Convert the flag state to a big decimal value
      * @return BigDecimal.ONE if the state is true or ZERO if not
@@ -274,7 +283,6 @@ public class FlagVal extends AbstractVal implements NumericVal{
      * @param cmd     The cmd to trigger, $ will be replaced with the current value
      */
     public void addTriggeredCmd(String trigger, String cmd){
-
         switch (trigger) {
             case "raised", "up", "set" -> // State goes from false to true
                     raisedList.add(cmd);

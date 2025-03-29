@@ -9,6 +9,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.util.CharsetUtil;
 import org.tinylog.Logger;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -48,9 +49,9 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
             Logger.info("REC UDP_"+id+": "+p.content().toString(CharsetUtil.UTF_8)+"<EOM");
             Logger.info("FULL UDP_"+id+": "+buf.toString(CharsetUtil.UTF_8).substring(0,buf.writerIndex())+"<EOM");
         }
-        if( readerIdle ){
+        if (readerIdle)
             readerIdle=false;
-        }
+
         timestamp = Instant.now().toEpochMilli();
         int l = buf.writerIndex();              // No need to look in the bytes that were already in there
         buf.writeBytes(packet.content());       // Add the received data to the buffer, this removes it from the packet...
@@ -96,15 +97,12 @@ public class UDPhandler extends SimpleChannelInboundHandler<DatagramPacket> {
      */
     public int indexOf( int startOffset, ByteBuf source, ByteBuf needle ){
         for( int i=buf.readerIndex()+startOffset;i<source.writerIndex();i++ ){
-            if( source.getByte(i) == needle.getByte(0) ){  // Compare the source byte with the delimiter 
-                if( needle.capacity() == 1 ){ // If only looking for single characters
-                    return i;
-                }else{
-                    if( source.getByte(i+1) == needle.getByte(1) ){ // If looking for two fe \r\n
-                        return i;
-                    }
-                }
-            }
+            if (source.getByte(i) != needle.getByte(0))  // Compare the source byte with the delimiter
+                continue;
+            if (needle.capacity() == 1) // If only looking for single characters
+                return i;
+            if (source.getByte(i + 1) == needle.getByte(1)) // If looking for two fe \r\n
+                return i;
         }
         return -1;
     }

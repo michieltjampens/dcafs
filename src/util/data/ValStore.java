@@ -77,9 +77,9 @@ public class ValStore {
         }
 
         var valStore = new ValStore(id);
-        if( valStore.reload(store,rtvals) ){
+        if (valStore.reload(store, rtvals))
             return Optional.of( valStore );
-        }
+
         return Optional.empty();
     }
     public static Optional<ValStore> build( Element parentNode ){
@@ -92,8 +92,8 @@ public class ValStore {
                 return Optional.empty();
             storeNode=storeOpt.get();
         }
-        String id = storeNode.getAttribute("id");
 
+        String id = storeNode.getAttribute("id");
         return ValStore.build(storeNode,id,null);
     }
     public boolean reload(Element store, RealtimeValues rtv){
@@ -110,103 +110,121 @@ public class ValStore {
         setIdleReset( dig.attr("idlereset",false) );
 
         // Checking for database connection
-        if ( store.hasAttribute("db")) {
-            var db = dig.attr("db","").split(";");
-            for( var dbi : db ){
-                var split = dbi.split(":");
-                if( split[0].contains(",")&&split[1].contains(",")) {
-                    Logger.error( id+"(store) -> Can't have multiple id's and tables defined.");
-                }else if( split[0].contains(",")){ // multiple id's but same tables
-                    for( var id : split[0].split(","))
-                        dbInsert.add( new String[]{id,split[1]});
-                }else if( split[1].contains(",") ){ // multiple tables but same id
-                    for( var table : split[1].split(","))
-                        dbInsert.add( new String[]{split[0],table});
-                }else{ // one of each
-                    dbInsert.add( split );
-                }
-            }
-        }else{
-            Logger.info( id + " -> No database referenced.");
-            dbInsert.clear();
-        }
+        digForDatabaseUse(store, dig);
 
         // Map
         mapFlag( dig.attr("map",false) );
         if( mapped() ) { // key based
-            var vals = dig.currentSubs();
-            for (var val : dig.digOut("*")) {
-                if (checkForCalVal(val, groupID))
-                    continue;
-
-                var key = val.attr("key", "");
-                switch (val.tagName("")) {
-                    case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
-                    case "int" ->
-                            IntegerVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
-                    case "flag", "bool" ->
-                            FlagVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
-                    case "text" -> TextVal.build(val.currentTrusted(), groupID).ifPresent(v -> putAbstractVal(key, v));
-                    default -> {
-                    }
-                }
-            }
-            if (mapSize() + calVal.size() != (vals.size())) {
-                Logger.error("Failed to create an AbstractVal for " + groupID+" while mapping.");
+            if (!digMapBased(dig, groupID))
                 return false;
-            }
-        }else{ // index based
-            ArrayList<AbstractVal> rtvals = new ArrayList<>();
-            calOps.clear();
-
-            for (var val : dig.digOut("*")) {
-                if (checkForCalVal(val, groupID))
-                    continue;
-
-                // Find the index wanted
-                int i = val.attr("index",-1);
-                if( i == -1 )
-                    i = val.attr("i",-1);
-                if (i != -1) {
-                    while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
-                        rtvals.add(null);
-                }
-
-                if( i==-1){
-                    var grid = val.attr("group",groupID);
-                    Logger.error("No valid index given for "+grid+"_"+val.value(""));
-                    valid=false;
-                    return false;
-                }
-                final int pos=i; // need a final to use in lambda's
-                if( rtvals.get(i)!=null){
-                    Logger.warn(id+"(store) -> Already using index "+i+" overwriting previous content!");
-                }
-                switch (val.tagName("")) {
-                    case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
-                    case "int","integer" -> IntegerVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
-                    case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
-                    case "ignore" -> rtvals.add(null);
-                    case "text" -> TextVal.build(val.currentTrusted(), groupID).ifPresent(x->rtvals.set(pos,x));
-                    case "macro" -> {
-                        Logger.warn("Val of type macro ignored");
-                        rtvals.add(null);
-                    }
-                    default -> {
-                    }
-                }
-                if (rtvals.get(pos)==null) {
-                    Logger.error("Failed to create an AbstractVal for " + groupID+" of type "+val.tagName(""));
-                    return false;
-                }
-            }
-            addVals(rtvals);
+        } else { // index based
+            if (!digIndexBased(dig, groupID))
+                return false;
         }
-        if( rtv!=null)
+        if (rtv != null)
             shareRealtimeValues(rtv);
         return true;
     }
 
+    private boolean digMapBased(XMLdigger dig, String groupID) {
+        var vals = dig.currentSubs();
+        for (var val : dig.digOut("*")) {
+            if (checkForCalVal(val, groupID))
+                continue;
+
+            var key = val.attr("key", "");
+            switch (val.tagName("")) {
+                case "real" -> RealVal.build(val.currentTrusted(), groupID)
+                        .ifPresent(v -> putAbstractVal(key, v));
+                case "int" -> IntegerVal.build(val.currentTrusted(), groupID)
+                        .ifPresent(v -> putAbstractVal(key, v));
+                case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID)
+                        .ifPresent(v -> putAbstractVal(key, v));
+                case "text" -> TextVal.build(val.currentTrusted(), groupID)
+                        .ifPresent(v -> putAbstractVal(key, v));
+                default -> {
+                }
+            }
+        }
+        if (mapSize() + calVal.size() != (vals.size())) {
+            Logger.error("Failed to create an AbstractVal for " + groupID + " while mapping.");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean digIndexBased(XMLdigger dig, String groupID) {
+        ArrayList<AbstractVal> rtvals = new ArrayList<>();
+        calOps.clear();
+
+        for (var val : dig.digOut("*")) {
+            if (checkForCalVal(val, groupID))
+                continue;
+
+            // Find the index wanted
+            int i = val.attr("index", -1);
+            if (i == -1)
+                i = val.attr("i", -1);
+            if (i != -1) {
+                while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
+                    rtvals.add(null);
+            }
+
+            if (i == -1) {
+                var grid = val.attr("group", groupID);
+                Logger.error("No valid index given for " + grid + "_" + val.value(""));
+                valid = false;
+                return false;
+            }
+            final int pos = i; // need a final to use in lambda's
+            if (rtvals.get(i) != null) {
+                Logger.warn(id + "(store) -> Already using index " + i + " overwriting previous content!");
+            }
+            switch (val.tagName("")) {
+                case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "int", "integer" ->
+                        IntegerVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "ignore" -> rtvals.add(null);
+                case "text" -> TextVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "macro" -> {
+                    Logger.warn("Val of type macro ignored");
+                    rtvals.add(null);
+                }
+                default -> {
+                }
+            }
+            if (rtvals.get(pos) == null) {
+                Logger.error("Failed to create an AbstractVal for " + groupID + " of type " + val.tagName(""));
+                return false;
+            }
+        }
+        addVals(rtvals);
+        return true;
+    }
+
+    private void digForDatabaseUse(Element store, XMLdigger dig) {
+        if (store.hasAttribute("db")) {
+            var db = dig.attr("db", "").split(";");
+            for (var dbi : db) {
+                var split = dbi.split(":");
+                if (split[0].contains(",") && split[1].contains(",")) {
+                    Logger.error(id + "(store) -> Can't have multiple id's and tables defined.");
+                } else if (split[0].contains(",")) { // multiple id's but same tables
+                    for (var id : split[0].split(","))
+                        dbInsert.add(new String[]{id, split[1]});
+                } else if (split[1].contains(",")) { // multiple tables but same id
+                    for (var table : split[1].split(","))
+                        dbInsert.add(new String[]{split[0], table});
+                } else { // one of each
+                    dbInsert.add(split);
+                }
+            }
+        } else {
+            Logger.info(id + " -> No database referenced.");
+            dbInsert.clear();
+        }
+    }
     private boolean checkForCalVal(XMLdigger dig, String groupID) {
         String o = dig.attr("o", "");
         if (!o.isEmpty()) { // Skip o's

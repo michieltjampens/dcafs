@@ -34,43 +34,46 @@ public class CommandLineInterface {
         byte[] rec=null;
         for( int a=0;a<data.length;a++ ){
             byte b = data[a];
-            if( b == TelnetCodes.IAC ){ // Meaning start of command sequence
-                Logger.debug( TelnetCodes.toReadableIAC(data[a++]) +" - "
-                         + TelnetCodes.toReadableIAC(data[a++]) +" - "
-                         + TelnetCodes.toReadableIAC(data[a]) );
-            }else if( b == 27 && data.length>1){ // Escape codes
-                a++;
-                Logger.debug("Received: "+ (char)b+ " or " +Integer.toString(b)+" "+Integer.toString(data[a])+Integer.toString(data[a+1]));
-                if( data[a]==91){
+            switch (data[a]) {
+                case TelnetCodes.IAC -> Logger.debug(TelnetCodes.toReadableIAC(data[a++]) + " - "
+                        + TelnetCodes.toReadableIAC(data[a++]) + " - "
+                        + TelnetCodes.toReadableIAC(data[a]));
+                case 27 -> {
+                    if (data.length == 1) {
+                        rec = doCarriageReturn(b);
+                        continue;
+                    }
                     a++;
-                    switch (data[a]) {
-                        case 65 -> sendHistory(-1);// Arrow Up
-                        case 66 -> sendHistory(1);// Arrow Down
-                        case 67 -> { // Arrow Right
-                            // Only move to the right if current space is used
-                            if (buffer.getByte(buffer.writerIndex()) != 0) {
-                                buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() + 1);
-                                writeString(TelnetCodes.CURSOR_RIGHT);
+                    Logger.debug("Received: " + (char) b + " or " + Integer.toString(b) + " " + Integer.toString(data[a]) + Integer.toString(data[a + 1]));
+                    if (data[a] == 91) {
+                        a++;
+                        switch (data[a]) {
+                            case 65 -> sendHistory(-1);// Arrow Up
+                            case 66 -> sendHistory(1);// Arrow Down
+                            case 67 -> { // Arrow Right
+                                // Only move to the right if current space is used
+                                if (buffer.getByte(buffer.writerIndex()) != 0) {
+                                    buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() + 1);
+                                    writeString(TelnetCodes.CURSOR_RIGHT);
+                                }
                             }
-                        }
-                        case 68 -> { // Arrow Left
-                            if (buffer.writerIndex() != 0) {
-                                writeString(TelnetCodes.CURSOR_LEFT);
-                                buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() - 1);
+                            case 68 -> { // Arrow Left
+                                if (buffer.writerIndex() != 0) {
+                                    writeString(TelnetCodes.CURSOR_LEFT);
+                                    buffer.setIndex(buffer.readerIndex(), buffer.writerIndex() - 1);
+                                }
                             }
                         }
                     }
                 }
-            }else if( b == '\n'){ //LF
-                writeByte(b); // echo LF
-            }else if( b == '\r' || b==19 || b==27 ) { // CR or CTRL+S or ESC
-                rec = doCarriageReturn(b);
-            }else if( b == 126){// delete
-                doDeleteCmd();
-            }else if( b == 127 || b == 8 ){ // Backspace
-                doBackspaceCmd();
-            }else if( b!=0 ){
-                insertByte(b);
+                case '\n' -> writeByte(b);
+                case '\r', 19 -> rec = doCarriageReturn(b);
+                case 126 -> doDeleteCmd();
+                case 8, 127 -> doBackspaceCmd();
+                default -> {
+                    if (data[a] != 0)
+                        insertByte(b);
+                }
             }
         }
         return Optional.ofNullable(rec);

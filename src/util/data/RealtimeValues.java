@@ -4,7 +4,6 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
-import io.forward.AbstractForward;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -51,7 +50,8 @@ public class RealtimeValues implements Commandable {
 				var groupName = node.attr("id", ""); // get the node id
 				node.currentSubs().forEach(rtval -> processRtvalElement(rtval, groupName));
 			}else if( node.hasTagName("unit")){
-				processUnitElement(node);
+				var pair = DynamicUnit.processUnitElement(node);
+				units.put(pair.getKey(), pair.getValue());
 			}
 		});
 	}
@@ -125,35 +125,6 @@ public class RealtimeValues implements Commandable {
 		}
 		return Optional.empty();
 	}
-	private void processUnitElement(XMLdigger dig ){
-
-		var base = dig.attr("base",""); // Starting point
-		var unit = new DynamicUnit(base);
-		unit.setValRegex(dig.attr("nameregex",""));
-		var defDiv = dig.attr("div",1);
-		var defScale =  dig.attr("scale", dig.attr("digits",-1) );
-
-		if( dig.hasPeek("level")){
-			for( var lvl : dig.digOut("level")){ // Go through the levels
-				var val = lvl.value(""); // the unit
-				var div = lvl.attr("div",defDiv); // the multiplier to go to next step
-				var max = lvl.attr("till",lvl.attr("max",0.0)); // From which value the nex unit should be used
-				var scale = lvl.attr("scale",-1);
-				scale = lvl.attr("digits",scale==-1?defScale:scale);
-
-				unit.addLevel(val,div,max,scale);
-			}
-		}else if(dig.hasPeek("step")){
-			for( var step : dig.digOut("step")){ // Go through the steps
-				var val = step.value(""); // the unit
-				var cnt = step.attr("cnt",1); // the multiplier to go to next step
-				unit.addStep(val,cnt);
-			}
-		}else{
-			Logger.warn("No valid subnodes in the unit node for "+base);
-		}
-		units.put(base, unit);
-	}
 
 	public void removeVal( AbstractVal val ){
 		if( val == null)
@@ -162,10 +133,10 @@ public class RealtimeValues implements Commandable {
 			realVals.remove(val.id());
 		}else if( val instanceof IntegerVal ){
 			integerVals.remove(val.id());
-		}else if( val instanceof  FlagVal ){
-			flagVals.remove( val.id());
-		}else if( val instanceof  TextVal ){
-			textVals.remove( val.id());
+		} else if (val instanceof FlagVal) {
+			flagVals.remove(val.id());
+		} else if (val instanceof TextVal) {
+			textVals.remove(val.id());
 		}
 	}
 
@@ -197,18 +168,18 @@ public class RealtimeValues implements Commandable {
 	/* ************************************ R E A L V A L ***************************************************** */
 	/**
 	 * Add a RealVal to the collection if it doesn't exist yet
+	 *
 	 * @param rv The RealVal to add
-	 * @return RESULT.OK if ok, RESULT.EXISTS if already existing, RESULT.ERROR if something went wrong
 	 */
-	public AbstractForward.RESULT addRealVal(RealVal rv) {
+	public void addRealVal(RealVal rv) {
 		if( rv==null) {
 			Logger.error("Invalid RealVal received, won't try adding it");
-			return AbstractForward.RESULT.ERROR;
+			return;
 		}
 		if( realVals.containsKey(rv.id()))
-			return AbstractForward.RESULT.EXISTS;
+			return;
 
-		return realVals.put(rv.id(),rv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
+		realVals.put(rv.id(), rv);
 	}
 	public boolean hasReal(String id){
 		if( id.isEmpty()) {
@@ -229,7 +200,7 @@ public class RealtimeValues implements Commandable {
 		}
 		var opt = Optional.ofNullable(realVals.get(id));
 		if( opt.isEmpty())
-			Logger.warn( "Tried to retrieve non existing realval "+id);
+			Logger.warn("Tried to retrieve non existing RealVal " + id);
 		return opt;
 	}
 	/**
@@ -257,18 +228,18 @@ public class RealtimeValues implements Commandable {
 	/* ************************************ I N T E G E R V A L ***************************************************** */
 	/**
 	 * Adds an integerval if it doesn't exist yet
+	 *
 	 * @param iv The IntegerVal to add
-	 * @return RESULT.OK if ok, RESULT.EXISTS if already existing, RESULT.ERROR if something went wrong
 	 */
-	public AbstractForward.RESULT addIntegerVal( IntegerVal iv ){
+	public void addIntegerVal(IntegerVal iv) {
 		if( iv==null) {
 			Logger.error("Invalid IntegerVal received, won't try adding it");
-			return AbstractForward.RESULT.ERROR;
+			return;
 		}
 		if( integerVals.containsKey(iv.id()))
-			return AbstractForward.RESULT.EXISTS;
+			return;
 
-		return integerVals.put(iv.id(),iv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
+		integerVals.put(iv.id(), iv);
 	}
 	public boolean hasInteger( String id ){
 		return integerVals.containsKey(id);
@@ -284,15 +255,15 @@ public class RealtimeValues implements Commandable {
 		return Optional.ofNullable(integerVals.get(id));
 	}
 	/* *********************************** T E X T S  ************************************************************* */
-	public AbstractForward.RESULT addTextVal( TextVal tv){
+	public void addTextVal(TextVal tv) {
 		if( tv==null) {
 			Logger.error("Invalid IntegerVal received, won't try adding it");
-			return AbstractForward.RESULT.ERROR;
+			return;
 		}
 		if( textVals.containsKey(tv.id()))
-			return AbstractForward.RESULT.EXISTS;
+			return;
 
-		return textVals.put(tv.id(),tv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
+		textVals.put(tv.id(), tv);
 	}
 	public boolean hasText(String id){
 		return textVals.containsKey(id);
@@ -326,15 +297,14 @@ public class RealtimeValues implements Commandable {
 		}
 	}
 	/* ************************************** F L A G S ************************************************************* */
-	public AbstractForward.RESULT addFlagVal( FlagVal fv ){
+	public void addFlagVal(FlagVal fv) {
 		if( fv==null) {
 			Logger.error("Invalid IntegerVal received, won't try adding it");
-			return AbstractForward.RESULT.ERROR;
+			return;
 		}
 		if( flagVals.containsKey(fv.id()))
-			return AbstractForward.RESULT.EXISTS;
-
-		return flagVals.put(fv.id(),fv)==null? AbstractForward.RESULT.ERROR: AbstractForward.RESULT.OK;
+			return;
+		flagVals.put(fv.id(), fv);
 	}
 	public boolean hasFlag( String flag ){
 		return getFlagVal(flag).isPresent();
@@ -479,9 +449,8 @@ public class RealtimeValues implements Commandable {
 				if (args.startsWith("i"))
 					return "iv:update,id,value -> Update an existing int, do nothing if not found";
 				return "rv:update,id,value -> Update an existing real, do nothing if not found";
-			} else {
-				return "! Not enough arguments";
 			}
+			return "! Not enough arguments";
 		}
 
 		return switch(cmds[1]){
@@ -598,7 +567,8 @@ public class RealtimeValues implements Commandable {
 		}
 		return "! No such subcommand in fv: "+args[1]+" or incorrect number of arguments.";
 	}
-	private String doFlagHelpCmd( boolean html ){
+
+	private static String doFlagHelpCmd(boolean html) {
 
 		var join = new StringJoiner("\r\n");
 		join.add("Commands that interact with the collection of flags.");
@@ -716,7 +686,6 @@ public class RealtimeValues implements Commandable {
 			title = html ? "<b>Group: " + group + "</b>" : TelnetCodes.TEXT_CYAN + "Group: " + group + TelnetCodes.TEXT_YELLOW;
 		}
 
-
 		ArrayList<NumericVal> nums = new ArrayList<>();
 		if (showReals)
 			nums.addAll(realVals.values().stream().filter(rv -> rv.group().equalsIgnoreCase(group)).toList());
@@ -820,7 +789,6 @@ public class RealtimeValues implements Commandable {
 				.toList();
 	}
 	/* ******************************** D Y N A M I C  U N I T **************************************************** */
-
 	public static class DynamicUnit{
 		String base;
 		int baseScale=-1;
@@ -832,6 +800,37 @@ public class RealtimeValues implements Commandable {
         public DynamicUnit( String base ){
 			this.base=base;
 		}
+
+		public static Map.Entry<String, DynamicUnit> processUnitElement(XMLdigger dig) {
+
+			var base = dig.attr("base", ""); // Starting point
+			var unit = new DynamicUnit(base);
+			unit.setValRegex(dig.attr("nameregex", ""));
+			var defDiv = dig.attr("div", 1);
+			var defScale = dig.attr("scale", dig.attr("digits", -1));
+
+			if (dig.hasPeek("level")) {
+				for (var lvl : dig.digOut("level")) { // Go through the levels
+					var val = lvl.value(""); // the unit
+					var div = lvl.attr("div", defDiv); // the multiplier to go to next step
+					var max = lvl.attr("till", lvl.attr("max", 0.0)); // From which value the nex unit should be used
+					var scale = lvl.attr("scale", -1);
+					scale = lvl.attr("digits", scale == -1 ? defScale : scale);
+
+					unit.addLevel(val, div, max, scale);
+				}
+			} else if (dig.hasPeek("step")) {
+				for (var step : dig.digOut("step")) { // Go through the steps
+					var val = step.value(""); // the unit
+					var cnt = step.attr("cnt", 1); // the multiplier to go to next step
+					unit.addStep(val, cnt);
+				}
+			} else {
+				Logger.warn("No valid subnodes in the unit node for " + base);
+			}
+			return new AbstractMap.SimpleEntry<>(base, unit);
+		}
+
 		public void setValRegex( String regex ){
 			this.valRegex=regex;
 		}

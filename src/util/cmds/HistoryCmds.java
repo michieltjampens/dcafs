@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
 
-
 public class HistoryCmds {
 
     public static String replyToCommand(String request, boolean html, Path workPath ) {

@@ -9,7 +9,6 @@ import io.collector.ConfirmCollector;
 import io.collector.StoreCollector;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.stream.serialport.ModbusStream;
 import io.stream.serialport.MultiStream;
 import io.stream.serialport.SerialStream;
@@ -68,13 +67,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	private final ArrayList<StoreCollector> stores = new ArrayList<>();
 
 	public StreamManager(EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
-
 		this.eventLoopGroup = nettyGroup;
 		this.rtvals=rtvals;
-	}
-
-	public StreamManager( RealtimeValues rtvals) {
-		this( new NioEventLoopGroup(), rtvals);
 	}
 
 	/**
@@ -93,7 +87,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public Optional<BaseStream> getWritableStream( String id ){
 		// Get the stream, check if it's writable if so get the writable and has a valid connection or return an empty optional
-		return Optional.ofNullable( streams.get(id.toLowerCase()) ).filter( bs -> bs.isWritable() && bs.isConnectionValid() );
+		return Optional.ofNullable(streams.get(id.toLowerCase()))
+				.filter(bs -> bs.isWritable() && bs.isConnectionValid());
 	}
 
 	/**
@@ -136,7 +131,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			join.add(stream.getInfo()).add(" ".repeat(infoLength-stream.getInfo().length()));
 			if( stream instanceof TcpServerStream tss) {
 				join.add(tss.getClientCount() + " client(s)").add("\r\n");
-			} else if (stream instanceof UdpStream udp) {
+			} else if (stream instanceof UdpStream) {
 				join.add("(send only)").add("\r\n");
 			}else if (stream.getLastTimestamp() == -1) {
 				join.add("No data yet! ");
@@ -158,9 +153,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		StringJoiner join = new StringJoiner(html ? "<br>" :"\r\n");
 		join.setEmptyValue("None yet");
 		int a = 1;
-		for (String id : streams.keySet()) {
+		for (String id : streams.keySet())
 			join.add( "S" + (a++) + ":" + id);
-		}
+
 		return join.toString();
 	}
 	public Stream<String> getStreamIDs(){
@@ -217,23 +212,23 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 */
 	public String writeBytesToStream( String id, byte[] txt ) {
 		Optional<BaseStream> streamOpt = getStream(id.toLowerCase());
-		if ( streamOpt.isPresent() ) {
-			BaseStream stream = streamOpt.get();
-			if( !stream.isWritable() ){
-				Logger.error("The stream " + id + " is readonly.");
-				return "";
-			}
-			if( !stream.isConnectionValid() ){
-				Logger.error("No connection to stream named " + stream);
-				return "";
-			}
-			Writable wr = (Writable)stream;
-			wr.writeBytes( txt );
-			return new String(txt);
-		}else{
+		if (streamOpt.isEmpty()) {
 			Logger.error("Didn't find stream named " + id);
 			return "";
 		}
+
+		BaseStream stream = streamOpt.get();
+		if (!stream.isWritable()) {
+			Logger.error("The stream " + id + " is readonly.");
+			return "";
+		}
+		if (!stream.isConnectionValid()) {
+			Logger.error("No connection to stream named " + stream);
+			return "";
+		}
+		Writable wr = (Writable) stream;
+		wr.writeBytes(txt);
+		return new String(txt);
 	}
 
 	/**
@@ -268,13 +263,12 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		return true;
 	}
 
-	private String convertHexes(String data) {
+	private static String convertHexes(String data) {
 		Pattern pattern = Pattern.compile("\\\\h\\([a-fA-F0-9Xx ,]+\\)");
 		Matcher matcher = pattern.matcher(data);
 
 		while (matcher.find()) {
 			var found = matcher.group();
-			System.out.println("Match: " + found);
 			var sub = found.substring(3, found.length() - 1);
 			var rep = new String(Tools.fromHexStringToBytes(sub));
 			data = data.replace(found, rep);
@@ -297,57 +291,59 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 
 		Optional<BaseStream> streamOptional = getWritableStream(id);
-		if( streamOptional.isPresent() ){
-			BaseStream stream = streamOptional.get();
-			ConfirmCollector cw = confirmCollectors.get(id);
 
-			if( cw!=null && cw.isEmpty() ) {
-				confirmCollectors.remove(id);
-				Logger.info("Removed empty ConfirmCollector "+id);
-				cw=null;
-			}
-
-			if( cw==null ){// If none exists yet
-				if( txt.contains(";") || !reply.isEmpty() ){
-					cw = new ConfirmCollector( id,3,3, (Writable)stream, scheduler );
-					cw.addListener(this);
-					if( !reply.isEmpty()) // No need to get data if we won't use it
-						stream.addTarget(cw);
-					confirmCollectors.put(stream.id(),cw);
-				}else{
-					if( txt.indexOf("\\") < txt.length()-2 ){
-						txt = Tools.fromEscapedStringToBytes(txt);
-					}
-					boolean written;
-					boolean nullEnded = Tools.isNullEnded(txt);
-					if( txt.endsWith("\\0") || nullEnded){
-						if( nullEnded )
-							txt = txt.substring(0,txt.length()-1);
-						txt=StringUtils.removeEnd(txt,"\\0");
-						written=((Writable)stream).writeString(txt);
-					}else{
-						written = ((Writable) stream).writeLine("", txt);
-					}
-					if( !written )
-						Logger.error("writeString/writeLine failed to "+id+" for "+txt);
-					if( txt.getBytes()[0]==27)
-						txt="ESC";
-					return written?txt:"";
-				}
-			}
-			cw.addConfirm(txt.split(";"), reply);
-			return txt;
-		}else{
+		if (streamOptional.isEmpty()) {
 			var bs = streams.get(id);
-			if( bs==null){
-				Logger.error("No such stream "+id);
-			}else if( !bs.isWritable() ){
-				Logger.error("Found the stream "+id+", but not writable");
-			}else if( !bs.isConnectionValid()){
-				Logger.error("Found the writable stream "+id+", but no valid connection");
+			if (bs == null) {
+				Logger.error("No such stream " + id);
+			} else if (!bs.isWritable()) {
+				Logger.error("Found the stream " + id + ", but not writable");
+			} else if (!bs.isConnectionValid()) {
+				Logger.error("Found the writable stream " + id + ", but no valid connection");
 			}
 			return "";
 		}
+
+		BaseStream stream = streamOptional.get();
+		ConfirmCollector cw = confirmCollectors.get(id);
+
+		if (cw != null && cw.isEmpty()) {
+			confirmCollectors.remove(id);
+			Logger.info("Removed empty ConfirmCollector " + id);
+			cw = null;
+		}
+
+		if (cw == null) {// If none exists yet
+			if (txt.contains(";") || !reply.isEmpty()) {
+				cw = new ConfirmCollector(id, 3, 3, (Writable) stream, scheduler);
+				cw.addListener(this);
+				if (!reply.isEmpty()) // No need to get data if we won't use it
+					stream.addTarget(cw);
+				confirmCollectors.put(stream.id(), cw);
+			} else {
+				if (txt.indexOf("\\") < txt.length() - 2) {
+					txt = Tools.fromEscapedStringToBytes(txt);
+				}
+				boolean written;
+				boolean nullEnded = Tools.isNullEnded(txt);
+				if (txt.endsWith("\\0") || nullEnded) {
+					if (nullEnded)
+						txt = txt.substring(0, txt.length() - 1);
+					txt = StringUtils.removeEnd(txt, "\\0");
+					written = ((Writable) stream).writeString(txt);
+				} else {
+					written = ((Writable) stream).writeLine("", txt);
+				}
+				if (!written)
+					Logger.error("writeString/writeLine failed to " + id + " for " + txt);
+				if (txt.getBytes()[0] == 27)
+					txt = "ESC";
+				return written ? txt : "";
+			}
+		}
+		cw.addConfirm(txt.split(";"), reply);
+		return txt;
+
 	}
 
 	/* ************************************************************************************************* */
@@ -670,13 +666,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			}
 		};
 	}
-	public String payloadCommand( String cmd, String args, Object payload){
-		return "! No such cmds in "+cmd;
-	}
 	private static void addBaseToXML( XMLfab fab, String id, String type ){
 		type = type.replace("client", "");
 		fab.addChild("stream").attr("id", id).attr("type", type).down();
-		fab.addChild("eol", "crlf");
+		fab.addChild("eol", "crlf"); //build done later
 	}
 
 	/**
@@ -687,19 +680,18 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public String replyToStreamCommand(Datagram d) {
 		// Prepare the digger
 		var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
-		if( !dig.hasPeek("streams")) {
+		if (!dig.hasPeek("streams"))
 			XMLfab.alterDigger(dig).ifPresent( x->x.addChild("streams").build());
-		}
+
 		dig.digDown("streams");
 
 		String[] cmds = d.argList();
-		if( cmds.length==1){
+		if (cmds.length == 1)
 			return doSingleCmd(cmds[0], d.asHtml());
-		}else if( Arrays.asList(NEWSTREAM).contains(cmds[0]) ){ // Meaning it's an add cmd
+		if (Arrays.asList(NEWSTREAM).contains(cmds[0])) // Meaning it's an add cmd
 			return doAddStreamCmd(cmds,dig);
-		}else{ // Meaning it's an alter/use cmd
-			return doAlterUseCmd(cmds, d.getWritable(), dig);
-		}
+		// Meaning it's an alter/use cmd
+		return doAlterUseCmd(cmds, d.getWritable(), dig);
 	}
 	private String doSingleCmd( String cmd, boolean html){
 		return switch (cmd) {
@@ -721,7 +713,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			default ->  "! No such cmd in ss: " + cmd;
 		};
 	}
-	private String getCmdHelp(boolean html){
+
+	private static String getCmdHelp(boolean html) {
 		var join = new StringJoiner("\r\n");
 
 		join.add("Manages all the streams: adding, checking, writing etc.");
@@ -893,22 +886,24 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "TTL altered";
 			}
 			case "port" -> {
-				if( type.equals("serial")){
-					if( Tools.getSerialPorts(false).contains(cmds[2]) ){
-						fab.alterChild("port", cmds[2]);
-					}else{
-						return "! No such serial port available";
+				switch (type) {
+					case "serial" -> {
+						if (Tools.getSerialPorts(false).contains(cmds[2])) {
+							fab.alterChild("port", cmds[2]);
+						} else {
+							return "! No such serial port available";
+						}
 					}
-				}else if( type.equals("tcp")){
-					var addr = dig.attr("address","");
-					if( addr.contains(":")) {
+					case "type" -> {
+						var addr = dig.attr("address", "");
+						if (!addr.contains(":"))
+							return "! No valid/empty address node?";
 						var ip = addr.split(":")[0];
 						fab.alterChild("address", ip+":"+cmds[2]);
-					}else{
-						return "! No valid/empty address node?";
 					}
-				}else{
-					return "! Command not supported for this type (yet)";
+					default -> {
+						return "! Command not supported for this type (yet)";
+					}
 				}
 				fab.build();
 				reloadStream(cmds[0]);

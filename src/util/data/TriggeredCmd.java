@@ -1,6 +1,7 @@
 package util.data;
 
 import util.math.MathUtils;
+
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -32,9 +33,8 @@ public class TriggeredCmd {
                     trigger = trigger.replace("stdev", "");
                 }
                 comp = MathUtils.parseSingleCompareFunction(trigger);
-                if (comp == null) {
+                if (comp == null)
                     this.cmd = "";
-                }
             }
         }
     }

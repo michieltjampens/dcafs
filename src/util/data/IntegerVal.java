@@ -4,6 +4,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
+
 import java.util.Optional;
 
 public class IntegerVal extends NumberVal<Integer>{
@@ -39,11 +40,9 @@ public class IntegerVal extends NumberVal<Integer>{
      * @return The created node
      */
     public static Optional<IntegerVal> build(Element rtval, String group){
-
         var read = readGroupAndName(rtval,group);
         if( read == null)
             return Optional.empty();
-
         return Optional.of(IntegerVal.newVal(read[0],read[1]).alter(rtval));
     }
 
@@ -72,7 +71,7 @@ public class IntegerVal extends NumberVal<Integer>{
      */
     public IntegerVal value( int val ){
 
-       updateHisoryAndTimestamp(val);
+        updateHistoryAndTimestamp(val);
 
         /* Keep min max */
         if( keepMinMax ){

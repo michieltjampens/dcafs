@@ -41,7 +41,6 @@ public class StoreCmds {
         if (tag.equals("rtvals") && args.length < 4)
             return "! Not enough arguments, probably missing group?";
 
-
         var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
         if( !id.equalsIgnoreCase("global")){
             dig.digDown("streams");
@@ -104,8 +103,6 @@ public class StoreCmds {
     }
     public static String replyToPathCmd(String request, Path xmlPath ){
 
-        String id = request.split(",")[0];
-
         var dig = XMLdigger.goIn(xmlPath,"dcafs");
         if( dig.isInvalid())
             return "! No such file";
@@ -116,6 +113,7 @@ public class StoreCmds {
                 return "! No paths defined yet";
         }
 
+        String id = request.split(",")[0];
         dig.digDown("path","id",id);
         if( dig.isInvalid() )
             return "! No such path yet "+id;
@@ -161,82 +159,91 @@ public class StoreCmds {
 
     }
     private static String doCmd( String prefix, String request, XMLfab fab, XMLdigger dig, Path xml){
-        var cmds = request.split(",");
+        var args = request.split(",");
         boolean map = dig.attr("map",false);
 
-        return switch (cmds[1]) {
+        return switch (args[1]) {
             case "addblank", "addb" -> { // Adds an ignore node
                 fab.addChild("ignore").build();
                 yield "Blank added";
             }
-            case "addreal", "addr" -> doAddValCmd(cmds, prefix, dig, fab, "real", map);
-            case "addint", "addi" -> doAddValCmd(cmds, prefix, dig, fab, "int", map);
-            case "addtext", "addt" -> doAddValCmd(cmds, prefix, dig, fab, "text", map);
-            case "addflag", "addf" -> doAddValCmd(cmds, prefix, dig, fab, "flag", map);
-            case "delim", "delimiter" -> {
-                if (cmds.length < 3)
-                    yield "! Wrong amount of arguments -> " + prefix + "delim,newdelimiter";
-                var deli = cmds.length == 4 ? "," : cmds[2];
-                fab.attr("delimiter", deli).build();
-                yield "Set the delimiter to '" + deli + "'";
-            }
-            case "map", "mapped" -> {
-                if (cmds.length < 3)
-                    yield "! Wrong amount of arguments -> " + prefix + "map,true/false";
-                if( !Tools.validBool(cmds[2])){
-                    yield "! Not a valid boolean: " + cmds[2];
-                }
-                fab.attr("map", cmds[2]).build();
-                yield "Set map to '" + cmds[2] + "'";
-            }
-            case "idlereset" -> {
-                if (cmds.length < 3)
-                    yield "! Wrong amount of arguments -> " + prefix + "idlereset,true/false";
-                if (!Tools.isBoolean(cmds[2]))
-                    yield "! Not a valid boolean state: " + cmds[2];
-                fab.attr("idlereset", cmds[2]).build();
-                yield "Set the idlereset to '" + cmds[2] + "'";
-            }
-            case "group" -> {
-                if (cmds.length < 3)
-                    yield "! Wrong amount of arguments -> " + prefix + "group,newgroup";
-                fab.attr("group", cmds[2]).build();
-                yield "Set the group to '" + cmds[2] + "'";
-            }
-            case "db" -> {
-                if (cmds.length < 3 || !cmds[2].contains(":"))
-                    yield "! Wrong amount of arguments or missing table: " + prefix + "db,dbids:table";
-                int start = request.indexOf(",db,")+4;
-                fab.attr("db", request.substring(start)).build();
-                yield "Set the db for " + cmds[0] + " to " + request.substring(start);
-            }
-            case "alterval" -> doAlterValCmd(cmds, dig, prefix, request);
-            case "astable" -> doAsTableCmd(cmds, prefix, dig, xml);
+            case "addreal", "addr" -> doAddValCmd(args, prefix, dig, fab, "real", map);
+            case "addint", "addi" -> doAddValCmd(args, prefix, dig, fab, "int", map);
+            case "addtext", "addt" -> doAddValCmd(args, prefix, dig, fab, "text", map);
+            case "addflag", "addf" -> doAddValCmd(args, prefix, dig, fab, "flag", map);
+            case "delim", "delimiter" -> doDelimiterCmd(args, prefix, fab);
+            case "map", "mapped" -> doMapCmd(args, prefix, fab);
+            case "idlereset" -> doIdleResetCmd(args, prefix, fab);
+            case "group" -> doGroupCmd(args, prefix, fab);
+            case "db" -> doDbCmd(args, request, prefix, fab);
+            case "alterval" -> doAlterValCmd(args, dig, prefix, request);
+            case "astable" -> doAsTableCmd(args, prefix, dig, xml);
             default -> "! No such subcommand in " + prefix + " : " + request;
         };
     }
 
-    private static String doAddValCmd(String[] cmds, String prefix, XMLdigger dig, XMLfab fab, String numtype, boolean map) {
-        if (cmds.length < 3)
+    private static String doMapCmd(String[] args, String prefix, XMLfab fab) {
+        if (args.length < 3)
+            return "! Wrong amount of arguments -> " + prefix + "map,true/false";
+        if (!Tools.validBool(args[2]))
+            return "! Not a valid boolean: " + args[2];
+        fab.attr("map", args[2]).build();
+        return "Set map to '" + args[2] + "'";
+    }
+
+    private static String doIdleResetCmd(String[] args, String prefix, XMLfab fab) {
+        if (args.length < 3)
+            return "! Wrong amount of arguments -> " + prefix + "idlereset,true/false";
+        if (!Tools.isBoolean(args[2]))
+            return "! Not a valid boolean state: " + args[2];
+        fab.attr("idlereset", args[2]).build();
+        return "Set the idlereset to '" + args[2] + "'";
+    }
+
+    private static String doGroupCmd(String[] args, String prefix, XMLfab fab) {
+        if (args.length < 3)
+            return "! Wrong amount of arguments -> " + prefix + "group,newgroup";
+        fab.attr("group", args[2]).build();
+        return "Set the group to '" + args[2] + "'";
+    }
+
+    private static String doDelimiterCmd(String[] args, String prefix, XMLfab fab) {
+        if (args.length < 3)
+            return "! Wrong amount of arguments -> " + prefix + "delim,newdelimiter";
+        var deli = args.length == 4 ? "," : args[2];
+        fab.attr("delimiter", deli).build();
+        return "Set the delimiter to '" + deli + "'";
+    }
+
+    private static String doDbCmd(String[] args, String request, String prefix, XMLfab fab) {
+        if (args.length < 3 || !args[2].contains(":"))
+            return "! Wrong amount of arguments or missing table: " + prefix + "db,dbids:table";
+        int start = request.indexOf(",db,") + 4;
+        fab.attr("db", request.substring(start)).build();
+        return "Set the db for " + args[0] + " to " + request.substring(start);
+    }
+
+    private static String doAddValCmd(String[] args, String prefix, XMLdigger dig, XMLfab fab, String numtype, boolean map) {
+        if (args.length < 3)
             return "! Wrong amount of arguments -> " + prefix + "add" + numtype + ",group,name<,index/key>";
 
         var group = dig.attr("group", "");
-        if (dig.peekAtBoth(numtype, "group", cmds[2], cmds[3]) || // group attr and name as content
-                (group.equalsIgnoreCase(cmds[2]) && dig.peekAtBoth(numtype, "group", "", cmds[3])) || // group global, name as content
-                (group.equalsIgnoreCase(cmds[2]) && dig.peekAtMulAttr(numtype, "group", "", "name", cmds[3])) ||// group global, name as attr
-                dig.peekAtMulAttr(numtype, "group", cmds[2], "name", cmds[3])) { // group attr, name as attr
+        if (dig.peekAtBoth(numtype, "group", args[2], args[3]) || // group attr and name as content
+                (group.equalsIgnoreCase(args[2]) && dig.peekAtBoth(numtype, "group", "", args[3])) || // group global, name as content
+                (group.equalsIgnoreCase(args[2]) && dig.peekAtMulAttr(numtype, "group", "", "name", args[3])) ||// group global, name as attr
+                dig.peekAtMulAttr(numtype, "group", args[2], "name", args[3])) { // group attr, name as attr
             return "! Already a " + numtype + " with that id, try something else?";
         }
 
         boolean newGroup = false;
         if (group.isEmpty()) { // If the path doesn't have a group yet
-            fab.attr("group", cmds[2]); // Update the attribute accordingly
+            fab.attr("group", args[2]); // Update the attribute accordingly
             newGroup = true;
         }
-        fab.selectOrAddChildAsParent(numtype).content(cmds[3]).attr("unit");    // Add name and unit
-        if (!group.equalsIgnoreCase(cmds[2]) && !newGroup && !cmds[2].isEmpty())
-            fab.attr("group", cmds[2]);             // Add group if it's different then global
-        addIndexOrMap(fab, dig, cmds, map);             // Add index or map key
+        fab.selectOrAddChildAsParent(numtype).content(args[3]).attr("unit");    // Add name and unit
+        if (!group.equalsIgnoreCase(args[2]) && !newGroup && !args[2].isEmpty())
+            fab.attr("group", args[2]);             // Add group if it's different then global
+        addIndexOrMap(fab, dig, args, map);             // Add index or map key
         fab.build();                                    // Create it
         return numtype + " added";
     }
@@ -284,9 +291,8 @@ public class StoreCmds {
         if (dbDig.isInvalid()) // Any database?
             return "! No databases defined yet.";
         // Now check for sqlite or server with the id...
-        if (dbDig.hasPeek("sqlite", "id", cmds[2])) { // SQLite
-            dbDig.usePeek();
-        } else if (dbDig.hasPeek("server", "id", cmds[2])) {// Server
+        if (dbDig.hasPeek("sqlite", "id", cmds[2]) ||// SQLite
+                dbDig.hasPeek("server", "id", cmds[2])) {// Server
             dbDig.usePeek();
         } else {
             return "! No such database yet";

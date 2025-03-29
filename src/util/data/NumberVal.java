@@ -38,7 +38,8 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
             Logger.info(id()+" -> Applying "+op+" after parsing to real/double.");
         }
     }
-    public void updateHisoryAndTimestamp(T value ){
+
+    public void updateHistoryAndTimestamp(T value) {
         /* Keep history of passed values */
         if( keepHistory!=0 ) {
             history.add(value);
@@ -48,7 +49,6 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
         /* Keep time of last value */
         if( keepTime )
             timestamp= Instant.now();
-
     }
     /**
      * Enable keeping track of the max and min values received since last reset
@@ -134,9 +134,10 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
         if( history==null) {
             Logger.error(id()+" (iv)-> Can't calculate standard deviation without history");
             return Double.NaN;
-        }else if( history.size() != keepHistory){
-            return Double.NaN;
         }
+        if (history.size() != keepHistory)// Not enough data yet
+            return Double.NaN;
+
         ArrayList<Double> decs = new ArrayList<>();
         history.forEach( x -> decs.add(x.doubleValue()));
         return MathUtils.calcStandardDeviation( decs,digits);
@@ -165,7 +166,7 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
         triggered.add( td );
     }
     public boolean hasTriggeredCmds(){
-        return triggered!=null&& !triggered.isEmpty();
+        return triggered != null && !triggered.isEmpty();
     }
     public void triggerAndForward(T val){
         /* Respond to triggered command based on value */
@@ -174,9 +175,9 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
                 trigger.check(val,value, cmd -> Core.addToQueue( Datagram.system(cmd)), this::getStdev );
         }
 
-        if( targets!=null ){
+        if (targets != null)
             targets.forEach( wr -> wr.writeLine(id(),String.valueOf(val)));
-        }
+
     }
     /* ************************************************************************************************************** */
     /**
@@ -214,7 +215,7 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
     public int asIntegerValue(){ return value.intValue();}
 
     public double asDoubleValue(){ return value.doubleValue(); }
-    public Object valueAsObject(){ return value;}
+
     public String stringValue(){ return String.valueOf(value);}
     public String asValueString(){ return value+unit; }
 
@@ -239,8 +240,6 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
         return line + " Age: No updates yet.";
     }
     public String toString(){
-        String line = value+unit;
-        // Check if min max data is kept, if so, add it.
-        return line + getExtras();
+        return value + unit + getExtras(); // Check if min max data is kept, if so, add it.
     }
 }

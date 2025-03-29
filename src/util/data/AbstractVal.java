@@ -5,6 +5,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.StringJoiner;
@@ -157,7 +158,6 @@ public abstract class AbstractVal {
     public abstract boolean parseValue( String value );
     public abstract String stringValue();
     public abstract void resetValue();
-    public abstract Object valueAsObject();
     /* ********************************* Requests/Targets ********************************************************** */
     public void addTarget( Writable wr){
         if( targets==null)
@@ -169,9 +169,6 @@ public abstract class AbstractVal {
         if( targets==null)
             return false;
         return targets.remove(wr);
-    }
-    public int getTargetCount(){
-        return targets==null?0:targets.size();
     }
     public String getTargets(){
         if( targets==null)

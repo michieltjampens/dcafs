@@ -63,18 +63,19 @@ public class TelnetServer implements Commandable {
 
     public void readSettingsFromXML( ) {
         var dig = Paths.digInSettings("settings").digDown("telnet");
-        if( dig.isValid()){
-            port = dig.attr("port",2323);
-            title = dig.attr( "title", "DCAFS");
-            ignore = dig.attr( "ignore", "");
-            defColor = TelnetCodes.colorToCode( dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY );
-            dig.goUp();
-            maxAge = TimeTools.parsePeriodStringToSeconds( dig.peekAt("maxrawage").value("1h"));
-            var pth = dig.peekAt("tinylog").value("");
-            tinylogPath = pth.isEmpty()?Paths.storage():Path.of(pth);
-        }else {
+        if (dig.isInvalid()) {
             addBlankTelnetToXML();
+            return;
         }
+
+        port = dig.attr("port", 2323);
+        title = dig.attr("title", "DCAFS");
+        ignore = dig.attr("ignore", "");
+        defColor = TelnetCodes.colorToCode(dig.peekAt("textcolor").value("lightgray"), TelnetCodes.TEXT_LIGHT_GRAY);
+        dig.goUp();
+        maxAge = TimeTools.parsePeriodStringToSeconds(dig.peekAt("maxrawage").value("1h"));
+        var pth = dig.peekAt("tinylog").value("");
+        tinylogPath = pth.isEmpty() ? Paths.storage() : Path.of(pth);
     }
     public static void addBlankTelnetToXML( ){
         Paths.fabInSettings("settings")
@@ -145,40 +146,33 @@ public class TelnetServer implements Commandable {
             int s = writables.size();
             writables.remove(d.getWritable());
             return (s==writables.size())?"! Failed to remove":"Removed from targets";
-        }else {
-            switch (args[0]) {
-                case "?" -> {
-                    return doCmdHelp();
-                }
-                case "error" -> {
-                    if (args.length < 2)
-                        return "! Not enough arguments, telnet:error,message";
-                    var error = d.args().substring(6);
-                    messages.add(error);
-                    writables.removeIf(w -> !w.writeLine("", TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
-                    return "";
-                }
-                case "broadcast" -> {
-                    return doBroadCastCmd(args, d.args());
-                }
-                case "write" -> {
-                    var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(args[1])).toList();
-                    if (wrs.isEmpty())
-                        return "! No such id";
-                    var mes = TelnetCodes.TEXT_MAGENTA + d.originID() + ": " + d.args().substring(7 + args[1].length()) + TelnetCodes.TEXT_DEFAULT;
-                    wrs.forEach(w -> w.writeLine("", mes));
-                    return mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
-                }
-                case "bt" -> {
-                    return "Currently has " + writables.size() + " broadcast targets.";
-                }
-                default -> {
-                    return "! No such subcommand in " + d.getData();
-                }
-            }
         }
+
+        return switch (args[0]) {
+            case "?" -> doCmdHelp();
+            case "error" -> {
+                if (args.length < 2)
+                    yield "! Not enough arguments, telnet:error,message";
+                var error = d.args().substring(6);
+                messages.add(error);
+                writables.removeIf(w -> !w.writeLine("", TelnetCodes.TEXT_RED + error + TelnetCodes.TEXT_DEFAULT));
+                yield "";
+            }
+            case "broadcast" -> doBroadCastCmd(args, d.args());
+            case "write" -> {
+                var wrs = writables.stream().filter(w -> w.id().equalsIgnoreCase(args[1])).toList();
+                if (wrs.isEmpty())
+                    yield "! No such id";
+                var mes = TelnetCodes.TEXT_MAGENTA + d.originID() + ": " + d.args().substring(7 + args[1].length()) + TelnetCodes.TEXT_DEFAULT;
+                wrs.forEach(w -> w.writeLine("", mes));
+                yield mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
+            }
+            case "bt" -> "Currently has " + writables.size() + " broadcast targets.";
+            default -> "! No such subcommand in " + d.getData();
+        };
     }
-    private String doCmdHelp(){
+
+    private static String doCmdHelp() {
         var join = new StringJoiner("\r\n");
         join.add("Commands for the telnet interface");
         join.add("telnet:broadcast,message -> Broadcast the message to all active telnet sessions at info level.")
@@ -192,24 +186,21 @@ public class TelnetServer implements Commandable {
         String send;
         if (cmds.length < 2)
             return "! Not enough arguments, telnet:broadcast,level,message or telnet:broadcast,message for info level";
-        switch (cmds[1]) {
-            case "warn" -> send = TelnetCodes.TEXT_ORANGE + args.substring(15);
-            case "error" -> send = TelnetCodes.TEXT_RED + args.substring(16);
-            case "info" -> send = TelnetCodes.TEXT_GREEN + args.substring(15);
+        send = switch (cmds[1]) {
+            case "warn" -> TelnetCodes.TEXT_ORANGE + args.substring(15);
+            case "error" -> TelnetCodes.TEXT_RED + args.substring(16);
+            case "info" -> TelnetCodes.TEXT_GREEN + args.substring(15);
             default -> {
                 var d = args.substring(10);
                 if (d.startsWith("!")) {
-                    send = TelnetCodes.TEXT_RED + d.substring(1);
+                    yield TelnetCodes.TEXT_RED + d.substring(1);
                 } else {
-                    send = TelnetCodes.TEXT_GREEN + d;
+                    yield TelnetCodes.TEXT_GREEN + d;
                 }
             }
-        }
+        };
         writables.removeIf(w -> !w.writeLine("", send + TelnetCodes.TEXT_DEFAULT));
         return "Broadcasted";
-    }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
     }
     @Override
     public boolean removeWritable(Writable wr) {

@@ -96,9 +96,9 @@ public abstract class BaseStream {
                 ttlString += "s";
 			readerIdleSeconds = TimeTools.parsePeriodStringToSeconds(ttlString);
         }
-        if( dig.attr("echo", false) ){
+        if (dig.attr("echo", false))
             enableEcho();
-        }
+
         // cmds
         triggeredActions.clear();
         if (dig.hasPeek("triggered"))
@@ -257,30 +257,18 @@ public abstract class BaseStream {
         return triggeredActions.stream().filter(x -> x.trigger==trigger).map(x -> x.data).collect(Collectors.toList());
     }
     private static TRIGGER convertTrigger( String trigger ){
-        switch (trigger.toLowerCase()) {
-            case "open" -> {
-                return TRIGGER.OPEN;
-            }
-            case "close" -> {
-                return TRIGGER.CLOSE;
-            }
-            case "idle" -> {
-                return TRIGGER.IDLE;
-            }
-            case "!idle" -> {
-                return TRIGGER.IDLE_END;
-            }
-            case "hello" -> {
-                return TRIGGER.HELLO;
-            }
-            case "wakeup", "asleep" -> {
-                return TRIGGER.WAKEUP;
-            }
+        return switch (trigger.toLowerCase()) {
+            case "open" -> TRIGGER.OPEN;
+            case "close" -> TRIGGER.CLOSE;
+            case "idle" -> TRIGGER.IDLE;
+            case "!idle" -> TRIGGER.IDLE_END;
+            case "hello" -> TRIGGER.HELLO;
+            case "wakeup", "asleep" -> TRIGGER.WAKEUP;
             default -> {
                 Logger.error("Unknown trigger requested : " + trigger);
-                return null;
+                yield null;
             }
-        }
+        };
     }
     protected static class TriggerAction {
         String data;
@@ -330,10 +318,11 @@ public abstract class BaseStream {
         if( !address.contains(":") ){
             Logger.error(id+" -> Not proper ip:port for "+id+" -> "+address);
             return Optional.empty();
-        }else{
-            var ipsock = new InetSocketAddress( address.substring(0,address.lastIndexOf(":")),
-                    Tools.parseInt( address.substring(address.lastIndexOf(":")+1) , -1) );
-            return Optional.of(ipsock);
         }
+
+        var ipsock = new InetSocketAddress(address.substring(0, address.lastIndexOf(":")),
+                Tools.parseInt(address.substring(address.lastIndexOf(":") + 1), -1));
+        return Optional.of(ipsock);
+
     }
 }

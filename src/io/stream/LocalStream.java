@@ -43,39 +43,32 @@ public class LocalStream extends BaseStream implements Writable {
         if( readerIdle ){
             readerIdle=false;
 		    listeners.forEach( l-> l.notifyActive(id));
-	   }	
-       if (msg != null && !(msg.isBlank() && clean)) { //make sure that the received data is not 'null' or an empty string           
-            if(!label.isEmpty()) {
-                var d = Datagram.build(msg).priority(priority).label(label).writable(this);
-                Core.addToQueue(d);
-            }
-            // Log anything and everything (except empty strings)
-            if( !msg.isBlank() && log )		// If the message isn't an empty string and logging is enabled, store the data with logback
-        	    Logger.tag("RAW").warn( id() + "\t" + msg );
-
-			if( !targets.isEmpty() ){
-                targets.forEach(dt -> eventLoopGroup.submit( () -> dt.writeLine(id,msg)) );
-                targets.removeIf(wr -> !wr.isConnectionValid() ); // Clear inactive
-			}
-		
-            long p = Instant.now().toEpochMilli() - timestamp;	// Calculate the time between 'now' and when the previous message was received
-            if( p > 0 ){	// If this time is valid
-                passed = p; // Store it
-            }                    
-            timestamp = Instant.now().toEpochMilli();    		// Store the timestamp of the received message
-        }else{
-            return false;
         }
-        return true;
-    }
-    @Override
-    public Writable getWritable() {
-        return this;
-    }
+        //make sure that the received data is not 'null' or an empty string
+        if (msg == null)
+            return false;
+        if (msg.isBlank() && clean)
+            return false;
 
-    @Override
-    public boolean giveObject(String info, Object object) {
-        return false;
+        if (!label.isEmpty())
+            Core.addToQueue(Datagram.build(msg).priority(priority).label(label).writable(this));
+
+        // Log anything and everything (except empty strings)
+        if (!msg.isBlank() && log)        // If the message isn't an empty string and logging is enabled, store the data with logback
+            Logger.tag("RAW").warn(id() + "\t" + msg);
+
+        if (!targets.isEmpty()) {
+            targets.forEach(dt -> eventLoopGroup.submit(() -> dt.writeLine(id, msg)));
+            targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
+        }
+
+        long p = Instant.now().toEpochMilli() - timestamp;    // Calculate the time between 'now' and when the previous message was received
+        if (p > 0) {    // If this time is valid
+            passed = p; // Store it
+        }
+        timestamp = Instant.now().toEpochMilli();            // Store the timestamp of the received message
+
+        return true;
     }
 
     @Override

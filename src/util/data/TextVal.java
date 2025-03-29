@@ -121,7 +121,7 @@ public class TextVal extends AbstractVal{
             case UTCDT -> TimeTools.formatLongUTCNow();
         };
     }
-    public Object valueAsObject(){ return value();}
+
     public void defValue(String def){
         this.def=def;
     }

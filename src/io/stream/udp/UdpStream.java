@@ -47,7 +47,7 @@ public class UdpStream extends BaseStream implements Writable {
                          .channel(NioDatagramChannel.class)
                          .option(ChannelOption.SO_BROADCAST, true);
         }else{
-            this.bootstrapUDP=strap;
+            bootstrapUDP = strap;
         }
         return bootstrapUDP;
     }
@@ -86,11 +86,9 @@ public class UdpStream extends BaseStream implements Writable {
         f.addListener((FutureListener<Void>) future -> {
             if (f.isSuccess()) {
                 Logger.info("Operation complete");
-            } else {
-                if(LookAndFeel.isNthAttempt(connectionAttempts)) {
-                    String cause = String.valueOf(future.cause());
-                    Logger.error(id + " -> Failed to connect: " + cause.substring(cause.indexOf(":") + 1));
-                }
+            } else if (LookAndFeel.isNthAttempt(connectionAttempts)) {
+                String cause = String.valueOf(future.cause());
+                Logger.error(id + " -> Failed to connect: " + cause.substring(cause.indexOf(":") + 1));
             }
         });
         return true;

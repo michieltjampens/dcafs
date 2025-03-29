@@ -79,10 +79,12 @@ public class RealVal extends NumberVal<Double>{
             rawValue=res;
             value(res);
             return true;
-        }else if( Double.isNaN(defVal) ){
+        }
+        if (Double.isNaN(defVal)) {
             value(defVal);
             return true;
         }
+
         Logger.error(id() + " -> Failed to parse "+val);
         return false;
     }
@@ -96,7 +98,7 @@ public class RealVal extends NumberVal<Double>{
      */
     public RealVal value(double val ){
 
-        updateHisoryAndTimestamp(val);
+        updateHistoryAndTimestamp(val);
 
         /* Keep min max */
         if( keepMinMax ){
@@ -109,7 +111,7 @@ public class RealVal extends NumberVal<Double>{
         if( digits != -1) {
             value = Tools.roundDouble(val, digits);
         }else{
-            value=val;
+            value = val;
         }
         triggerAndForward(val);
         return this;
@@ -121,11 +123,12 @@ public class RealVal extends NumberVal<Double>{
      * @param defVal The default value
      */
     public void defValue(Double defVal){
-        if( !Double.isNaN(defVal) ) { // If the given value isn't NaN
-            this.defVal = defVal;
-            if( value==null||Double.isNaN(value))
-                value=defVal;
-        }
+        if (Double.isNaN(defVal))  // If the given value is NaN
+            return;
+
+        this.defVal = defVal;
+        if (value == null || Double.isNaN(value))
+            value = defVal;
     }
 
     /**
