@@ -56,6 +56,11 @@ public class Room implements Writable {
             targets = new ArrayList<>();
         targets.add(wr);
     }
+
+    public void removeTarget(Writable wr) {
+        if (targets != null)
+            targets.remove(wr);
+    }
     public void writeToTargets( String line ){
         if( targets!=null)
             targets.forEach(wr->wr.writeLine("matrix:"+localId,line));

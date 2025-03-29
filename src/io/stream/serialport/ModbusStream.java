@@ -5,6 +5,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.math.MathUtils;
 import util.tools.Tools;
+
 import java.time.Instant;
 
 public class ModbusStream extends SerialStream{
@@ -29,12 +30,12 @@ public class ModbusStream extends SerialStream{
     protected void processListenerEvent(byte[] data){
 
         long p = Instant.now().toEpochMilli() - timestamp;	// Calculate the time between 'now' and when the previous message was received
-        if( p >= 0 ){	// If this time is valid
+        if (p >= 0)    // If this time is valid
             passed = p; // Store it
-        }   
-        if( passed > 10 ){  // Maximum allowed time is 3.5 characters which is 5ms at 9600
+
+        if (passed > 10)  // Maximum allowed time is 3.5 characters which is 5ms at 9600
             index=0;
-        }
+
         timestamp = Instant.now().toEpochMilli();    		    // Store the timestamp of the received message
         
         for( byte b : data ){
@@ -55,7 +56,6 @@ public class ModbusStream extends SerialStream{
                     readyForWorker=true;
             break;
             case 0x10:
-
             break;
             default: Logger.warn(id+"(mb) -> Received unknown type");
                 Logger.info(Tools.fromBytesToHexString(rec));
@@ -78,8 +78,7 @@ public class ModbusStream extends SerialStream{
     }
     @Override
     public synchronized boolean writeBytes(byte[] data) {
-        data = MathUtils.calcCRC16_modbus(data,true);
-        return write(data);
+        return write(MathUtils.calcCRC16_modbus(data, true));
     }
     private boolean verifyCRC( byte[] data,int length){
         byte[] crc = MathUtils.calcCRC16_modbus( ArrayUtils.subarray(data,0,length-2), false);

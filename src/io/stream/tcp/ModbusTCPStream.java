@@ -6,10 +6,10 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.FixedLengthFrameDecoder;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import util.tools.Tools;
 import util.xml.XMLtools;
 
 import java.net.InetSocketAddress;
@@ -27,11 +27,11 @@ public class ModbusTCPStream extends TcpStream{
     public boolean readExtraFromXML(Element stream) {
         // Address
         String address = XMLtools.getChildStringValueByTag( stream, "address", "");
-        if( !address.contains(":") ){
+        if (!address.contains(":"))
             address+=":502";
-        }
+
         ipsock = new InetSocketAddress( address.substring(0,address.lastIndexOf(":")),
-                    Tools.parseInt( address.substring(address.lastIndexOf(":")+1) , -1) );
+                NumberUtils.toInt(address.substring(address.lastIndexOf(":") + 1), -1));
         return true;
     }
     @Override

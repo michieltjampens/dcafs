@@ -47,7 +47,6 @@ public class MultiStream extends SerialStream{
                 // Next again only if the header was found already but also if the amount of payload receipt matches the expected
                 if( recBuffer.position()>=header.length && recBuffer.position() >= rec[payloadPosition]+header.length ){
                     // Full message received, store it in a datagram
-
                     Datagram d = Datagram.build(Arrays.copyOfRange(rec,header.length,rec[payloadPosition]+header.length))
                                          .label(label)
                                          .origin(id+":"+(char)rec[idPosition]);

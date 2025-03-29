@@ -40,7 +40,7 @@ public class TcpStream extends BaseStream implements Writable {
             }
             bootstrap = createBootstrap();
         }else{
-            this.bootstrap=strap;
+            bootstrap = strap;
         }
         return bootstrap;
     }
@@ -80,6 +80,7 @@ public class TcpStream extends BaseStream implements Writable {
                     }
                     ch.pipeline().addLast( "decoder", new ByteArrayDecoder() );
                     ch.pipeline().addLast( "encoder", new ByteArrayEncoder() );
+
                     boolean idle=false;
                     if( handler != null ) {
                         handler.disconnect();

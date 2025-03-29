@@ -37,22 +37,21 @@ public class SerialStream extends BaseStream implements Writable {
         try{
             this.port=port;
             serialPort = SerialPort.getCommPort(port);
+            return true;
         }catch( SerialPortInvalidPortException e ){
-            Logger.error("No such serial port: " + port);
-            Logger.error(e);
+            Logger.error("No such serial port: " + port, e);
             return false;
         }
-        return true;
     }
 
     public String getInfo() {
-        String info = "No connection to "+port;
-        if( serialPort!=null){
-            info = serialPort.getSystemPortName();
-            if( info.equalsIgnoreCase("0"))
-                info=port;
-            info += " | "+ getSerialSettings();
-        }
+        if (serialPort == null)
+            return "SERIAL [" + id + "] No connection to " + port;
+
+        var info = serialPort.getSystemPortName();
+        if (info.equalsIgnoreCase("0"))
+            info = port;
+        info += " | " + getSerialSettings();
         return "SERIAL [" + id + "] " + info;
     }
 
@@ -64,9 +63,8 @@ public class SerialStream extends BaseStream implements Writable {
         eol = delimiter;
         connectionAttempts++;
 
-        if (serialPort == null) {
+        if (serialPort == null)
             return false;
-        }
 
         if (serialPort.openPort()) {
             serialPort.flushIOBuffers(); // Make sure we don't process stuff that was in there before startup
@@ -210,23 +208,24 @@ public class SerialStream extends BaseStream implements Writable {
     private void forwardData(byte[] data) {
         timestamp = Instant.now().toEpochMilli(); // Store the timestamp of the received message
         Logger.debug("Received: " + new String(data));
-        if (!targets.isEmpty()) {
-            try {
-                targets.forEach(dt -> eventLoopGroup.submit(() -> {
-                    try {
-                        if (eol.isEmpty()) {
-                            dt.writeBytes(data);
-                        } else {
-                            dt.writeLine(id, new String(data));
-                        }
-                    } catch (Exception e) {
-                        Logger.error(id + " -> Something bad while writeLine to " + dt.id(), e);
+        if (targets.isEmpty())
+            return;
+
+        try {
+            targets.forEach(dt -> eventLoopGroup.submit(() -> {
+                try {
+                    if (eol.isEmpty()) {
+                        dt.writeBytes(data);
+                    } else {
+                        dt.writeLine(id, new String(data));
                     }
-                }));
-                targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
-            } catch (Exception e) {
-                Logger.error(id + " -> Something bad in serial port: ", e);
-            }
+                } catch (Exception e) {
+                    Logger.error(id + " -> Something bad while writeLine to " + dt.id(), e);
+                }
+            }));
+            targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
+        } catch (Exception e) {
+            Logger.error(id + " -> Something bad in serial port: ", e);
         }
     }
     public void alterSerialSettings(String settings) {
@@ -328,7 +327,6 @@ public class SerialStream extends BaseStream implements Writable {
             var res=-1;
             try{
                 res = serialPort.writeBytes(data, data.length);
-
             }catch(Exception e) {
                 Logger.error(e);
             }
@@ -340,14 +338,13 @@ public class SerialStream extends BaseStream implements Writable {
             return  res == data.length;
         }else if( serialPort==null){
             Logger.error(id+" -> No write done, serial port is null.");
-
             return false;
-        }else if( !serialPort.isOpen()){
+        }
+        if (!serialPort.isOpen())
             Logger.error(id+" -> No write done, serial port is closed.");
-        }
-        if( serialPort.bytesAwaitingWrite()<8000 ){
+        if (serialPort.bytesAwaitingWrite() < 8000)
             Logger.error("Data not being read from "+id);
-        }
+
         return false;
     }
 
@@ -367,9 +364,9 @@ public class SerialStream extends BaseStream implements Writable {
     @Override
     protected boolean readExtraFromXML(Element stream) {
         var dig = XMLdigger.goIn(stream);
-        if (!setPort( dig.peekAt("port").value(""))) {
+        if (!setPort(dig.peekAt("port").value("")))
             return false;
-        }
+
         alterSerialSettings(dig.peekAt("serialsettings").value("19200,8,1,none"));
         if( dig.hasPeek("ttl") ){
             dig.usePeek();

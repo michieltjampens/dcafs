@@ -32,36 +32,32 @@ public class ModbusTCP extends TcpHandler{
         }
 
         long p = Instant.now().toEpochMilli() - timeStamp;	// Calculate the time between 'now' and when the previous message was received
-        if( p >= 0 ){	// If this time is valid
+        if (p >= 0)    // If this time is valid
             passed = p; // Store it
-        }
-        if( passed > 10 ){
+
+        if (passed > 10)
             index=0;
-        }
+
         timeStamp = Instant.now().toEpochMilli();    		    // Store the timestamp of the received message
 
         for( byte b : data ){
-
             if( index >= rec.length){
                 Logger.info("Out of bounds...?"+rec.length);
                 break;
-            }else{
-                rec[index] = b;
-                index++;
             }
+            rec[index] = b;
+            index++;
         }
 
         if( index < 6 || index < rec[4]*256+rec[5]+6) // Wait for length info and length content
             return;
 
         switch( rec[7] ){
-            case 0x03: // Register read
-            case 0x04: // Analog read?
-            case 0x06: // reply?
-                    processRegisters( Arrays.copyOfRange(rec,0,index) );
-                    break;
+            // 0x03 Register read  0x04 Analog read?  0x06 reply?
+            case 0x03, 0x04, 0x06:
+                processRegisters(Arrays.copyOfRange(rec, 0, index));
+                break;
             case 0x10:
-
                 break;
             default: Logger.warn(id+"(mb) -> Received unknown type");
                 Logger.info(Tools.fromBytesToHexString(rec,0,index));

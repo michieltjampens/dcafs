@@ -1,10 +1,8 @@
 package io.stream.tcp;
 
-import das.Paths;
-import io.stream.BaseStream;
-import io.stream.StreamListener;
-import io.Writable;
 import das.Commandable;
+import das.Paths;
+import io.Writable;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -14,6 +12,8 @@ import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
+import io.stream.BaseStream;
+import io.stream.StreamListener;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
@@ -54,13 +54,13 @@ public class TcpServer implements StreamListener, Commandable {
 	 * @param port The new port to use
 	 */
 	public boolean setServerPort(int port) {
-		if (serverPort != port && port != -1) {
-			Logger.info("New port isn't the same as current one. current=" + this.serverPort + " req=" + port);
-			serverPort = port;
-			alterXML();
-			restartServer();
-			active=true;
-		}
+		if (serverPort == port && port == -1)
+			return active;
+		Logger.info("New port isn't the same as current one. current=" + this.serverPort + " req=" + port);
+		serverPort = port;
+		alterXML();
+		restartServer();
+		active = true;
 		return active;
 	}
 	/**
@@ -69,24 +69,24 @@ public class TcpServer implements StreamListener, Commandable {
 	 */
 	private boolean readSettingsFromXML( ) {
 		var dig = XMLdigger.goIn(Paths.settings(),"dcafs","transserver");
+		if (dig.isInvalid())
+			return false;
 
-		if (dig.isValid()) {
-			Logger.info("Settings for the TransServer found.");
-			serverPort = dig.attr( "port", -1);
-			if (serverPort == -1)
-				serverPort = dig.peekAt("port").value(5542);
-			defaults.clear();
-			for( var client : dig.digOut("default")){
-				TransDefault td = new TransDefault(client.attr("id",""),client.attr("address",""));
-				td.setLabel( client.attr("label","system"));
-				dig.peekOut("cmd").forEach(req -> td.addCommand( req.getTextContent() ));
-				defaults.put(td.id, td );
-			}
-			if( !active )
-				run();
-			return true;
+		Logger.info("Settings for the TransServer found.");
+		serverPort = dig.attr("port", -1);
+		if (serverPort == -1)
+			serverPort = dig.peekAt("port").value(5542);
+		defaults.clear();
+		for (var clientDig : dig.digOut("default")) {
+			var td = new TransDefault(clientDig.attr("id", ""), clientDig.attr("address", ""));
+			td.setLabel(clientDig.attr("label", "system"));
+			dig.peekOut("cmd").forEach(req -> td.addCommand(req.getTextContent()));
+			defaults.put(td.id, td);
 		}
-		return false;
+		if (!active)
+			run();
+		return true;
+
 	}
 
 	public void alterXML() {
@@ -111,7 +111,7 @@ public class TcpServer implements StreamListener, Commandable {
 		serverPort = port;
 		// Netty
 		try {
-			ServerBootstrap b = new ServerBootstrap();
+			var b = new ServerBootstrap();
 			b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class).option(ChannelOption.SO_BACKLOG, 50)
 					.childHandler(new ChannelInitializer<SocketChannel>() {
 						@Override
@@ -121,7 +121,7 @@ public class TcpServer implements StreamListener, Commandable {
 							ch.pipeline().addLast("decoder", new ByteArrayDecoder());
 							ch.pipeline().addLast("encoder", new ByteArrayEncoder());
 
-							TransHandler handler = new TransHandler("system");
+							var handler = new TransHandler("system");
 							handler.setListener(TcpServer.this);
 							handler.setEventLoopGroup(workerGroup);
 							clients.add(handler);
@@ -203,7 +203,6 @@ public class TcpServer implements StreamListener, Commandable {
 	@Override
 	public void notifyClosed(String id) {
 		Logger.info(id+" is closed");
-		
 		if( clients.removeIf( client -> client.id().equalsIgnoreCase(id) ) ){
 			Logger.info("Removed client handler for "+id);
 		}else{
@@ -223,9 +222,9 @@ public class TcpServer implements StreamListener, Commandable {
 
 	private Optional<TransHandler> getHandler( String id ){
 		int index = Tools.parseInt(id, -1);
-		if( index != -1 ){
+		if (index != -1)
 			return Optional.ofNullable(clients.get(index));
-		}
+
 		return clients.stream().filter( h->h.id().equalsIgnoreCase(id)).findFirst();
 	}
 
@@ -245,9 +244,9 @@ public class TcpServer implements StreamListener, Commandable {
 			fab.attr("label",handler.getLabel() );
 		}
 		fab.clearChildren(); // start from scratch
-		for( String h : handler.getHistory() ){
+		for (String h : handler.getHistory())
 			fab.addChild("cmd",h);
-		}
+
 		if( fab.build() ){
 			wr.writeLine("", handler.id() + " Stored!");
 		}else{
@@ -291,7 +290,7 @@ public class TcpServer implements StreamListener, Commandable {
 			if (args[0].equalsIgnoreCase("start") && args.length == 2) {
 				if (setServerPort(NumberUtils.toInt(args[1], -1)))
 					return "Server started on " + args[1];
-				return "Invalid port number given.";
+				return "! Invalid port number given.";
 			}else{
 				return "No server active yet, use ts:start,port to start one";
 			}
@@ -301,46 +300,44 @@ public class TcpServer implements StreamListener, Commandable {
 
 		Optional<TransHandler> hOpt = args.length > 1 ? getHandler(args[1]) : Optional.empty();
 
-		switch (args[0]) {
-			case "?":
-				return doCmdHelp(d.asHtml());
-			case "store":
-				if( hOpt.isEmpty() )
-					return "Invalid id";
+		return switch (args[0]) {
+			case "?" -> doCmdHelp(d.asHtml());
+			case "store" -> {
+				if (hOpt.isEmpty())
+					yield "! Invalid id";
 				var handler = hOpt.get();
 				handler.setID(args.length == 3 ? args[2] : handler.id());
-				storeHandler(handler,wr);
-				return "Stored";
-			case "add":
-				return doAddCmd(args);
-			case "clear":
-				return getHandler(args[1]).map(h -> {
+				storeHandler(handler, wr);
+				yield "Stored";
+			}
+			case "add" -> doAddCmd(args);
+			case "clear" -> {
+				yield getHandler(args[1]).map(h -> {
 					h.clearRequests();
 					return args[1] + "  cleared.";
 				}).orElse("No such client: " + args[1]);
-			case "defaults":
+			}
+			case "defaults" -> {
 				StringJoiner lines = new StringJoiner("\r\n");
 				defaults.forEach( (id,val) -> lines.add(id+" -> "+val.ip+" => "+String.join(",",val.commands)));
-				return lines.toString();
-			case "reload":
-				if( readSettingsFromXML() )
-					return "Defaults reloaded";
-				return "Reload failed";
-			case "alter":
-				return doAlterCmd(args, hOpt.orElse(null));
-			case "trans" :
-				if (args.length != 2)
-					return "Not enough arguments, need trans:id";
-				args[1] = "forward" + args[1];
-			case "forward":
-				return doForwardCmd(args, hOpt.orElse(null), wr);
-			case "": case "list": 
-				return "Server running on port "+serverPort+"\r\n"+getClientList();
-			default:
-				return "! No such subcommand in " + d.getData();
-		}
+				yield lines.toString();
+			}
+			case "reload" -> readSettingsFromXML() ? "Defaults reloaded" : "Reload failed";
+			case "alter" -> doAlterCmd(args, hOpt.orElse(null));
+			case "trans", "forward" -> {
+				if (args[0].equals("trans")) {
+					if (args.length != 2)
+						yield "! Not enough arguments, need trans:id";
+					args[1] = "forward" + args[1];
+				}
+				yield doForwardCmd(args, hOpt.orElse(null), wr);
+			}
+			case "", "list" -> "Server running on port " + serverPort + "\r\n" + getClientList();
+			default -> "! No such subcommand in " + d.getData();
+		};
 	}
-	private String doCmdHelp( boolean html ){
+
+	private static String doCmdHelp(boolean html) {
 		StringJoiner j = new StringJoiner("\r\n");
 		j.add( "TCP server to act as alternative to the telnet interface");
 		j.add("General")
@@ -368,7 +365,7 @@ public class TcpServer implements StreamListener, Commandable {
 		if( th==null )
 			return "Invalid id";
 		if( cmds.length<3)
-			return "Not enough arguments: trans:alter,id,ref:value";
+			return "! Not enough arguments: trans:alter,id,ref:value";
 		String ref = cmds[2].substring(0,cmds[2].indexOf(":"));
 		String value =  cmds[2].substring(cmds[2].indexOf(":")+1);
 		switch (ref) {
@@ -387,7 +384,7 @@ public class TcpServer implements StreamListener, Commandable {
 	}
 	private String doForwardCmd(String[] cmds, TransHandler th, Writable wr){
 		if( cmds.length==1)
-			return "No enough parameters given, needs ts:forward,id";
+			return "! No enough parameters given, needs ts:forward,id";
 
 		if( defaults.containsKey(cmds[1]) || th!=null ) {
 			if (!targets.containsKey(cmds[1])) {
@@ -406,9 +403,7 @@ public class TcpServer implements StreamListener, Commandable {
 			return "Added to target for "+cmds[1];
 		}).orElse(cmds[1]+" not active yet, but recorded request");
 	}
-	public String payloadCommand( String cmd, String args, Object payload){
-		return "! No such cmds in "+cmd;
-	}
+
 	@Override
 	public boolean removeWritable(Writable wr) {
 		boolean removed=false;

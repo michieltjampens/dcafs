@@ -88,7 +88,7 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
         // Close the connection when an exception is raised, but don't send messages if it's related to remote ignore	
 		String address = ctx.channel().remoteAddress().toString();
 
-		if (cause instanceof TooLongFrameException){	
+        if (cause instanceof TooLongFrameException) {
 			Logger.warn(id+" -> Unexpected exception caught: "+cause.getMessage(), true);
 			ctx.flush();
 		}else if( cause instanceof java.net.PortUnreachableException){
@@ -149,42 +149,42 @@ public class TcpHandler extends SimpleChannelInboundHandler<byte[]>{
 	   if( idle ){
 		    idle=false;
 		    listeners.forEach( l-> l.notifyActive(id));
-	   }	
-       if ( !msg.isBlank() ){ //make sure that the received data is not 'null' or an empty string
+       }
+        if (msg.isBlank())//make sure that the received data is not 'null' or an empty string
+            return;
 
-            msg = msg.replace("\n", "");   // Remove newline characters
-            msg = msg.replace("\r", "");   // Remove carriage return characters
-            msg = msg.replace("\0","");    // Remove null characters
+        msg = msg.replace("\n", "");   // Remove newline characters
+        msg = msg.replace("\r", "");   // Remove carriage return characters
+        msg = msg.replace("\0", "");    // Remove null characters
 
-            // Log anything and everything (except empty strings)
-            if( !msg.isBlank() && log ) {        // If the message isn't an empty string and logging is enabled, store the data with logback
-               Logger.tag("RAW").warn( id + "\t" + msg);
-            }
+        // Log anything and everything (except empty strings)
+        // If the message isn't an empty string and logging is enabled, store the data with logback
+        if (!msg.isBlank() && log)
+            Logger.tag("RAW").warn(id + "\t" + msg);
 
-            // Implement the use of labels
-            if( !label.isEmpty()  ) { // No use adding to queue without label
-                Core.addToQueue(Datagram.build(msg)
-                        .label(label)
-                        .origin(id)
-                        .priority(priority)
-                        .writable(writable)
-                );
-            }
-
-            // Forward data to targets
-			if( !targets.isEmpty() ){
-                String tosend=new String(data);
-                try {
-                    targets.parallelStream().forEach(wr -> wr.writeLine(id, tosend));// Concurrent sending to multiple writables
-                    targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
-                } catch (ConcurrentModificationException e) {
-                    Logger.error(e);
-                }
-			}
-
-            // Keep the timestamp of the last message
-            timeStamp = Instant.now().toEpochMilli();    		// Store the timestamp of the received message
+        // Implement the use of labels
+        if (!label.isEmpty()) { // No use adding to queue without label
+            Core.addToQueue(Datagram.build(msg)
+                    .label(label)
+                    .origin(id)
+                    .priority(priority)
+                    .writable(writable)
+            );
         }
+
+        // Forward data to targets
+        if (targets.isEmpty())
+            return;
+        String tosend = new String(data);
+        try {
+            targets.parallelStream().forEach(wr -> wr.writeLine(id, tosend));// Concurrent sending to multiple writables
+            targets.removeIf(wr -> !wr.isConnectionValid()); // Clear inactive
+        } catch (ConcurrentModificationException e) {
+            Logger.error(e);
+        }
+
+        // Keep the timestamp of the last message
+        timeStamp = Instant.now().toEpochMilli();            // Store the timestamp of the received message
 	}
     public boolean writeString(String data) {
         if( channel==null || !channel.isActive() )

@@ -164,21 +164,27 @@ public class I2CRead implements I2COp{
                 }
             }
             //TODO Shift in the other direction?
-            case 20 -> { // Concatenate two bytes and take the msb nibble of the third
-                for (int a = 0; a < bytes.length; a += 3) {
-                    if (msbFirst) {
-                        temp = (intResults[a] * 256 + intResults[a + 1]) * 16 + intResults[a + 2] / 16;
-                    } else {
-                        temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 16 + intResults[a] / 16;
-                    }
-                    dbs.add( (double) (signed ? MathUtils.toSigned20bit(temp) : temp));
-                }
-            }
+            case 20 -> {
+                return shiftTwenty(intResults, bytes, msbFirst, signed);
+            } // Concatenate two bytes and take the msb nibble of the third
             default -> Logger.error("Tried to use an undefined amount of bits " + bits);
         }
         return dbs;
     }
 
+    private static ArrayList<Double> shiftTwenty(int[] intResults, byte[] bytes, boolean msbFirst, boolean signed) {
+        int temp;
+        ArrayList<Double> dbs = new ArrayList<>();
+        for (int a = 0; a < bytes.length; a += 3) {
+            if (msbFirst) {
+                temp = (intResults[a] * 256 + intResults[a + 1]) * 16 + intResults[a + 2] / 16;
+            } else {
+                temp = (intResults[a + 2] * 256 + intResults[a + 1]) * 16 + intResults[a] / 16;
+            }
+            dbs.add((double) (signed ? MathUtils.toSigned20bit(temp) : temp));
+        }
+        return dbs;
+    }
     public static ArrayList<Double> convertNibblesToDouble(byte[] bytes, int[] bits) {
 
         // Convert the bytes to a hex string to easily work with nibbles

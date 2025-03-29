@@ -73,29 +73,21 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 			Logger.error( "Channel.remoteAddress is null in channelActive method");
 		}
 
-		if( channel != null ){    	  // If the channel is valid, add a future listener
-			
-			channel.flush();
+		if (channel == null) {      // If the channel is invalid, return
+			Logger.error("Channel is null. (handler:" + id() + ")");
+			return;
+		}
+		channel.flush();
 
-			if( listener != null ) {
-				if(!listener.notifyActive(id()))
-					channel.writeAndFlush("Hello?\r\n".getBytes());
-			}
+		if (listener != null && !listener.notifyActive(id()))
+			channel.writeAndFlush("Hello?\r\n".getBytes());
 
-           	ChannelFuture closeFuture = channel.closeFuture();           
-           	closeFuture.addListener((ChannelFutureListener) future -> {
-					future.cancel(true);
-
-					if( channel!=null)
-						channel.close();
-
-					if( listener != null ){
-						listener.notifyClosed(id());
-					}
-				});
-        }else{
-    	    Logger.error( "Channel is null. (handler:"+ id()+")");
-		} 
+		ChannelFuture closeFuture = channel.closeFuture();
+		closeFuture.addListener((ChannelFutureListener) future -> {
+			future.cancel(true);
+			if (channel != null) channel.close();
+			if (listener != null) listener.notifyClosed(id());
+		});
 	}    
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) {    
@@ -138,18 +130,23 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 		if (msg.startsWith("label:")) {
 			label = msg.substring(6);
 			writeLine("Altered label to "+label);
-			return"ts:alter,"+ id()+",label:"+label;
-		}else if (msg.startsWith("id:")) {
+			return "ts:alter," + id() + ",label:" + label;
+		}
+
+		if (msg.startsWith("id:")) {
 			this.id = msg.split(":")[1];
 			writeLine("Altered id to " + id);
-		}else if (msg.startsWith("store")) {
+			return "";
+		}
+		if (msg.startsWith("store")) {
 			// Somehow save to xml?
 			writeLine("Stored setup to xml (and no longer recording history)");
 			keepHistory=false;
 			if( cmds.length==2)
 				return "ts:store," + id()+","+cmds[1];
 			return "ts:store," + id();
-		}else if (msg.startsWith("record")) {
+		}
+		if (msg.startsWith("record")) {
 			keepHistory=true;
 			writeLine("Recording history");
 		}else if (msg.startsWith("forget")) {
@@ -222,11 +219,9 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 	 * @return True if disconnected
 	 */
 	public boolean disconnect(){
-        if( channel != null ){
-            channel.close();
-        }else{
-        	return false;
-		}
+		if (channel == null)
+			return false;
+		channel.close();
         return true;
     }
 
@@ -265,9 +260,8 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 	}
 	@Override
 	public String id() {
-		if( id.isEmpty() ){
+		if (id.isEmpty())
 			return remote.getHostName();
-		}
 		return id;
 	}
 	public void clearRequests(){

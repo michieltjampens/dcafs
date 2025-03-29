@@ -1,19 +1,22 @@
 package io.mqtt;
 
+import das.Commandable;
 import das.Paths;
 import io.Writable;
-import das.Commandable;
+import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.AbstractVal;
 import util.data.RealtimeValues;
-import org.tinylog.Logger;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringJoiner;
 
 public class MqttPool implements Commandable {
 
@@ -23,7 +26,7 @@ public class MqttPool implements Commandable {
     public MqttPool( RealtimeValues rtvals ){
         this.rtvals=rtvals;
 
-        if( !readXMLsettings() )
+        if (!readFromXML())
             Logger.info("No MQTT settings in settings.xml");
     }
     /**
@@ -54,22 +57,22 @@ public class MqttPool implements Commandable {
      *
      * @return True if this was successful
      */
-    public boolean readXMLsettings() {
+    public boolean readFromXML() {
 
         // Disconnect current ones if any
         mqttWorkers.values().forEach( worker -> worker.clear(rtvals));
         mqttWorkers.clear(); // Clear to start fresh
 
-        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","mqtt");
+        var dig = Paths.digInSettings("mqtt");
         if( dig.isInvalid())
             return false;
 
         dig.digOut("broker").forEach( broker -> {
             var id = broker.attr("id","general");
-            var addr = broker.peekAt("address").value("");
-            var clientid = broker.peekAt("clientid").value("");
+            var address = broker.peekAt("address").value("");
+            var clientId = broker.peekAt("clientid").value("");
 
-            var worker = new MqttWorker( id, addr, clientid, rtvals );
+            var worker = new MqttWorker(id, address, clientId, rtvals);
             var ttl = TimeTools.parsePeriodStringToMillis( broker.attr("ttl",broker.peekAt("ttl").value("")));
             worker.setTTL(ttl);
 
@@ -111,7 +114,7 @@ public class MqttPool implements Commandable {
             Logger.error(worker.id() + "(mqtt) -> No valid topic");
             return;
         }
-        var groupName = AbstractVal.readGroupAndName(rtval.currentTrusted(),worker.id());
+        var groupName = AbstractVal.readGroupAndName(rtval.currentTrusted(), worker.id());
         if( groupName == null )
             return;
 
@@ -134,45 +137,36 @@ public class MqttPool implements Commandable {
     public String replyToCommand(Datagram d) {
         String[] args = d.argList();
 
-        if (args.length == 1) {
+        if (args.length == 1)
             return doNoArgCmds(args[0], d.getWritable(), d.asHtml());
-        } else if (args[0].equalsIgnoreCase("addbroker")) {
+        if (args[0].equalsIgnoreCase("addbroker"))
             return doAddCmd(args);
-        }else{
-            return doArgCmds(d.cmd(), args);
-        }
+        return doArgCmds(d.cmd(), args);
     }
     private String doNoArgCmds( String cmd, Writable wr, boolean html ){
-        switch (cmd) {
-            case "?" -> {
-                return getCmdHelp(html);
-            }
-            case "brokers" -> {
-                return getMqttBrokersInfo();
-            }
-            case "reload" -> {
-                if (readXMLsettings())
-                    return "Settings reloaded.";
-                return "! Failed to reload settings.";
-            }
+        return switch (cmd) {
+            case "?" -> getCmdHelp(html);
+            case "brokers" -> getMqttBrokersInfo();
+            case "reload" -> readFromXML() ? "Settings reloaded." : "! Failed to reload settings.";
             case "test" -> {
                 mqttWorkers.values().forEach( w -> w.addWork("dice/d20","10") );
-                return "Testing";
+                yield "Testing";
             }
             default -> {
                 var worker = mqttWorkers.get(cmd);
                 if (worker == null)
-                    return "! Not a valid id or command: " + cmd;
+                    yield "! Not a valid id or command: " + cmd;
                 if (wr == null) {
                     Logger.error("Not a valid writable asking for " + cmd);
-                    return "! Not a valid writable asking for " + cmd;
+                    yield "! Not a valid writable asking for " + cmd;
                 }
                 worker.registerWritable(wr);
-                return "Sending data from " + cmd + " to " + wr.id();
+                yield "Sending data from " + cmd + " to " + wr.id();
             }
-        }
+        };
     }
-    private String getCmdHelp( boolean html ){
+
+    private static String getCmdHelp(boolean html) {
         StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
         join.add("The MQTT manager manages the workers that connect to brokers").add("");
         join.add( "General" )
@@ -205,7 +199,7 @@ public class MqttPool implements Commandable {
         fab.addChild("address",cmds[2]);
         fab.addChild("roottopic",cmds[3]);
         fab.build();
-        readXMLsettings();
+        readFromXML(); // reload
         return "Broker added";
     }
     private String doArgCmds( String cmd, String[] args ){
@@ -250,25 +244,24 @@ public class MqttPool implements Commandable {
         if (args.length != 3)
             return "! Wrong amount of arguments -> mqtt:brokerid,subscribe,topic";
         int res = worker.addSubscription(args[2]);
-        if(  res != 0 ) {
-            fab.addChild("subscribe").content(args[2]);
-            if( fab.build() )
-                return "Subscription added";
-            return "! Failed to add subscription to xml";
-        }
-        return "! Failed to add subscription";
+        if (res == 0)
+            return "! Failed to add subscription";
+        fab.addChild("subscribe").content(args[2]);
+        if (fab.build())
+            return "Subscription added";
+        return "! Failed to add subscription to xml";
     }
     private String doUnsubscribeCmd( String[] args,MqttWorker worker,XMLfab fab ){
         if (args.length != 3)
             return "! Wrong amount of arguments -> mqtt:brokerid,unsubscribe,topic";
-        if( worker.removeSubscription(args[2])) {
-            if( fab.removeChild("subscribe",args[2])){
-                fab.build();
-                return "Subscription removed";
-            }
+        if (!worker.removeSubscription(args[2]))
+            return "! Failed to remove subscription, probably typo?";
+
+        if (!fab.removeChild("subscribe", args[2]))
             return "! Failed to remove subscription from xml.";
-        }
-        return "! Failed to remove subscription, probably typo?";
+
+        fab.build();
+        return "Subscription removed";
     }
     private String doSendCmd( String[] args, MqttWorker worker ){
         if (args.length != 3)
@@ -321,15 +314,12 @@ public class MqttPool implements Commandable {
         fab.build();
         return "Store added";
     }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
-    }
     @Override
     public boolean removeWritable(Writable wr) {
         int cnt=0;
-        for( MqttWorker worker:mqttWorkers.values()){
+        for (MqttWorker worker : mqttWorkers.values())
             cnt += worker.removeWritable(wr)?1:0;
-        }
+
         return cnt!=0;
     }
 }

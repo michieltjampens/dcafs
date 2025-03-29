@@ -193,13 +193,13 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			subscriptions.removeIf(this::unsubscribe);
 			subsRecStamp.clear();
 			return subscriptions.isEmpty();
-		}else{
-			int index = subscriptions.indexOf(topic);
-			subsRecStamp.remove(index);
-			if( subscriptions.remove(index).equals(topic) ){
-				unsubscribe( topic );
-				return true;
-			}
+        }
+
+        int index = subscriptions.indexOf(topic);
+        subsRecStamp.remove(index);
+        if (subscriptions.remove(index).equals(topic)) {
+            unsubscribe(topic);
+            return true;
 		}
 		return false;
 	}
@@ -280,11 +280,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		try {
 			Logger.info( id+"(mqtt) -> Unsubscribing from "+ topic);
 			client.unsubscribe(topic);
+            return true;
 		} catch (MqttException e) {
 			Logger.error(e);
 			return false;
 		}
-		return true;
 	}
 
 	/**
@@ -356,51 +356,56 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			if( topic.matches(subscriptions.get(a).replace("#",".*")) )
 				subsRecStamp.set(a,Instant.now().toEpochMilli());
 		}
+        if (!targets.isEmpty())
+            targets.removeIf(dt -> !dt.writeLine(id, load));
+
 		// Process the message
 		var rtval = valReceived.get(topic);
+
 		if( rtval != null ){
 			rtval.parseValue(load);
-		}else if( !storeTopic.isEmpty()){ //
-			var key = storeTopic.substring(0,storeTopic.indexOf("#"));
-			if( key.isEmpty() || topic.startsWith(key)){
-				var split = topic.split("/"); // split it in parts, we only want last two
-				if(split.length<2) {
-					Logger.warn(id+"(mqtt) -> Received topic, but less than two elements -> "+topic);
-				}else {
-					var group = split[split.length - 2];
-					var name = split[split.length - 1];
+            return;
+        }
+        if (storeTopic.isEmpty())
+            return;
 
-					var val = rtvals.getAbstractVal(group + "_" + name);
-					if (val.isPresent()) {
-						valReceived.put(topic, val.get());
-					} else {
-						// Figure out if its int,real or text?
-						if (NumberUtils.isParsable(load)) { // So int or real
-							if (load.contains(".") || load.contains(",")) { // so real
-								var real = RealVal.newVal(group, name);
-								real.parseValue(load);
-								rtvals.addRealVal(real);
-								valReceived.put(topic, real);
-								Core.addToQueue(Datagram.system("mqtt:" + id + ",store,real," + real.id() + "," + topic));
-							} else { // int
-								var i = IntegerVal.newVal(group, name);
-								i.parseValue(load);
-								rtvals.addIntegerVal(i);
-								valReceived.put(topic, i);
-								Core.addToQueue(Datagram.system("mqtt:" + id + ",store,int," + i.id() + "," + topic));
-							}
-						} else { // So text
-							var txt = TextVal.newVal(group, name).value(load);
-							rtvals.addTextVal(txt);
-							valReceived.put(topic, txt);
-							Core.addToQueue(Datagram.system("mqtt:" + id + ",store,txt," + txt.id() + "," + topic));
-						}
-					}
-				}
-			}
-		}
-		if( !targets.isEmpty() )
-			targets.removeIf(dt -> !dt.writeLine(id, load));
+        var key = storeTopic.substring(0, storeTopic.indexOf("#"));
+        if (!(key.isEmpty() || topic.startsWith(key)))
+            return;
+        var split = topic.split("/"); // split it in parts, we only want last two
+        if (split.length < 2) {
+            Logger.warn(id + "(mqtt) -> Received topic, but less than two elements -> " + topic);
+            return;
+        }
+        var group = split[split.length - 2];
+        var name = split[split.length - 1];
+
+        var val = rtvals.getAbstractVal(group + "_" + name);
+        if (val.isPresent()) {
+            valReceived.put(topic, val.get());
+            return;
+        }
+        // Figure out if its int,real or text?
+        if (NumberUtils.isParsable(load)) { // So int or real
+            if (load.contains(".") || load.contains(",")) { // so real
+                var real = RealVal.newVal(group, name);
+                real.parseValue(load);
+                rtvals.addRealVal(real);
+                valReceived.put(topic, real);
+                Core.addToQueue(Datagram.system("mqtt:" + id + ",store,real," + real.id() + "," + topic));
+            } else { // int
+                var i = IntegerVal.newVal(group, name);
+                i.parseValue(load);
+                rtvals.addIntegerVal(i);
+                valReceived.put(topic, i);
+                Core.addToQueue(Datagram.system("mqtt:" + id + ",store,int," + i.id() + "," + topic));
+            }
+        } else { // So text
+            var txt = TextVal.newVal(group, name).value(load);
+            rtvals.addTextVal(txt);
+            valReceived.put(topic, txt);
+            Core.addToQueue(Datagram.system("mqtt:" + id + ",store,txt," + txt.id() + "," + topic));
+        }
 	}
 
 	/**
@@ -441,11 +446,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		try {
 			client.disconnect();
 			Logger.info(id+"(mqtt) -> Disconnected after request.");
+            return true;
 		}catch( MqttException e){
 			Logger.error(e);
 			return false;
 		}
-		return true;
 	}
 
 	/**
@@ -505,18 +510,18 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		@Override
 		public void run() {
 
-			if (!client.isConnected()) {
-				try {
-					client.connect(connOpts);
-					Logger.info( id+"(mqtt) -> Connected");
-				} catch (MqttException me) {					
-					attempt++;
-					var time = Math.min(attempt*25+25,120);
-					Logger.warn( id+"(mqtt) -> Failed to connect,  trying again in "+ time+"s. Cause: "+me.getMessage());
-					scheduler.schedule( new Connector(attempt), time, TimeUnit.SECONDS );
-				}
-			}else{
-				Logger.info( id+"(mqtt) -> Client already connected.");
+            if (client.isConnected()) {
+                Logger.info(id + "(mqtt) -> Client already connected.");
+                return;
+            }
+            try {
+                client.connect(connOpts);
+                Logger.info(id + "(mqtt) -> Connected");
+            } catch (MqttException me) {
+                attempt++;
+                var time = Math.min(attempt * 25 + 25, 120);
+                Logger.warn(id + "(mqtt) -> Failed to connect,  trying again in " + time + "s. Cause: " + me.getMessage());
+                scheduler.schedule(new Connector(attempt), time, TimeUnit.SECONDS);
 			}
 		}
 	}

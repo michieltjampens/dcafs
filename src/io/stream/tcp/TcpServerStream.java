@@ -218,7 +218,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
 
             if( cmd.trigger==TRIGGER.HELLO || cmd.trigger==TRIGGER.WAKEUP ){ // These trigger involves writing to remote
                 Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data());
-                this.writeLine(origin,cmd.data());
+                writeLine(origin, cmd.data());
                 continue;
             }
             Logger.info(id+" -> "+cmd.trigger+" => "+cmd.data());
