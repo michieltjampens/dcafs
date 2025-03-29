@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.StringJoiner;
+import java.util.regex.Pattern;
 
 public class AdminCmds {
     public static String doADMIN(String args, EmailSending sendEmail, Commandable tmCmd,boolean html ){
@@ -82,7 +83,7 @@ public class AdminCmds {
             case "regex" -> {
                 if (cmds.length != 3)
                     return "! Invalid amount of parameters";
-                return "Matches? " + cmds[1].matches(cmds[2]);
+                return "Matches? " + cmds[1].matches(Pattern.quote(cmds[2]));
             }
             case "ipv4" -> {
                 return Tools.getIP("", true);

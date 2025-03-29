@@ -14,6 +14,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -434,7 +435,7 @@ public class FileTools {
         try (Stream<Path> pathStream = Files.find(path,
                 deep==-1?Integer.MAX_VALUE:deep,
                 (p, basicFileAttributes) ->
-                        p.getFileName().toString().matches(regex))
+                        p.getFileName().toString().matches(Pattern.quote(regex)))
         ) {
             return pathStream.sorted().collect(Collectors.toList());
         }catch( Exception e){
