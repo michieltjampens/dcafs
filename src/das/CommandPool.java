@@ -361,6 +361,10 @@ public class CommandPool {
 	}
 	private String doUpgradeOfTaskManagerScript( String subCmd, Writable wr){
 		var tmCmd = commandables.get("tm");
+
+		if (subCmd.contains("..") || subCmd.contains("/") || subCmd.contains("\\"))
+			return "! Illegal filename used.";
+
 		var ori = tmCmd.replyToCommand(Datagram.system("tm", "getpath," + subCmd).writable(wr));
 		if (ori.isEmpty())
 			return "! No such script";
