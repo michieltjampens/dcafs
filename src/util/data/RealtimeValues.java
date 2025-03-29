@@ -177,17 +177,20 @@ public class RealtimeValues implements Commandable {
 	 */
 	public AbstractVal AddIfNewAndRetrieve(AbstractVal val) {
 		if (val instanceof RealVal rv) {
-			var ori = realVals.putIfAbsent(val.id(), rv);
-			return ori == null ? rv : ori;
-		} else if (val instanceof IntegerVal iv) {
-			var ori = integerVals.putIfAbsent(val.id(), iv);
-			return ori == null ? iv : ori;
-		} else if (val instanceof FlagVal fv) {
-			var ori = flagVals.putIfAbsent(val.id(), fv);
-			return ori == null ? fv : ori;
-		} else if (val instanceof TextVal tv) {
-			var ori = textVals.putIfAbsent(val.id(), tv);
-			return ori == null ? tv : ori;
+			realVals.putIfAbsent(val.id(), rv);
+			return realVals.get(val.id());
+		}
+		if (val instanceof IntegerVal iv) {
+			integerVals.putIfAbsent(val.id(), iv);
+			return integerVals.get(val.id());
+		}
+		if (val instanceof FlagVal fv) {
+			flagVals.putIfAbsent(val.id(), fv);
+			return flagVals.get(val.id());
+		}
+		if (val instanceof TextVal tv) {
+			textVals.putIfAbsent(val.id(), tv);
+			return textVals.get(val.id());
 		}
 		return null;
 	}
