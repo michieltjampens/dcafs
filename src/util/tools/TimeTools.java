@@ -364,6 +364,9 @@ public class TimeTools {
         if (validDays.isEmpty())
             return -1;
 
+        if (time.length() <= 5)
+            time = time + ":00";
+
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         LocalDateTime tillTime = now.with(LocalTime.parse(time, DateTimeFormatter.ofPattern("HH:mm:ss")));
 
