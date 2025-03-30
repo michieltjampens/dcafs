@@ -12,6 +12,10 @@ import java.util.concurrent.TimeUnit;
 
 public class DelayBlock extends AbstractBlock {
 
+    enum TYPE {DELAY, INTERVAL, CLOCK}
+
+    ;
+    TYPE type = TYPE.DELAY;
     EventLoopGroup eventLoop;
     long initialDelay = 0;
     long interval = 0;
@@ -30,53 +34,60 @@ public class DelayBlock extends AbstractBlock {
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(initialDelay);
         this.repeats = repeats;
         reps = repeats;
+        type = TYPE.INTERVAL;
     }
 
     public DelayBlock useDelay(String delay) {
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(delay);
+        type = TYPE.DELAY;
         return this;
     }
 
     public void useClock(String time) {
-        this.time = time;
+        type = TYPE.CLOCK;
+        var split = Tools.splitList(time, 2, "");
+        this.time = split[0];
+        taskDays = TimeTools.convertDAY(split[1]);
     }
     @Override
     boolean start() {
         clean = false;
-        if (interval == 0) {
-            future = eventLoop.schedule(this::doNext, initialDelay, TimeUnit.SECONDS);
-        } else if (!time.isEmpty()) {
-            var split = Tools.splitList(time, 2, "always");
-            time = split[0];
-            taskDays = TimeTools.convertDAY(split[1]);
-
-            var initialDelay = TimeTools.calcSecondsTo(time, taskDays);
-            future = eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
-        } else {
-            var initial = TimeTools.secondsDelayToCleanTime(interval * 1000) / 1000;
-            if (initialDelay != 0)
-                initial = initialDelay;
-            future = eventLoop.scheduleAtFixedRate(this::doNext, initial, interval, TimeUnit.SECONDS);
-        }
+        firstRun();
         return true;
     }
 
+    private void firstRun() {
+        future = switch (type) {
+            case DELAY -> eventLoop.schedule(this::doNext, initialDelay, TimeUnit.SECONDS);
+            case INTERVAL -> {
+                // If no delay is specified, calculate how much time till clean interval fe
+                // For example if interval is 20min, and it's now 16:14, initial delay will be 6min
+                if (initialDelay == 0)
+                    initialDelay = TimeTools.secondsDelayToCleanTime(interval * 1000) / 1000;
+                yield eventLoop.scheduleWithFixedDelay(this::doNext, initialDelay, interval, TimeUnit.SECONDS);
+            }
+            case CLOCK -> {
+                var initialDelay = TimeTools.calcSecondsTo(time, taskDays); // Calculate seconds till requested time
+                yield eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
+            }
+        };
+    }
     private void dailyRun() {
         doNext();
-        Logger.info("Running daily task!");
+        Logger.info(id() + " -> Running daily task!");
         var initialDelay = TimeTools.calcSecondsTo(time, taskDays);
         future = eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
     }
     @Override
     public void doNext() {
-        if (reps == -1) {
-            super.doNext();
-        } else {
-            if (reps == 0) {
-                doFailure();
-                sendCallback(id() + " -> FAILURE");
-                future.cancel(false);
-            } else {
+        switch (reps) {
+            case -1 -> super.doNext(); // -1 means endless
+            case 0 -> { // Last rep done, signal failure
+                doFailure(); // Do the failure step
+                sendCallback(id() + " -> FAILURE"); // Let it know up the chain
+                future.cancel(false); // Cancel waiting task
+            }
+            default -> { // Reps not yet 0
                 super.doNext();
                 reps--;
             }
@@ -85,11 +96,12 @@ public class DelayBlock extends AbstractBlock {
 
     @Override
     public void reset() {
-        reps = repeats;
-        clean = true;
-        if (future != null && !future.isDone() && !future.isCancelled())
+        reps = repeats; // Reset reps
+        clean = true;  // Restore clean
+        if (future != null && !future.isDone() && !future.isCancelled()) // Cancel any waiting task
             future.cancel(true);
 
+        // Propagate the reset to the next steps
         if (next != null)
             next.reset();
         if (failure != null)
@@ -101,12 +113,15 @@ public class DelayBlock extends AbstractBlock {
         Logger.warn(id + " -> Trying to set a failure block in a DelayBlock");
     }
     public String toString() {
-        if (interval == 0) {
-            return telnetId() + " -> Wait for " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS) + ", then go to " + next.telnetId();
-        }
-        return telnetId() + " -> After " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS)
-                + " execute next, then repeat every " + TimeTools.convertPeriodToString(interval, TimeUnit.SECONDS)
-                + (repeats == -1 ? " indefinitely" : " for at most " + repeats + " times");
+        var nextRun = TimeTools.convertPeriodToString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
+        return switch (type) {
+            case DELAY ->
+                    telnetId() + " -> Wait for " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS) + ", then go to " + next.telnetId();
+            case INTERVAL -> telnetId() + " -> After " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS)
+                    + " execute next, then repeat every " + TimeTools.convertPeriodToString(interval, TimeUnit.SECONDS)
+                    + (repeats == -1 ? " indefinitely" : " for at most " + repeats + " times") + " next one in " + nextRun;
+            case CLOCK -> telnetId() + " -> Run at " + time + " on xx days, next run in " + nextRun;
+        };
     }
 
 }
