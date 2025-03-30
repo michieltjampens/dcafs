@@ -167,26 +167,26 @@ public class MqttPool implements Commandable {
     }
 
     private static String doHelpCmd(boolean html) {
-        StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
-        join.add("The MQTT manager manages the workers that connect to brokers").add("");
-        join.add( "General" )
+        var help = new StringJoiner("\r\n");
+        help.add("The MQTT manager manages the workers that connect to brokers").add("");
+        help.add("General")
                 .add("mqtt:? -> Show this message")
                 .add("mqtt:addbroker,id,address,topic -> Add a new broker with the given id found at the address")
                 .add("mqtt:brokers -> Get a listing of the current registered brokers")
                 .add("mqtt:id,reload -> Reload the settings for the broker from the xml.");
-        join.add( "Subscriptions" )
+        help.add("Subscriptions")
                 .add("mqtt:brokerid,subscribe,topic -> Subscribe to a topic with given label on given broker. Mqtt wildcard is #.")
                 .add("mqtt:brokerid,unsubscribe,topic -> Unsubscribe from a topic on given broker")
                 .add("mqtt:brokerid,unsubscribe,all -> Unsubscribe from all topics on given broker");
-        join.add( "Rtvals" )
+        help.add("Rtvals")
                 .add("mqtt:brokerid,provide,rtval<,topic> -> Provide a certain rtval to the broker, topic is group/name by default.")
                 .add("mqtt:brokerid,store,type,topic<,rtval> -> Store a certain topic as a rtval, if no rtval is specified topic is used as rtval id")
                 .add("mqtt:brokerid,stores " +"-> Get info on all the active sub to val links")
                 .add("mqtt:brokerid,generate,topic -> Generate store entries based on received messages after subscribing to topic.");
-        join.add( "Send & Receive" )
+        help.add("Send & Receive")
                 .add("mqtt:id -> Forwards the data received from the given broker to the issuing writable")
                 .add("mqtt:id,send,topic:value -> Sends the value to the topic of the brokerid");
-        return LookAndFeel.formatCmdHelp(join.toString(),html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
     private String doAddCmd( String[] cmds ){
         if (cmds.length != 4)

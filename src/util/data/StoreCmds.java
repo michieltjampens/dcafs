@@ -73,32 +73,32 @@ public class StoreCmds {
     }
 
     private static String doHelpCmd(boolean html) {
-        StringJoiner join = new StringJoiner("\r\n");
-        join.add("Commands to create and edit the store nodes.");
-        join.add("Notes")
+        StringJoiner help = new StringJoiner("\r\n");
+        help.add("Commands to create and edit the store nodes.");
+        help.add("Notes")
                 .add("- a / in the command means both options are valid.")
                 .add("- after a command is processed, the store will be reloaded and changes applied, to reload manually ss:reloadstore,id")
                 .add("- If no store exists yet, any command will create it first with default delimiter of ','")
                 .add("- Regular mode works with indexes after split on the delimiter")
                 .add("- Map is when the data consists of a key, value pair with the given delimiter");
-        join.add("Add new vals")
+        help.add("Add new vals")
                 .add("store:streamid,addreal/addr,group,name<,index/key> -> Add a RealVal to the store, with optional index/key")
                 .add("store:streamid,addflag/addf,group,name<,index/key> -> Add a FlagVal to the store, with optional index/key")
                 .add("store:streamid,addtext/addt,group,name<,index/key> -> Add a TextVal to the store, with optional index/key")
                 .add("store:streamid,addint/addi,group,name<,index/key> -> Add a IntegerVal to the store, with optional index/key")
                 .add("store:streamid,addb/addblank -> Add a blank spot (if index isn't used but a item needs to be skipped)");
-        join.add("Alter attributes")
+        help.add("Alter attributes")
                 .add("store:streamid,delimiter/delim,newdelimiter -> Change the delimiter of the store")
                 .add("store:streamid,db,dbids:table -> Alter the database/table ")
                 .add("store:streamid,map,true/false -> Alter the map attribute")
                 .add("store:streamid,idlereset,true/false -> Alter the idlereset attribute, if true rtvals are reset on idle.")
                 .add("store:streamid,group,newgroup -> Alter the default group used");
-        join.add("Alter val attributes")
+        help.add("Alter val attributes")
                 .add("store:streamid,alterval,valname,unit,value -> Set the unit attribute of the given val")
                 .add("store:streamid,alterval,valname,op,value -> Add an op to an integer/real val.");
-        join.add("Other")
+        help.add("Other")
                 .add("store:streamid,astable,dbid -> Create a table in the given db according to the store (wip)");
-        return LookAndFeel.formatCmdHelp(join.toString(), html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
     public static String replyToPathCmd(String request, Path xmlPath ){
 

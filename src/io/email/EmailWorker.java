@@ -433,8 +433,8 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 	}
 
 	private static String doHelpCmd(boolean html) {
-		StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
-		b.add("EmailWorker takes care of sending and receiving emails.")
+		var help = new StringJoiner("\r\n");
+		help.add("EmailWorker takes care of sending and receiving emails.")
 				.add( "email:reload -> Reload the settings found in te XML.")
 				.add( "email:refs -> Get a list of refs and emailadresses.")
 				.add( "email:send,to,subject,content -> Send an email using to with subject and content")
@@ -443,7 +443,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 				.add( "email:addallow,from,cmd(,isRegex) -> Adds permit allow node, default no regex")
 				.add( "email:adddeny,from,cmd(,isRegex) -> Adds permit deny node, default no regex")
 				.add( "email:interval,x -> Change the inbox check interval to x");
-		return LookAndFeel.formatCmdHelp(b.toString(),html);
+		return LookAndFeel.formatHelpCmd(help.toString(), html);
 	}
 	private String doAddAllowDenyCmd( String[] cmds){
 		if (cmds.length < 3) {

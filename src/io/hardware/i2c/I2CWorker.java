@@ -270,8 +270,8 @@ public class I2CWorker implements Commandable {
     }
 
     private static String doHelpCmd(boolean html) {
-        var join = new StringJoiner("\r\n");
-        join.add("Create/load devices/scripts")
+        var help = new StringJoiner("\r\n");
+        help.add("Create/load devices/scripts")
                 .add("i2c:detect,bus -> Detect the devices connected on the given bus")
                 .add("i2c:adddevice,id,bus,address,scriptid -> Add a device on bus at hex address that uses script,"
                         + " create new script if it doesn't exist yet")
@@ -284,7 +284,7 @@ public class I2CWorker implements Commandable {
                 .add("i2c:debug,on/off -> Enable or disable extra debug feedback in logs")
                 .add("i2c:device,setid -> Use the given i2cop on the device")
                 .add("i2c:id -> Request the data received from the given id (can be regex)");
-        return LookAndFeel.formatCmdHelp(join.toString(), html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
 
     private String doAddScriptCmd(String[] args) {

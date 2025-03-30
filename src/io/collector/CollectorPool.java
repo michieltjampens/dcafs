@@ -135,27 +135,27 @@ public class CollectorPool implements Commandable, CollectorFuture {
      * @return The formatted help info
      */
     private static String doHelpCmd(boolean html) {
-        StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
-        join.add( "The FileCollectors store data from sources in files with custom headers and optional rollover.");
-        join.add( "Create/Reload the FileCollector" )
+        var help = new StringJoiner("\r\n");
+        help.add("The FileCollectors store data from sources in files with custom headers and optional rollover.");
+        help.add("Create/Reload the FileCollector")
                 .add( "fc:addnew,id,src,filepath -> Create a blank filecollector with given id, source and filepath")
                 .add( "fc:reload  -> Reload the file collectors")
                 .add( "fc:id,reload  -> Reload the given file collector");
-        join.add( "Add optional parts" )
+        help.add("Add optional parts")
                 .add( "fc:id,addrollover,period,format,zip?  -> Add rollover (period unit options:min,hour,day,week,month,year")
                 .add( "fc:id,addcmd,trigger:cmd  -> Add a triggered command, triggers: maxsize,idle,rollover")
                 .add( "fc:id,addheader,headerline  -> Adds the header to the given fc")
                 .add( "fc:id,addsizelimit,size,zip?  -> Adds a limit of the given size with optional zipping");
-        join.add( "Alter attributes" )
+        help.add("Alter attributes")
                 .add(  "fc:id,filepath,newpath -> Change the filepath")
                 .add(  "fc:id,sizelimit,newlimit -> Change the file sizelimit")
                 .add(  "fc:id,eol,neweol -> Change the eol sequence")
                 .add(  "fc:id,charset,newcharset -> Change the charset used")
                 .add(  "fc:id,src,newsrc -> Change the src");
-        join.add( "Get info" )
+        help.add("Get info")
                 .add( "fc:list  -> Get a list of all active File Collectors")
                 .add( "fc:?  -> Show this message");
-        return LookAndFeel.formatCmdHelp(join.toString(),html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
 
     /**

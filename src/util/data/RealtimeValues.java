@@ -580,7 +580,7 @@ public class RealtimeValues implements Commandable {
 				.add("fv:id,update,state -> Update  the state of the flag")
 				.add("fv:id,match,refid -> The state of the flag becomes the same as the ref flag")
 				.add("fv:id,negated,refid  -> The state of the flag becomes the opposite of the ref flag");
-		return LookAndFeel.formatCmdHelp(join.toString(),html);
+		return LookAndFeel.formatHelpCmd(join.toString(), html);
 	}
 	public String replyToTextsCmd( String args ){
 
@@ -625,7 +625,7 @@ public class RealtimeValues implements Commandable {
 						.add("rtvals:groups -> Get a listing of all the available groups")
 						.add("rtvals:group,groupid -> Get a listing of all rtvals belonging to the group")
 						.add("rtvals:resetgroup,groupid -> Reset the values in the group to the defaults");
-					return LookAndFeel.formatCmdHelp(join.toString(),html);
+					return LookAndFeel.formatHelpCmd(join.toString(), html);
 				}
 				case "reload" -> {
 					readFromXML(XMLdigger.goIn(Paths.settings(), "dcafs", "rtvals"));

@@ -146,7 +146,7 @@ public class PathPool implements Commandable {
     }
 
     private static String doHelpCmd(Datagram d) {
-        StringJoiner help = new StringJoiner("\r\n");
+        var help = new StringJoiner("\r\n");
         help.add("Commands related to general paths actions");
         help.add(PathCmds.replyToCommand(d));
         help.add("Other")
@@ -156,7 +156,7 @@ public class PathPool implements Commandable {
                 .add("pf:id,list -> List all the steps in the chosen path")
                 .add("pf:id,debug<,stepnr/stepid> -> Request the data from a single step in the path (nr:0=first; -1=custom src)")
                 .add("pf:clear -> Remove all the paths from XML!");
-        return LookAndFeel.formatCmdHelp(help.toString(), d.asHtml());
+        return LookAndFeel.formatHelpCmd(help.toString(), d.asHtml());
     }
 
     private String doTwoArgsCmds(Datagram d) {

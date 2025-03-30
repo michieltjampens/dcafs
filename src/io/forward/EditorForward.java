@@ -631,6 +631,6 @@ public class EditorForward extends AbstractForward{
                 .add("listreplace -> Replace the element at a certain index with the one in that position in a list")
                 .add("    fe. <listreplace index='1' first='0'>cat,dog,canary</listreplace> --> if a 0 is at index 1, that will become cat");
 
-        return LookAndFeel.formatCmdHelp(join.toString(), false);
+        return LookAndFeel.formatHelpCmd(join.toString(), false);
     }
 }

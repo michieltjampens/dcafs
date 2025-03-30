@@ -278,19 +278,19 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	}
 
 	private static String doHelpCmd() {
-		var join = new StringJoiner("\r\n");
-		join.add("Commands available in a Telnet session");
-		join.add(">>>id? -> Returns the current id if set")
+		var help = new StringJoiner("\r\n");
+		help.add("Commands available in a Telnet session");
+		help.add(">>>id? -> Returns the current id if set")
 				.add(">>>id:newid -> Change the id to the new id")
 				.add(">>>color:newcolor -> Change the default text color")
 				.add(">>>macro:shortcut->cmd -> Adds a macro that is called with shortcut and send cmd.")
 				.add(">>>clearhistory or >>>clrh -> Clear the history of issued commands");
-		join.add("Prefixes")
+		help.add("Prefixes")
 				.add(">>>ts -> Show the time data was received")
 				.add(">>>ds -> Show the full timestamp of when the data was received")
 				.add(">>>es -> Show the time since the previous data was received")
 				.add(">>>prefixid -> Prefix the id in front of the received data");
-		return LookAndFeel.formatCmdHelp(join.toString(), false);
+		return LookAndFeel.formatHelpCmd(help.toString(), false);
 	}
 	private void doStartCmd(String cmd){
 		if (id.isEmpty() || id.equalsIgnoreCase("telnet")) {

@@ -713,33 +713,33 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	}
 
 	private static String doHelpCmd(boolean html) {
-		var join = new StringJoiner("\r\n");
+		var help = new StringJoiner("\r\n");
 
-		join.add("Manages all the streams: adding, checking, writing etc.");
-		join.add("Add new streams")
+		help.add("Manages all the streams: adding, checking, writing etc.");
+		help.add("Add new streams")
 				.add( "ss:addtcp,id,ip:port -> Add a TCP stream to xml and try to connect")
 				.add("ss:addtcpserver,id,port -> Start TCP server and add to xml")
 				.add("ss:addudp,id,ip:port -> Add a UDP stream to xml and try to connect")
 				.add("ss:addudpserver,id,port -> Start a UDP server and add to xml")
 				.add( "ss:addserial,id,port,baudrate -> Add a serial stream to xml and try to connect")
 				.add( "ss:addlocal,id,source -> Add a internal stream that handles internal data");
-		join.add( "Info about all streams")
+		help.add("Info about all streams")
 				.add( "ss -> Get a list of all streams with indexes for sending data")
 				.add( "ss:buffers -> Get confirm buffers.")
 				.add( "ss:status -> Get streamlist.")
 				.add( "ss:requests -> Get an overview of all the datarequests held by the streams");
-		join.add("Alter the stream settings")
+		help.add("Alter the stream settings")
 				.add( "ss:id,ttl,value -> Alter the ttl")
 				.add( "ss:id,eol,value -> Alter the eol string")
 				.add( "ss:id,baudrate,value -> Alter the baudrate of a serial/modbus stream")
 				.add("ss:id,addwrite,when,data -> Add a triggered write, possible when are hello (stream opened) and wakeup (stream idle)")
 				.add("ss:id,addcmd,when,data -> Add a triggered cmd, options for 'when' are open,idle,!idle,close")
 				.add( "ss:id,echo,on/off -> Sets if the data received on this stream will be returned to sender");
-		join.add( "Route data from or to a stream")
+		help.add("Route data from or to a stream")
 				.add("ss:streamid,request,requestcmd -> Requestcmd is the cmd you'd use in telnet to request the data, do this in name of the stream.")
 				.add("ss:id1,tunnel,id2 -> Data is interchanged between the streams with the given id's")
 				.add( "ss:id,send,data(,reply) -> Send the given data to the id with optional reply");
-		return LookAndFeel.formatCmdHelp(join.toString(),html);
+		return LookAndFeel.formatHelpCmd(help.toString(), html);
 	}
 	private String doAddStreamCmd( String[] cmds, XMLdigger dig){
 		cmds[1]=cmds[1].toLowerCase();

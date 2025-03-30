@@ -338,9 +338,9 @@ public class TcpServer implements StreamListener, Commandable {
 	}
 
 	private static String doHelpCmd(boolean html) {
-		StringJoiner j = new StringJoiner("\r\n");
-		j.add( "TCP server to act as alternative to the telnet interface");
-		j.add("General")
+		var help = new StringJoiner("\r\n");
+		help.add("TCP server to act as alternative to the telnet interface");
+		help.add("General")
 				.add( "ts:store,id/index<,newid> -> Store the session in the xml, optional id")
 				.add( "ts:add,id/index,cmd -> Add the cmd to the id/index")
 				.add( "ts:clear,id/index -> Clear all cmds from the client id/index")
@@ -349,7 +349,7 @@ public class TcpServer implements StreamListener, Commandable {
 				.add( "ts:alter,id,ref:value -> Alter some settings")
 				.add( "ts:forward,id -> Forward data received on the trans to the issuer of the command")
 				.add( "ts:reload -> Reload the xml settings.");
-		return LookAndFeel.formatCmdHelp(j.toString(),html);
+		return LookAndFeel.formatHelpCmd(help.toString(), html);
 	}
 	private String doAddCmd( String[] cmds ){
 		return getHandler(cmds[1]).map( h -> {

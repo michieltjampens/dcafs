@@ -340,9 +340,9 @@ public class DatabaseManager implements QueryWriting, Commandable {
     }
 
     private static String doHelpCmd(boolean html) {
-        var join = new StringJoiner(html?"<br>":"\r\n");
-        join.add("The databasemanager connects to databases, handles queries and fetches table information.");
-        join.add("Connect to a database")
+        var help = new StringJoiner("\r\n");
+        help.add("The databasemanager connects to databases, handles queries and fetches table information.");
+        help.add("Connect to a database")
                 .add("dbm:addmssql,id,db name,ip:port,user:pass -> Adds a MSSQL server on given ip:port with user:pass")
                 .add("dbm:addmysql,id,db name,ip:port,user:pass -> Adds a MySQL server on given ip:port with user:pass")
                 .add("dbm:addmariadb,id,db name,ip:port,user:pass -> Adds a MariaDB server on given ip:port with user:pass")
@@ -366,7 +366,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 .add("dbm:prep -> Get total amount of queries executed with prepared statements")
                 .add("dbm:clearerrors -> Reset the error count.")
                 .add("st -> Show the current status of the databases (among other things)");
-        return LookAndFeel.formatCmdHelp(join.toString(),html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
     private String doAddCmd( String[] cmds, String id){
         cmds[0] = cmds[0].substring(3);

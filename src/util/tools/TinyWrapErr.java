@@ -1,6 +1,7 @@
 package util.tools;
 
 import org.tinylog.Logger;
+
 import java.io.PrintStream;
 
 public class TinyWrapErr extends java.io.PrintStream {

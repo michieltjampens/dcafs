@@ -166,16 +166,16 @@ public class TransHandler extends SimpleChannelInboundHandler<byte[]> implements
 	}
 
 	private static String doHelpCmd() {
-		StringJoiner join = new StringJoiner("\r\n");
-		join.add(">>>? -> Returns this message");
-		join.add(">>>label:newlabel  -> Change the label to the new label");
-		join.add(">>>id:newid  -> Change the id to the new id");
-		join.add(">>>store(:newid)   -> Store the session as default, including recorded history");
-		join.add(">>>record -> Commands send are stored in the history, which will be default on store");
-		join.add(">>>forget -> Clears the current history");
-		join.add(">>>id? -> returns the current id");
-		join.add(">>>label? -> returns the current label");
-		return join.toString();
+		var help = new StringJoiner("\r\n");
+		help.add(">>>? -> Returns this message");
+		help.add(">>>label:newlabel  -> Change the label to the new label");
+		help.add(">>>id:newid  -> Change the id to the new id");
+		help.add(">>>store(:newid)   -> Store the session as default, including recorded history");
+		help.add(">>>record -> Commands send are stored in the history, which will be default on store");
+		help.add(">>>forget -> Clears the current history");
+		help.add(">>>id? -> returns the current id");
+		help.add(">>>label? -> returns the current label");
+		return help.toString();
 	}
 
 	/**

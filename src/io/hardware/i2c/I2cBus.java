@@ -2,6 +2,7 @@ package io.hardware.i2c;
 
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
+
 import java.util.ArrayList;
 
 public class I2cBus {

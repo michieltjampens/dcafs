@@ -58,24 +58,24 @@ public class PathCmds {
     /* ***************************** H E L P *********************************************************** */
     private static String doHelpCmd(boolean html) {
 
-        StringJoiner join = new StringJoiner("\r\n");
-        join.add("PathForward allows applying processing steps to received data.");
-        join.add("Add/edit a path")
+        var help = new StringJoiner("\r\n");
+        help.add("PathForward allows applying processing steps to received data.");
+        help.add("Add/edit a path")
                 .add("pf:pathid,new,src -> Create a new path with the given id and src")
                 .add("pf:pathid,xml,src -> Add a path file with the given id and src (in default path folder)")
                 .add("pf:pathid,delete -> Delete this path completely")
                 .add("pf:pathid,clear -> Remove all the steps");
-        join.add("Add new steps")
+        help.add("Add new steps")
                 .add("pf:pathid,addfilter/addf,type:rule -> Add a filter, with the given rule")
                 .add("pf:pathid,addeditor/adde,type:value -> Add an editor,with the given edit")
                 .add("pf:pathid,addmath/addm,operation -> Add a math, with given operation")
                 .add("pf:pathid,addcmd/addc,operation -> Add a cmd, with given cmd")
                 .add("pf:pathid,store,cmds -> Add/edit a store");
-        join.add("Alter attributes")
+        help.add("Alter attributes")
                 .add("pf:pathid,delimiter/delim,newdelimiter -> Change the delimiter")
                 .add("pf:pathid,switchsrc,newsrc -> Alter the src at runtime, keeping xml as is.")
                 .add("pf:pathid,src,newsrc -> Alter the src in xml");
-        return LookAndFeel.formatCmdHelp(join.toString(), html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
     /* ***************************** C R E A T E  P A T H ********************************************** */
     private static String createPath( String[] cmds, Path settingsPath, String id){

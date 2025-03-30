@@ -133,8 +133,8 @@ public class TaskManagerPool implements Commandable {
     }
 
     private String doHelpCmd(boolean html) {
-        var join = new StringJoiner("\r\n");
-        join.add("This is the hub for all the global interaction with the taskmanagers.")
+        var help = new StringJoiner("\r\n");
+        help.add("This is the hub for all the global interaction with the taskmanagers.")
                 .add("Addition")
                 .add("tm:add,id -> Add a new taskmanager, creates a file etc")
                 .add("tm:load,id -> Load an existing taskmanager from the default folder")
@@ -153,7 +153,7 @@ public class TaskManagerPool implements Commandable {
                 .add("tm:id,sets -> Get a list of all tasksets in the taskmanager")
                 .add("tm:id,stop -> Cancel all scheduled actions of this taskmanager")
                 .add("tm:id,taskinfo,taskid -> Give detailed information about a specific task of this taskmanager");
-        return LookAndFeel.formatCmdHelp(join.toString(), html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
 
     private String doAddCmd(String[] args) {

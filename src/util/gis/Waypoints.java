@@ -338,7 +338,7 @@ public class Waypoints implements Commandable {
             case "states" -> sog == null
                                   ? "! Can't determine state, no sog defined"
                                   : getCurrentStates(false, sog.asDoubleValue());
-            case "store" -> this.storeInXML()
+            case "store" -> storeInXML()
                                 ? "Storing waypoints successful"
                                 : "! Storing waypoints failed";
             case "reload" -> readFromXML(null)
@@ -366,9 +366,9 @@ public class Waypoints implements Commandable {
     }
 
     private static String doHelpCmd(boolean html) {
-        StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
-        b.add("Waypoints can be used to trigger actions depending on the position received.");
-        b.add("Add/remove/alter waypoints")
+        var help = new StringJoiner("\r\n");
+        help.add("Waypoints can be used to trigger actions depending on the position received.");
+        help.add("Add/remove/alter waypoints")
                 .add("wpts:add,<id,<lat>,<lon>,<range> -> Create a new waypoint with the name and coords lat and lon in decimal degrees")
                 .add("wpts:addblank-> Add a blank waypoints node with a single empty waypoint node inside")
                 .add("wpts:addtravel,waypoint,bearing,name -> Add travel to a waypoint.")
@@ -381,7 +381,7 @@ public class Waypoints implements Commandable {
                 .add("wpts:exists,id -> Check if a waypoint with the given id exists")
                 .add("wpts:nearest -> Get the id of the nearest waypoint")
                 .add("wpts:reload -> Reloads the waypoints from the settings file.");
-        return LookAndFeel.formatCmdHelp(b.toString(),html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
 
     private static String addBlankNode() {

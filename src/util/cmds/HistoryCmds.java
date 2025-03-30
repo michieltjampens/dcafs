@@ -41,19 +41,19 @@ public class HistoryCmds {
     }
 
     private static String doHelpCmd(boolean html) {
-        var join = new StringJoiner("\r\n");
-        join.add("Commands that read from the raw or log files");
-        join.add("Read raw data")
+        var help = new StringJoiner("\r\n");
+        help.add("Commands that read from the raw or log files");
+        help.add("Read raw data")
                 .add("history:raw,filter<,max> -> Check uncompressed raw files of today for up to max lines containing filter, default max is 50");
-        join.add("Read info log")
+        help.add("Read info log")
                 .add("history:info,age,period<,filter> -> Get the errors (up to 1k lines) from the past period fe. 10m or 1h etc, with optional contains filter")
                 .add("history:info,today<,filter> -> Get the last 1k lines of errors of today, with optional contains filter")
                 .add("history:error,day,yyMMdd<,filter> -> Get the last 1k lines of errors of requested day, with optional contains filter");
-        join.add("Read error data")
+        help.add("Read error data")
                 .add("history:error,age,period -> Get the errors (up to 1k lines) from the past period fe. 10m or 1h etc, with optional contains filter")
                 .add("history:error,today<,filter> -> Get the last 1k lines of errors of today, with optional contains filter")
                 .add("history:error,day,yyMMdd<,filter> -> Get the last 1k lines of errors of requested day,  with optional contains filter");
-        return LookAndFeel.formatCmdHelp(join.toString(), html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
 
     private static String doInfoCmd(String[] cmds) {

@@ -7,7 +7,7 @@ public class LookAndFeel {
     final static String INFO_COLOR = TelnetCodes.TEXT_GREEN;
     final static String WARN_COLOR = TelnetCodes.TEXT_ORANGE;
 
-    public static String formatCmdHelp(String lines, boolean html ){
+    public static String formatHelpCmd(String lines, boolean html) {
         String magenta = html?"": TelnetCodes.TEXT_MAGENTA;
         String reg = html?"":TelnetCodes.TEXT_DEFAULT;
 

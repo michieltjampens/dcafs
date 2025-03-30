@@ -352,7 +352,7 @@ public class CommandPool {
 				join.add("Allows to update a script or the main settings file");
 				join.add("upgrade:tmscript,tm id -> Try to update the given taskmanagers script")
 						.add("upgrade:settings -> Try to update the settings.xml");
-				yield LookAndFeel.formatCmdHelp(join.toString(),false);
+				yield LookAndFeel.formatHelpCmd(join.toString(), false);
 			}
 			case "tmscript" -> doUpgradeOfTaskManagerScript(spl[1],wr); // fe. update:tmscript,tmid
 			case "settings" -> doUpgradeOfSettingsFile();

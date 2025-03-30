@@ -173,14 +173,14 @@ public class TelnetServer implements Commandable {
     }
 
     private static String doHelpCmd() {
-        var join = new StringJoiner("\r\n");
-        join.add("Commands for the telnet interface");
-        join.add("telnet:broadcast,message -> Broadcast the message to all active telnet sessions at info level.")
+        var help = new StringJoiner("\r\n");
+        help.add("Commands for the telnet interface");
+        help.add("telnet:broadcast,message -> Broadcast the message to all active telnet sessions at info level.")
                 .add("telnet:broadcast,!message -> Broadcast the message to all active telnet sessions at error level.")
                 .add("telnet:broadcast,level,message -> Broadcast the message to all active telnet sessions at the given level. (info,warn,error)")
                 .add("telnet:bt -> Get the broadcast target count")
                 .add("telnet:nb or nb -> Disable showing broadcasts");
-        return LookAndFeel.formatCmdHelp(join.toString(),false);
+        return LookAndFeel.formatHelpCmd(help.toString(), false);
     }
     private String doBroadCastCmd( String[] cmds, String args){
         String send;

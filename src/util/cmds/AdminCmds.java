@@ -62,9 +62,9 @@ public class AdminCmds {
     }
 
     private static String doHelpCmd(boolean html) {
-        StringJoiner join = new StringJoiner("\r\n");
-        join.add("Commands that are normally only needed by admins..., use with caution.");
-        join.add("admin:getlogs -> Send last/current info and error log to admin email")
+        var help = new StringJoiner("\r\n");
+        help.add("Commands that are normally only needed by admins..., use with caution.");
+        help.add("admin:getlogs -> Send last/current info and error log to admin email")
                 .add("admin:getlastraw -> Send last raw log to admin email")
                 .add("admin:adddebugnode -> Adds a debug node with default values")
                 .add("admin:clock -> Get the current timestamp")
@@ -78,7 +78,7 @@ public class AdminCmds {
                 .add("admin:sleep,x -> Sleep for x time (linux only)")
                 .add("admin:phypower,chip,interface,on/off -> Put the phy to sleep, chips: ksz,lan,rtl")
                 .add("admin:addstatuscheck -> Adds the statuscheck node");
-        return LookAndFeel.formatCmdHelp(join.toString(), html);
+        return LookAndFeel.formatHelpCmd(help.toString(), html);
     }
 
     private static String doGetLogsCmd(EmailSending sendEmail) {
