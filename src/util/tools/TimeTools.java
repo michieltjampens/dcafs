@@ -359,7 +359,7 @@ public class TimeTools {
         }
     }
 
-    public static long calcSecondsTo(String time, ArrayList<DayOfWeek> validDays) {
+    public static long calcSecondsTo(String time, boolean localTime, ArrayList<DayOfWeek> validDays) {
 
         if (validDays.isEmpty())
             return -1;
@@ -367,7 +367,12 @@ public class TimeTools {
         if (time.length() <= 5)
             time = time + ":00";
 
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime now;
+        if (localTime) {
+            now = LocalDateTime.now();
+        } else {
+            now = LocalDateTime.now(ZoneOffset.UTC);
+        }
         LocalDateTime tillTime = now.with(LocalTime.parse(time, DateTimeFormatter.ofPattern("HH:mm:ss")));
 
         tillTime = tillTime.plusNanos(now.getNano());

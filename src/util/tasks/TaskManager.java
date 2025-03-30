@@ -7,6 +7,7 @@ import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.NumericVal;
 import util.data.RealtimeValues;
+import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -159,13 +160,14 @@ public class TaskManager implements Writable {
     private AbstractBlock handleDelay(XMLdigger task) {
         var delay = task.attr("delay", "-1s");
         var interval = task.attr("interval", "");
-        var time = task.attr("time", "");
+        var timeAttr = task.matchAttr("time", "localtime");
+        var time = task.attr(timeAttr, "");
         var delayBlock = new DelayBlock(eventLoop);
 
         if (!delay.equals("-1s")) {
             delayBlock.useDelay(delay);
         } else if (!time.isEmpty()) {
-            delayBlock.useClock(time);
+            delayBlock.useClock(time, timeAttr.contains("local"));
         } else if (!interval.isEmpty()) {
             var periods = Tools.splitList(interval);
             var initial = periods.length == 2 ? periods[0] : "0s";
@@ -335,7 +337,11 @@ public class TaskManager implements Writable {
 
     public String getStartupTasks(String eol) {
         var join = new StringJoiner(eol);
-        startup.forEach(block -> join.add(block.getInfo(new StringJoiner(eol), "")));
+        join.setEmptyValue("! No startup tasks yet.");
+        if (!startup.isEmpty()) {
+            join.add("Status at " + TimeTools.formatLongNow() + " (local)");
+            startup.forEach(block -> join.add(block.getInfo(new StringJoiner(eol), "")));
+        }
         return join.toString();
     }
 

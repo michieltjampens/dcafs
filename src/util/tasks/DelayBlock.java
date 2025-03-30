@@ -9,6 +9,7 @@ import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class DelayBlock extends AbstractBlock {
 
@@ -22,6 +23,7 @@ public class DelayBlock extends AbstractBlock {
     int repeats = -1;
     int reps = -1;
     String time = "";
+    boolean localTime = false;
     ScheduledFuture<?> future;
     ArrayList<DayOfWeek> taskDays;
 
@@ -43,8 +45,9 @@ public class DelayBlock extends AbstractBlock {
         return this;
     }
 
-    public void useClock(String time) {
+    public void useClock(String time, boolean local) {
         type = TYPE.CLOCK;
+        localTime = local;
         var split = Tools.splitList(time, 2, "");
         this.time = split[0];
         taskDays = TimeTools.convertDAY(split[1]);
@@ -67,7 +70,7 @@ public class DelayBlock extends AbstractBlock {
                 yield eventLoop.scheduleWithFixedDelay(this::doNext, initialDelay, interval, TimeUnit.SECONDS);
             }
             case CLOCK -> {
-                var initialDelay = TimeTools.calcSecondsTo(time, taskDays); // Calculate seconds till requested time
+                var initialDelay = TimeTools.calcSecondsTo(time, localTime, taskDays); // Calculate seconds till requested time
                 yield eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
             }
         };
@@ -75,7 +78,7 @@ public class DelayBlock extends AbstractBlock {
     private void dailyRun() {
         doNext();
         Logger.info(id() + " -> Running daily task!");
-        var initialDelay = TimeTools.calcSecondsTo(time, taskDays);
+        var initialDelay = TimeTools.calcSecondsTo(time, localTime, taskDays);
         future = eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
     }
     @Override
@@ -120,7 +123,11 @@ public class DelayBlock extends AbstractBlock {
             case INTERVAL -> telnetId() + " -> After " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS)
                     + " execute next, then repeat every " + TimeTools.convertPeriodToString(interval, TimeUnit.SECONDS)
                     + (repeats == -1 ? " indefinitely" : " for at most " + repeats + " times") + " next one in " + nextRun;
-            case CLOCK -> telnetId() + " -> Run at " + time + " on xx days, next run in " + nextRun;
+            case CLOCK -> {
+                var dayListing = taskDays.stream().map(dow -> dow.toString().substring(0, 2)).collect(Collectors.joining(""));
+                var days = taskDays.size() == 7 ? "" : " on " + dayListing;
+                yield telnetId() + " -> Runs at " + time + days + ", next one in " + nextRun;
+            }
         };
     }
 
