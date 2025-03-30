@@ -1,6 +1,5 @@
 package util.tools;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.tinylog.Logger;
 
 import java.time.*;
@@ -270,12 +269,6 @@ public class TimeTools {
     	return total;
     }
 
-    public static Pair<Long,TimeUnit> parsePeriodString( String period ){
-        var millis = parsePeriodString(period,TimeUnit.MILLISECONDS);
-        if( millis == -1 )
-            return Pair.of(millis,null);
-        return Pair.of(millis,TimeUnit.MILLISECONDS);
-    }
     public static long parsePeriodStringToSeconds( String period ){
         return parsePeriodString(period, TimeUnit.SECONDS);
     }

@@ -4,7 +4,6 @@ import org.tinylog.Logger;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -169,7 +168,7 @@ public class GeoQuad {
             inside=false;
             return leaveCmds;
         }
-        // Oterwise Was outside and now inside
+        // Otherwise Was outside and now inside
         inside=true;
         return enterCmds;
     }

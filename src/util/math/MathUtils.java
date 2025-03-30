@@ -105,14 +105,11 @@ public class MathUtils {
         int op1Index = data.indexOf(op1);
         int op2Index = data.indexOf(op2);
 
-        if( op1Index==-1) { // first op can't be found, so it's e
+        if (op1Index == -1)  // first op can't be found, so it's e
             return op2Index;
-        }
-        if( op2Index==-1){
+        if (op2Index == -1)
             return op1Index;
-        }else{
-            return Math.min( op1Index,op2Index);
-        }
+        return Math.min(op1Index, op2Index);
     }
 
     /**

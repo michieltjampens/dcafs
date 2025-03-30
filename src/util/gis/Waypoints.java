@@ -282,9 +282,8 @@ public class Waypoints implements Commandable {
                 Logger.error("Checktravel cancelled? " + checkTravel.isCancelled() + " or done: " + checkTravel.isDone() + " -> Restarting!");
                 checkTravel = scheduler.scheduleAtFixedRate(this::checkWpAndGQuads,5, CHECK_INTERVAL, TimeUnit.SECONDS);
                 return false;
-            }else{
-                Logger.info("(wpts) -> Waypoints travel checks still ok.");
             }
+            Logger.info("(wpts) -> Waypoints travel checks still ok.");
         }
         return true;
     }
@@ -365,7 +364,8 @@ public class Waypoints implements Commandable {
             default -> "! No such subcommand in " + d.getData();
         };
     }
-    private String doCmdHelp( boolean html ){
+
+    private static String doCmdHelp(boolean html) {
         StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
         b.add("Waypoints can be used to trigger actions depending on the position received.");
         b.add("Add/remove/alter waypoints")
@@ -383,7 +383,8 @@ public class Waypoints implements Commandable {
                 .add("wpts:reload -> Reloads the waypoints from the settings file.");
         return LookAndFeel.formatCmdHelp(b.toString(),html);
     }
-    private String addBlankNode(  ){
+
+    private static String addBlankNode() {
         XMLfab.withRoot(Paths.settings(), "dcafs", "settings")
                 .addParentToRoot("waypoints", "Waypoints are listed here")
                 .attr("lat", "lat_rtval")
@@ -424,9 +425,6 @@ public class Waypoints implements Commandable {
             return "Updated " + args[1];
         }
         return "! No such waypoint";
-    }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
     }
     @Override
     public boolean removeWritable(Writable wr) {

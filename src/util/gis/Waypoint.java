@@ -200,7 +200,7 @@ public class Waypoint implements Comparable<Waypoint>{
 			}
 		}
 		if( lastDist != -1)
-			m= Tools.metersToKm(lastDist,2);
+            m = Tools.metersToKm(lastDist, 2);
 		if( coordinate ) {
 			nm += " ["+coord.getDegrMin(4,"°",";")+"]";
 		}

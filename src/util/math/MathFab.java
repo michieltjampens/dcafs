@@ -5,6 +5,8 @@ import org.tinylog.Logger;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
@@ -43,7 +45,7 @@ public class MathFab {
         return ori;
     }
     /**
-     * Check if this mathfab is valid or failed the formula parsing
+     * Check if this MathFab is valid or failed the formula parsing
      * @return True if valid
      */
     public boolean isValid(){
@@ -56,14 +58,14 @@ public class MathFab {
      */
     private MathFab build(String formula ){
         if(debug)
-            Logger.info("Mathfab building for "+formula);
+            Logger.info("MathFab building for " + formula);
         steps.clear(); // reset the steps
         ori=formula;
 
         formula = MathUtils.checkBrackets(formula);
-        if (formula.isEmpty()) {
+        if (formula.isEmpty())
             return null;
-        }
+
         // words like sin,cos etc messes up the processing, replace with references
         formula = MathUtils.replaceGeometricTerms(formula);
 
@@ -79,13 +81,14 @@ public class MathFab {
             return null;
 
         offset=subFormulas.size(); // To store the intermediate results, the array needs to hold space
-        for( String[] sub : subFormulas ){ // now convert the sub-formulas into lambda's
-            var x = MathUtils.decodeBigDecimalsOp(sub[0],sub[1],sub[2],offset);
-            if( x==null ){
-                Logger.error("Failed to convert "+formula);
-                return null;
-            }
-            steps.add( x ); // and add it to the steps list
+        var failed = subFormulas.stream()
+                .map(sub -> MathUtils.decodeBigDecimalsOp(sub[0], sub[1], sub[2], offset))
+                .peek(x -> steps.add(x))
+                .anyMatch(Objects::isNull);
+        if (failed) {
+            Logger.error("Failed to convert " + formula);
+            steps.clear();
+            return null;
         }
         resultIndex = subFormulas.size()-1;// note that the result of the formula will be in the that position
         return this;
@@ -97,32 +100,24 @@ public class MathFab {
         while (formula.contains("(")) { // Look for an opening bracket
             int close = formula.indexOf(")"); // Find the first closing bracket
             int open = formula.substring(0, close).lastIndexOf("(");
+            // No need to check if open isn't -1 because brackets were checked in earlier step
+            String part = formula.substring(open + 1, close); // get the part between the brackets
 
-            if (open != -1) { // if the opening bracket was found
-                String part = formula.substring(open + 1, close); // get the part between the brackets
-                var res = MathUtils.splitAndProcessExpression(part, subFormulas.size() - 1, debug);
-                if (res.isEmpty()) {
-                    Logger.error("Failed to build because of issues during " + part);
-                    return subFormulas;
-                }
-                String piece = formula.substring(open, close + 1); // includes the brackets
-                //if( res.size()==1 && res.get(0)[1].equalsIgnoreCase("0")&& res.get(0)[2].equalsIgnoreCase("+")){
-                //  formula=formula.replace(piece,res.get(0)[0]);
-
-                // }else{
-                subFormulas.addAll(res);    // split that part in the sub-formulas
-                // replace the sub part in the original formula with a reference to the last sub-formula
-                formula = formula.replace(piece, "o" + (subFormulas.size() - 1));
-                //}
-            } else {
-                Logger.error("Didn't find opening bracket");
+            var res = MathUtils.splitAndProcessExpression(part, subFormulas.size() - 1, debug);
+            if (res.isEmpty()) {
+                Logger.error("Failed to build because of issues during " + part);
+                return subFormulas;
             }
+            String piece = formula.substring(open, close + 1); // includes the brackets
+            subFormulas.addAll(res);    // split that part in the sub-formulas
+            // replace the sub part in the original formula with a reference to the last sub-formula
+            formula = formula.replace(piece, "o" + (subFormulas.size() - 1));
         }
         return subFormulas;
     }
 
     private static int determineReqInputs(String formula) {
-        var is = Pattern.compile("[i][0-9]{1,2}")// Extract all the references
+        var is = Pattern.compile("i[0-9]{1,2}")// Extract all the references
                 .matcher(formula)
                 .results()
                 .map(MatchResult::group)
@@ -140,17 +135,12 @@ public class MathFab {
      * @return The result
      */
     public double solveFor(Double[] val){
-        var bds = new BigDecimal[val.length];
-        for(int a=0;a<val.length;a++)
-            bds[a]=BigDecimal.valueOf(val[a]);
-        var bdOpt = solve(bds);
-
-        return bdOpt.map(BigDecimal::doubleValue).orElse(Double.NaN);
+        var bds = Arrays.stream(val).map(BigDecimal::valueOf).toArray(BigDecimal[]::new);
+        return solve(bds).map(BigDecimal::doubleValue).orElse(Double.NaN);
     }
     public double solveFor( double val ){
         BigDecimal[] bd = {BigDecimal.valueOf(val)};
-        var bdOpt = solve( bd );
-        return bdOpt.map(BigDecimal::doubleValue).orElse(Double.NaN);
+        return solve(bd).map(BigDecimal::doubleValue).orElse(Double.NaN);
     }
     /**
      * Solve the build equation using the given bigdecimals
@@ -206,10 +196,10 @@ public class MathFab {
             if(debug)
                 Logger.info("Result: " + total[resultIndex].doubleValue());
             return Optional.ofNullable(total[resultIndex]); // return this result
-        }else{
-            Logger.error("Something went wrong during calculation");
-            return Optional.empty();
         }
+
+        Logger.error("Something went wrong during calculation");
+        return Optional.empty();
     }
     public static void test(){
         double d1 = MathFab.newFormula("(15*i0)/65+3*i1").solveFor(new Double[]{10.0,3.5});

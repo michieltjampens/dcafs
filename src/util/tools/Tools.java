@@ -424,16 +424,6 @@ public class Tools {
         return roundDouble(m, decimals) + "m";
     }
     /* ***************************************** * O T H E R *************************************************** */
-    /**
-     * Retrieve the MAC address of an network interface based on the displayname
-     * 
-     * @param displayname The name of the interface fe. wlan0
-     * @return The found MAC or empty string if not found
-     */
-    public static String getMAC(String displayname) {
-        return loopNetworkInterfaces(displayname,false,"MAC");
-    }
-
     private static String loopNetworkInterfaces(String displayname, boolean ipv4, String what ){
         var join = new StringJoiner("\r\n");
         try {
@@ -624,10 +614,11 @@ public class Tools {
             return -1;
         }
     }
-    public static boolean hasRootRights(){
+
+    public static boolean hasNoRootRights() {
         if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
             Logger.warn("Not running linux, so no root");
-            return false;
+            return true;
         }
         try {
             ProcessBuilder pb = new ProcessBuilder("id", "-u");
@@ -637,10 +628,10 @@ public class Tools {
                     = new BufferedReader(new InputStreamReader(
                     process.getInputStream()));
             // If the result is 0, we have root rights
-            return stdInput.readLine().equalsIgnoreCase("0");
+            return !stdInput.readLine().equalsIgnoreCase("0");
         } catch (IOException e) {
             Logger.error(e);
-            return false;
+            return true;
         }
     }
 }

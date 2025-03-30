@@ -12,10 +12,13 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import static java.nio.file.StandardWatchEventKinds.*;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 public class FileMonitor implements Commandable {
 
@@ -60,17 +63,16 @@ public class FileMonitor implements Commandable {
         return true;
     }
     public void addSimpleWatch( String id, Path p, Function<String,Integer> act){
-        if(service == null) {
-            try {
-                service = FileSystems.getDefault().newWatchService();
-                Files.createFile(p);
-                var mon = new ReactionInfo(id,p, act, false);
-                files.add( mon );
-                watcher.submit(() -> watch(mon));
-            } catch (IOException e) {
-                Logger.error(e);
-            }
-
+        if (service != null)
+            return;
+        try {
+            service = FileSystems.getDefault().newWatchService();
+            Files.createFile(p);
+            var mon = new ReactionInfo(id, p, act, false);
+            files.add(mon);
+            watcher.submit(() -> watch(mon));
+        } catch (IOException e) {
+            Logger.error(e);
         }
     }
     private void watch( ReactionInfo mon )  {
@@ -154,9 +156,6 @@ public class FileMonitor implements Commandable {
             return "Target added";
         }
         return "! No such subcommand in " + d.getData();
-    }
-    public String payloadCommand( String cmd, String args, Object payload){
-        return "! No such cmds in "+cmd;
     }
     @Override
     public boolean removeWritable(Writable wr) {

@@ -4,7 +4,6 @@ import org.tinylog.Logger;
 
 import java.io.*;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
@@ -57,16 +56,6 @@ public class FileTools {
     /**
      * Method that opens a file (or creates it and needed directories) and appends the data to it
      * 
-     * @param file The name of the file to append data to
-     * @param text The data to append
-     * @return True if all was successful
-     */
-    public static synchronized boolean appendToTxtFile( String file, String text ) {
-    	return appendToTxtFile( Path.of(file),text);
-    }
-    /**
-     * Method that opens a file (or creates it and needed directories) and appends the data to it
-     * 
      * @param path The path to the file
      * @param text The data to append
      * @return True if all was successful
@@ -88,13 +77,12 @@ public class FileTools {
     }
     /**
      * Reads a file and puts the contents in an ArrayList, 1 line is one item
+     *
      * @param content The ArrayList to hold the data
-     * @param path The path of the file
-     * @return Whether the process succeeded
+     * @param path    The path of the file
      */
-    public static boolean readTxtFile( ArrayList<String> content, Path path) {
+    public static void readTxtFile(ArrayList<String> content, Path path) {
         content.addAll( readLines(path,1,-1) );
-        return true;
     }
 
     /**
@@ -156,59 +144,6 @@ public class FileTools {
             Logger.error(ex);
         }
         return false;
-    }
-    public static ArrayList<String> readSubsetLines( Path path, int amount, long skip) throws UncheckedIOException, IOException {
-        var read = new ArrayList<String>();
-        long count=0;
-        if( Files.notExists(path)){
-            Logger.error("Tried to read lines from "+path+" but no such file");
-            return read;
-        }
-        var f = Files.newBufferedReader(path);
-        while(true) {
-            Logger.info("Next "+amount+" at "+count+", total: "+read.size());
-            for (int a = 0; a < amount; a++) {
-                String line = f.readLine();
-                if (line == null)
-                    return read;
-                read.add(f.readLine());
-                count++;
-            }
-            for (int b = 0; b < skip; b++) {
-                String line = f.readLine();
-                if (line == null)
-                    return read;
-                count++;
-            }
-        }
-    }
-    /**
-     * Read the file 'in' and only keep the lines containing 'cont' then write those to 'out' with the system dependent newline
-     * @param in The path to read
-     * @param out The path to write to
-     * @param cont The string it needs to contain
-     * @return True if this succeeded
-     */
-    public static boolean filterLines( Path in, Path out,String cont) {
-     
-        try( var lines = Files.lines(in,StandardCharsets.ISO_8859_1 )) {    
-            BufferedWriter writer = new BufferedWriter( new FileWriter(out.toString(),true) );  
-            
-            lines.filter( x -> x.contains(cont))
-                .forEach( t -> {
-                    try {
-                        writer.write(t+System.lineSeparator());
-                    } catch ( IOException e) {
-                        Logger.error(e);
-                    }
-                });
-                writer.close();
-        } catch ( IOException ex) {
-            Logger.error(ex);
-
-            return false;
-        }
-        return true;
     }
     /**
      * Read the last 'amount' of lines from a file
@@ -380,29 +315,6 @@ public class FileTools {
         }
         return false;     
     }
-
-    /**
-     * Get the path to the given resource based on the filename
-     * @param origin The class that holds the resources
-     * @param filename The file to look for
-     * @return The path to the file or an empty optional if not found
-     */
-    public static Optional<Path> getPathToResource(Class origin, String filename ){
-        ClassLoader classLoader = origin.getClassLoader();
-        URL resource = classLoader.getResource(filename);
-        if (resource == null) {
-            throw new IllegalArgumentException("File not found! " + filename);
-        } else {
-            try {
-                Logger.info("Found "+resource.toURI());
-                return Optional.of(Path.of(resource.toURI()));
-            } catch (URISyntaxException e) {
-                Logger.error(e);
-            }
-        }
-        return Optional.empty();
-    }
-
     /**
      * Read a resource (aka file inside the jar) ascii file
      * @param origin The origin class
@@ -442,6 +354,5 @@ public class FileTools {
             Logger.error(e);
         }
         return new ArrayList<>();
-
     }
 }

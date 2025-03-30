@@ -180,8 +180,8 @@ public class ConditionBlock extends AbstractBlock {
             int close = exp.indexOf(")"); // Find the first closing bracket
             // Find the index of the matching opening bracket by looking for the last occurrence before the closing one
             int open = exp.substring(0, close - 1).lastIndexOf("(");
-
             String part = exp.substring(open + 1, close); // get the part between the brackets
+
             exp = exp.replace(exp.substring(open, close + 1), "$$"); // Replace the sub with the placeholder
 
             // Split part on && and ||

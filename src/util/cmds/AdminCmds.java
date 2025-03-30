@@ -93,7 +93,7 @@ public class AdminCmds {
     }
 
     private static String doPhyPowrCmd(String[] cmds) {
-        if (!Tools.hasRootRights()) {
+        if (Tools.hasNoRootRights()) {
             return "! Not linux or no root rights";
         }
 
@@ -132,7 +132,7 @@ public class AdminCmds {
     }
 
     private static String doRebootCmd() {
-        if (!Tools.hasRootRights())
+        if (Tools.hasNoRootRights())
             return "! Not linux or no root rights";
 
         try {
