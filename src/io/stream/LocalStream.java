@@ -3,8 +3,7 @@ package io.stream;
 import das.Core;
 import io.Writable;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.time.Instant;
@@ -13,17 +12,17 @@ public class LocalStream extends BaseStream implements Writable {
 
     boolean valid=true;
 
-    public LocalStream(Element stream) {
+    public LocalStream(XMLdigger stream) {
         super(stream);
         if( stream!=null){
-            var src = XMLtools.getStringAttribute(stream,"src","");
+            var src = stream.attr("src", "");
             if( !src.isEmpty())
                 triggeredActions.add(new TriggerAction(TRIGGER.OPEN, src));
         }
     }
 
     @Override
-    protected boolean readExtraFromXML(Element stream) {
+    protected boolean readExtraFromXML(XMLdigger stream) {
         return false;
     }
 

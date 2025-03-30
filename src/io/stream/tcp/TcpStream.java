@@ -13,8 +13,8 @@ import io.netty.handler.codec.bytes.ByteArrayDecoder;
 import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.stream.BaseStream;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.LookAndFeel;
+import util.xml.XMLdigger;
 
 import java.net.InetSocketAddress;
 
@@ -26,7 +26,7 @@ public class TcpStream extends BaseStream implements Writable {
     Bootstrap bootstrap;        // Bootstrap for TCP connections
     static int bufferSize = 2048;     // How many bytes are stored before a dump
 
-    public TcpStream(Element stream) {
+    public TcpStream(XMLdigger stream) {
         super(stream);
     }
     protected String getType(){
@@ -131,7 +131,7 @@ public class TcpStream extends BaseStream implements Writable {
     }
 
     @Override
-    public boolean readExtraFromXML(Element stream) {
+    public boolean readExtraFromXML(XMLdigger stream) {
         // Address
         var opt = readIPsockFromElement(stream);
         if(opt.isEmpty())

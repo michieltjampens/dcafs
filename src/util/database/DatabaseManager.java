@@ -202,19 +202,6 @@ public class DatabaseManager implements QueryWriting, Commandable {
         sqls.values().forEach(SQLDB::flushAll);
     }
     /* **************************************  Q U E R Y W R I T I N G************************************************/
-
-    /**
-     * Give the data to a database object to be inserted without checking the data (except for amount of elements)
-     * @param id The id of the database
-     * @param table The name of the table
-     * @param values The data to insert
-     * @return How many tables received the insert
-     */
-    @Override
-    public int addDirectInsert(String id, String table, Object... values) {
-        return getDatabase(id).map(sqldb -> sqldb.addDirectInsert(table, values)).orElse(0);
-    }
-
     public boolean insertStores( String ids, String table ) {
         long ok = Arrays.stream(ids.split(","))
                 .map(id -> Map.entry(id, getDatabase(id)))  // Keep both id and Optional together
@@ -231,29 +218,6 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 .filter(db -> db.get().fillPrep(table, data))
                 .count();
         return ok==ids.split(",").length;
-    }
-    /**
-     * Add a query to the buffer of the given database
-     * @param id The database to add the query to
-     * @param query the query to add
-     * @return True if added
-     */
-    @Override
-    public boolean addQuery( String id, String query) {
-        return getDatabase(id).map(db -> {
-            db.doSelect(query);
-            return true;
-        }).orElse(false);
-    }
-
-    /**
-     * Run a select query on the given database
-     * @param id The database to use
-     * @param query The query to run
-     * @return An optional result
-     */
-    public Optional<List<List<Object>>> doSelect(String id, String query){
-        return getDatabase(id).flatMap(db -> db.doSelect(query));
     }
     /* **************************************  R U N N A B L E S ****************************************************/
     /**

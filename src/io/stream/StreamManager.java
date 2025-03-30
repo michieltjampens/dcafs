@@ -371,13 +371,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		var baseOpt = getStream(id);
 		if (baseOpt.isEmpty()) {
-			addStreamFromXML(streamDig.currentTrusted());
+			addStreamFromXML(streamDig);
 			return "Loading new stream.";
 		}
 		// meaning reloading an existing one
 		var str = baseOpt.get();
 		str.disconnect();
-		str.readFromXML(streamDig.currentTrusted());
+		str.readFromXML(streamDig);
 		if (streamDig.hasPeek("store")) {
 			streamDig.usePeek();
 			addStore(streamDig.currentTrusted(), str);
@@ -430,14 +430,11 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			return;
 
 		for( var stream : dig.digOut("stream")){
-			var eleOpt = stream.current();
-			if( eleOpt.isPresent() ){
-				BaseStream bs = addStreamFromXML(eleOpt.get());
-				streams.put(bs.id().toLowerCase(), bs);
-				if( stream.hasPeek("store")) {
-					stream.usePeek();
-					addStore( stream.currentTrusted(),bs);
-				}
+			BaseStream bs = addStreamFromXML(stream);
+			streams.put(bs.id().toLowerCase(), bs);
+			if (stream.hasPeek("store")) {
+				stream.usePeek();
+				addStore(stream.currentTrusted(), bs);
 			}
 		}
 	}
@@ -487,8 +484,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	 *
 	 * @param stream The element containing the stream information
 	 */
-	public BaseStream addStreamFromXML( Element stream ){
-		var type = stream.getAttribute("type").toLowerCase();
+	public BaseStream addStreamFromXML(XMLdigger stream) {
+
+		var type = stream.attr("type", "").toLowerCase();
 		switch (type) {
 			case "tcp", "tcpclient" -> {
 				TcpStream tcp = new TcpStream(stream);
@@ -533,7 +531,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return serial;
 			}
 			case "modbus" -> {
-				if (XMLtools.hasChildByTag(stream, "address")) { // Address means tcp
+				if (stream.hasPeek("address")) { // Address means tcp
 					ModbusTCPStream mbtcp = new ModbusTCPStream(stream);
 					mbtcp.setEventLoopGroup(eventLoopGroup);
 					mbtcp.addListener(this);
@@ -695,7 +693,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	}
 	private String doSingleCmd( String cmd, boolean html){
 		return switch (cmd) {
-			case "?" -> getCmdHelp(html);
+			case "?" -> doHelpCmd(html);
 			case "reload" -> {
 				readSettingsFromXML();
 				yield "Settings reloaded.";
@@ -714,7 +712,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		};
 	}
 
-	private static String getCmdHelp(boolean html) {
+	private static String doHelpCmd(boolean html) {
 		var join = new StringJoiner("\r\n");
 
 		join.add("Manages all the streams: adding, checking, writing etc.");
@@ -794,7 +792,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "! Invalid option";
 			}
 		}
-		var base = addStreamFromXML(fab.getCurrentParent());
+		var base = addStreamFromXML(dig);
 		if( base != null){
 			Core.addToQueue(Datagram.system("commandable:" + base.id()).payload(this));
 			try{

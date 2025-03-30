@@ -7,8 +7,7 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.util.concurrent.Future;
 import io.stream.BaseStream;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 
 public class UdpServer extends BaseStream {
 
@@ -17,7 +16,7 @@ public class UdpServer extends BaseStream {
   UDPhandler handler;
   Future<?> serverFuture;
 
-  public UdpServer( Element stream ) {
+    public UdpServer(XMLdigger stream) {
     super(stream);
   }
   public UdpServer( String id, int port ){
@@ -49,8 +48,8 @@ public class UdpServer extends BaseStream {
     }
   }
   @Override
-  protected boolean readExtraFromXML(Element stream) {
-    port = XMLtools.getChildIntValueByTag(stream, "port", -1);
+  protected boolean readExtraFromXML(XMLdigger stream) {
+      port = stream.peekAt("port").value(-1);
     return port != -1;
   }
 

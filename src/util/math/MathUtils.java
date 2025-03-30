@@ -134,7 +134,7 @@ public class MathUtils {
             if (spl[a].isEmpty() && !formula.startsWith("!")) {
                 spl[a + 1] = "-" + spl[a + 1];
             } else {
-                var m = es.matcher(spl[a]); // now check if it matches a scientific one
+                var m = es.matcher(Pattern.quote(spl[a])); // now check if it matches a scientific one
                 if( m.find() ){ // if so, replace the lowercase e back to uppercase with minus, for uppercase + is redundant
                     full.add(spl[a].replace("e","E-"));
                 }else{ // if not, just add as is

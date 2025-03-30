@@ -2,9 +2,9 @@ package io.stream.serialport;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.math.MathUtils;
 import util.tools.Tools;
+import util.xml.XMLdigger;
 
 import java.time.Instant;
 
@@ -14,7 +14,7 @@ public class ModbusStream extends SerialStream{
     private int index = 0;
     private boolean readyForWorker=false;
 
-    public ModbusStream(Element stream) {
+    public ModbusStream(XMLdigger stream) {
         super(stream);
         eol="";
     }

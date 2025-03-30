@@ -6,6 +6,7 @@ import org.w3c.dom.Element;
 import util.data.*;
 import util.tools.FileTools;
 import util.tools.TimeTools;
+import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import util.xml.XMLtools;
 
@@ -110,7 +111,7 @@ public class SqlTable{
     }
 
     private static boolean processNode(Element node, SqlTable table, String val) {
-        String rtval = XMLtools.getStringAttribute(node, "rtval", "");
+        String rtval = XMLdigger.goIn(node).attr("rtval", "");
         switch (node.getNodeName()) {
             case "real" -> table.addReal(val, rtval);
             case "integer", "int" -> table.addInteger(val, rtval);

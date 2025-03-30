@@ -6,7 +6,6 @@ import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import util.xml.XMLtools;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -149,7 +148,6 @@ public class StoreCmds {
 
         if( startNew ){
             fab.up(); // dig was pointing to the last step which wasn't a store, go back up
-            var deli = XMLtools.getStringAttribute(fab.getCurrentElement(),"delimiter",",");
             fab.addChild("store");//.attr("delimiter",deli);
             fab.down(); // make the store the parent
             dig = XMLdigger.goIn(fab.getCurrentElement()); // reset the digger

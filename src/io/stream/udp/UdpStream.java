@@ -13,8 +13,8 @@ import io.netty.util.concurrent.FutureListener;
 import io.stream.BaseStream;
 import io.stream.tcp.TcpHandler;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.LookAndFeel;
+import util.xml.XMLdigger;
 
 import java.net.InetSocketAddress;
 
@@ -25,7 +25,7 @@ public class UdpStream extends BaseStream implements Writable {
     private Bootstrap bootstrapUDP;		// Bootstrap for TCP connections
     private EventLoopGroup group;		    // Eventloop used by the netty stuff
 
-    public UdpStream( Element stream  ){
+    public UdpStream(XMLdigger stream) {
         super(stream);
     }
     protected String getType(){
@@ -107,7 +107,7 @@ public class UdpStream extends BaseStream implements Writable {
     }
 
     @Override
-    protected boolean readExtraFromXML(Element stream) {
+    protected boolean readExtraFromXML(XMLdigger stream) {
         // Process the address
         var opt = readIPsockFromElement(stream);
         if(opt.isEmpty())

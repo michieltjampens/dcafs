@@ -1,6 +1,5 @@
 package util.xml;
 
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
@@ -18,7 +17,6 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -29,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -116,7 +115,6 @@ public class XMLtools {
 			doc.getDocumentElement().normalize();
 		} catch (ParserConfigurationException | SAXException | IOException | java.nio.file.InvalidPathException e) {
 			var error = e.toString().replace("lineNumber: ", "line:").replace("; columnNumber","");
-
 			error = error.substring(error.indexOf(":")+1).replace(": ",":").trim();
 
 			if( error.startsWith("file:")){
@@ -157,7 +155,6 @@ public class XMLtools {
 	public static void writeXML(Path xmlFile, Document xmlDoc) {
 		if( xmlDoc == null )
 			return;
-		boolean isNew = Files.notExists(xmlFile);
 
 		try ( var fos = new FileOutputStream(xmlFile.toFile());
 			  var writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8)
@@ -193,6 +190,29 @@ public class XMLtools {
 			Logger.error(e);
 		}
 	}
+
+	/**
+	 * Do a clean of the xml document according to xpathfactory
+	 *
+	 * @param xmlDoc The document to clean
+	 */
+	public static void cleanXML(Document xmlDoc) {
+		XPathFactory xpathFactory = XPathFactory.newInstance();
+		// XPath to find empty text nodes.
+		XPathExpression xpathExp;
+		try {
+			xpathExp = xpathFactory.newXPath().compile("//text()[normalize-space(.) = '']");
+			NodeList emptyTextNodes = (NodeList) xpathExp.evaluate(xmlDoc, XPathConstants.NODESET);
+
+			// Remove each empty text node from document.
+			for (int i = 0; i < emptyTextNodes.getLength(); i++) {
+				Node emptyTextNode = emptyTextNodes.item(i);
+				emptyTextNode.getParentNode().removeChild(emptyTextNode);
+			}
+		} catch (XPathExpressionException e) {
+			Logger.error(e);
+		}
+	}
 	/* *********************************  S E A R C H I N G *******************************************************/
 	/* ************************************** Child ******************************************************* */
 	/**
@@ -220,41 +240,10 @@ public class XMLtools {
 				.findFirst();
 	}
 	/**
-	 * Check the given element for a child node with a specific tag
-	 * @param parent The element to look into
-	 * @param tag The tag to look for or * for 'any'
-	 * @return True if found
-	 */
-	public static boolean hasChildByTag(Element parent, String tag) {
-		return getFirstChildByTag(parent, tag).isPresent();
-	}
-	/**
-	 * Get the string value of a node from the given element with the given tag, returning a default value if none found
-	 *
-	 * @param element The element to look in
-	 * @param tag     The name of the node
-	 * @param def     The value to return if the node wasn't found
-	 * @return The requested data or the def value if not found
-	 */
-	public static String getChildStringValueByTag(Element element, String tag, String def) {
-		return getFirstChildByTag(element, tag.toLowerCase()).map(Node::getTextContent).orElse(def);
-	}
-	/**
-	 * Get the integer value of a node from the given element with the given name
-	 *
-	 * @param element The element to look in
-	 * @param tag     The name of the node
-	 * @param def     The value to return if the node wasn't found
-	 * @return The requested data or the def value if not found
-	 */
-	public static int getChildIntValueByTag(Element element, String tag, int def) {
-		return getFirstChildByTag(element, tag).map(e-> NumberUtils.toInt(e.getTextContent(),def)).orElse(def);
-	}
-		/**
 	 * Get all the child-elements of an element with the given name
 	 * 
 	 * @param element The element to look in to
-	 * @param child   The named of the child-elements to look for
+	 * @param child   The names of the child-elements to look for
 	 * @return An arraylist with the child-elements or an empty one if none were found
 	 */
 	public static List<Element> getChildElements(Element element, String... child) {
@@ -263,22 +252,15 @@ public class XMLtools {
 			return new ArrayList<>();
 
 		if( child.length==1 && (child[0].isEmpty()) )
-			child[0]="*";
+			child[0] = "*";
 
-		var eles = new ArrayList<Element>();
-		for( String ch : child ){
-			NodeList list = element.getElementsByTagName(ch);
-
-			for (int a = 0; a < list.getLength(); a++){
-				if (list.item(a).getNodeType() == Node.ELEMENT_NODE ) {
-				 	Element add = (Element)list.item(a);
-					 if( add.getParentNode().equals(element) )
-						eles.add((Element) list.item(a));
-				}
-			}
-		}
-		eles.trimToSize();
-		return eles;
+		return Arrays.stream(child)
+				.map(element::getElementsByTagName) // Map to Elements with that tagname
+				.flatMap(list -> IntStream.range(0, list.getLength()).mapToObj(list::item))// Extract the items
+				.filter(node -> node.getNodeType() == Node.ELEMENT_NODE)// Remove non-element nodes
+				.map(node -> (Element) node)// Cast the remainder to Element
+				.filter(ele -> ele.getParentNode().equals(element))// Remove that don't have element as parent node
+				.toList(); // Add the matches to an immutable list
 	}
 	/**
 	 * Get all the childnodes from the given element that are of the type element node
@@ -289,79 +271,8 @@ public class XMLtools {
 		return getChildElements(element,"*");
 	}
 
-	/* ******************************  E L E M E N T   A T T R I B U T E S *********************************/
-	/**
-	 * Get the attributes of an element and cast to string, return def if failed
-	 * @param element The element that might hold the attribute
-	 * @param attribute The tag of the attribute
-	 * @param def The value to return if cast/parse fails
-	 * @return The content if ok or def if failed
-	 */
-	public static String getStringAttribute(Element element, String attribute, String def) {
-		if( element==null){
-			Logger.error("Given parent is null while looking for "+attribute);
-			return def;
-		}
-		// If the parent doesn't have the attribute, return the default
-		if( !element.hasAttribute(attribute))
-			return def;
-
-		var val = element.getAttribute(attribute);
-		if( val.isBlank() && !val.isEmpty()) // If the value is whitespace but not empty return it
-			return val;
-		return val.trim(); //trim spaces around the val
-
-	}
-	/**
-	 * Get the optional path value of a node from the given element with the given name
-	 *
-	 * @param element The element to look in
-	 * @param attribute The name of the attribute
-	 * @param workPath The value to return if the node wasn't found
-	 * @return The requested path or an empty optional is something went wrong
-	 */
-	public static Optional<Path> getPathAttribute(Element element, String attribute, Path workPath ) {
-		if( element == null ){
-			Logger.error("Parent is null when looking for "+attribute);
-			return Optional.empty();
-		}
-		if( !element.hasAttribute(attribute))
-			return Optional.empty();
-
-		String p = element.getAttribute(attribute).trim().replace("/", File.separator); // Make sure to use correct slashes
-		p = p .replace("\\",File.separator);
-		if( p.isEmpty() )
-			return Optional.empty();
-		var path = Path.of(p);
-
-		if( path.isAbsolute() || workPath==null)
-			return Optional.of(path);
-		return Optional.of( workPath.resolve(path) );
-	}
-	/* **************************** E L E M E N T   V A L U E S ***************************/
 	/* ********************************* W R I T I N G **************************************/
-	/**
-	 * Do a clean of the xml document according to xpathfactory
-	 *
-	 * @param xmlDoc The document to clean
-	 */
-	public static void cleanXML(Document xmlDoc) {
-		XPathFactory xpathFactory = XPathFactory.newInstance();
-		// XPath to find empty text nodes.
-		XPathExpression xpathExp;
-		try {
-			xpathExp = xpathFactory.newXPath().compile("//text()[normalize-space(.) = '']");
-			NodeList emptyTextNodes = (NodeList) xpathExp.evaluate(xmlDoc, XPathConstants.NODESET);
 
-			// Remove each empty text node from document.
-			for (int i = 0; i < emptyTextNodes.getLength(); i++) {
-				Node emptyTextNode = emptyTextNodes.item(i);
-				emptyTextNode.getParentNode().removeChild(emptyTextNode);
-			}
-		} catch (XPathExpressionException e) {
-			Logger.error(e);
-		}
-	}
 	/**
 	 * Create an empty child node in the given parent
 	 * @param xmlDoc The document which the parent belongs to
@@ -375,7 +286,6 @@ public class XMLtools {
 			Logger.error("Given parent or doc is null while looking for "+node);
 			return Optional.empty();
 		}
-
 		try{
 			return Optional.of((Element) parent.appendChild( xmlDoc.createElement(node) ));
 		}catch( DOMException e){
@@ -389,7 +299,7 @@ public class XMLtools {
 	 * @param xmlDoc The document which the parent belongs to
 	 * @param parent The parent node
 	 * @param node The name of the child node
-	 * @return The created node if succesfull or null if failed
+	 * @return The created node if successful or null if failed
 	 */
 	public static Optional<Element> createChildTextElement( Document xmlDoc, Element parent, String node, String content ){
 		

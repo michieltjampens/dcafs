@@ -7,7 +7,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.stream.BaseStream;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.LookAndFeel;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -26,7 +25,8 @@ public class SerialStream extends BaseStream implements Writable {
     int eolFound=0;
     byte[] eolBytes;
     ByteBuf buffer;
-    public SerialStream(Element stream) {
+
+    public SerialStream(XMLdigger stream) {
         super(stream);
     }
 
@@ -362,15 +362,15 @@ public class SerialStream extends BaseStream implements Writable {
     }
 
     @Override
-    protected boolean readExtraFromXML(Element stream) {
-        var dig = XMLdigger.goIn(stream);
-        if (!setPort(dig.peekAt("port").value("")))
+    protected boolean readExtraFromXML(XMLdigger stream) {
+
+        if (!setPort(stream.peekAt("port").value("")))
             return false;
 
-        alterSerialSettings(dig.peekAt("serialsettings").value("19200,8,1,none"));
-        if( dig.hasPeek("ttl") ){
-            dig.usePeek();
-            if( dig.hasAttr("flush") && dig.attr("flush",false))
+        alterSerialSettings(stream.peekAt("serialsettings").value("19200,8,1,none"));
+        if (stream.hasPeek("ttl")) {
+            stream.usePeek();
+            if (stream.hasAttr("flush") && stream.attr("flush", false))
                 flush=true;
         }
         return true;

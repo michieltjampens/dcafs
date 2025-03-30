@@ -8,12 +8,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.concurrent.FutureListener;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.LookAndFeel;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import util.xml.XMLtools;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
@@ -61,22 +59,21 @@ public abstract class BaseStream {
     protected BaseStream( String id){
         this.id=id;
     }
-    protected BaseStream( Element stream ){
+
+    protected BaseStream(XMLdigger stream) {
         readFromXML(stream);
     }
     public void setEventLoopGroup( EventLoopGroup eventLoopGroup ){
         this.eventLoopGroup = eventLoopGroup;
     }
 
-    protected boolean readFromXML( Element stream ){
+    protected boolean readFromXML(XMLdigger dig) {
 
-        if (!stream.getAttribute("type").equalsIgnoreCase(getType())
-                && !stream.getAttribute("type").replace("client", "").equalsIgnoreCase(getType())) {
+        if (!dig.attr("type", "").equalsIgnoreCase(getType())
+                && !dig.attr("type", "").replace("client", "").equalsIgnoreCase(getType())) {
             Logger.error("Not a "+getType()+" stream element.");
             return false;
         }
-
-        var dig = XMLdigger.goIn(stream);
 
         id = dig.attr("id", "");
         label = dig.peekAt("label").value("");    // The label associated fe. nmea,sbe38 etc
@@ -117,9 +114,10 @@ public abstract class BaseStream {
             if( !c.isEmpty())
                 triggeredActions.add(new TriggerAction( write.attr("when","hello"), c));
         }
-        return readExtraFromXML(stream);
+        return readExtraFromXML(dig);
     }
-    protected abstract boolean readExtraFromXML( Element stream );
+
+    protected abstract boolean readExtraFromXML(XMLdigger dig);
 
     // Abstract methods
     public abstract boolean connect();
@@ -312,8 +310,9 @@ public abstract class BaseStream {
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 6000);
         return bootstrap;
     }
-    protected Optional<InetSocketAddress> readIPsockFromElement( Element stream ){
-        String address = XMLtools.getChildStringValueByTag( stream, "address", "");
+
+    protected Optional<InetSocketAddress> readIPsockFromElement(XMLdigger dig) {
+        String address = dig.peekAt("address").value("");
 
         if( !address.contains(":") ){
             Logger.error(id+" -> Not proper ip:port for "+id+" -> "+address);

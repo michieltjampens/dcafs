@@ -2,7 +2,7 @@ package io.stream.serialport;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.nio.ByteBuffer;
@@ -18,7 +18,7 @@ public class MultiStream extends SerialStream{
     private final int idPosition=2;
     private static final byte deviceId='1';
 
-    public MultiStream(Element stream) {
+    public MultiStream(XMLdigger stream) {
 	    super(stream);
         recBuffer = ByteBuffer.wrap(rec);
         eol = "";

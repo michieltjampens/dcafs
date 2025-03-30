@@ -116,7 +116,7 @@ public class PathForward {
         }
 
         // If the step doesn't have a source and it's the first step
-        if (stepsForward.isEmpty() && XMLtools.getStringAttribute(steps.get(0), "src", "").isEmpty())
+        if (stepsForward.isEmpty() && !XMLdigger.goIn(steps.get(0)).hasAttr("src"))
             steps.get(0).setAttribute("src", src);
 
         // Now process all the steps

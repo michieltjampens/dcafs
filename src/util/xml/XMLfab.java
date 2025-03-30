@@ -356,14 +356,6 @@ public class XMLfab {
         return this;
     }
     /**
-     * Checks the children of the active node for a specific tag and make that active and parent
-     *
-     * @param tag The tag of the parent
-     */
-    public void selectChildAsParent(String tag ){
-        selectChildAsParent(tag, "", "");
-    }
-    /**
      * Checks the children of the active node for a specific tag,attribute,value match and make that active and parent
      * If not found create it.
      * @param tag The tag of the parent
@@ -556,9 +548,6 @@ public class XMLfab {
 
     public Element getCurrentElement(){
         return last;
-    }
-    public Element getCurrentParent(){
-        return parent;
     }
     public String getAttribute( String attr ){
         return last.getAttribute(attr);

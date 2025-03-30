@@ -691,10 +691,15 @@ public class DAS implements Commandable{
     /*  COMMANDABLE INTERFACE */
     @Override
     public String replyToCommand(Datagram d) {
-        if (d.cmd().equalsIgnoreCase("st"))
-            return getStatus(d.asHtml());
+        return switch (d.cmd()) {
+            case "?" -> doHelpCmd(d.asHtml());
+            case "st" -> getStatus(d.asHtml());
+            default -> "Unknown command";
+        };
+    }
 
-        return "Unknown command";
+    public static String doHelpCmd(boolean html) {
+        return "st -> Get a status overview of the whole system";
     }
     /**
      * Part of the commandable interface but not used here

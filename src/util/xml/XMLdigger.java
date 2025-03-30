@@ -1,11 +1,13 @@
 package util.xml;
 
 import org.apache.commons.lang3.math.NumberUtils;
+import org.tinylog.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import util.tools.Tools;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -641,14 +643,41 @@ public class XMLdigger {
         Optional<Path> p = Optional.empty();
         if( peeked ){
             if( peek!=null && peek.hasAttribute(tag))
-                p=XMLtools.getPathAttribute(peek,tag,workpath);
+                p = getPathAttribute(peek, tag, workpath);
         }else if( last.hasAttribute(tag)) {
-            p=XMLtools.getPathAttribute(last,tag,workpath);
+            p = getPathAttribute(last, tag, workpath);
         }
         if( p.isEmpty() && def!=null ) // if no path found, but valid default given
             return Optional.of(def);
         return p;
     }
+    /**
+     * Get the optional path value of a node from the given element with the given name
+     *
+     * @param element The element to look in
+     * @param attribute The name of the attribute
+     * @param workPath The value to return if the node wasn't found
+     * @return The requested path or an empty optional is something went wrong
+     */
+    public static Optional<Path> getPathAttribute(Element element, String attribute, Path workPath) {
+        if (element == null) {
+            Logger.error("Parent is null when looking for " + attribute);
+            return Optional.empty();
+        }
+        if (!element.hasAttribute(attribute))
+            return Optional.empty();
+
+        String p = element.getAttribute(attribute).trim().replace("/", File.separator); // Make sure to use correct slashes
+        p = p.replace("\\", File.separator);
+        if (p.isEmpty())
+            return Optional.empty();
+        var path = Path.of(p);
+
+        if (path.isAbsolute() || workPath == null)
+            return Optional.of(path);
+        return Optional.of(workPath.resolve(path));
+    }
+
     /**
      * Read the value of the given tag as an integer, return the def integer if not found
      * @param tag The tag to look for

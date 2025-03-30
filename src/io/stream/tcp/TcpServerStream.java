@@ -14,9 +14,8 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder;
 import io.stream.BaseStream;
 import io.stream.StreamListener;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.tools.Tools;
-import util.xml.XMLtools;
+import util.xml.XMLdigger;
 import worker.Datagram;
 
 import java.net.InetSocketAddress;
@@ -30,7 +29,8 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
     private int nr=0;
     private boolean serverOk=false;
-    public TcpServerStream(Element stream) {
+
+    public TcpServerStream(XMLdigger stream) {
         super(stream);
     }
     protected String getType(){
@@ -113,7 +113,7 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
     }
 
     @Override
-    public boolean readExtraFromXML(Element stream) {
+    public boolean readExtraFromXML(XMLdigger stream) {
 
         // Alter eol
         if( eol.isEmpty() ){
@@ -122,9 +122,9 @@ public class TcpServerStream extends BaseStream implements Writable, StreamListe
         }
 
         // Address
-        String address = XMLtools.getChildStringValueByTag( stream, "address", "");
+        var address = stream.peekAt("address").value("");
         if( address.isEmpty()){
-            int port = XMLtools.getChildIntValueByTag(stream,"port",-1);
+            int port = stream.peekAt("port").value(-1);
             if( port==-1) {
                 Logger.error(id+" -> Not a valid port number:"+address);
                 return false;
