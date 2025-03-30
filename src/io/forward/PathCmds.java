@@ -3,6 +3,7 @@ package io.forward;
 import das.Paths;
 import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
+import util.LookAndFeel;
 import util.data.StoreCmds;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -26,7 +27,7 @@ public class PathCmds {
         String id = args[0];
 
         if( id.equalsIgnoreCase("?"))
-            return getCmdHelp(d.asHtml());
+            return doHelpCmd(d.asHtml());
 
         // Prepare the digger
         var dig = XMLdigger.goIn(Paths.settings(),"dcafs");
@@ -55,7 +56,7 @@ public class PathCmds {
         return processCommand(d, dig, fabOpt.get());
     }
     /* ***************************** H E L P *********************************************************** */
-    private static String getCmdHelp(boolean html){
+    private static String doHelpCmd(boolean html) {
 
         StringJoiner join = new StringJoiner("\r\n");
         join.add("PathForward allows applying processing steps to received data.");
@@ -74,7 +75,7 @@ public class PathCmds {
                 .add("pf:pathid,delimiter/delim,newdelimiter -> Change the delimiter")
                 .add("pf:pathid,switchsrc,newsrc -> Alter the src at runtime, keeping xml as is.")
                 .add("pf:pathid,src,newsrc -> Alter the src in xml");
-        return join.toString();
+        return LookAndFeel.formatCmdHelp(join.toString(), html);
     }
     /* ***************************** C R E A T E  P A T H ********************************************** */
     private static String createPath( String[] cmds, Path settingsPath, String id){

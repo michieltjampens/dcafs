@@ -105,17 +105,7 @@ public class PathPool implements Commandable {
 
         switch (args[0]) {
             case "?" -> {
-                StringJoiner help = new StringJoiner("\r\n");
-                help.add("Commands related to general paths actions");
-                help.add(PathCmds.replyToCommand(d));
-                help.add("Other" )
-                        .add( "pf:reload/reloadall -> Reload all the paths")
-                        .add( "pf:id,reload -> reload the path with the given id")
-                        .add( "pf:list -> List all the currently loaded paths")
-                        .add("pf:id,list -> List all the steps in the chosen path")
-                        .add( "pf:id,debug<,stepnr/stepid> -> Request the data from a single step in the path (nr:0=first; -1=custom src)")
-                        .add( "pf:clear -> Remove all the paths from XML!");
-                return LookAndFeel.formatCmdHelp(help.toString(), d.asHtml());
+                return doHelpCmd(d);
             }
             case "reload", "reloadall" -> { // Reload all tha paths
                 if (args.length == 1 || args[0].endsWith("all")) {
@@ -153,6 +143,20 @@ public class PathPool implements Commandable {
                 return doTwoArgsCmds(d);
             }
         }
+    }
+
+    private static String doHelpCmd(Datagram d) {
+        StringJoiner help = new StringJoiner("\r\n");
+        help.add("Commands related to general paths actions");
+        help.add(PathCmds.replyToCommand(d));
+        help.add("Other")
+                .add("pf:reload/reloadall -> Reload all the paths")
+                .add("pf:id,reload -> reload the path with the given id")
+                .add("pf:list -> List all the currently loaded paths")
+                .add("pf:id,list -> List all the steps in the chosen path")
+                .add("pf:id,debug<,stepnr/stepid> -> Request the data from a single step in the path (nr:0=first; -1=custom src)")
+                .add("pf:clear -> Remove all the paths from XML!");
+        return LookAndFeel.formatCmdHelp(help.toString(), d.asHtml());
     }
 
     private String doTwoArgsCmds(Datagram d) {

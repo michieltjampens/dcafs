@@ -233,7 +233,7 @@ public class I2CWorker implements Commandable {
         }
 
         return switch (args[0]) {
-            case "?" -> getCmdHelp(d.asHtml());
+            case "?" -> doHelpCmd(d.asHtml());
             case "list" -> getDeviceList();
             case "reload" -> readFromXML();
             case "listeners" -> getListeners();
@@ -269,7 +269,7 @@ public class I2CWorker implements Commandable {
         };
     }
 
-    private static String getCmdHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         var join = new StringJoiner("\r\n");
         join.add("Create/load devices/scripts")
                 .add("i2c:detect,bus -> Detect the devices connected on the given bus")

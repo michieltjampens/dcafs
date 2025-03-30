@@ -145,7 +145,7 @@ public class MqttPool implements Commandable {
     }
     private String doNoArgCmds( String cmd, Writable wr, boolean html ){
         return switch (cmd) {
-            case "?" -> getCmdHelp(html);
+            case "?" -> doHelpCmd(html);
             case "brokers" -> getMqttBrokersInfo();
             case "reload" -> readFromXML() ? "Settings reloaded." : "! Failed to reload settings.";
             case "test" -> {
@@ -166,7 +166,7 @@ public class MqttPool implements Commandable {
         };
     }
 
-    private static String getCmdHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
         join.add("The MQTT manager manages the workers that connect to brokers").add("");
         join.add( "General" )

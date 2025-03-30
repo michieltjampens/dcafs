@@ -97,7 +97,7 @@ public class TaskManagerPool implements Commandable {
 
         switch (args[0]) {
             case "?":
-                return doCmdHelp(d.asHtml());
+                return doHelpCmd(d.asHtml());
             case "add":
                 return doAddCmd(args);
             case "load":
@@ -132,7 +132,7 @@ public class TaskManagerPool implements Commandable {
         }
     }
 
-    private String doCmdHelp(boolean html) {
+    private String doHelpCmd(boolean html) {
         var join = new StringJoiner("\r\n");
         join.add("This is the hub for all the global interaction with the taskmanagers.")
                 .add("Addition")

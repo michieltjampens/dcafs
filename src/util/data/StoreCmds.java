@@ -24,7 +24,7 @@ public class StoreCmds {
         String id = args[0];
 
         if (id.equalsIgnoreCase("?"))
-            return doStoreCmdHelp(html);
+            return doHelpCmd(html);
 
         if (id.isEmpty())
             return "! Empty id is not valid";
@@ -72,7 +72,7 @@ public class StoreCmds {
         return doCmd("store:id,",request,fab,dig,Paths.settings());
     }
 
-    private static String doStoreCmdHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         StringJoiner join = new StringJoiner("\r\n");
         join.add("Commands to create and edit the store nodes.");
         join.add("Notes")

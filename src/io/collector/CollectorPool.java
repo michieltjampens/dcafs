@@ -119,7 +119,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
 
     private String singleArgCommands(String arg, boolean html) {
         return switch (arg) {
-            case "?" -> getHelp(html);
+            case "?" -> doHelpCmd(html);
             case "reload" -> {
                 loadFileCollectors();
                 yield "Reloaded all filecollectors";
@@ -134,7 +134,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
      * @param html Whether to format it in html or not (and thus telnet)
      * @return The formatted help info
      */
-    private static String getHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         StringJoiner join = new StringJoiner(html?"<br>":"\r\n");
         join.add( "The FileCollectors store data from sources in files with custom headers and optional rollover.");
         join.add( "Create/Reload the FileCollector" )

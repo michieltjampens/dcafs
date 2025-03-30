@@ -759,20 +759,7 @@ public class MatrixClient implements Writable, Commandable {
         StringJoiner j = new StringJoiner("\r\n");
         switch (args[0]) {
             case "?" -> {
-                j.add("Used to monitor a matrix room for messages and send messages.");
-                j.add("Rooms")
-                        .add("matrix:rooms -> Give a list of all the joined rooms")
-                        .add("matrix:roomid,leave -> Leave the given room")
-                        .add("matrix:join,roomid,url -> Join a room with the given id and url")
-                        .add("matrix:roomid,say,message -> Send the given message to the room");
-                j.add("Files")
-                        .add("matrix:files -> Get a listing of all the file links received")
-                        .add("matrix:down,fileid -> Download the file with the given id to the downloads map")
-                        .add("matrix:upload,path -> Upload a file with the given path");
-                j.add("Other" )
-                        .add("matrix:restart -> Log out & reload");
-                j.add("matrix:share,roomid,path -> Upload a file with the given path and share the link in the room");
-                return LookAndFeel.formatCmdHelp(j.toString(), d.asHtml());
+                return doHelpCmd(d.asHtml());
             }
             case "restart" -> {
                 readFromXML();
@@ -869,6 +856,25 @@ public class MatrixClient implements Writable, Commandable {
             }
         }
     }
+
+    private static String doHelpCmd(boolean html) {
+        var j = new StringJoiner("\r\n");
+        j.add("Used to monitor a matrix room for messages and send messages.");
+        j.add("Rooms")
+                .add("matrix:rooms -> Give a list of all the joined rooms")
+                .add("matrix:roomid,leave -> Leave the given room")
+                .add("matrix:join,roomid,url -> Join a room with the given id and url")
+                .add("matrix:roomid,say,message -> Send the given message to the room");
+        j.add("Files")
+                .add("matrix:files -> Get a listing of all the file links received")
+                .add("matrix:down,fileid -> Download the file with the given id to the downloads map")
+                .add("matrix:upload,path -> Upload a file with the given path");
+        j.add("Other")
+                .add("matrix:restart -> Log out & reload");
+        j.add("matrix:share,roomid,path -> Upload a file with the given path and share the link in the room");
+        return LookAndFeel.formatCmdHelp(j.toString(), html);
+    }
+
     public static boolean addBlankElement( Path settingsPath,String[] split ){
         if( Files.notExists(settingsPath))
             return false;

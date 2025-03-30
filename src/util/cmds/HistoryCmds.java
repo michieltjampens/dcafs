@@ -20,7 +20,7 @@ public class HistoryCmds {
 
     public static String replyToCommand(String request, boolean html, Path workPath ) {
         if( request.equals("?")){
-            return doHistoryCmdHelp(html);
+            return doHelpCmd(html);
         }
         var cmds = request.split(",");
         if( cmds.length < 2 )
@@ -40,7 +40,7 @@ public class HistoryCmds {
         };
     }
 
-    private static String doHistoryCmdHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         var join = new StringJoiner("\r\n");
         join.add("Commands that read from the raw or log files");
         join.add("Read raw data")

@@ -25,7 +25,7 @@ public class AdminCmds {
 
         String[] cmds = args.split(",");
         return switch (cmds[0]) {
-            case "?" -> doCmdHelp(html);
+            case "?" -> doHelpCmd(html);
             case "checkgpios","checkgpio" ->{
                 if (SystemUtils.IS_OS_WINDOWS)
                     yield "No use checking for gpios on windows";
@@ -61,7 +61,7 @@ public class AdminCmds {
         };
     }
 
-    private static String doCmdHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         StringJoiner join = new StringJoiner("\r\n");
         join.add("Commands that are normally only needed by admins..., use with caution.");
         join.add("admin:getlogs -> Send last/current info and error log to admin email")

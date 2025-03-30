@@ -390,7 +390,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		d.args(d.args().replace("toadmin,", "send,admin,"));
 		String[] cmds = d.argList();
 		return switch (cmds[0]) {
-			case "?" -> getHelp(d.asHtml());
+			case "?" -> doHelpCmd(d.asHtml());
 			case "reload" -> readFromXML()?"Settings reloaded":"! Reload failed";
 			case "refs" -> getEmailBook();
 			case "setup", "status" -> getSettings();
@@ -432,7 +432,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 		};
 	}
 
-	private static String getHelp(boolean html) {
+	private static String doHelpCmd(boolean html) {
 		StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
 		b.add("EmailWorker takes care of sending and receiving emails.")
 				.add( "email:reload -> Reload the settings found in te XML.")

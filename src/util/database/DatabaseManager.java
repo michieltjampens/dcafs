@@ -307,7 +307,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
     private String doOneArgCmd( String[] cmds ,boolean html){
         StringJoiner join = new StringJoiner(html?"<br":"\r\n");
         return switch( cmds[0]) {
-            case "?" -> doCmdHelp(html);
+            case "?" -> doHelpCmd(html);
             case "list", "status" -> getStatus();
             case "prep" -> {
                 lites.values().forEach( lite -> {
@@ -339,7 +339,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
         };
     }
 
-    private static String doCmdHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         var join = new StringJoiner(html?"<br>":"\r\n");
         join.add("The databasemanager connects to databases, handles queries and fetches table information.");
         join.add("Connect to a database")

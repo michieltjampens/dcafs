@@ -319,7 +319,7 @@ public class Waypoints implements Commandable {
         String[] cmds = d.argList();
 
         return switch (cmds[0]) {
-            case "?" -> doCmdHelp(d.asHtml());
+            case "?" -> doHelpCmd(d.asHtml());
             case "list" -> getWaypointList(d.eol());
             case "exists" -> wpExists(cmds[1]) ? "Waypoint exists" : "No such waypoint";
             case "cleartemps" -> {
@@ -365,7 +365,7 @@ public class Waypoints implements Commandable {
         };
     }
 
-    private static String doCmdHelp(boolean html) {
+    private static String doHelpCmd(boolean html) {
         StringJoiner b = new StringJoiner(html ? "<br>" : "\r\n");
         b.add("Waypoints can be used to trigger actions depending on the position received.");
         b.add("Add/remove/alter waypoints")

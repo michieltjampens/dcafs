@@ -149,7 +149,7 @@ public class TelnetServer implements Commandable {
         }
 
         return switch (args[0]) {
-            case "?" -> doCmdHelp();
+            case "?" -> doHelpCmd();
             case "error" -> {
                 if (args.length < 2)
                     yield "! Not enough arguments, telnet:error,message";
@@ -172,7 +172,7 @@ public class TelnetServer implements Commandable {
         };
     }
 
-    private static String doCmdHelp() {
+    private static String doHelpCmd() {
         var join = new StringJoiner("\r\n");
         join.add("Commands for the telnet interface");
         join.add("telnet:broadcast,message -> Broadcast the message to all active telnet sessions at info level.")

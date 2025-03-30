@@ -242,7 +242,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}
 
 		switch (split[0]) {
-			case "?" -> writeLine(doTelnetCmdHelp());
+			case "?" -> writeLine(doHelpCmd());
 			case "id?" -> writeLine( id.equalsIgnoreCase("telnet")?"No id set yet":"Current id: "+id);
 			case "id" -> doChangeIdCmd(split[1]);
 			case "talkto" -> {
@@ -277,7 +277,7 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}
 	}
 
-	private static String doTelnetCmdHelp() {
+	private static String doHelpCmd() {
 		var join = new StringJoiner("\r\n");
 		join.add("Commands available in a Telnet session");
 		join.add(">>>id? -> Returns the current id if set")

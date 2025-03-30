@@ -301,7 +301,7 @@ public class TcpServer implements StreamListener, Commandable {
 		Optional<TransHandler> hOpt = args.length > 1 ? getHandler(args[1]) : Optional.empty();
 
 		return switch (args[0]) {
-			case "?" -> doCmdHelp(d.asHtml());
+			case "?" -> doHelpCmd(d.asHtml());
 			case "store" -> {
 				if (hOpt.isEmpty())
 					yield "! Invalid id";
@@ -337,7 +337,7 @@ public class TcpServer implements StreamListener, Commandable {
 		};
 	}
 
-	private static String doCmdHelp(boolean html) {
+	private static String doHelpCmd(boolean html) {
 		StringJoiner j = new StringJoiner("\r\n");
 		j.add( "TCP server to act as alternative to the telnet interface");
 		j.add("General")
