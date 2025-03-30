@@ -109,10 +109,13 @@ public abstract class BaseStream {
             }
             dig.goUp();
         }
-        for( var write : dig.digOut("write") ){
-            String c = write.value("");
-            if( !c.isEmpty())
-                triggeredActions.add(new TriggerAction( write.attr("when","hello"), c));
+        if (dig.hasPeek("write")) {
+            for (var write : dig.digOut("write")) {
+                String c = write.value("");
+                if (!c.isEmpty())
+                    triggeredActions.add(new TriggerAction(write.attr("when", "hello"), c));
+            }
+            dig.goUp();
         }
         return readExtraFromXML(dig);
     }
