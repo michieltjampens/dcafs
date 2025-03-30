@@ -51,12 +51,11 @@ public class DatabaseManager implements QueryWriting, Commandable {
      * Adds a SQLiteDB to the manager, this adds: - Check if the oldest query in the
      * buffer is older than the max age - Takes care of roll over - Adds the
      * listener
-     * 
+     *
      * @param id The name to reference this database with
      * @param db The SQLiteDB
-     * @return The database added
      */
-    public SQLiteDB addSQLiteDB(String id, SQLiteDB db) {
+    public void addSQLiteDB(String id, SQLiteDB db) {
         if (lites.isEmpty() && sqls.isEmpty())
             scheduler.scheduleAtFixedRate(new CheckQueryAge(), 2L*CHECK_INTERVAL, CHECK_INTERVAL, TimeUnit.SECONDS);
 
@@ -65,7 +64,6 @@ public class DatabaseManager implements QueryWriting, Commandable {
             old.cancelRollOver();
 
         lites.put(id.toLowerCase(), db);
-        return db;
     }
 
     /**
@@ -326,23 +324,21 @@ public class DatabaseManager implements QueryWriting, Commandable {
 
         String[] args = d.argList();
 
-        if (args.length == 1) {
+        if (args.length == 1)
             return doOneArgCmd(args, d.asHtml());
-        } else if (args[0].startsWith("add")) { // So the addmssql, addmysql, addmariadb and addsqlite
+
+        if (args[0].startsWith("add"))  // So the addmssql, addmysql, addmariadb and addsqlite
             return doAddCmd(args, args[1]);
-        }else{
-            var dbOpt = getDatabase(args[0]);
-            if( dbOpt.isEmpty() ) {
-                Logger.error(d.getData() + " -> Failed because no such database: " + args[0]);
-                return "! No such database: " + args[0];
-            }
-            var db = dbOpt.get();
-            if (args.length == 2) {
-                return doTwoArgCmd(args, db, d.asHtml());
-            }else{
-                return doMultiArgCmd(d.cmd(), args, db);
-            }
+
+        var dbOpt = getDatabase(args[0]);
+        if (dbOpt.isEmpty()) {
+            Logger.error(d.getData() + " -> Failed because no such database: " + args[0]);
+            return "! No such database: " + args[0];
         }
+        var db = dbOpt.get();
+        if (args.length == 2)
+            return doTwoArgCmd(args, db, d.asHtml());
+        return doMultiArgCmd(d.cmd(), args, db);
     }
     private String doOneArgCmd( String[] cmds ,boolean html){
         StringJoiner join = new StringJoiner(html?"<br":"\r\n");
@@ -378,7 +374,8 @@ public class DatabaseManager implements QueryWriting, Commandable {
             default -> "! No such command " + cmds[0];
         };
     }
-    private String doCmdHelp( boolean html ){
+
+    private static String doCmdHelp(boolean html) {
         var join = new StringJoiner(html?"<br>":"\r\n");
         join.add("The databasemanager connects to databases, handles queries and fetches table information.");
         join.add("Connect to a database")
@@ -440,16 +437,16 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 return "Created SQLite at "+dbName+" and wrote to settings.xml";
             }
             return "! Failed to create SQLite";
-        }else{
-            SQLDB db = new SQLDB(cmds[0], address, dbName, user, pass);
-            if (db.isInValidType())
-                return "! Invalid db type: "+cmds[0];
-            db.id(id);
-            db.writeToXml(Paths.fabInSettings("databases"));
-            addSQLDB(id, db);
-            db.connect(false);
-            return "Connecting to " + cmds[0] + " database...";
         }
+        // Database server
+        SQLDB db = new SQLDB(cmds[0], address, dbName, user, pass);
+        if (db.isInValidType())
+            return "! Invalid db type: " + cmds[0];
+        db.id(id);
+        db.writeToXml(Paths.fabInSettings("databases"));
+        addSQLDB(id, db);
+        db.connect(false);
+        return "Connecting to " + cmds[0] + " database...";
     }
 
     private String doAddColumnCmd(String[] args) {

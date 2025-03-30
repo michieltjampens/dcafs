@@ -82,50 +82,25 @@ public class SqlTable{
         boolean ok = true;
 
         for (Element node : XMLtools.getChildElements(tbl)) {
-            if (node != null) {
-                String val = node.getTextContent().trim();
-                if (val.equals(".")) {
-                    Logger.error("Column still without a name! " + tableName);
-                    ok = false;
-                    break;
-                }
-                String rtval = XMLtools.getStringAttribute(node,"rtval","");
-
-                switch (node.getNodeName()) {
-                    case "real" -> table.addReal(val, rtval);
-                    case "integer", "int" -> table.addInteger(val, rtval);
-                    case "timestamp" -> {
-                        if (rtval.isEmpty()) {
-                            table.addTimestamp(val);
-                        } else {
-                            table.addText(val, rtval);
-                        }
-                    }
-                    case "millis" -> {
-                        if (rtval.isEmpty()) {
-                            table.addEpochMillis(val);
-                        } else {
-                            table.addInteger(val, rtval);
-                        }
-                    }
-                    case "text" -> table.addText(val, rtval);
-                    case "localdtnow","localnow" -> table.addLocalDateTime(val, rtval, true);
-                    case "utcdtnow", "utcnow" -> table.addUTCDateTime(val, rtval, true);
-                    case "datetime" -> table.addLocalDateTime(val, rtval, false);
-                    default -> {
-                        Logger.error("Unknown column specified " + node.getNodeName() + " for " + table.getName());
-                        return Optional.empty();
-                    }
-                }
-
-                /* Setup of the column */
-                String setup = node.getAttribute("setup").toLowerCase();
-                table.setPrimaryKey(setup.contains("primary"));
-                table.setNotNull(setup.contains("notnull"));
-                table.setUnique(setup.contains("unique"));
-                if (node.hasAttribute("def"))
-                    table.withDefault(node.getAttribute("def"));
+            if (node == null)
+                continue;
+            String val = node.getTextContent().trim();
+            if (val.equals(".")) {
+                Logger.error("Column still without a name! " + tableName);
+                ok = false;
+                break;
             }
+
+            if (!processNode(node, table, val))
+                return Optional.empty();
+
+            /* Setup of the column */
+            String setup = node.getAttribute("setup").toLowerCase();
+            table.setPrimaryKey(setup.contains("primary"));
+            table.setNotNull(setup.contains("notnull"));
+            table.setUnique(setup.contains("unique"));
+            if (node.hasAttribute("def"))
+                table.withDefault(node.getAttribute("def"));
         }
         if (ok) {
             table.ready_state = TABLE_STATE.READ_FROM_XML;
@@ -134,6 +109,36 @@ public class SqlTable{
         return Optional.empty();
     }
 
+    private static boolean processNode(Element node, SqlTable table, String val) {
+        String rtval = XMLtools.getStringAttribute(node, "rtval", "");
+        switch (node.getNodeName()) {
+            case "real" -> table.addReal(val, rtval);
+            case "integer", "int" -> table.addInteger(val, rtval);
+            case "timestamp" -> {
+                if (rtval.isEmpty()) {
+                    table.addTimestamp(val);
+                } else {
+                    table.addText(val, rtval);
+                }
+            }
+            case "millis" -> {
+                if (rtval.isEmpty()) {
+                    table.addEpochMillis(val);
+                } else {
+                    table.addInteger(val, rtval);
+                }
+            }
+            case "text" -> table.addText(val, rtval);
+            case "localdtnow", "localnow" -> table.addLocalDateTime(val, rtval, true);
+            case "utcdtnow", "utcnow" -> table.addUTCDateTime(val, rtval, true);
+            case "datetime" -> table.addLocalDateTime(val, rtval, false);
+            default -> {
+                Logger.error("Unknown column specified " + node.getNodeName() + " for " + table.getName());
+                return false;
+            }
+        }
+        return true;
+    }
     public void flagAsReadFromXML() {
         ready_state = TABLE_STATE.READ_FROM_XML;
     }
@@ -482,11 +487,9 @@ public class SqlTable{
         return true;
     }
     public static Timestamp asTimestamp(OffsetDateTime offsetDateTime) {
-        if (offsetDateTime != null) {
+        if (offsetDateTime != null)
             return Timestamp.valueOf(offsetDateTime.atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime());
-        }
-        else
-            return null;
+        return null;
     }
     public int clearRecords( String id, long[] updateCounts ){
         PrepStatement prep = preps.get(id);
@@ -554,63 +557,13 @@ public class SqlTable{
                 switch( col.type ){
                     case EPOCH -> store.addEmptyVal();
                     case REAL -> {
-                        var v = rtvals.getRealVal(ref);
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
-                        }else{
-                            if( col.hasDefault) {
-                                Logger.warn(name+" -> Couldn't find "+ref+" using column default");
-                                var rv = RealVal.newVal(name,col.title);
-                                if( rv.parseValue(col.defString) ) {
-                                    store.addAbstractVal(rv);
-                                }else{
-                                    Logger.error(name +" -> Failed to parse the default of "+col.title+" to a real.");
-                                }
-                            }else{
-                                Logger.error(name+" -> Couldn't find "+ref+" AND no column default, abort store building");
-                                return;
-                            }
-                        }
+                        if (doReal(rtvals, ref, store, col)) return;
                     }
                     case INTEGER -> {
-                        var v = rtvals.getIntegerVal(ref);
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
-                        }else{
-                            if( col.hasDefault) {
-                                Logger.warn(name+" -> Couldn't find the IntVal "+ref+" using column default");
-                                var iv = IntegerVal.newVal(name,col.title);
-                                if( iv.parseValue(col.defString) ) {
-                                    store.addAbstractVal(iv);
-                                }else{
-                                    Logger.error(name +" -> Failed to parse the default of "+col.title+" to an integer.");
-                                }
-                            }else{
-                                Logger.error(name+" -> Couldn't find the IntVal "+ref+" using AND no column default, abort store building");
-                                return;
-                            }
-                        }
+                        if (doInteger(rtvals, ref, store, col)) return;
                     }
-                    case UTCDTNOW -> {
-                        var v = rtvals.getTextVal("dcafs_utcdt");
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
-                        }else{
-                            var tv = TextVal.newUTCTimeVal("dcafs","utcdt");
-                            rtvals.addTextVal(tv);
-                            store.addAbstractVal(tv);
-                        }
-                    }
-                    case LOCALDTNOW -> {
-                        var v = rtvals.getTextVal("dcafs_localdt");
-                        if( v.isPresent()){
-                            store.addAbstractVal(v.get());
-                        }else{
-                            var tv = TextVal.newLocalTimeVal("dcafs","localdt");
-                            rtvals.addTextVal(tv);
-                            store.addAbstractVal(tv);
-                        }
-                    }
+                    case UTCDTNOW -> doUtcdtNow(rtvals, store);
+                    case LOCALDTNOW -> doLocaldtNow(rtvals, store);
                     case TEXT,DATETIME -> {
                         var v = rtvals.getTextVal(ref);
                         if( v.isPresent()){
@@ -627,6 +580,69 @@ public class SqlTable{
             }
         }
         validStore=true;
+    }
+
+    private static void doLocaldtNow(RealtimeValues rtvals, ValStore store) {
+        var v = rtvals.getTextVal("dcafs_localdt");
+        if (v.isPresent()) {
+            store.addAbstractVal(v.get());
+        } else {
+            var tv = TextVal.newLocalTimeVal("dcafs", "localdt");
+            rtvals.addTextVal(tv);
+            store.addAbstractVal(tv);
+        }
+    }
+
+    private static void doUtcdtNow(RealtimeValues rtvals, ValStore store) {
+        var v = rtvals.getTextVal("dcafs_utcdt");
+        if (v.isPresent()) {
+            store.addAbstractVal(v.get());
+        } else {
+            var tv = TextVal.newUTCTimeVal("dcafs", "utcdt");
+            rtvals.addTextVal(tv);
+            store.addAbstractVal(tv);
+        }
+    }
+
+    private boolean doInteger(RealtimeValues rtvals, String ref, ValStore store, Column col) {
+        var v = rtvals.getIntegerVal(ref);
+        if (v.isPresent()) {
+            store.addAbstractVal(v.get());
+            return false;
+        }
+
+        if (col.hasDefault) {
+            Logger.warn(name + " -> Couldn't find the IntVal " + ref + " using column default");
+            var iv = IntegerVal.newVal(name, col.title);
+            if (iv.parseValue(col.defString)) {
+                store.addAbstractVal(iv);
+            } else {
+                Logger.error(name + " -> Failed to parse the default of " + col.title + " to an integer.");
+            }
+            return false;
+        }
+        Logger.error(name + " -> Couldn't find the IntVal " + ref + " using AND no column default, abort store building");
+        return true;
+    }
+
+    private boolean doReal(RealtimeValues rtvals, String ref, ValStore store, Column col) {
+        var v = rtvals.getRealVal(ref);
+        if (v.isPresent()) {
+            store.addAbstractVal(v.get());
+            return false;
+        }
+        if (col.hasDefault) {
+            Logger.warn(name + " -> Couldn't find " + ref + " using column default");
+            var rv = RealVal.newVal(name, col.title);
+            if (rv.parseValue(col.defString)) {
+                store.addAbstractVal(rv);
+            } else {
+                Logger.error(name + " -> Failed to parse the default of " + col.title + " to a real.");
+            }
+            return false;
+        }
+        Logger.error(name + " -> Couldn't find " + ref + " AND no column default, abort store building");
+        return true;
     }
 
     public boolean hasValidStore() {
@@ -657,48 +673,8 @@ public class SqlTable{
             Column col = columns.get(colPos);
             index++;
             String def = col.getDefault();
-            Object val = null;
-            try{
-                switch( col.type ){
-                    case EPOCH -> val=Instant.now().toEpochMilli();
-                    case TEXT,INTEGER,REAL -> {
-                        var v = rt.get(index);
-                        if( v!=null){
-                            val = v.stringValue();
-                        }
-                    }
-                    case LOCALDTNOW -> {
-                        if( server ){
-                            val = LocalDateTime.now();
-                        }else{
-                            var v = rt.get(index);
-                            if( v!=null){
-                                val = v.stringValue();
-                            }
-                        }
-                    }
-                    case UTCDTNOW -> {
-                        if( server ){
-                            val = OffsetDateTime.now(ZoneOffset.UTC);
-                        }else{
-                            var v = rt.get(index);
-                            if (v != null)
-                                val = v.stringValue();
-                        }
-                    }
-                    case DATETIME -> {
-                        var v = rt.get(index);
-                        if( v!=null ){
-                            val = TimeTools.parseDateTime(v.stringValue(),"yyyy-MM-dd HH:mm:ss.SSS");
-                            if( !server )
-                                val = val.toString();
-                        }
-                    }
-                }
-            }catch( NullPointerException e ){
-                Logger.error(id+" -> Null pointer when looking for "+col.rtval + " type:"+col.type);
-            }
 
+            Object val = processColumnType(id, col, rt, index);
             if( val == null && col.hasDefault ){
                 record[index]= def;
             }else{
@@ -712,6 +688,54 @@ public class SqlTable{
         prepCount++;
         return prep.addData(record);
     }
+
+    private Object processColumnType(String id, Column col, ArrayList<AbstractVal> rt, int index) {
+        try {
+            return switch (col.type) {
+                case EPOCH -> Instant.now().toEpochMilli();
+                case TEXT, INTEGER, REAL -> {
+                    var v = rt.get(index);
+                    if (v != null)
+                        yield v.stringValue();
+                    yield null;
+                }
+                case LOCALDTNOW -> {
+                    if (server)
+                        yield LocalDateTime.now();
+
+                    var v = rt.get(index);
+                    if (v != null)
+                        yield v.stringValue();
+                    yield null;
+                }
+                case UTCDTNOW -> {
+                    if (server)
+                        yield OffsetDateTime.now(ZoneOffset.UTC);
+
+                    var v = rt.get(index);
+                    if (v != null)
+                        yield v.stringValue();
+                    yield null;
+                }
+                case DATETIME -> {
+                    var v = rt.get(index);
+                    if (v != null) {
+                        var ts = TimeTools.parseDateTime(v.stringValue(), "yyyy-MM-dd HH:mm:ss.SSS");
+                        Object val = ts;
+                        if (!server)
+                            val = ts.toString();
+                        yield val;
+                    }
+                    yield null;
+                }
+                default -> null;
+            };
+        } catch (NullPointerException e) {
+            Logger.error(id + " -> Null pointer when looking for " + col.rtval + " type:" + col.type);
+        }
+        return null;
+    }
+
     public long getPrepCount(){
         return prepCount;
     }
@@ -774,8 +798,8 @@ public class SqlTable{
      */
     private class Column{
         COLUMN_TYPE type;
-        String title="";
-        String rtval ="";
+        String title;
+        String rtval;
         boolean unique=false;
         boolean notnull=false;
         boolean primary=false;
@@ -803,9 +827,8 @@ public class SqlTable{
         public String getDefault(){
             if( type==COLUMN_TYPE.TEXT ){
                 return "'"+defString+"'";
-            }else{
-                return defString;
             }
+            return defString;
         }
         /**
          * Get the string that will be used in the CREATE statement for this column
@@ -873,15 +896,11 @@ public class SqlTable{
             return data;
         }
         public boolean addData( Object[] d ){
-
             if( d.length!=indexes.size() )
                 return false;
-            if(locked){
+            if (locked)
                 return temp.add(d);
-            }else{
-                return data.add(d);
-            }
-
+            return data.add(d);
         }
         public void setStatement( String stat ){
             statement=stat;

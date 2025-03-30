@@ -168,11 +168,4 @@ public abstract class Database{
     public Optional<List<List<Object>>> doSelect(String query ){
         return doSelect(query,false);
     }
-
-    /**
-     * Add a query to the buffer
-     * @param query The query to add to the buffer
-     */
-    public abstract void addQuery(String query);
-
 }

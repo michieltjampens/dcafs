@@ -289,9 +289,8 @@ public class SQLDB extends Database implements TableInsert{
         try {
             if (con == null) { // no con = not valid
                 return false;
-            } else {
-                return con.isValid(timeout);
             }
+            return con.isValid(timeout);
         } catch (SQLException e) {
             Logger.error(id+"(db) -> SQLException when checking if valid: "+e.getMessage());
             return false;
@@ -339,7 +338,6 @@ public class SQLDB extends Database implements TableInsert{
      * @return The gathered information
      */
     public String getTableInfo(String eol){
-
         StringJoiner j = new StringJoiner(eol,"Info about "+id+eol,"");
         j.setEmptyValue("No tables stored.");
         tables.values().forEach( table -> j.add(table.getInfo()));
@@ -405,7 +403,7 @@ public class SQLDB extends Database implements TableInsert{
         String tblName = table.getName();
         if( type == DBTYPE.POSTGRESQL )
             tblName = "'"+tblName+"'";
-        final boolean[] first = {true};
+        final boolean[] first = {true};//so it can be uses in lambda
         table.flagAsReadFromDB();
         readTable(con, columnRequest + quotePrefix + tblName + quoteSuffix + ";", rs -> {
             try {
@@ -612,15 +610,6 @@ public class SQLDB extends Database implements TableInsert{
         }
         return false;
     }
-    public synchronized void addQuery(String query) {
-        if (!hasRecords())
-            firstSimpleStamp = Instant.now().toEpochMilli();
-        simpleQueries.add(query);
-
-        if( simpleQueries.size()>maxQueries && !busySimple )
-            flushSimple();
-    }
-
     /**
      * Flush all the buffers to the database
      */
@@ -874,9 +863,8 @@ public class SQLDB extends Database implements TableInsert{
         try (Statement stmt = con.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 
-            if (rs == null) {
+            if (rs == null)
                 return;
-            }
 
             while (rs.next())
                 action.accept(rs);
@@ -1001,18 +989,18 @@ public class SQLDB extends Database implements TableInsert{
         public void run() {
             // Process the prepared statements
             tables.values().stream().filter( SqlTable::hasRecords ).forEach(
-                    t -> t.getPreps().forEach(
+                    sqlTable -> sqlTable.getPreps().forEach(
                             id ->
                             {
                                 boolean ok=true;
                                 int errors=0;
-                                while( t.hasRecords(id)&&ok ){ //do again if new queries arrived or part of the batch failed
+                                while (sqlTable.hasRecords(id) && ok) { //do again if new queries arrived or part of the batch failed
                                     int cnt;
-                                    try (PreparedStatement ps = con.prepareStatement(t.getPreparedStatement(id))){
-                                        cnt = t.fillStatement(id,ps);
+                                    try (PreparedStatement ps = con.prepareStatement(sqlTable.getPreparedStatement(id))) {
+                                        cnt = sqlTable.fillStatement(id, ps);
                                         if( cnt > 0 ){
                                             ps.executeBatch();
-                                            t.clearRecords( id, cnt );
+                                            sqlTable.clearRecords(id, cnt);
                                             if (!con.getAutoCommit())
                                                 con.commit();
                                             if( hasRecords() ) // if there are records left, the timestamp should be reset
@@ -1025,47 +1013,53 @@ public class SQLDB extends Database implements TableInsert{
                                         Logger.error(id()+" (db)-> Batch error, clearing batched:"+e.getMessage());
                                         insertErrors++;
                                         Logger.error(e.getErrorCode());
-                                        Logger.error(id()+" (db)-> Removed bad records: "+t.clearRecords( id, e.getLargeUpdateCounts() )); // just drop the data or try one by one?
+                                        Logger.error(id() + " (db)-> Removed bad records: " + sqlTable.clearRecords(id, e.getLargeUpdateCounts())); // just drop the data or try one by one?
                                     } catch (SQLException e) {
-                                        errors++;
-                                        insertErrors++;
-                                        if( e.getMessage().contains("no such table") && SQLDB.this instanceof SQLiteDB){
-                                            Logger.error(id()+"(db) -> Got no such sqlite table error, trying to resolve...");
-                                            try {
-                                                var c = con.createStatement();
-                                                c.execute(t.create());
-                                                if (!con.getAutoCommit())
-                                                    con.commit();
-                                            } catch (SQLException f) {
-                                                Logger.error(f);
-                                            }
-                                        }
-                                        if( errors>10) {
-                                            Logger.error(id()+" -(db)> 10x SQL Error:"+e.getMessage() );
-                                            Logger.error( "Errorcode:" +e.getErrorCode() );
-                                            if (e.getErrorCode() == 8 && !t.server) {
-                                                connect(true);
-                                                Logger.warn(id()+ "->Errorcode 8 detected for sqlite, trying to reconnect.");
-                                            }else{
-                                                t.dumpData(id, workPath );
-                                            }
+                                        errors = doSqlException(e, sqlTable, errors);
+                                        if (errors > 10)
                                             ok = false;
-                                        }
                                     } catch (Exception e) {
                                         insertErrors++;
-                                        Logger.error(id()+"(db) -> General Error:"+e);
+                                        Logger.error(id() + "(db) -> General Error:" + e);
                                         Logger.error(e);
-                                        ok=false;
+                                        ok = false;
                                     }
                                 }
                             }
                     )
             );
             // If there are still records left, this becomes the next first
-            if(tables.values().stream().anyMatch(t -> t.getRecordCount() != 0) ){
+            if (tables.values().stream().anyMatch(t -> t.getRecordCount() != 0))
                 firstPrepStamp = Instant.now().toEpochMilli();
+
+            busyPrepared = false; // Finished work, so reset the flag
+        }
+
+        private int doSqlException(SQLException e, SqlTable sqlTable, int errors) {
+            errors++;
+            insertErrors++;
+            if (e.getMessage().contains("no such table") && SQLDB.this instanceof SQLiteDB) {
+                Logger.error(id() + "(db) -> Got no such sqlite table error, trying to resolve...");
+                try {
+                    var c = con.createStatement();
+                    c.execute(sqlTable.create());
+                    if (!con.getAutoCommit())
+                        con.commit();
+                } catch (SQLException f) {
+                    Logger.error(f);
+                }
             }
-            busyPrepared=false; // Finished work, so reset the flag
+            if (errors > 10) {
+                Logger.error(id() + " -(db)> 10x SQL Error:" + e.getMessage());
+                Logger.error("Errorcode:" + e.getErrorCode());
+                if (e.getErrorCode() == 8 && !sqlTable.server) {
+                    connect(true);
+                    Logger.warn(id() + "->Errorcode 8 detected for sqlite, trying to reconnect.");
+                } else {
+                    sqlTable.dumpData(id, workPath);
+                }
+            }
+            return errors;
         }
     }
 }
