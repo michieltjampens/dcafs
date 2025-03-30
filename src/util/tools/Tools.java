@@ -344,14 +344,19 @@ public class Tools {
      * @return The resulting array
      */
     public static String[] splitList(String line) {
-        String[] delims = { " ", "\t", ";", ",","\\|" };
-        String[] eles = { line };
-        for (String delim : delims) {
-            if (line.contains(delim)) {
-                return line.split(delim);
-            }
+        if (line == null || line.isEmpty()) {
+            return new String[]{};
         }
-        return eles;
+        // Regex to match any of the delimiters (space, tab, semicolon, comma, or pipe)
+        return line.split("[ \t,;|]+");
+    }
+
+    public static String[] splitList(String line, int minCount, String filler) {
+        var list = new ArrayList<>(Arrays.asList(splitList(line)));
+
+        while (list.size() < minCount)
+            list.add(filler);
+        return list.toArray(String[]::new);
     }
     /**
      * Splits a line trying multiple delimiters, first space, then semicolon and

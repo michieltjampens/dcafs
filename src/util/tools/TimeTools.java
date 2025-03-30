@@ -145,25 +145,30 @@ public class TimeTools {
         if( interval_millis%1000 != 0 )
             return interval_millis;
 
+        var res = secondsDelayToCleanTime(interval_millis / 1000);
+        return res / 1000;
+    }
+
+    public static long secondsDelayToCleanTime(long interval_millis) {
         // Meaning clean seconds
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime first = now.withNano(0);
 
-        long sec = interval_millis/1000;
-        if( sec < 60 ){ // so less than a minute
-            int secs = (int)((now.getSecond()/sec+1)*sec);
-            if( secs >= 60 ){
-                first = first.plusMinutes(1).withSecond( secs - 60);
-            }else {
-                first = first.withSecond( secs );
+        long sec = interval_millis / 1000;
+        if (sec < 60) { // so less than a minute
+            int secs = (int) ((now.getSecond() / sec + 1) * sec);
+            if (secs >= 60) {
+                first = first.plusMinutes(1).withSecond(secs - 60);
+            } else {
+                first = first.withSecond(secs);
             }
-        }else if( sec < 3600 ) { // so below an hour
-           first = handleBelowHour(sec);
-        }else{ // more than an hour
+        } else if (sec < 3600) { // so below an hour
+            first = handleBelowHour(sec);
+        } else { // more than an hour
             first = handleAboveHour(sec);
         }
-        Logger.info("Found next at "+first);
-        return Duration.between( LocalDateTime.now(),first).toMillis();
+        Logger.info("Found next at " + first);
+        return Duration.between(LocalDateTime.now(), first).toMillis();
     }
     private static LocalDateTime handleBelowHour(long sec){
         int mins;
@@ -336,6 +341,42 @@ public class TimeTools {
         }
     }
     /* ********************** C A L C U L A T I O N S ****************************************** */
+
+    /**
+     * Calculates the seconds till a certain time in UTC
+     *
+     * @param time The time in standard format
+     * @return Amount of seconds till the given time
+     */
+    public static long calcSecondsTo(String time) {
+        OffsetTime now = OffsetTime.now(ZoneOffset.UTC);
+        OffsetTime then = LocalTime.parse(time, DateTimeFormatter.ofPattern("HH:mm:ss")).atOffset(ZoneOffset.UTC);
+
+        if (now.isBefore(then)) {
+            return Duration.between(now, then).toSeconds();
+        } else {
+            return Duration.between(then, now).toSeconds() + 86400;
+        }
+    }
+
+    public static long calcSecondsTo(String time, ArrayList<DayOfWeek> validDays) {
+
+        if (validDays.isEmpty())
+            return -1;
+
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime tillTime = now.with(LocalTime.parse(time, DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+        tillTime = tillTime.plusNanos(now.getNano());
+
+        if (tillTime.isBefore(now.plusNanos(100000))) // If already happened today
+            tillTime = tillTime.plusDays(1);
+
+        while (!validDays.contains(tillTime.getDayOfWeek()))
+            tillTime = tillTime.plusDays(1);
+
+        return (int) Duration.between(now, tillTime).getSeconds() + 1;
+    }
     /**
      * Calculates the seconds to midnight in UTC
      * @return Seconds till midnight in UTC
@@ -390,6 +431,7 @@ public class TimeTools {
 
     /**
      * Calculate the seconds till the occurrence of the time
+     *
      * @param timeAsString The time to calculate the seconds for
      * @return The time in seconds till the next execution
      */

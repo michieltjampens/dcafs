@@ -3,7 +3,10 @@ package util.tasks;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
+import util.tools.Tools;
 
+import java.time.DayOfWeek;
+import java.util.ArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -14,17 +17,19 @@ public class DelayBlock extends AbstractBlock {
     long interval = 0;
     int repeats = -1;
     int reps = -1;
+    String time = "";
     ScheduledFuture<?> future;
+    ArrayList<DayOfWeek> taskDays;
 
     public DelayBlock(EventLoopGroup eventLoop) {
         this.eventLoop = eventLoop;
     }
-    public DelayBlock useInterval(String initialDelay, String interval, int repeats) {
+
+    public void useInterval(String initialDelay, String interval, int repeats) {
         this.interval = TimeTools.parsePeriodStringToSeconds(interval);
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(initialDelay);
         this.repeats = repeats;
         reps = repeats;
-        return this;
     }
 
     public DelayBlock useDelay(String delay) {
@@ -32,17 +37,36 @@ public class DelayBlock extends AbstractBlock {
         return this;
     }
 
+    public void useClock(String time) {
+        this.time = time;
+    }
     @Override
     boolean start() {
         clean = false;
         if (interval == 0) {
             future = eventLoop.schedule(this::doNext, initialDelay, TimeUnit.SECONDS);
+        } else if (!time.isEmpty()) {
+            var split = Tools.splitList(time, 2, "always");
+            time = split[0];
+            taskDays = TimeTools.convertDAY(split[1]);
+
+            var initialDelay = TimeTools.calcSecondsTo(time, taskDays);
+            future = eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
         } else {
-            future = eventLoop.scheduleAtFixedRate(this::doNext, initialDelay, interval, TimeUnit.SECONDS);
+            var initial = TimeTools.secondsDelayToCleanTime(interval * 1000) / 1000;
+            if (initialDelay != 0)
+                initial = initialDelay;
+            future = eventLoop.scheduleAtFixedRate(this::doNext, initial, interval, TimeUnit.SECONDS);
         }
         return true;
     }
 
+    private void dailyRun() {
+        doNext();
+        Logger.info("Running daily task!");
+        var initialDelay = TimeTools.calcSecondsTo(time, taskDays);
+        future = eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
+    }
     @Override
     public void doNext() {
         if (reps == -1) {

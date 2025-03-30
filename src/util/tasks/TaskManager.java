@@ -159,13 +159,16 @@ public class TaskManager implements Writable {
     private AbstractBlock handleDelay(XMLdigger task) {
         var delay = task.attr("delay", "-1s");
         var interval = task.attr("interval", "");
+        var time = task.attr("time", "");
         var delayBlock = new DelayBlock(eventLoop);
 
         if (!delay.equals("-1s")) {
             delayBlock.useDelay(delay);
+        } else if (!time.isEmpty()) {
+            delayBlock.useClock(time);
         } else if (!interval.isEmpty()) {
             var periods = Tools.splitList(interval);
-            var initial = periods[0];
+            var initial = periods.length == 2 ? periods[0] : "0s";
             var recurring = periods.length == 2 ? periods[1] : periods[0];
             var repeats = task.attr("repeats", -1);
 
