@@ -257,7 +257,7 @@ public class TaskManagerPool implements Commandable {
                 yield "! Failed to add taskset";
             }
             case "startups" -> tl.getStartupTasks(nl);
-            case "sets" -> tl.getTaskSetListing(nl);
+            case "sets" -> tl.getTaskSetListing();
             case "stop" -> "Cancelled " + tl.stopAll() + " futures.";
             case "run" -> doRunCmd(cmds, tl);
             case "taskinfo" -> {

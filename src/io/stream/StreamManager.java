@@ -286,7 +286,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		if (txt.contains("\\h(")) {
 			txt = convertHexes(txt);
-			//txt = txt.substring( 3, txt.indexOf(")") ); //remove the \h(...)
 			return writeBytesToStream(id, txt.getBytes());//Tools.fromHexStringToBytes(txt) );
 		}
 
@@ -305,47 +304,56 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		}
 
 		BaseStream stream = streamOptional.get();
-		ConfirmCollector cw = confirmCollectors.get(id);
+		ConfirmCollector confirmCollector = confirmCollectors.get(id);
 
-		if (cw != null && cw.isEmpty()) {
+		if (confirmCollector != null && confirmCollector.isEmpty()) {
 			confirmCollectors.remove(id);
 			Logger.info("Removed empty ConfirmCollector " + id);
-			cw = null;
+			confirmCollector = null;
 		}
 
-		if (cw == null) {// If none exists yet
-			if (txt.contains(";") || !reply.isEmpty()) {
-				cw = new ConfirmCollector(id, 3, 3, (Writable) stream, scheduler);
-				cw.addListener(this);
-				if (!reply.isEmpty()) // No need to get data if we won't use it
-					stream.addTarget(cw);
-				confirmCollectors.put(stream.id(), cw);
-			} else {
-				if (txt.indexOf("\\") < txt.length() - 2) {
-					txt = Tools.fromEscapedStringToBytes(txt);
-				}
-				boolean written;
-				boolean nullEnded = Tools.isNullEnded(txt);
-				if (txt.endsWith("\\0") || nullEnded) {
-					if (nullEnded)
-						txt = txt.substring(0, txt.length() - 1);
-					txt = StringUtils.removeEnd(txt, "\\0");
-					written = ((Writable) stream).writeString(txt);
-				} else {
-					written = ((Writable) stream).writeLine("", txt);
-				}
-				if (!written)
-					Logger.error("writeString/writeLine failed to " + id + " for " + txt);
-				if (txt.getBytes()[0] == 27)
-					txt = "ESC";
-				return written ? txt : "";
-			}
+		if (confirmCollector == null) {// If none exists yet
+			confirmCollector = withoutConfirmCollector(txt, stream, reply, id);
+			if (confirmCollector == null)
+				return noNeedConfirmCollector(txt, id, stream);
 		}
-		cw.addConfirm(txt.split(";"), reply);
+		confirmCollector.addConfirm(txt.split(";"), reply);
+		confirmCollectors.put(id, confirmCollector);
 		return txt;
-
 	}
 
+	private ConfirmCollector withoutConfirmCollector(String txt, BaseStream stream, String reply, String id) {
+		ConfirmCollector confirmCollector = null;
+		if (txt.contains(";") || !reply.isEmpty()) {
+			confirmCollector = new ConfirmCollector(id, 3, 3, (Writable) stream, scheduler);
+			confirmCollector.addListener(this);
+			if (!reply.isEmpty()) // No need to get data if we won't use it
+				stream.addTarget(confirmCollector);
+			confirmCollectors.put(stream.id(), confirmCollector);
+		}
+		return confirmCollector;
+	}
+
+	private String noNeedConfirmCollector(String txt, String id, BaseStream stream) {
+		if (txt.indexOf("\\") < txt.length() - 2) {
+			txt = Tools.fromEscapedStringToBytes(txt);
+		}
+		boolean written;
+		boolean nullEnded = Tools.isNullEnded(txt);
+		if (txt.endsWith("\\0") || nullEnded) {
+			if (nullEnded)
+				txt = txt.substring(0, txt.length() - 1);
+			txt = StringUtils.removeEnd(txt, "\\0");
+			written = ((Writable) stream).writeString(txt);
+		} else {
+			written = ((Writable) stream).writeLine("", txt);
+		}
+		if (!written)
+			Logger.error("writeString/writeLine failed to " + id + " for " + txt);
+		if (txt.getBytes()[0] == 27)
+			txt = "ESC";
+		return written ? txt : "";
+	}
 	/* ************************************************************************************************* */
 
 	/**
@@ -487,88 +495,106 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public BaseStream addStreamFromXML(XMLdigger stream) {
 
 		var type = stream.attr("type", "").toLowerCase();
-		switch (type) {
-			case "tcp", "tcpclient" -> {
-				TcpStream tcp = new TcpStream(stream);
-				tcp.setEventLoopGroup(eventLoopGroup);
-				tcp.addListener(this);
-				bootstrapTCP = tcp.setBootstrap(bootstrapTCP);
-				if (tcp.getReaderIdleTime() != -1) {
-					scheduler.schedule(new ReaderIdleTimeoutTask(tcp), tcp.getReaderIdleTime(), TimeUnit.SECONDS);
-				}
-				tcp.reconnectFuture = scheduler.schedule(new DoConnection(tcp), 0, TimeUnit.SECONDS);
-				return tcp;
+		return switch (type) {
+			case "tcp", "tcpclient" -> addTcpFromStream(stream);
+			case "tcpserver" -> addTcpServerFromStream(stream);
+			case "udp", "udpclient" -> addUdpClientFromStream(stream);
+			case "udpserver" -> addUdpServerFromStream(stream);
+			case "serial" -> addSerialFromStream(stream);
+			case "modbus" -> addModbusFromStream(stream);
+			case "multiplex" -> addMultiplexFromStream(stream);
+			case "local" -> addLocalFromStream(stream);
+			default -> {
+				Logger.error("No such type defined: " + type);
+				yield null;
 			}
-			case "tcpserver" -> {
-				TcpServerStream tcp = new TcpServerStream(stream);
-				tcp.setEventLoopGroup(eventLoopGroup);
-				tcp.connect();
-				return tcp;
-			}
-			case "udp", "udpclient" -> {
-				UdpStream udp = new UdpStream(stream);
-				udp.setEventLoopGroup(eventLoopGroup);
-				udp.addListener(this);
-				bootstrapUDP = udp.setBootstrap(bootstrapUDP);
-				udp.reconnectFuture = scheduler.schedule(new DoConnection(udp), 0, TimeUnit.SECONDS);
-				return udp;
-			}
-			case "udpserver" -> {
-				UdpServer serv = new UdpServer(stream);
-				serv.setEventLoopGroup(eventLoopGroup);
-				serv.addListener(this);
-				serv.connect();
-				return serv;
-			}
-			case "serial" -> {
-				SerialStream serial = new SerialStream(stream);
-				serial.setEventLoopGroup(eventLoopGroup);
-				if (serial.getReaderIdleTime() != -1) {
-					scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
-				}
-				serial.addListener(this);
-				serial.reconnectFuture = scheduler.schedule(new DoConnection(serial), 0, TimeUnit.SECONDS);
-				return serial;
-			}
-			case "modbus" -> {
-				if (stream.hasPeek("address")) { // Address means tcp
-					ModbusTCPStream mbtcp = new ModbusTCPStream(stream);
-					mbtcp.setEventLoopGroup(eventLoopGroup);
-					mbtcp.addListener(this);
-					bootstrapTCP = mbtcp.setBootstrap(bootstrapTCP);
-					mbtcp.reconnectFuture = scheduler.schedule(new DoConnection(mbtcp), 0, TimeUnit.SECONDS);
-					return mbtcp;
-				} else {
-					ModbusStream modbus = new ModbusStream(stream);
-					modbus.setEventLoopGroup(eventLoopGroup);
-					modbus.addListener(this);
-					modbus.reconnectFuture = scheduler.schedule(new DoConnection(modbus), 0, TimeUnit.SECONDS);
-					return modbus;
-				}
-			}
-			case "multiplex" -> {
-				MultiStream mStream = new MultiStream(stream);
-				mStream.setEventLoopGroup(eventLoopGroup);
-				if (mStream.readerIdleSeconds != -1) {
-					scheduler.schedule(new ReaderIdleTimeoutTask(mStream), mStream.readerIdleSeconds, TimeUnit.SECONDS);
-				}
-				mStream.addListener(this);
-				mStream.reconnectFuture = scheduler.schedule(new DoConnection(mStream), 0, TimeUnit.SECONDS);
-				return mStream;
-			}
-			case "local" -> {
-				LocalStream local = new LocalStream(stream);
-				local.setEventLoopGroup(eventLoopGroup);
-				local.addListener(this);
-				if (local.readerIdleSeconds != -1) {
-					scheduler.schedule(new ReaderIdleTimeoutTask(local), local.readerIdleSeconds, TimeUnit.SECONDS);
-				}
-				local.reconnectFuture = scheduler.schedule(new DoConnection(local), 0, TimeUnit.SECONDS);
-				return local;
-			}
-			default -> Logger.error("No such type defined: "+type);
+		};
+	}
+
+	private TcpServerStream addTcpServerFromStream(XMLdigger stream) {
+		TcpServerStream tcp = new TcpServerStream(stream);
+		tcp.setEventLoopGroup(eventLoopGroup);
+		tcp.connect();
+		return tcp;
+	}
+
+	private UdpStream addUdpClientFromStream(XMLdigger stream) {
+		UdpStream udp = new UdpStream(stream);
+		udp.setEventLoopGroup(eventLoopGroup);
+		udp.addListener(this);
+		bootstrapUDP = udp.setBootstrap(bootstrapUDP);
+		udp.reconnectFuture = scheduler.schedule(new DoConnection(udp), 0, TimeUnit.SECONDS);
+		return udp;
+	}
+
+	private UdpServer addUdpServerFromStream(XMLdigger stream) {
+		UdpServer serv = new UdpServer(stream);
+		serv.setEventLoopGroup(eventLoopGroup);
+		serv.addListener(this);
+		serv.connect();
+		return serv;
+	}
+
+	private MultiStream addMultiplexFromStream(XMLdigger stream) {
+		MultiStream mStream = new MultiStream(stream);
+		mStream.setEventLoopGroup(eventLoopGroup);
+		if (mStream.readerIdleSeconds != -1) {
+			scheduler.schedule(new ReaderIdleTimeoutTask(mStream), mStream.readerIdleSeconds, TimeUnit.SECONDS);
 		}
-		return null;
+		mStream.addListener(this);
+		mStream.reconnectFuture = scheduler.schedule(new DoConnection(mStream), 0, TimeUnit.SECONDS);
+		return mStream;
+	}
+
+	private BaseStream addTcpFromStream(XMLdigger stream) {
+		TcpStream tcp = new TcpStream(stream);
+		tcp.setEventLoopGroup(eventLoopGroup);
+		tcp.addListener(this);
+		bootstrapTCP = tcp.setBootstrap(bootstrapTCP);
+		if (tcp.getReaderIdleTime() != -1) {
+			scheduler.schedule(new ReaderIdleTimeoutTask(tcp), tcp.getReaderIdleTime(), TimeUnit.SECONDS);
+		}
+		tcp.reconnectFuture = scheduler.schedule(new DoConnection(tcp), 0, TimeUnit.SECONDS);
+		return tcp;
+	}
+
+	private BaseStream addModbusFromStream(XMLdigger stream) {
+		if (stream.hasPeek("address")) { // Address means tcp
+			ModbusTCPStream mbtcp = new ModbusTCPStream(stream);
+			mbtcp.setEventLoopGroup(eventLoopGroup);
+			mbtcp.addListener(this);
+			bootstrapTCP = mbtcp.setBootstrap(bootstrapTCP);
+			mbtcp.reconnectFuture = scheduler.schedule(new DoConnection(mbtcp), 0, TimeUnit.SECONDS);
+			return mbtcp;
+		} else {
+			ModbusStream modbus = new ModbusStream(stream);
+			modbus.setEventLoopGroup(eventLoopGroup);
+			modbus.addListener(this);
+			modbus.reconnectFuture = scheduler.schedule(new DoConnection(modbus), 0, TimeUnit.SECONDS);
+			return modbus;
+		}
+	}
+
+	private BaseStream addSerialFromStream(XMLdigger stream) {
+		SerialStream serial = new SerialStream(stream);
+		serial.setEventLoopGroup(eventLoopGroup);
+		if (serial.getReaderIdleTime() != -1) {
+			scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
+		}
+		serial.addListener(this);
+		serial.reconnectFuture = scheduler.schedule(new DoConnection(serial), 0, TimeUnit.SECONDS);
+		return serial;
+	}
+
+	private BaseStream addLocalFromStream(XMLdigger stream) {
+		LocalStream local = new LocalStream(stream);
+		local.setEventLoopGroup(eventLoopGroup);
+		local.addListener(this);
+		if (local.readerIdleSeconds != -1) {
+			scheduler.schedule(new ReaderIdleTimeoutTask(local), local.readerIdleSeconds, TimeUnit.SECONDS);
+		}
+		local.reconnectFuture = scheduler.schedule(new DoConnection(local), 0, TimeUnit.SECONDS);
+		return local;
 	}
 	/* ************************************************************************************************* **/
 
@@ -752,6 +778,29 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			return "! Failed to create fab";
 
 		var fab = fabOpt.get();
+		var result = addStreamToFab(cmds, fab);
+		if (!result.isEmpty())
+			return result;
+
+		var base = addStreamFromXML(dig);
+		if (base != null) {
+			Core.addToQueue(Datagram.system("commandable:" + base.id()).payload(this));
+			try {
+				if (base.reconnectFuture != null)
+					base.reconnectFuture.get(2, TimeUnit.SECONDS);
+				streams.put(cmds[1], base);
+			} catch (CancellationException | ExecutionException | InterruptedException | TimeoutException e) {
+				return "! Failed to connect.";
+			}
+			var type = cmds[0].substring(3);
+			if (type.endsWith("server"))
+				return "Started " + base.id() + ", use 'raw:" + base.id() + "' to see incoming data.";
+			return "Connected to " + base.id() + ", use 'raw:" + base.id() + "' to see incoming data.";
+		}
+		return "! Failed to read stream from XML";
+	}
+
+	private String addStreamToFab(String[] cmds, XMLfab fab) {
 		var type = cmds[0].substring(3);
 
 		switch (type) {
@@ -792,23 +841,8 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				return "! Invalid option";
 			}
 		}
-		var base = addStreamFromXML(dig);
-		if( base != null){
-			Core.addToQueue(Datagram.system("commandable:" + base.id()).payload(this));
-			try{
-				if (base.reconnectFuture != null)
-					base.reconnectFuture.get(2, TimeUnit.SECONDS);
-				streams.put( cmds[1], base );
-			}catch(CancellationException | ExecutionException | InterruptedException | TimeoutException e){
-				return "! Failed to connect.";
-			}
-			if (type.endsWith("server"))
-				return "Started " + base.id() + ", use 'raw:" + base.id() + "' to see incoming data.";
-			return "Connected to "+base.id()+", use 'raw:"+base.id()+"' to see incoming data.";
-		}
-		return "! Failed to read stream from XML";
+		return "";
 	}
-
 	private String doAlterUseCmd(String[] cmds, Writable wr, XMLdigger dig) {
 		cmds[0] = cmds[0].toLowerCase();
 
@@ -824,160 +858,174 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 		var stream = streams.get(cmds[0]);
 
-		switch (cmds[1]) {
-			case "send" -> {
-				if (cmds.length < 3)
-					return "! Not enough arguments given: ss:id,send,data";
-				String written = writeToStream(cmds[1], cmds[2], cmds.length > 3 ? cmds[3] : "");
-				if (written.isEmpty())
-					return "! Failed to write data";
-				return "Data written: " + written;
-			}
-			case "recon" -> {
-				if (stream != null) {
-					stream.disconnect();
-					if (stream.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0) {
-						Logger.info("Already scheduled to reconnect");
-						stream.reconnectFuture = scheduler.schedule(new DoConnection(stream), 5, TimeUnit.SECONDS);
-					}
-					try {
-						stream.reconnectFuture.get(2, TimeUnit.SECONDS);
-					} catch (CancellationException | ExecutionException | InterruptedException |
-							 TimeoutException e) {
-						return "! Failed to connect.";
-					}
-					return "Reconnected to " + stream.id() + ", use 'raw:" + stream.id() + "' to see incoming data.";
-				}
-				return "! Couldn't find that stream";
-			}
-			case "reload" -> {
-				return reloadStream(cmds[0]);
-			}
-			case "clearrequests" -> {
-				return "Targets cleared:" + stream.clearTargets();
-			}
-			case "baudrate" -> {
-				if (!(stream instanceof SerialStream))
-					return "! Not a Serial port, no baudrate to change";
-				((SerialStream) stream).setBaudrate(Tools.parseInt(cmds[2], -1));
-				fab.alterChild("serialsettings", ((SerialStream) stream).getSerialSettings()).build();
-				return "Altered the baudrate";
-			}
-			case "label" -> {
-				if( cmds[2].isEmpty()||cmds[2].equalsIgnoreCase("void")){
-					fab.removeChild("label").build();
-					return "Label removed";
-				}
-				fab.alterChild("label", cmds[2]).build();
-				stream.setLabel(cmds[2]);
-				return "Label altered to " + cmds[2];
-			}
-			case "ttl" -> {
-				if (!cmds[2].equals("-1")) {
-					stream.setReaderIdleTime(TimeTools.parsePeriodStringToSeconds(cmds[2]));
-					fab.alterChild("ttl", cmds[2]);
-				} else {
-					fab.removeChild("ttl");
-				}
-				fab.build();
-				scheduler.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
-				return "TTL altered";
-			}
-			case "port" -> {
-				switch (type) {
-					case "serial" -> {
-						if (Tools.getSerialPorts(false).contains(cmds[2])) {
-							fab.alterChild("port", cmds[2]);
-						} else {
-							return "! No such serial port available";
-						}
-					}
-					case "type" -> {
-						var addr = dig.attr("address", "");
-						if (!addr.contains(":"))
-							return "! No valid/empty address node?";
-						var ip = addr.split(":")[0];
-						fab.alterChild("address", ip+":"+cmds[2]);
-					}
-					default -> {
-						return "! Command not supported for this type (yet)";
-					}
-				}
-				fab.build();
-				reloadStream(cmds[0]);
-				return "Port altered to "+cmds[2];
-			}
-			case "eol" -> {
-				fab.alterChild("eol", cmds.length == 3 ? cmds[2] : "");
-				fab.build();
-				reloadStream(cmds[0]);
-				return "EOL altered";
-			}
-			case "addwrite", "addcmd" -> {
-				if (cmds.length < 3) {
-					return "! Wrong amount of arguments -> ss:id," + cmds[1] + ",when,cmd";
-				}
-				if( !Arrays.asList(WHEN).contains(cmds[2]))
-					return "! Not a valid when.";
-
-				// Last bit could contain a ',' so combine everything from there onwards
-				var from = Arrays.copyOfRange(cmds,3,cmds.length);
-				var cmd = String.join(",",from);
-				fab.selectOrAddChildAsParent("triggered");
-				fab.addChild(cmds[1].substring(3), cmd).attr("when", cmds[2]).build();
-				stream.addTriggeredAction(cmds[2], cmd);
-				return "Added triggered " + cmds[1].substring(3) + " to " + cmds[0];
-			}
-			case "echo" -> {
-				if (cmds.length != 3) // Make sure we got the correct amount of arguments
-					return "! Wrong amount of arguments -> ss:id,echo,on/off";
-				var state = Tools.parseBool(cmds[2], false);
-				if (state) {
-					fab.alterChild("echo", "on");
-					stream.enableEcho();
-				} else {
-					fab.removeChild("echo");
-					stream.disableEcho();
-				}
-				fab.build();
-				return "Echo altered";
-			}
-			case "reloadstore"-> {
-				if (reloadStore(cmds[0]))
-					return "Reloaded the store of " + cmds[0];
-				return "! Failed to reload the store of " + cmds[0];
-			}
-			case "tunnel" -> {
-				if (cmds.length != 3) // Make sure we got the correct amount of arguments
-					return "! Wrong amount of arguments -> ss:fromid,tunnel,toid";
-
-				int s1_ok = getWritable(cmds[0]).map(wri -> addTargetRequest(cmds[2], wri) ? 1 : 0).orElse(-1);
-				if (s1_ok != 1)
-					return s1_ok == -1 ? "! No writable " + cmds[0] : "! No such source " + cmds[2];
-
-				int s2_ok = getWritable(cmds[2]).map(wri -> addTargetRequest(cmds[0], wri) ? 1 : 0).orElse(-1);
-				if (s2_ok != 1)
-					return s2_ok == -1 ? "! No writable " + cmds[2] : "! No such source " + cmds[2];
-				// Tunneling is essentially asking the data from the other one
-				Core.addToQueue(Datagram.system("ss", cmds[0] + ",addcmd,open,raw:" + cmds[2]));
-				Core.addToQueue(Datagram.system("ss", cmds[2] + ",addcmd,open,raw:" + cmds[0]));
-				return "Tunnel established between " + cmds[0] + " and " + cmds[2];
-			}
-			case "request" -> {
-				if (cmds.length != 3) // Make sure we got the correct amount of arguments
-					return "! Wrong amount of arguments -> ss:id,request,requestcmd";
-				getWritable(cmds[0]).ifPresent(wri -> Core.addToQueue(Datagram.system(cmds[2]).writable(wri)));
-				Core.addToQueue(Datagram.system("ss", cmds[0] + ",addcmd,open," + cmds[2]));
-				return "Tried requesting data from " + cmds[2] + " for " + cmds[2];
-			}
+		return switch (cmds[1]) {
+			case "send" -> doSendCmd(cmds);
+			case "recon" -> doReconCmd(stream);
+			case "reload" -> reloadStream(cmds[0]);
+			case "clearrequests" -> "Targets cleared:" + stream.clearTargets();
+			case "baudrate" -> doBaudrateCmd(cmds, stream, fab);
+			case "label" -> doLabelCmd(cmds, fab, stream);
+			case "ttl" -> doTtlCmd(cmds, stream, fab);
+			case "port" -> doPortCmd(cmds, dig, type, fab);
+			case "eol" -> doEolCmd(cmds, fab);
+			case "addwrite", "addcmd" -> doAddWriteCmd(cmds, fab, stream);
+			case "echo" -> doEchoCmd(cmds, fab, stream);
+			case "reloadstore" -> reloadStore(cmds[0])
+					? "Reloaded the store of " + cmds[0]
+					: "! Failed to reload the store of " + cmds[0];
+			case "tunnel" -> doTunnelCmd(cmds);
+			case "request" -> doRequestCmd(cmds);
 			case "reqwritable" -> {
 				wr.giveObject("writable", getWritable(cmds[0]).orElse(null));
-				return "Writable given";
+				yield "Writable given";
+			}
+			default -> "! No such subcommand for ss:id :" + cmds[1];
+		};
+	}
+
+	private String doRequestCmd(String[] cmds) {
+		if (cmds.length != 3) // Make sure we got the correct amount of arguments
+			return "! Wrong amount of arguments -> ss:id,request,requestcmd";
+		getWritable(cmds[0]).ifPresent(wri -> Core.addToQueue(Datagram.system(cmds[2]).writable(wri)));
+		Core.addToQueue(Datagram.system("ss", cmds[0] + ",addcmd,open," + cmds[2]));
+		return "Tried requesting data from " + cmds[2] + " for " + cmds[2];
+	}
+
+	private static String doBaudrateCmd(String[] cmds, BaseStream stream, XMLfab fab) {
+		if (!(stream instanceof SerialStream))
+			return "! Not a Serial port, no baudrate to change";
+		((SerialStream) stream).setBaudrate(Tools.parseInt(cmds[2], -1));
+		fab.alterChild("serialsettings", ((SerialStream) stream).getSerialSettings()).build();
+		return "Altered the baudrate";
+	}
+
+	private String doEolCmd(String[] cmds, XMLfab fab) {
+		fab.alterChild("eol", cmds.length == 3 ? cmds[2] : "");
+		fab.build();
+		reloadStream(cmds[0]);
+		return "EOL altered";
+	}
+
+	private String doSendCmd(String[] cmds) {
+		if (cmds.length < 3)
+			return "! Not enough arguments given: ss:id,send,data";
+		String written = writeToStream(cmds[1], cmds[2], cmds.length > 3 ? cmds[3] : "");
+		if (written.isEmpty())
+			return "! Failed to write data";
+		return "Data written: " + written;
+	}
+
+	private static String doLabelCmd(String[] cmds, XMLfab fab, BaseStream stream) {
+		if (cmds[2].isEmpty() || cmds[2].equalsIgnoreCase("void")) {
+			fab.removeChild("label").build();
+			return "Label removed";
+		}
+		fab.alterChild("label", cmds[2]).build();
+		stream.setLabel(cmds[2]);
+		return "Label altered to " + cmds[2];
+	}
+
+	private String doTtlCmd(String[] cmds, BaseStream stream, XMLfab fab) {
+		if (!cmds[2].equals("-1")) {
+			stream.setReaderIdleTime(TimeTools.parsePeriodStringToSeconds(cmds[2]));
+			fab.alterChild("ttl", cmds[2]);
+		} else {
+			fab.removeChild("ttl");
+		}
+		fab.build();
+		scheduler.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
+		return "TTL altered";
+	}
+
+	private String doReconCmd(BaseStream stream) {
+		if (stream != null) {
+			stream.disconnect();
+			if (stream.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0) {
+				Logger.info("Already scheduled to reconnect");
+				stream.reconnectFuture = scheduler.schedule(new DoConnection(stream), 5, TimeUnit.SECONDS);
+			}
+			try {
+				stream.reconnectFuture.get(2, TimeUnit.SECONDS);
+			} catch (CancellationException | ExecutionException | InterruptedException |
+					 TimeoutException e) {
+				return "! Failed to connect.";
+			}
+			return "Reconnected to " + stream.id() + ", use 'raw:" + stream.id() + "' to see incoming data.";
+		}
+		return "! Couldn't find that stream";
+	}
+
+	private String doPortCmd(String[] cmds, XMLdigger dig, String type, XMLfab fab) {
+		switch (type) {
+			case "serial" -> {
+				if (Tools.getSerialPorts(false).contains(cmds[2])) {
+					fab.alterChild("port", cmds[2]);
+				} else {
+					return "! No such serial port available";
+				}
+			}
+			case "type" -> {
+				var addr = dig.attr("address", "");
+				if (!addr.contains(":"))
+					return "! No valid/empty address node?";
+				var ip = addr.split(":")[0];
+				fab.alterChild("address", ip + ":" + cmds[2]);
 			}
 			default -> {
-				return "! No such subcommand for ss:id :"+cmds[1];
+				return "! Command not supported for this type (yet)";
 			}
 		}
+		fab.build();
+		reloadStream(cmds[0]);
+		return "Port altered to " + cmds[2];
+	}
+
+	private static String doAddWriteCmd(String[] cmds, XMLfab fab, BaseStream stream) {
+		if (cmds.length < 3) {
+			return "! Wrong amount of arguments -> ss:id," + cmds[1] + ",when,cmd";
+		}
+		if (!Arrays.asList(WHEN).contains(cmds[2]))
+			return "! Not a valid when.";
+
+		// Last bit could contain a ',' so combine everything from there onwards
+		var from = Arrays.copyOfRange(cmds, 3, cmds.length);
+		var cmd = String.join(",", from);
+		fab.selectOrAddChildAsParent("triggered");
+		fab.addChild(cmds[1].substring(3), cmd).attr("when", cmds[2]).build();
+		stream.addTriggeredAction(cmds[2], cmd);
+		return "Added triggered " + cmds[1].substring(3) + " to " + cmds[0];
+	}
+
+	private static String doEchoCmd(String[] cmds, XMLfab fab, BaseStream stream) {
+		if (cmds.length != 3) // Make sure we got the correct amount of arguments
+			return "! Wrong amount of arguments -> ss:id,echo,on/off";
+		var state = Tools.parseBool(cmds[2], false);
+		if (state) {
+			fab.alterChild("echo", "on");
+			stream.enableEcho();
+		} else {
+			fab.removeChild("echo");
+			stream.disableEcho();
+		}
+		fab.build();
+		return "Echo altered";
+	}
+
+	private String doTunnelCmd(String[] cmds) {
+		if (cmds.length != 3) // Make sure we got the correct amount of arguments
+			return "! Wrong amount of arguments -> ss:fromid,tunnel,toid";
+
+		int s1_ok = getWritable(cmds[0]).map(wri -> addTargetRequest(cmds[2], wri) ? 1 : 0).orElse(-1);
+		if (s1_ok != 1)
+			return s1_ok == -1 ? "! No writable " + cmds[0] : "! No such source " + cmds[2];
+
+		int s2_ok = getWritable(cmds[2]).map(wri -> addTargetRequest(cmds[0], wri) ? 1 : 0).orElse(-1);
+		if (s2_ok != 1)
+			return s2_ok == -1 ? "! No writable " + cmds[2] : "! No such source " + cmds[2];
+		// Tunneling is essentially asking the data from the other one
+		Core.addToQueue(Datagram.system("ss", cmds[0] + ",addcmd,open,raw:" + cmds[2]));
+		Core.addToQueue(Datagram.system("ss", cmds[2] + ",addcmd,open,raw:" + cmds[0]));
+		return "Tunnel established between " + cmds[0] + " and " + cmds[2];
 	}
 	/* ************************************************************************************************************** */
 	/**

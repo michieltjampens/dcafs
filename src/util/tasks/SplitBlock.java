@@ -2,7 +2,6 @@ package util.tasks;
 
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
 
@@ -51,24 +50,8 @@ public class SplitBlock extends AbstractBlock implements Writable {
 
     @Override
     public void buildId(String id) {
-        if (!this.id.isEmpty())
-            return;
+        super.buildId(id);
 
-        var split = id.split("\\|", 2);
-        if (split.length == 2) {
-            var nrs = split[1].split("F");
-            if (nrs.length == 2) {
-                var nr = NumberUtils.toInt(nrs[1]) + 1;
-                this.id = split[0] + "|" + nrs[0] + "F" + nr;
-            } else {
-                var nr = NumberUtils.toInt(nrs[0]) + 1;
-                this.id = split[0] + "|" + nr;
-            }
-        } else {
-            this.id = id + "|0";
-        }
-        if (failure != null)
-            failure.buildId(this.id + "F0");
         var lastId = this.id;
         for (var n : nexts) {
             n.buildId(lastId);

@@ -237,12 +237,10 @@ public class TaskManager implements Writable {
      * @return The next block should become the failure block of this one
      */
     private AbstractBlock parseRetry(XMLdigger task, AbstractBlock prev) {
-        int retries = task.attr("retries", -1);
+
         String onFail = task.attr("onfail", "stop");
-
+        var counter = new CounterBlock(task.attr("retries", -1));
         AbstractBlock first = null;
-        var counter = new CounterBlock(retries);
-
         if (task.hasChilds()) {
             // Do the internal ones
             for (var node : task.digOut("*"))
@@ -251,11 +249,9 @@ public class TaskManager implements Writable {
         } else {
             // No child nodes
             // <retry interval="20s" retries="-1">{f:icos_sol4} equals 1</retry>
-            var interval = task.attr("interval", "0s");
-            var condition = task.value("");
+            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(task.value(""));
+            var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
 
-            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(condition);
-            var delay = new DelayBlock(eventLoop).useDelay(interval);
             cond.setFailureBlock(counter); // If condition fails, go to delay
             counter.addNext(delay).addNext(cond);  // After counter go to the delay and then back to condition
 
@@ -274,11 +270,11 @@ public class TaskManager implements Writable {
      * @return This block is the end of the updated chain
      */
     private AbstractBlock parseWhile(XMLdigger task, AbstractBlock prev) {
-        int retries = task.attr("maxruns", -1);
 
         AbstractBlock first = null;
-        var counter = new CounterBlock(retries);
+        var counter = new CounterBlock(task.attr("maxruns", -1));
         var dummy = new DummyBlock();
+        counter.setFailureBlock(dummy); // If out of maxruns go to dummy to reverse failure to ok
 
         if (task.hasChilds()) {
             // Do the internal ones
@@ -296,20 +292,16 @@ public class TaskManager implements Writable {
                 return null;
 
             first.addNext(counter);
-            counter.setFailureBlock(dummy);
+
             prev.addNext(first);
         } else {
             // No child nodes
             // <while interval="20s" maxruns="-1">{f:icos_sol4} equals 1</retry>
-            var interval = task.attr("interval", "1s");
-            var condition = task.value("");
-
-            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(condition);
-            var delay = new DelayBlock(eventLoop).useDelay(interval);
+            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(task.value(""));
+            var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
 
             cond.setNext(counter).setFailureBlock(dummy);  // If ok, go to counter, if not, dummy
-            counter.setNext(delay).setFailureBlock(dummy);   // After counter go to delay
-            // If out of maxruns go to dummy to reverse failure to ok
+            counter.setNext(delay);    // After counter go to delay
             delay.setNext(cond);       // After delay, try again
 
             prev.addNext(cond);        // Add these blocks to the chain
@@ -408,7 +400,7 @@ public class TaskManager implements Writable {
         return join.toString();
     }
 
-    public String getTaskSetListing(String eol) {
+    public String getTaskSetListing() {
         var join = new StringBuilder();
 
         starters.values().stream()
