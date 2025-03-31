@@ -560,7 +560,7 @@ public class XMLdigger {
      * @return The value of the tag or def if not found
      */
     public String attr( String tag, String def){
-        if( !valid )
+        if (!valid || tag.isEmpty())
             return def;
         if( peeked ){
             if( peek!=null && peek.hasAttribute(tag))
@@ -587,7 +587,7 @@ public class XMLdigger {
     /**
      * Look for the first match of the list of attributes
      * @param attr One or more attributes to look for
-     * @return The matching attribute of an empty string if none found
+     * @return The matching attribute or an empty string if none found
      */
     public String matchAttr( String... attr ){
         if( !valid )

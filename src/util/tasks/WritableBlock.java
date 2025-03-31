@@ -20,7 +20,9 @@ public class WritableBlock extends AbstractBlock implements Writable {
             case "file" -> "fc:" + split[1] + ",reqwritable";
             default -> "";
         };
-
+        if (cmd.isEmpty()) {
+            Logger.error(id + " -> No valid destination given, needs to be of format stream:id, raw:id or file:id");
+        }
         return this;
     }
 
@@ -28,14 +30,17 @@ public class WritableBlock extends AbstractBlock implements Writable {
     boolean start() {
         if (target != null) {
             if (!target.writeLine(id, data)) {
+                Logger.info(id + " -> Failed to send to " + dest);
                 doFailure();
             } else {
+                Logger.info(id + " -> Send data to " + dest);
                 doNext();
             }
         } else {
-            if (!cmd.isEmpty())
+            if (!cmd.isEmpty()) {
+                Logger.info(id() + " -> Requesting writable for " + dest);
                 Core.addToQueue(Datagram.system(cmd).writable(this));
-            Logger.warn(id() + " -> Don't have a valid writable yet...");
+            }
         }
         return true;
     }

@@ -116,7 +116,9 @@ public class DelayBlock extends AbstractBlock {
         Logger.warn(id + " -> Trying to set a failure block in a DelayBlock");
     }
     public String toString() {
-        var nextRun = TimeTools.convertPeriodToString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
+        var nextRun = "?";
+        if (type != TYPE.DELAY)
+            nextRun = TimeTools.convertPeriodToString(future.getDelay(TimeUnit.SECONDS), TimeUnit.SECONDS);
         return switch (type) {
             case DELAY ->
                     telnetId() + " -> Wait for " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS) + ", then go to " + next.telnetId();

@@ -1,5 +1,7 @@
 package util.tasks;
 
+import org.tinylog.Logger;
+
 public class CounterBlock extends AbstractBlock {
     int count = -1;
     int tempCount = -1;
@@ -12,6 +14,7 @@ public class CounterBlock extends AbstractBlock {
     boolean start() {
         clean = false;
         if (tempCount == 0) {
+            Logger.info(id + " -> Count ran out, executing failure (if any).");
             doFailure();
         } else {
             tempCount--;

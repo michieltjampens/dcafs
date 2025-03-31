@@ -165,17 +165,19 @@ public class ValStore {
             int i = val.attr("index", -1);
             if (i == -1)
                 i = val.attr("i", -1);
-            if (i != -1) {
-                while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
-                    rtvals.add(null);
-            }
+            if (i == -1)
+                i = rtvals.size();
 
+            while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
+                rtvals.add(null);
+
+            /*
             if (i == -1) {
                 var grid = val.attr("group", groupID);
                 Logger.error("No valid index given for " + grid + "_" + val.value(""));
                 valid = false;
                 return false;
-            }
+            }*/
             final int pos = i; // need a final to use in lambda's
             if (rtvals.get(i) != null) {
                 Logger.warn(id + "(store) -> Already using index " + i + " overwriting previous content!");

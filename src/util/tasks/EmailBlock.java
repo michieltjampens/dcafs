@@ -17,7 +17,7 @@ public class EmailBlock extends AbstractBlock implements Writable {
 
         if (email.content().length() < 30) { // Commands are short
             // Start by checking if the content is a command or just content
-            Core.addToQueue(Datagram.system(email.content()).writable(this));
+            Core.addToQueue(Datagram.system(email.content()).writable(this).toggleSilent());
         } else { // No writable for now TODO
             Core.addToQueue(Datagram.system("email:deliver").payload(email));//.writable(this));
         }
@@ -26,7 +26,7 @@ public class EmailBlock extends AbstractBlock implements Writable {
 
     @Override
     public boolean writeLine(String origin, String data) {
-        Logger.info(id() + " -> Reply: " + data);
+        Logger.info(id() + " -> Reply: " + (data.length() < 30 ? data : data.substring(0, 30) + "..."));
         email.content(data.startsWith("!") ? email.content() : data);
         Core.addToQueue(Datagram.system("email:deliver").payload(email).writable(this));
         doNext();

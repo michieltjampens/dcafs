@@ -524,6 +524,8 @@ public class DAS implements Commandable{
         if (taskManagerPool != null) {
             Logger.info( "Parsing TaskManager scripts");
             String errors = taskManagerPool.reloadAll();
+            taskManagerPool.getTasKManagerIds().forEach(id -> addCommandable(taskManagerPool, id));
+
             if( !errors.isEmpty())
                 telnet.addMessage("Errors during TaskManager parsing:\r\n"+errors);
         }
@@ -535,10 +537,6 @@ public class DAS implements Commandable{
         // Start the status checks if any of the possible outputs is actually usable
         if( (!statusMatrixRoom.isEmpty()||(emailWorker != null && !statusEmail.isEmpty())) && statusCheckInterval >0) // No use checking if we can't report on it or if it's disabled
             nettyGroup.schedule(this::checkStatus,20,TimeUnit.MINUTES); // First check, twenty minutes after startup
-
-        if (taskManagerPool != null) {
-            taskManagerPool.startStartups();
-        }
 
         Logger.info("Finished startAll");
     }

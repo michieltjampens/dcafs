@@ -21,10 +21,14 @@ public abstract class AbstractBlock {
         sendCallback(id() + " -> OK");
     }
 
-    public void setNext(AbstractBlock next) {
+    public AbstractBlock setNext(AbstractBlock next) {
         this.next = next;
+        return this;
     }
 
+    public AbstractBlock getNext() {
+        return next;
+    }
     public AbstractBlock addNext(AbstractBlock block) {
         if (block == null)
             return this;
