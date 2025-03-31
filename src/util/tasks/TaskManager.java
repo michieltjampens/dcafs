@@ -87,29 +87,29 @@ public class TaskManager implements Writable {
                 }
             }
         } else {
+            AbstractBlock prev = start;
             for (var task : taskset.digOut("*")) {
                 switch (task.tagName("")) {
                     case "task" -> {
-                        processTask(task, start);
+                        var first = processTask(task, prev);
                         if (onFailure != null) {
-                            onFailure.setFailureBlock(start.getLastBlock());
+                            onFailure.setFailureBlock(first);
                             onFailure = null;
                         }
                         if (type.length == 2)
-                            start.addNext(new DelayBlock(eventLoop).useDelay(type[1]));
+                            prev.addNext(new DelayBlock(eventLoop).useDelay(type[1]));
                     }
                     case "retry" -> {
-                        var result = parseRetry(task, start);
-                        if (result == null)
-                            return;
-                        if (result[1] != null) {
-                            onFailure = result[1];
-                        }
+                        var result = parseRetry(task, prev);
+                        if (result != null)
+                            onFailure = result;
                     }
                     case "while" -> {
-
+                        var result = parseWhile(task, prev);
+                        if (result != null)
+                            prev = result;
                     }
-                    default -> start.addNext(parseNode(task));
+                    default -> prev.addNext(parseNode(task));
                 }
             }
         }
@@ -141,15 +141,17 @@ public class TaskManager implements Writable {
             Logger.error(this.id + "(tm) -> Task '" + id + "' needs a valid target!");
             return null;
         }
-
         // Combine it all
-        if (start != null)
-            return start.addNext(delay).addNext(req).addNext(target); // Build the chain, addnext checks for null
-
-        if (delay != null) // with delay
-            return delay.addNext(req).addNext(target);
-        if (req != null) // No delay but req
-            return req.addNext(target);
+        if (start != null) {
+            start.addNext(delay).addNext(req).addNext(target);
+            return start.getNext();
+        } else if (delay != null) { // with delay
+            delay.addNext(req).addNext(target);
+            return delay;
+        } else if (req != null) { // No delay but req
+            req.addNext(target);
+            return req;
+        }
         return target; // No delay and no req
     }
 
@@ -226,7 +228,15 @@ public class TaskManager implements Writable {
         }
         return block;
     }
-    private AbstractBlock[] parseRetry(XMLdigger task, AbstractBlock prev) {
+
+    /**
+     * Processes a retry node, either single node or with child nodes
+     *
+     * @param task This points to the retry node
+     * @param prev The previous block in the chain
+     * @return The next block should become the failure block of this one
+     */
+    private AbstractBlock parseRetry(XMLdigger task, AbstractBlock prev) {
         int retries = task.attr("retries", -1);
         String onFail = task.attr("onfail", "stop");
 
@@ -237,31 +247,75 @@ public class TaskManager implements Writable {
             // Do the internal ones
             for (var node : task.digOut("*"))
                 first = addToOrBecomeFirst(first, counter, parseNode(node));
+            prev.addNext(first);
+        } else {
+            // No child nodes
+            // <retry interval="20s" retries="-1">{f:icos_sol4} equals 1</retry>
+            var interval = task.attr("interval", "0s");
+            var condition = task.value("");
 
+            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(condition);
+            var delay = new DelayBlock(eventLoop).useDelay(interval);
+            cond.setFailureBlock(counter); // If condition fails, go to delay
+            counter.addNext(delay).addNext(cond);  // After counter go to the delay and then back to condition
+
+            prev.addNext(cond);          // Add these blocks to the chain
+        }
+        if (onFail.equalsIgnoreCase("stop"))
+            return null;
+        return counter;
+    }
+
+    /**
+     * Processes a retry node, either single node or with child nodes
+     *
+     * @param task This points to the retry node
+     * @param prev The previous block in the chain
+     * @return This block is the end of the updated chain
+     */
+    private AbstractBlock parseWhile(XMLdigger task, AbstractBlock prev) {
+        int retries = task.attr("maxruns", -1);
+
+        AbstractBlock first = null;
+        var counter = new CounterBlock(retries);
+        var dummy = new DummyBlock();
+
+        if (task.hasChilds()) {
+            // Do the internal ones
+            for (var node : task.digOut("*")) {
+                if (first == null) {
+                    first = parseNode(node);
+                    counter.setNext(first);
+                } else {
+                    first.addNext(parseNode((node)));
+                }
+                if (first != null)
+                    first.getLastBlock().setFailureBlock(dummy);
+            }
             if (first == null)
                 return null;
 
-            var last = first.getLastBlock();
+            first.addNext(counter);
+            counter.setFailureBlock(dummy);
             prev.addNext(first);
-            if (onFail.equalsIgnoreCase("stop"))
-                return new AbstractBlock[]{last, null};
-            return new AbstractBlock[]{last, counter};
+        } else {
+            // No child nodes
+            // <while interval="20s" maxruns="-1">{f:icos_sol4} equals 1</retry>
+            var interval = task.attr("interval", "1s");
+            var condition = task.value("");
+
+            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(condition);
+            var delay = new DelayBlock(eventLoop).useDelay(interval);
+
+            cond.setNext(counter).setFailureBlock(dummy);  // If ok, go to counter, if not, dummy
+            counter.setNext(delay).setFailureBlock(dummy);   // After counter go to delay
+            // If out of maxruns go to dummy to reverse failure to ok
+            delay.setNext(cond);       // After delay, try again
+
+            prev.addNext(cond);        // Add these blocks to the chain
         }
-        // No child nodes
-        // <retry interval="20s" retries="-1">{f:icos_sol4} equals 1</retry>
-        var interval = task.attr("interval", "0s");
-        var condition = task.value("");
-
-        var cond = new ConditionBlock(rtvals, sharedMem).setCondition(condition);
-        var delay = new DelayBlock(eventLoop).useDelay(interval);
-        cond.setFailureBlock(delay); // If condition fails, go to delay
-        delay.setNext(counter);      // After delay go to the counter
-        counter.setNext(cond);       // After counter try condition again
-
-        prev.addNext(cond);          // Add these blocks to the chain
-        return new AbstractBlock[]{null, null}; // nothing special, order is maintained
+        return dummy;
     }
-
     private AbstractBlock parseNode(XMLdigger node) {
         var content = node.value("");
         return switch (node.tagName("")) {
@@ -278,6 +332,7 @@ public class TaskManager implements Writable {
                 yield new EmailBlock(Email.to(to).subject(subject).content(content).attachment(attach));
             }
             case "cmd", "system" -> new CmdBlock(content);
+            case "telnet" -> new CmdBlock("telnet:broadcast,info,"+content);
             case "receive" -> {
                 var from = node.attr("from", "");
                 var timeout = node.attr("timeout", "0s");
@@ -290,13 +345,21 @@ public class TaskManager implements Writable {
         };
     }
 
+    /**
+     * Builds the sequence of nodes
+     * @param first The first node in the sequence
+     * @param failure The node to go to on failure
+     * @param added The new node to add
+     * @return The first node
+     */
     private AbstractBlock addToOrBecomeFirst(AbstractBlock first, AbstractBlock failure, AbstractBlock added) {
         if (first == null) {
             first = added;
             first.setFailureBlock(failure);
             failure.setNext(first); // After the failure process, go to  the first block again
         } else {
-            added.setFailureBlock(failure);
+            if (!(added instanceof WritableBlock))
+                added.setFailureBlock(failure);
             first.addNext(added);
         }
         return first;

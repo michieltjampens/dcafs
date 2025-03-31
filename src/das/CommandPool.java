@@ -158,9 +158,6 @@ public class CommandPool {
 		result = checkCommandables(d);// Check the stored Commandables
 		if (!result.equals(UNKNOWN_CMD)) return result; // So a stored one
 
-		result = checkTaskManagers(d);
-		if (!result.equals(UNKNOWN_CMD)) return result;// Check if it matches the id of a TaskManager
-
 		Logger.error("No cmd found with " + d.getData() + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
 		return "! No such cmd group: |" + d.cmd() + "|"; // No result, so probably bad cmd
 	}
@@ -172,9 +169,6 @@ public class CommandPool {
 
 		result = checkLocalCommandables(d);// First check the standard commandables
 		if (!result.equals(UNKNOWN_CMD)) return;// Meaning a standard first cmd
-
-		result = checkTaskManagers(d);
-		if (!result.equals(UNKNOWN_CMD)) return;// Check if it matches the id of a TaskManager
 
 		Logger.error("No cmd found with " + d.cmd() + ":" + d.args() + (d.getWritable() != null ? " requested by " + d.getWritable().id() + "." : "."));
 	}
@@ -257,33 +251,6 @@ public class CommandPool {
 			return "! Something went wrong processing: " + d.getData();
 		}
 		return result;
-	}
-
-	/**
-	 * If the cmd didn't have a corresponding commandable, check if there's a TaskManager of which the ID matches the cmd.
-	 * If so, the question is the task(set) to execute.
-	 * @return The answer
-	 */
-	private String checkTaskManagers(Datagram d) {
-		var tmId = d.cmd();
-		var taskId = d.args();
-
-		var tmCmd = commandables.get("tm");
-		if (tmCmd == null) {
-			Logger.warn("Tried to issue tm cmd without tm existing");
-			return UNKNOWN_CMD;
-		}
-		Datagram tmDg = Datagram.system("tm", "").writable(d.getWritable());
-		String res = switch (taskId) {
-			case "?", "list" -> tmCmd.replyToCommand(tmDg.args(tmId + ",sets")) + d.eol()
-					+ tmCmd.replyToCommand(tmDg.args(tmId + ",tasks"));
-			case "reload" -> tmCmd.replyToCommand(tmDg.args(tmId + ",reload"));
-			default -> tmCmd.replyToCommand(tmDg.args(tmId + ",run," + taskId));
-		};
-		if (!res.toLowerCase().startsWith("! no such taskmanager") &&
-				!(res.toLowerCase().startsWith("! no taskmanager") && taskId.split(":").length==1))
-			return res;
-		return UNKNOWN_CMD;
 	}
 	/* ****************************************** C O M M A N D A B L E ********************************************* */
 	private void doCmd(Datagram d) {

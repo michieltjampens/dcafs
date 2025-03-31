@@ -1,6 +1,7 @@
 package util.tasks;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
@@ -17,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.StringJoiner;
 
 public class TaskManagerPool implements Commandable {
@@ -85,15 +87,28 @@ public class TaskManagerPool implements Commandable {
         return errors.toString();
     }
 
+    public Set<String> getTasKManagerIds() {
+        return tasklists.keySet();
+    }
     /* ******************************************* C O M M A N D A B L E ******************************************* */
     @Override
     public String replyToCommand(Datagram d) {
         String nl = d.eol();
         StringJoiner response = new StringJoiner(nl);
-        String[] args = d.argList();
 
+        String[] args = d.argList();
         if (tasklists.isEmpty() && !args[0].equalsIgnoreCase("addnew") && !args[0].equalsIgnoreCase("add") && !args[0].equalsIgnoreCase("load"))
             return "! No TaskManagers active, only tm:add,id and tm:load,id available.";
+
+        if (!d.cmd().equals("tm")) { // If a taskmanager is addressed directly
+            switch (d.argList()[0]) {
+                case "?", "list" -> d.args(d.cmd() + ",sets"); // Change cmd
+                case "reload", "startups" -> d.args(d.cmd() + "," + d.args()); // Retain the cmd but move around
+                default -> d.args(d.cmd() + ",run," + d.args()); // Run a taskset
+            }
+            d.cmd("tm");
+        }
+        args = d.argList();
 
         switch (args[0]) {
             case "?":
@@ -175,6 +190,7 @@ public class TaskManagerPool implements Commandable {
         }
         // Add it to das
         addTaskList(args[1], newScriptPath);
+        Core.addToQueue(Datagram.system("commandable", args[1]).payload(this)); // Create  the commandable reference
         return "Tasklist added, use tm:reload," + args[1] + " to run it.";
     }
 
