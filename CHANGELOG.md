@@ -9,14 +9,15 @@ Note: Version numbering: x.y.z
 
 ## 3.0.0 (wip)
 
-This has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
+Besides rewriting the taskmanager, this has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 Major version bump because a lot has changed under the hood and major bump was overdue anyway.
 
 ### General
-- Fixed 140 issues found by Codacy. (none actually critical)
-  in the future.
-- Refactored the commandable, writable
-- Made dQueue static
+
+- Fixed 205 issues found by [Codacy](https://app.codacy.com/gh/michieltjampens/dcafs/dashboard). (none actually
+  critical)
+- Refactored a lot
+- Cleaned up the full code base.
 
 ### Task Manager
 

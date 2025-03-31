@@ -191,7 +191,7 @@ public class TaskManagerPool implements Commandable {
         // Add it to das
         addTaskList(args[1], newScriptPath);
         Core.addToQueue(Datagram.system("commandable", args[1]).payload(this)); // Create  the commandable reference
-        return "Tasklist added, use tm:reload," + args[1] + " to run it.";
+        return "Tasklist added, " + args[1] + ":reload to run it.";
     }
 
     private void createBlankScript(String[] cmds, Path scriptPath) {
@@ -221,8 +221,8 @@ public class TaskManagerPool implements Commandable {
                 .comment("This task will wait a second and then start the example taskset")
                 .comment("A task doesn't need an id but it's allowed to have one")
                 .comment("Possible outputs: stream:id , system (default), log:info, email:ref, manager, telnet:info/warn/error")
-                .comment("Possible triggers: delay, interval, while, ...")
-                .comment("For more extensive info and examples, check Reference Guide - Taskmanager in the manual")
+                .comment("Possible triggers: delay, interval, time, ...")
+                .comment("For more extensive info, check Taskmanager in the docs")
                 .build();
     }
 
