@@ -7,7 +7,9 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
-## 3.0.0 (wip)
+## 3.0.1 (wip)
+
+## 3.0.0 (31/03/25)
 
 Besides rewriting the taskmanager, this has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
 Major version bump because a lot has changed under the hood and major bump was overdue anyway.
