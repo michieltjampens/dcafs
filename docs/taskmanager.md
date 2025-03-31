@@ -1,180 +1,181 @@
-## TaskManager
+# Taskmanager
 
->Note: This uses the same 'dicer' as in the basics guide.
+This module is used for automating and scheduling (long running) tasks.
+It has the same capabilities as the user.
 
-One of the main components of dcafs is the taskmanager functionality.
+These tasks can be standalone or collected inside a taskset.
 
-Reset the settings.xml back to this and restart dcafs:
+## Commandline
+
+To get a list of all commands related, use the cmd `tm:?`. These are mainly for managing them.
+For now, the way to create them is in a text editor suited for xml.
+
+## Basics
+
+The start is alwats the same, `tm:add,id` creates a new taskmanager script with the given id (which is
+also used as filename). This will add a node to the `settings.xml` that looks like this inside the
+settings node.
+
+```xml
+
+<taskmanager id="test">tmscripts\test.xml</taskmanager>
+```
+
+The `test.xml` will look like this. It comes with an example task and tasket.
 ```xml
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <dcafs>
-  <settings>
-    <mode>normal</mode>
-    <!-- Settings related to the telnet server -->
-    <telnet port="23" title="dcafs"/> <!-- The telnet server is available on port 23 and the title presented is DAS-->
-  </settings>
-  <streams>
-    <!-- Defining the various streams that need to be read -->
-    <stream id="dice" type="tcp">
-      <eol>crlf</eol> <!-- Messages should end with \r\n or carriage return + line feed -->
-      <address>localhost:4000</address> <!-- In the address, both ipv4 and hostname are accepted IPv6 is wip -->
-    </stream>
-  </streams>
+  <tasklist>
+    <!-- Any id is case insensitive -->
+    <!-- Reload the script using tm:reload,test -->
+    <!-- If something is considered default, it can be omitted -->
+    <!-- There's no hard limit to the amount of tasks or tasksets -->
+    <!-- Task debug info has a separate log file, check logs/taskmanager.log -->
+    <!-- Tasksets are sets of tasks -->
+    <tasksets>
+      <!-- Below is an example taskset -->
+      <taskset id="example" info="Example taskset that says hey and bye" run="oneshot">
+        <task output="telnet:info">Hello World from test</task>
+        <task delay="2s" output="telnet:error">Goodbye :(</task>
+      </taskset>
+      <!-- run can be either oneshot (start all at once) or step (one by one), default is oneshot -->
+      <!-- id is how the taskset is referenced and info is a some info on what the taskset does, -->
+      <!-- this will be shown when using test:list -->
+    </tasksets>
+    <!-- Tasks are single commands to execute -->
+    <tasks>
+      <!-- Below is an example task, this will be called on startup or if the script is reloaded -->
+      <task delay="1s" output="system">tm:test,run,example</task>
+      <!-- This task will wait a second and then start the example taskset -->
+      <!-- A task doesn't need an id but it's allowed to have one -->
+      <!-- Possible outputs: stream:id , system (default), log:info, email:ref, manager, telnet:info/warn/error -->
+      <!-- Possible triggers: delay, interval, while, ... -->
+      <!-- For more extensive info, check Taskmanager in the docs -->
+    </tasks>
+  </tasklist>
 </dcafs>
 ```
 
-Back in the telnet interface, send `tm:addblank,dicetm` to create an empty taskmanager called dicetm.
-> Tasks script created, use tm:reload,dicetm to run it.
+The basic building block is a task. These can consist of three types of attributes.
 
-In the settings.xml the following line has been added.
-```xml
-<taskmanager id="dicetm">tmscripts\dicetm.xml</taskmanager>
-```
-If you check the tmscripts' folder, a file dicetm.xml should be present with the following content which serves as both a
-'blank' starting script and basic explanation.
-```xml
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<tasklist>
-  <!-- Any id is case insensitive -->
-  <!-- Reload the script using tm:reload,dicetm -->
-  <!-- If something is considered default, it can be omitted -->
-  <!-- There's no hard limit to the amount of tasks or tasksets -->
-  <!-- Task debug info has a separate log file, check logs/taskmanager.log -->
-  <!-- Tasksets are sets of tasks -->
-  <tasksets>
-    <!-- Below is an example taskset -->
-    <taskset id="example" info="Example taskset that says hey and bye" run="oneshot">
-      <task output="telnet:info">Hello World from dicetm</task>
-      <task output="telnet:error" delay="2s">Goodbye :(</task>
-    </taskset>
-    <!-- run can be either oneshot (start all at once) or step (one by one), default is oneshot -->
-    <!-- id is how the taskset is referenced and info is a some info on what the taskset does, this will be 
-         shown when using dicetm:list -->
-  </tasksets>
-  <!-- Tasks are single commands to execute -->
-  <tasks>
-    <!-- Below is an example task, this will be called on startup or if the script is reloaded -->
-    <task output="system" delay="1s">taskset:example</task>
-    <!-- This task will wait a second and then start the example taskset -->
-    <!-- A task doesn't need an id, but it's allowed to have one -->
-    <!-- Possible outputs: stream:id , system (default), log:info, email:ref, manager, telnet:info/warn/error -->
-    <!-- Possible triggers: delay, interval, while, ... -->
-    <!-- For more extensive info and examples, check Reference Guide - Taskmanager in the manual -->
-  </tasks>
-</tasklist>
-```
-To activate it use `tm:reload,dicetm`,  'Hello world from dicetm' should show in green and 'Goodbye :(' follows a
-couple seconds later in red. (fyi telnet:warn is in something that should resemble orange)
+### Output
 
-A while back this was given as an option to get a d6 roll every 5 seconds.
-````xml
-    <stream id="dice" type="tcp">
-  <address>localhost:4000</address>
-  <ttl>5s</ttl> <!-- because of no longer receiving data this will expire -->
-  <write when="wakeup">dicer:rolld6</write> <!-- and a d6 will be asked because of the ttl -->
-  <!-- After receiving the d6 result, after  5s another ttl trigger etc... -->
-</stream>
-````
-It was also stated that this wasn't the best way to solve it.
-What should have been done is use the taskmanager for it, like below:
+This indicates what the content of the node means, this has a couple options:
 
+- `stream:id` The content is the data that will be send to the referenced stream.
+- `email:to` The content indicates the subject and content of the email send to `to`.
+- `telnet:level` This will broadcast the content to all telnet session, options for level are
+  info,warn and error. This mainly determines the color of the message (green,orange,red).
+- `log:level` The content will be written to the logs with the given level (info,warn,error).
+- `file:fcid` The content will be handed to the given filecollector.
+- `system` The content will be executed as if it's a command.
+- `manager` Similar to system, but restricted to the taskmanager this file belongs to.
+
+### Trigger
+
+This set of attributes determine the trigger that starts the task.
+
+- `delay` The task will start after the given delay e.g. `delay="10s" `
+- `interval` Schedules a recurring task with the chosen interval e.g. `interval="10m"`
+  - By default, the first run will be on 'clean' time based on the interval. Meaning that
+    if the interval is 15min, this will be executed at 15,30,45 or 0 minutes past the hour. This
+    behaviour can be altered by specifying an initial delay e.g. `interval="5m,10m`. So five
+    minutes after the task is started the output will be done. From then on every ten minutes.
+- `time` or `localtime` The task is triggered on the chosen time e.g. `time="16:25"`.
+  - `time` means UTC and `localtime` is for localtime
+  - It's possible to define the days on which the task should run, the default is always.
+    - Combined options are: weekend,weekday,all/always
+    - To specify given days, concatenate the first two letter: mowe means monday & wednesday.
+    - E.g. `localtime="16:25,mowe` or `time="09:25:10,weekday`
+
+### Req
+
+This is a requirement that needs to be met in order for the task to run.
+
+- These refer to rtvals and it's possible to use more than one at once.
+  - Examples:
+    - `req="flag:cooler_enabled"` checks if the given flag is true
+    - `req="{i:gas_temp} below 20"` checks if the value is below 20
+      - Other comparisons are: (not) above, equals, at least, from x to y
+    - `req="flag:cooler_enabled and {i:gas_temp} below 20"` combined, 'or' is also possible.
+
+## Loops
+
+There are currently two loops possible: retry and while.
+
+### Retry
+
+Test a condition and on failure retry after a given delay up to a specified retries. When
+the condition is met, the next task will be started. If retries are spend, the set this belongs to
+stops.
+
+**Single line**
 ```xml
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<tasklist>
-  <tasks>
-    <!-- This introduces a third output option called 'stream' which takes an id as secondary argument -->
-    <!-- As the name implies, the value of the task (dicer:rolld6) will be send to the stream with id dice -->
-    <task output="stream:dice" trigger="interval:5s">dicer:rolld6</task>
-    <!-- By default the initial delay is taken the same as the interval, so the first run is 5 seconds after start -->
-    <!-- Alternative is trigger="interval:1s,5s" etc to change the initial delay, main use would be spreading multiple -->
-    <!-- interval tasks with the same interval -->
-  </tasks>
-</tasklist>
+<!--
+Every 5 seconds check if the gas_temp is above 20, if not try again up to 6 times.
+If retries is -1, there's no limit to the amount of retries
+-->
+<retry interval="5s" retries="6">{i:gas_temp} above 20</retry>
 ```
 
-So enable this with `tm:reload,dicetm`.   
-Next, open a second telnet session and send `raw:dice`. You should see a d6:x appear once every 5 or so d20:x. We'll use
-this session to monitor the output and the first one to issue cmds.
+**With child nodes**
+Below is a retry node that send a message to a stream and checks if a value changes because of it.
 
-If you ever forget the name of the taskmanager(s), use `tm:list` to get a list.
-As usual `tm:?` gives a list of all the available taskmanager commands. Furthermore, any task/tasket with an id, can be
-called from telnet using tmid:taskid/tasksetid.
-To test this add the following task:
-````xml
-<!-- This task has no trigger (just like a taskset) so it will only run when called -->
-<task id="getd100" output="stream:dice" >dicer:rolld100</task>
-````
-Again, reload with `tm:reload,dicetm` (the other session output will stop briefly).  
-Now send `dicetm:getd100` to test if the addition causes a d100:x to appear in the other session or send `dicetm:list` to get
-an overview of all the tasks/tasksets in the taskmanager.
-
-If, for example, you want to request a d6,d20 and d100 with one command you'd make a taskset like this.
 ```xml
-<taskset id="rollall" run="oneshot" info="Roll a d6, then a d20 and finally a d100">
-  <task output="stream:dice" trigger="delay:0s">dicer:rolld6</task>
-  <task output="stream:dice" trigger="delay:250ms">dicer:rolld20</task>
-  <task output="stream:dice" trigger="delay:500ms">dicer:rolld100</task>
-</taskset>
+
+<retry retries="10" onfail="stop"> <!-- Retry up to 10 times, on failure quit the set -->
+  <stream to="raw:gas">Cool down</stream> <!-- Send 'Cool down' to 'raw:gas' -->
+  <delay>20s</delay> <!-- Wait for twenty seconds -->
+  <req>{i:gas_temp} below 10</req> <!-- Check if gas_temp is below 20, if not go back to first node -->
+  <!-- If req succeeds, leave the node and go to the next task -->
+</retry>
 ```
-This uses the trigger 'delay' which just means 'wait the given time before execution'. A delay of 0s is
-the default in tasksets, but for readability it's advised to add it anyway.
 
-This above taskset could be called with `dicetm:rollall`.   
-Or you could combine the two and have the above on an interval of 5s.
+The order of the nodes can be chosen freely. In the above example, the 'Cool down please' will be send
+every iteration. In the example below, it will only be send once and if the condition is met.
+In short, below waits for the temperature to reach above 30 before asking to cool it down.
+
 ```xml
-<task output="manager" trigger="interval:5s">task:rollall</task>
-        <!-- Output manager is used to signify that the value is a command for the active taskmanager -->
-````
-And a last basic example:
-````xml
-<task output="email:admin" trigger="delay:5s">DCAFS booted;Nothing else to say...</task>
-        <!-- This will send an email to admin 5s after startup, subject of the email is DCAFS booted and the content 'Nothing...' -->
-        <!-- It's also possible to use a command as content, the result of that command (fe.st) will become the email content -->
-````
 
-Going back to:
-````xml
-    <stream id="dice" type="tcp">
-  <address>localhost:4000</address>
-  <write when="wakeup">dicer:rolld6</write>
-</stream>
-````
-Dummy has a taskmanager called 'dicer' and 'rolld6' is a task from it..
-````xml
-<task id="rolld6" output="stream:dummy" >d6:{rand6}</task>
-````
+<tasket id="checktemp" info="Asks to cool down if temp reaches 30°C">
+  <retry retries="-1"> <!-- Retry up to 10 times, on failure quit the set -->
+    <delay>20s</delay> <!-- Wait for twenty seconds -->
+    <req>{i:gas_temp} above 30</req>
+    <stream to="raw:gas">Cool down please</stream> <!-- Send 'Cool down' to 'raw:gas' -->
+    <delay>5s</delay> <!-- Wait another 5s before going to the next task -->
+  </retry>
+  <task delay="2s" output="telnet:info">To hot, asked to cool down</task>
+</tasket>
+```
 
-This is the minimum knowledge you need to use the taskmanager, but this is just brushing the surface...
-In later chapters examples will introduce the rest of the functionality.
-But to get a full overview of all the capabilities now, check the [reference guide](taskmanager).
+### While
 
-#### Summary
-This introduced:
-* In general, a taskmanager has tasks and tasksets
-    * tasksets
-        * are always executed on a command
-        * are either one-shot (all tasks are triggered at the same time) or step (one-by-one)
-        * an id is required
-    * tasks
-        * without a trigger are executed with a command, otherwise as response to the trigger
-        * an id is optional
-* trigger options:
-    * interval Task is executed at a set interval after an initial delay
-    * delay Task is executed after the delay has passed
-* output options:
-    * stream The value of the task is sent to a stream/raw
-    * system The value of the task is a command or reference to another task(set)
-    * email The value of the task is subject;content of the email
+Test a condition and redo after a given delay up to a specified maxruns. When
+the condition isn't met, the next task will be started. If maxruns are spend, this will also start the
+next task.
 
-Other parts of it will be introduced later.
+**Single line**
 
-#### Extra
+```xml
+<!--
+Every 5 seconds check if the gas_temp is above 20, if so try again up to 6 times.
+If maxruns is -1, there's no limit to the amount of retries. When maxruns becomes 0, go to the next
+task.
+-->
+<while interval="5s" maxruns="6">{i:gas_temp} above 20</while>
+```
 
-Earlier in the database & generics chapter the way of triggering a database write was using a generic.  
-If more updates are given than you'd want to store in the database, it's also possible to limit this with the taskmanager.  
-The earlier shown cmd `dbm:store,dbId,tableid` can be called with the system output.
-````xml
-<task output="system" trigger="interval:10s">dbm:store,diceresults,rolls</task>
-````
-So if the rolls come in every second, this will cause a single result to be stored every 10 seconds instead.  
-Given you didn't forget to remove the db attribute from the generic...
+**With child nodes**
+Below is a while node that send a message to a stream and checks if a value changes because of it.
+
+```xml
+
+<while maxruns="10"> <!-- Redo up to 10 times, on failure go to next task -->
+  <stream to="raw:gas">Cool down</stream> <!-- Send 'Cool down' to 'raw:gas' -->
+  <delay>20s</delay> <!-- Wait for twenty seconds -->
+  <req>{i:gas_temp} above 20</req> <!-- Check if gas_temp is above 20. If not, leave the node -->
+  <!-- If req succeeds, go back to the first node -->
+</while>
+```
+
+Just like for retry, the order of the nodes can be chosen freely.
