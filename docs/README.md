@@ -16,7 +16,7 @@ All the info about the uses of store, only inside a stream for now.
 
 All the info about the uses of i2c.
 
-### TaskManager (to update for 2.0.0)
+### TaskManager (updated for 3.0.0)
 
 Explains how to use a task manager.
 

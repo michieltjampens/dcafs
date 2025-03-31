@@ -10,9 +10,11 @@ These tasks can be standalone or collected inside a taskset.
 To get a list of all commands related, use the cmd `tm:?`. These are mainly for managing them.
 For now, the way to create them is in a text editor suited for xml.
 
+- Tasksets or tasks with an id can be started from the cli using `tmid:taskid`.
+
 ## Basics
 
-The start is alwats the same, `tm:add,id` creates a new taskmanager script with the given id (which is
+The start is always the same, `tm:add,id` creates a new taskmanager script with the given id (which is
 also used as filename). This will add a node to the `settings.xml` that looks like this inside the
 settings node.
 
@@ -47,7 +49,7 @@ The `test.xml` will look like this. It comes with an example task and tasket.
       <!-- Below is an example task, this will be called on startup or if the script is reloaded -->
       <task delay="1s" output="system">tm:test,run,example</task>
       <!-- This task will wait a second and then start the example taskset -->
-      <!-- A task doesn't need an id but it's allowed to have one -->
+      <!-- A task without an id is started on startup -->
       <!-- Possible outputs: stream:id , system (default), log:info, email:ref, manager, telnet:info/warn/error -->
       <!-- Possible triggers: delay, interval, while, ... -->
       <!-- For more extensive info, check Taskmanager in the docs -->
@@ -63,7 +65,7 @@ The basic building block is a task. These can consist of three types of attribut
 This indicates what the content of the node means, this has a couple options:
 
 - `stream:id` The content is the data that will be send to the referenced stream.
-- `email:to` The content indicates the subject and content of the email send to `to`.
+- `email:ref` The content indicates the subject and content of the email send to `ref`.
 - `telnet:level` This will broadcast the content to all telnet session, options for level are
   info,warn and error. This mainly determines the color of the message (green,orange,red).
 - `log:level` The content will be written to the logs with the given level (info,warn,error).
@@ -131,8 +133,10 @@ Below is a retry node that send a message to a stream and checks if a value chan
 </retry>
 ```
 
-The order of the nodes can be chosen freely. In the above example, the 'Cool down please' will be send
-every iteration. In the example below, it will only be send once and if the condition is met.
+The order and amount of sub nodes can be chosen freely. In the above example, the 'Cool down please' will be send
+every iteration.
+
+In the example below, it will only be send once and if the condition is met.
 In short, below waits for the temperature to reach above 30 before asking to cool it down.
 
 ```xml
@@ -146,6 +150,17 @@ In short, below waits for the temperature to reach above 30 before asking to coo
   </retry>
   <task delay="2s" output="telnet:info">To hot, asked to cool down</task>
 </tasket>
+```
+
+**Other nodes**
+
+```xml
+
+<telnet level="info">Getting warmer?</telnet> <!-- level can be omitted, default is info -->
+<email to="admin" subject="Warning" attachment="info.log">Content of the email</email>
+<cmd>sd:shutting down dcafs via task</cmd>
+<system>gas:testing</system> <!-- Use the cmd to send testing to stream:gas -->
+<receive from="raw:gas" timeout="10s">cooling down</receive> <!-- Wait up to 10s to get this from raw:gas -->
 ```
 
 ### While
@@ -178,4 +193,4 @@ Below is a while node that send a message to a stream and checks if a value chan
 </while>
 ```
 
-Just like for retry, the order of the nodes can be chosen freely.
+Just like for retry, the order and amount of sub nodes can be chosen freely.

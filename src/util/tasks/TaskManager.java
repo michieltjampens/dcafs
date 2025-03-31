@@ -324,7 +324,7 @@ public class TaskManager implements Writable {
                 yield new EmailBlock(Email.to(to).subject(subject).content(content).attachment(attach));
             }
             case "cmd", "system" -> new CmdBlock(content);
-            case "telnet" -> new CmdBlock("telnet:broadcast,info,"+content);
+            case "telnet" -> new CmdBlock("telnet:broadcast," + node.attr("level", "info") + "," + content);
             case "receive" -> {
                 var from = node.attr("from", "");
                 var timeout = node.attr("timeout", "0s");

@@ -219,7 +219,7 @@ public class TaskManagerPool implements Commandable {
                 .comment("Below is an example task, this will be called on startup or if the script is reloaded")
                 .addChild("task", "tm:" + cmds[1] + ",run,example").attr("output", "system").attr("delay", "1s")
                 .comment("This task will wait a second and then start the example taskset")
-                .comment("A task doesn't need an id but it's allowed to have one")
+                .comment("A task without an id is started on startup.")
                 .comment("Possible outputs: stream:id , system (default), log:info, email:ref, manager, telnet:info/warn/error")
                 .comment("Possible triggers: delay, interval, time, ...")
                 .comment("For more extensive info, check Taskmanager in the docs")
