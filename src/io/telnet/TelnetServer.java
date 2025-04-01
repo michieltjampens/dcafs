@@ -99,6 +99,7 @@ public class TelnetServer implements Commandable {
                         // and then business logic.
                         TelnetHandler handler = new TelnetHandler( ignore,bootOk ) ;
                         handler.setTitle(title);
+                        handler.id("telnet" + writables.size());
                         var remoteIp = ch.remoteAddress().getAddress().toString().substring(1);
                         cmdHistory.computeIfAbsent(remoteIp, k -> new ArrayList<>());
                         handler.setCmdHistory(cmdHistory.get(remoteIp));
@@ -168,6 +169,15 @@ public class TelnetServer implements Commandable {
                 yield mes.replace(TelnetCodes.TEXT_MAGENTA, TelnetCodes.TEXT_ORANGE);
             }
             case "bt" -> "Currently has " + writables.size() + " broadcast targets.";
+            case "writable" -> {
+                for (var wr : writables) {
+                    if (wr.id().equals("telnet:" + args[1]) || (!wr.equals(d.getWritable()) && args[1].equals("*"))) {
+                        d.getWritable().giveObject("writable", wr);
+                        yield "Gave writable";
+                    }
+                }
+                yield "! No match found for id";
+            }
             default -> "! No such subcommand in " + d.getData();
         };
     }

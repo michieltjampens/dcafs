@@ -49,6 +49,8 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 	private String format="HH:mm:ss.SSS";
 	private String default_text_color=TelnetCodes.TEXT_LIGHT_GRAY;
 	boolean bootOk;
+
+	Writable altSession;
 	/* ****************************************** C O N S T R U C T O R S ******************************************* */
 	/**
 	 * Constructor that requires both the BaseWorker queue and the TransServer queue
@@ -191,6 +193,16 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}else{
 			d.setData(repeat+d.getData());
 		}
+
+		if (d.getData().contains(" >alt")) {
+			if (altSession == null) {
+				writeLine("! No valid alt session yet");
+			} else {
+				d.writable(altSession);
+			}
+			d.setData(d.getData().replace(" >alt", ""));
+		}
+
 		var macro = macros.get(d.getData());
 		if( macro!=null)
 			d.setData(macro);
@@ -211,11 +223,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		if( dig.peekAt("client","id",id).hasValidPeek()){
 			writeLine("ID already in use");
 		}else{
-			var fabOpt = XMLfab.alterDigger(dig);
+			/*var fabOpt = XMLfab.alterDigger(dig);
 			fabOpt.ifPresent(fab -> {
 				fab.addChild("client").attr("id", id).attr("host", remote.getHostName());
 				fab.build();
-			});
+			});*/
 			writeLine("ID set to "+id);
 		}
 		this.id = id;
@@ -358,6 +370,11 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}
 	}
 
+	public boolean giveObject(String info, Object object) {
+		if (info.equals("writable"))
+			altSession = (Writable) object;
+		return true;
+	}
 	@Override
 	public boolean writeLine(String origin, String data) {
 		if( data.equalsIgnoreCase("Clearing requests")) {
@@ -448,6 +465,9 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		return "telnet:"+(id.isEmpty()?LABEL:id);
 	}
 
+	public void id(String id) {
+		this.id = id;
+	}
 	public void setCmdHistory(ArrayList<String> history) {
 		hist=history;
 		Logger.info("Giving history");
