@@ -773,6 +773,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( dig.hasValidPeek())
 			return "! Already a stream with that id, try something else?";
 
+		if (dig.hasPeek("stream")) {
+			for (var d : dig.digOut("stream")) {
+				if (d.peekAtContent("address", cmds[2]))
+					return "! " + dig.attr("id", "") + " already connected to " + cmds[2];
+				if (d.peekAtContent("port", cmds[2]))
+					return "! " + dig.attr("id", "") + " already using " + cmds[2];
+			}
+		}
 		var fabOpt = XMLfab.alterDigger(dig);
 		if( fabOpt.isEmpty())
 			return "! Failed to create fab";
@@ -782,7 +790,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if (!result.isEmpty())
 			return result;
 
-		var base = addStreamFromXML(dig);
+		var base = addStreamFromXML(dig.digDown("stream", "id", cmds[1]));
 		if (base != null) {
 			Core.addToQueue(Datagram.system("commandable:" + base.id()).payload(this));
 			try {
