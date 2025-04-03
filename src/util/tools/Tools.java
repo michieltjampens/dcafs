@@ -517,6 +517,22 @@ public class Tools {
         return splits;
     }
 
+    public static List<String> parseCurlyContent(String data, boolean distinct) {
+        var contents = new HashSet<String>();
+        int b = 0;
+        while (b != -1) {
+            int a = data.indexOf("{");
+            b = data.indexOf("}");
+            if (a != -1 && b != -1) {
+                contents.add(data.substring(a + 1, b));
+            } else if (b < a) {
+                Logger.error("Error trying to find the content, closing bracket earlier than opening one");
+                break;
+            }
+            data = data.substring(b + 1);
+        }
+        return contents.stream().toList();
+    }
     /**
      * Get the IP of this system.
      * @return IP of this system.
