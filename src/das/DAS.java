@@ -312,7 +312,11 @@ public class DAS implements Commandable{
      * @param cmd The commandable to add
      */
     public void addCommandable(Commandable cmd, String... ids) {
-        Stream.of(ids).forEach(id -> commandPool.addCommandable(id, cmd));
+        if (ids.length == 1) {
+            Stream.of(ids[0].split(";")).forEach(id -> commandPool.addCommandable(id, cmd));
+        } else {
+            Stream.of(ids).forEach(id -> commandPool.addCommandable(id, cmd));
+        }
     }
     /* ***************************************  T A S K M A N A G E R ********************************************/
     /**
