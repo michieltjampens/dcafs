@@ -464,7 +464,7 @@ public class RealtimeValues implements Commandable {
 			return "! Not enough arguments, "+cmd+":id,"+args[1]+",expression";
 		NumericVal val;
 
-		if( args[0].startsWith("r")){ // so real, rv
+		if (cmd.startsWith("r")) { // so real, rv
 			var rOpt = getRealVal(args[0]);
 			if( rOpt.isEmpty() )
 				return "! No such real yet";
