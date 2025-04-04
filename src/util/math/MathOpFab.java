@@ -80,10 +80,6 @@ public class MathOpFab {
         if (debug)
             Logger.info("MathFab building for " + expression);
 
-        expression = MathUtils.checkBrackets(expression);
-        if (expression.isEmpty())
-            return null;
-
         expression = normalizeExpression(expression);
 
         var resultTarget = "";
@@ -92,6 +88,10 @@ public class MathOpFab {
             resultTarget = split[0];
             expression = split[1];
         }
+
+        expression = MathUtils.checkBrackets(expression);
+        if (expression.isEmpty())
+            return null;
 
         var is = determineReqInputs(expression);
         highestI = is[is.length - 1];
@@ -126,11 +126,11 @@ public class MathOpFab {
         if (debug)
             Logger.info("MathOpFab building for " + expression);
 
+        expression = normalizeExpression(expression);
         expression = MathUtils.checkBrackets(expression);
+
         if (expression.isEmpty())
             return null;
-
-        expression = normalizeExpression(expression);
 
         var is = determineReqInputs(expression);
         highestI = is[is.length - 1];
