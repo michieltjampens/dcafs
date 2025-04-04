@@ -49,7 +49,7 @@ public class DAS implements Commandable{
 
     private static final String version = "3.0.1";
 
-    private String tinylogPath;
+    private final String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
 
     /* Workers */
@@ -90,7 +90,7 @@ public class DAS implements Commandable{
 
     public DAS() {
 
-        figureOutPaths();   // This needs to be done before tinylog is used because it sets the paths
+        tinylogPath = figureOutTinyLogPath();   // This needs to be done before tinylog is used because it sets the paths
         if( !checkSettingsFile() ) // Check if the file exist and create if it doesn't, if it does verify it
             return;
         Logger.info("Program booting");
@@ -122,13 +122,13 @@ public class DAS implements Commandable{
         var waypoints = new Waypoints(nettyGroup,rtvals);
         addCommandable(waypoints,"wpts");
 
-        digForCollectors(digger);   // Add FileCollectors
+        digForCollectors();         // Add FileCollectors
         digForGPIOs(digger);        // Add GPIO's
         digForEmail(digger);        // Add EmailWorker
         digForFileMonitor(digger);  // Add Filemonitor
         digForMatrix( digger );     // Add matrix
         addMqttPool();              // Add MQTT
-        addTaskManagerPool();           // Add Taskmanagers
+        addTaskManagerPool();       // Add Taskmanagers
 
         /* Regular check if the system clock was changed */
         nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
@@ -142,7 +142,9 @@ public class DAS implements Commandable{
         attachShutDownHook();
 
     }
-    private void figureOutPaths(){
+
+    private static String figureOutTinyLogPath() {
+        String tinylogPath;
         // Determine working dir based on the classpath
         if( Files.exists(Paths.settings())){
             var digger = XMLdigger.goIn(Paths.settings(),"dcafs","settings");
@@ -159,6 +161,7 @@ public class DAS implements Commandable{
         }
 
         Logger.info("Used settingspath: "+Paths.settings());
+        return tinylogPath;
     }
     private boolean checkSettingsFile(){
         if (Files.notExists(Paths.settings())) { // Check if the settings.xml exists
@@ -247,9 +250,8 @@ public class DAS implements Commandable{
     }
     /**
      * Check the digger for the collector node and process if found
-     * @param digger The digger for the settings file with dcafs root
      */
-    private void digForCollectors( XMLdigger digger ) {
+    private void digForCollectors() {
         collectorPool = new CollectorPool(nettyGroup, rtvals);
         addCommandable(collectorPool, "fc");
         addCommandable(collectorPool, "mc");
@@ -281,7 +283,7 @@ public class DAS implements Commandable{
     }
     /**
      Compares the stored timestamp with the current one because this was used at startup to determine rollover of
-     databases etc.
+     databases etc. If the system booted with the wrong time, this fixes it in dcafs once it's corrected.
      */
     private void checkClock(){
         if( Duration.between(lastCheck, Instant.now()).toSeconds() > 305) { // Checks every 5 minutes, so shouldn't be much more than that
@@ -297,7 +299,7 @@ public class DAS implements Commandable{
     /**
      * Create the base settings.xml
      */
-    private void createXML() {
+    private static void createXML() {
        XMLfab.withRoot( Paths.settings(), "dcafs")
                 .addParentToRoot("settings")
                     .addChild("maxrawage").content("1h")
@@ -473,7 +475,7 @@ public class DAS implements Commandable{
     /**
      * Reboots the computer if running on linux
      */
-    private void rebootSystem(){
+    private static void rebootSystem() {
         try {
             Runtime rt = Runtime.getRuntime();
             if (SystemUtils.IS_OS_LINUX) { // if linux
@@ -496,7 +498,7 @@ public class DAS implements Commandable{
     /**
      * Shuts down the tiny log framework, makes it flush buffers etc
      */
-    private void shutdownTinylog(){
+    private static void shutdownTinylog() {
         try {
             ProviderRegistry.getLoggingProvider().shutdown(); // Shutdown tinylog
         } catch (InterruptedException e) {
@@ -612,7 +614,7 @@ public class DAS implements Commandable{
         report.append( LookAndFeel.formatStatusTitle("Buffers",html));
         LookAndFeel.formatStatusText( getQueueSizes(),report,html);
 
-        addDBMstatus(report,html); // Database Manager status
+        addDbmStatus(report, html); // Database Manager status
 
         // Finally color the word false in red
         return report.toString().replace("false", (html?"":TelnetCodes.TEXT_RED) + "false" + (html?"":TelnetCodes.TEXT_GREEN) );
@@ -665,7 +667,7 @@ public class DAS implements Commandable{
      * @param report This holds all other info
      * @param html Whether to format in html
      */
-    private void addDBMstatus(StringBuilder report, boolean html){
+    private void addDbmStatus(StringBuilder report, boolean html) {
         report.append( LookAndFeel.formatStatusTitle("Databases",html) );
         if ( !dbManager.hasDatabases()){
             report.append("None yet").append( html ? "<br>" : "\r\n" );
@@ -694,13 +696,13 @@ public class DAS implements Commandable{
     @Override
     public String replyToCommand(Datagram d) {
         return switch (d.cmd()) {
-            case "?" -> doHelpCmd(d.asHtml());
+            case "?" -> doHelpCmd();
             case "st" -> getStatus(d.asHtml());
             default -> "Unknown command";
         };
     }
 
-    public static String doHelpCmd(boolean html) {
+    public static String doHelpCmd() {
         return "st -> Get a status overview of the whole system";
     }
     /**
