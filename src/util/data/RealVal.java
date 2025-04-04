@@ -6,6 +6,7 @@ import org.w3c.dom.Element;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 public class RealVal extends NumberVal<Double>{
@@ -72,9 +73,9 @@ public class RealVal extends NumberVal<Double>{
 
         if(!Double.isNaN(res)){
             if( parseOp != null) {
-                res = parseOp.solveFor(res);
+                res = parseOp.solveSimple(BigDecimal.valueOf(res));
                 if( Double.isNaN(res))
-                    Logger.error(id()+" -> Failed to parse "+val+" with "+parseOp.getOri());
+                    Logger.error(id() + " -> Failed to parse " + val + " with " + parseOp.getExpression());
             }
             rawValue=res;
             value(res);

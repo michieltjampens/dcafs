@@ -3,7 +3,8 @@ package util.data;
 import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.math.MathFab;
+import util.math.MathOpFab;
+import util.math.MathOperation;
 import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -19,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 public abstract class NumberVal<T extends Number> extends AbstractVal implements NumericVal{
     protected T value,defVal;
     protected T min,max;
-    protected MathFab parseOp;
+    protected MathOperation parseOp;
     protected int digits=-1;
     /* History */
     protected ArrayList<T> history;
@@ -31,11 +32,12 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
     public void setParseOp( String op ){
         op=op.replace("i","i0");
         op=op.replace("i00","i0"); // just in case it was actually with i0
-        parseOp = MathFab.newFormula(op);
-        if( !parseOp.isValid() ){
+        var opOpt = MathOpFab.withExpression(op).getMathOp();
+        if (opOpt.isEmpty()) {
             Logger.error(id() +" -> Tried to apply an invalid op for parsing "+op);
         }else{
             Logger.info(id()+" -> Applying "+op+" after parsing to real/double.");
+            parseOp = opOpt.get();
         }
     }
 

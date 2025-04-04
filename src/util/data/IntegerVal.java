@@ -5,6 +5,7 @@ import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.xml.XMLdigger;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 public class IntegerVal extends NumberVal<Integer>{
@@ -106,9 +107,9 @@ public class IntegerVal extends NumberVal<Integer>{
         try {
             var res = NumberUtils.createInteger(val.trim());
             if( parseOp != null) {
-                var dres = parseOp.solveFor((double)res);
+                var dres = parseOp.solveSimple(BigDecimal.valueOf(res));
                 if( Double.isNaN(dres)) {
-                    Logger.error(id() + " -> Failed to parse " + val + " with " + parseOp.getOri());
+                    Logger.error(id() + " -> Failed to parse " + val + " with " + parseOp.getExpression());
                 }else{
                     res = (int) dres;
                 }

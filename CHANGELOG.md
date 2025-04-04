@@ -9,9 +9,28 @@ Note: Version numbering: x.y.z
 
 ## 3.0.1 (wip)
 
+Mainly rewrite of the mathfab/mathforward combination to split it in its functional parts.
+
+### Telnet
+
+- Added `telnet:writable,id` allows a telnet session to request the writable of another session. Instead
+  of the id, * is valid for the first session that isn't the current one.
+- Added ` >alt` suffix for commands issued through telnet, this will use the writable of the other
+  session in the datagram so the result is shown there instead.
+
+### Streammanager
+
+- Now gives an error when trying to connect to an ip:port or serial port already in use.
+
+### RealtimeValues
+
+- Fixed, rv,iv etc weren't added to commandable anymore...
+- Fixed, `*v:id,update,value` wasn't looking at * but to id instead
+
 ## 3.0.0 (31/03/25)
 
 Besides rewriting the taskmanager, this has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
+Result is a diff of "146 files changed, 12283 insertions(+), 14179 deletions(-)"
 Major version bump because a lot has changed under the hood and major bump was overdue anyway.
 
 ### General
@@ -26,15 +45,18 @@ Major version bump because a lot has changed under the hood and major bump was o
 - Complete rewrite
 - Modular instead of the earlier monolith, that's the last legacy monolith torn down.
 - Most functionality is retained.
-- Added retry nodes to make those more flexible and potentially easier to understand.
-
+- Added retry/while nodes to make those more flexible and potentially easier to understand.
+  Difference is that retry is done till condition is met (up to retries) and while repeats till condition is no longer
+  met (up to maxruns).
+  Both have a short and long form.
 ```xml
-
 <retry retries="5" onfail="stop"> <!-- onfail can be continue, then the rest of the task is done -->
   <stream to="Board">C2;C4</stream>
   <delay>20s</delay>
   <req>{r:pump_warmup} equals 1</req> <!-- if this fails, the block is retried -->
 </retry>
+
+<while interval="5s" maxruns="6">{i:gas_temp} above 20</while>
 ```
 
 ### Stream manager

@@ -112,6 +112,27 @@ public class MathUtils {
         return Math.min(op1Index, op2Index);
     }
 
+    public static String normalizeExpression(String expression) {
+        // Support ++ and --
+        return expression.replace("++", "+=1")
+                .replace("--", "-=1")
+                .replace(" ", ""); //remove spaces
+    }
+
+    public static String handleCompoundAssignment(String exp) {
+        if (!exp.contains("="))
+            return exp;
+        // The expression might be a simple i0 *= 2, so replace such with i0=i0*2 because of the way it's processed
+        // A way to know this is the case, is that normally the summed length of the split items is one lower than
+        // the length of the original expression (because the = ), if not that means an operand was in front of '='
+        var split = exp.split("[+-/*^]?=");
+        int lengthAfterSplit = split[0].length() + split[1].length();
+        if (lengthAfterSplit + 1 != exp.length()) { // Support += -= *= and /= fe. i0+=1
+            String[] spl = exp.split("="); //[0]:i0+ [1]:1
+            split[1] = spl[0] + split[1]; // split[1]=i0+1
+        }
+        return split[0] + "=" + split[1];
+    }
     /**
      * Chop a formula into processable parts splitting it according to operators fe. i1+5-> i1,+,5
      * The most error prone are scientific notations
