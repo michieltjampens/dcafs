@@ -10,6 +10,7 @@ Note: Version numbering: x.y.z
 ## 3.0.1 (wip)
 
 Mainly rewrite of the mathfab/mathforward combination to split it in its functional parts.
+This removed some functionality that didn't belong in there anyway.
 
 ### Telnet
 

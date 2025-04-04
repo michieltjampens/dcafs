@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.ScheduledFuture;
@@ -34,7 +33,6 @@ public class PathForward {
 
     private final ArrayList<Writable> targets = new ArrayList<>(); // The targets to send the final result of the path to
     private final ArrayList<CustomSrc> customs=new ArrayList<>(); // The custom data sources
-    private final HashMap<String,String> defines = new HashMap<>();
 
     enum SRCTYPE {REG,PLAIN,RTVALS,CMD,FILE,SQLITE,INVALID} // Possible custom sources
     RealtimeValues rtvals; // Reference to the realtimevalues
@@ -184,13 +182,9 @@ public class PathForward {
                     yield step.getTagName().equals("case") ? parent : ff; // This doesn't alter the parent
                 }
                 case "filter" -> checkParent( parent,new FilterForward(step), prevTag );
-                case "math" ->   checkParent( parent,new MathForward(step, rtvals,defines), prevTag );
+                case "math" -> checkParent(parent, new MathForward(step, rtvals), prevTag);
                 case "editor" -> checkParent( parent,new EditorForward(step, rtvals), prevTag );
                 case "cmd" -> checkParent( parent,new CmdForward(step, rtvals), prevTag );
-                case "defines" -> {
-                    dig.currentSubs().forEach(ele -> defines.put(ele.getTagName(), ele.getTextContent()));
-                    yield parent; // This doesn't alter the parent
-                }
                 case "store" -> addStoreStep(parent, step);
                 default -> parent;
             };

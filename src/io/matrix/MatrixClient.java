@@ -5,13 +5,13 @@ import das.Core;
 import das.Paths;
 import io.Writable;
 import io.forward.MathForward;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
+import util.math.MathUtils;
 import util.tools.FileTools;
 import util.tools.Tools;
 import util.xml.XMLfab;
@@ -357,16 +357,7 @@ public class MatrixClient implements Writable, Commandable {
     }
     private void processDcafsMtext( String body , String originRoom, Room room, String from){
         body = body.substring(body.indexOf(":")+1).trim();
-        if (body.matches(".+=[0-9]*$")) {
-            var sp = body.split("=");
-            double d = NumberUtils.toDouble(sp[1].trim(), Double.NaN);
-            if (Double.isNaN(d)) {
-                sendMessage(originRoom, "Invalid number given, can't parse " + sp[1]);
-            } else {
-                math.addNumericalRef(sp[0].trim(), d);
-                sendMessage(originRoom, "Stored " + sp[1] + " as " + sp[0]);
-            }
-        } else if (body.startsWith("solve ") || body.matches(".+=[a-zA-Z?]+?")) {
+        if (body.startsWith("solve ") || body.matches(".+=[a-zA-Z?]+?")) {
             solveMath(body, originRoom);
         } else { // Respond to commands
             var d = Datagram.build(body).label("matrix").origin(originRoom + "|" + from);
@@ -384,7 +375,7 @@ public class MatrixClient implements Writable, Commandable {
 
         var ori = op;
         op = Tools.alterMatches(op, "^[^{]+", "[{]?[a-zA-Z:]+", "{d:matrix_", "}");
-        var dbl = math.solveOp(op);
+        var dbl = MathUtils.noRefCalculation(op, -999.0, false);
         if (Double.isNaN(dbl)) {
             sendMessage(originRoom, "Failed to process: " + ori);
             return;
@@ -399,9 +390,6 @@ public class MatrixClient implements Writable, Commandable {
             } else {
                 sendMessage(originRoom, ori + " = " + res);
             }
-        } else {
-            math.addNumericalRef(split[1], dbl);
-            sendMessage(originRoom, "Stored " + res + " as " + split[1]);
         }
     }
     public Optional<Room> roomByUrl(String url){

@@ -6,6 +6,7 @@ import util.data.NumericVal;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.function.Function;
 
 public class MathOperation {
@@ -15,7 +16,7 @@ public class MathOperation {
     String expression;
     int highestI = -1;
     BigDecimal[] scratchpad;
-    int resultIndex = -1;
+    int resultIndex = -1; // if it's an equation and not an expression
 
     public MathOperation(String formula) {
         this.expression = formula;
@@ -40,6 +41,21 @@ public class MathOperation {
         return solveDirect(bds);
     }
 
+    public BigDecimal[] solveDoubles(ArrayList<Double> data) {
+        BigDecimal[] bds = new BigDecimal[data.size()];
+        // Only convert the values we will actually use
+        for (int index = 0; index < referenced.length; index++) {
+            var ref = referenced[index];
+            if (ref < 100 && bds[index] == null) { // meaning from input and don't overwrite
+                try {
+                    bds[index] = BigDecimal.valueOf(data.get(ref));
+                } catch (NumberFormatException e) {
+                    Logger.error(e);
+                }
+            }
+        }
+        return solveDirect(bds);
+    }
     public BigDecimal[] solveFor(String data, String delimiter) {
         var inputs = data.split(delimiter);
         if (inputs.length < highestI) {
@@ -78,6 +94,11 @@ public class MathOperation {
         return solve(new BigDecimal[]{input}).doubleValue();
     }
 
+    public double solveSimple(double[] input) {
+        var bds = Arrays.stream(input).mapToObj(BigDecimal::valueOf).toArray(BigDecimal[]::new);
+        // First fill in all the now know values
+        return solve(bds).doubleValue();
+    }
     private BigDecimal solve(BigDecimal[] bds) {
         // First fill in all the now know values
         int refLength = steps.size();
@@ -90,7 +111,7 @@ public class MathOperation {
                     Logger.error(e);
                 }
             } else {
-                ref -= 100;
+                ref %= 100;
                 scratchpad[index + refLength] = valRefs[ref].toBigDecimal();
             }
         }

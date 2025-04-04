@@ -170,6 +170,13 @@ public class MathForward extends AbstractForward {
             Logger.error(id + "(mf) -> Something went wrong processing the data.");
             return true;
         }
+        // Overwrite the original data with the calculated values if applicable.
+        var combined = recombineData(data, bds);
+        // Forward and store the results
+        return forwardData(data, combined, bds);
+    }
+
+    private String recombineData(String data, BigDecimal[] bds) {
         // Recreate the data stream
         var splitData = data.split(delimiter);
         var join = new StringJoiner(delimiter);
@@ -180,23 +187,52 @@ public class MathForward extends AbstractForward {
                 join.add(splitData[index]);
             }
         }
-        var finalData = appendSuffix(suffix, join.toString());
+        return join.toString();
+    }
+
+    private boolean forwardData(String data, String joined, BigDecimal[] bds) {
+        var finalData = appendSuffix(suffix, joined);
         // Use multithreading so the Writable's don't have to wait for the whole process
         nextSteps.forEach(ns -> ns.writeLine(id(), finalData));
         targets.forEach(wr -> wr.writeLine(id(), finalData));
 
-        logResult(data,finalData);
+        logResult(data, finalData);
 
         // Potentially store the data in memory and databases
-        storeData(bds, splitData);
+        storeData(bds, data.split(delimiter));
 
-        if( !cmds.isEmpty())
-            cmds.forEach( cmd->Core.addToQueue(Datagram.system(cmd).writable(this)));
-
+        if (!cmds.isEmpty())
+            cmds.forEach(cmd -> Core.addToQueue(Datagram.system(cmd).writable(this)));
         // If there are no target, no label and no ops that build a command, this no longer needs to be a target
         return !noTargets() || log || store != null;
     }
 
+    public ArrayList<Double> addData(ArrayList<Double> data) {
+        // First check if the operations are actually valid
+        if (!parsedOk) {
+            Logger.error(id + "(mf)->Not processing data because the operations aren't valid");
+            return data;
+        }
+        // Apply the operations
+        BigDecimal[] bds = null;
+        for (int index = 0; index < ops.size(); index++) {
+            var operation = ops.get(index);
+            if (index == 0) {
+                bds = operation.solveDoubles(data);
+            } else {
+                operation.solveBDs(bds);
+            }
+        }
+        if (bds == null) {
+            Logger.error(id + "(mf) -> Something went wrong processing the data.");
+            return data;
+        }
+        for (int index = 0; index < bds.length; index++) {
+            if (bds[index] != null)
+                data.set(index, bds[index].doubleValue());
+        }
+        return data;
+    }
     private static String appendSuffix(String suffix, String data) {
        return switch( suffix ) {
            case "" -> data;
@@ -261,6 +297,14 @@ public class MathForward extends AbstractForward {
             return bds;
         }
 
+        public BigDecimal[] solveDoubles(ArrayList<Double> data) {
+            var bds = mop.solveDoubles(data);
+            if (scale != -1) {
+                int index = mop.getResultIndex();
+                bds[index] = bds[index].setScale(scale, RoundingMode.HALF_UP);
+            }
+            return bds;
+        }
         public void solveBDs(BigDecimal[] bds) {
             mop.solveDirect(bds);
             if (scale != -1) {

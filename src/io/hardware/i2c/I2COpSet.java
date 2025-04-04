@@ -24,12 +24,15 @@ public class I2COpSet {
     private String info="";         // Info about what this group is supposed to do
     private OUTPUT_TYPE outType = OUTPUT_TYPE.NONE;
     boolean valid = true;
+
     public I2COpSet(XMLdigger dig, RealtimeValues rtvals, String deviceId){
         readFromXml(dig,rtvals,deviceId);
     }
+
     public boolean isInvalid(){
         return !valid;
     }
+
     public void readFromXml(XMLdigger digger, RealtimeValues rtvals, String deviceId){
 
         id = digger.attr("id","");
