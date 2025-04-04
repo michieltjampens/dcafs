@@ -824,33 +824,35 @@ public class MathUtils {
         return error;
     }
     /**
-     * Check if the brackets used in the formula are correct (meaning same amount of opening as closing and no closing
+     * Check if the brackets used in the expression are correct (meaning same amount of opening as closing and no closing
      * if there wasn't an opening one before
-     * @param formula The formula to check
+     * @param expression The expression to check
      * @return The formula with enclosing brackets added if none were present or an empty string if there's an error
      */
-    public static String checkBrackets( String formula ){
-
+    public static String checkBrackets(String expression) {
+        boolean totalEnclosing = true;
         // No total enclosing brackets
         int cnt=0;
-        for (int a = 0; a < formula.length(); a++) {
-            if( formula.charAt(a)=='(') {
+        for (int a = 0; a < expression.length(); a++) {
+            if (expression.charAt(a) == '(') {
                 cnt++;
-            }else if( formula.charAt(a)==')' ){
+            } else if (expression.charAt(a) == ')') {
                 cnt--;
             }
+            if (cnt == 0 && a < expression.length() - 1)
+                totalEnclosing = false;
             if( cnt < 0 ) { // if this goes below zero, an opening bracket is missing
-                Logger.error("Found closing bracket without opening in "+formula+" at "+a);
+                Logger.error("Found closing bracket without opening in " + expression + " at " + a);
                 return "";
             }
         }
         if( cnt != 0 ) {
-            Logger.error("Unclosed bracket in "+formula);
+            Logger.error("Unclosed bracket in " + expression);
             return "";
         }
-        if( formula.charAt(0)!='(') // Add enclosing brackets
-            formula="("+formula+")";
-        return formula;
+        if (!totalEnclosing) // Add enclosing brackets
+            expression = "(" + expression + ")";
+        return expression;
     }
     /**
      * Converts a simple operation (only two operands) on elements in an array to a function
