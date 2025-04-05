@@ -151,20 +151,15 @@ public class MathForward extends AbstractForward {
     protected boolean addData(String data) {
 
         // First check if the operations are actually valid
-        if( !parsedOk ){
+        if (!parsedOk || ops.isEmpty()) {
             Logger.error(id + "(mf)->Not processing data because the operations aren't valid");
             return true;
         }
 
         // Apply the operations
-        BigDecimal[] bds = null;
-        for (int index = 0; index < ops.size(); index++) {
-            var operation = ops.get(index);
-            if (index == 0) {
-                bds = operation.solveBDs(data);
-            } else {
-                operation.continueBDs(data, bds);
-            }
+        BigDecimal[] bds = ops.get(0).solveBDs(data);
+        for (int index = 1; index < ops.size(); index++) {
+            ops.get(index).continueBDs(data, bds);
         }
         if (bds == null) {
             Logger.error(id + "(mf) -> Something went wrong processing the data.");
@@ -176,6 +171,27 @@ public class MathForward extends AbstractForward {
         return forwardData(data, combined, bds);
     }
 
+    public ArrayList<Double> addData(ArrayList<Double> data) {
+        // First check if the operations are actually valid
+        if (!parsedOk || ops.isEmpty()) {
+            Logger.error(id + "(mf)->Not processing data because the operations aren't valid");
+            return data;
+        }
+        // Apply the operations
+        BigDecimal[] bds = ops.get(0).solveDoubles(data);
+        for (int index = 1; index < ops.size(); index++) {
+            ops.get(index).solveBDs(bds);
+        }
+        if (bds == null) {
+            Logger.error(id + "(mf) -> Something went wrong processing the data.");
+            return data;
+        }
+        for (int index = 0; index < bds.length; index++) {
+            if (bds[index] != null)
+                data.set(index, bds[index].doubleValue());
+        }
+        return data;
+    }
     private String recombineData(String data, BigDecimal[] bds) {
         // Recreate the data stream
         var splitData = data.split(delimiter);
@@ -207,32 +223,7 @@ public class MathForward extends AbstractForward {
         return !noTargets() || log || store != null;
     }
 
-    public ArrayList<Double> addData(ArrayList<Double> data) {
-        // First check if the operations are actually valid
-        if (!parsedOk) {
-            Logger.error(id + "(mf)->Not processing data because the operations aren't valid");
-            return data;
-        }
-        // Apply the operations
-        BigDecimal[] bds = null;
-        for (int index = 0; index < ops.size(); index++) {
-            var operation = ops.get(index);
-            if (index == 0) {
-                bds = operation.solveDoubles(data);
-            } else {
-                operation.solveBDs(bds);
-            }
-        }
-        if (bds == null) {
-            Logger.error(id + "(mf) -> Something went wrong processing the data.");
-            return data;
-        }
-        for (int index = 0; index < bds.length; index++) {
-            if (bds[index] != null)
-                data.set(index, bds[index].doubleValue());
-        }
-        return data;
-    }
+
     private static String appendSuffix(String suffix, String data) {
        return switch( suffix ) {
            case "" -> data;
@@ -290,36 +281,30 @@ public class MathForward extends AbstractForward {
 
         public BigDecimal[] solveBDs(String data) {
             var bds = mop.solveRaw(data, delimiter);
-            if (scale != -1) {
-                int index = mop.getResultIndex();
-                bds[index] = bds[index].setScale(scale, RoundingMode.HALF_UP);
-            }
+            applyScale(bds);
             return bds;
         }
 
         public void continueBDs(String data, BigDecimal[] bds) {
             mop.continueRaw(data, delimiter, bds);
-            if (scale != -1) {
-                int index = mop.getResultIndex();
-                bds[index] = bds[index].setScale(scale, RoundingMode.HALF_UP);
-            }
+            applyScale(bds);
         }
         public BigDecimal[] solveDoubles(ArrayList<Double> data) {
             var bds = mop.solveDoubles(data);
-            if (scale != -1) {
-                int index = mop.getResultIndex();
-                bds[index] = bds[index].setScale(scale, RoundingMode.HALF_UP);
-            }
+            applyScale(bds);
             return bds;
         }
         public void solveBDs(BigDecimal[] bds) {
             mop.solveDirect(bds);
+            applyScale(bds);
+        }
+
+        private void applyScale(BigDecimal[] bds) {
             if (scale != -1) {
                 int index = mop.getResultIndex();
                 bds[index] = bds[index].setScale(scale, RoundingMode.HALF_UP);
             }
         }
-
         public void scale(int scale) {
             this.scale=scale;
         }
