@@ -6,7 +6,6 @@ import util.data.NumericVal;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.function.Function;
 
 public class MathOperation {
@@ -35,34 +34,14 @@ public class MathOperation {
     }
 
     public BigDecimal[] solveRaw(String data, String delimiter) {
-        var bds = solveFor(data, delimiter, null);
-        if (bds.length == 0)
-            return bds;
-        return solveDirect(bds);
+        return workWithString(data, delimiter, null);
     }
 
-    public BigDecimal[] continueRaw(String data, String delimiter, BigDecimal[] bds) {
-        solveFor(data, delimiter, bds);
-        if (bds.length == 0)
-            return bds;
-        return solveDirect(bds);
-    }
-    public BigDecimal[] solveDoubles(ArrayList<Double> data) {
-        BigDecimal[] bds = new BigDecimal[data.size()];
-        // Only convert the values we will actually use
-        for (Integer ref : referenced) {
-            if (ref < 100 && bds[ref] == null) { // meaning from input and don't overwrite
-                try {
-                    bds[ref] = BigDecimal.valueOf(data.get(ref));
-                } catch (NumberFormatException e) {
-                    Logger.error(e);
-                }
-            }
-        }
-        return solveDirect(bds);
+    public void continueRaw(String data, String delimiter, BigDecimal[] bds) {
+        workWithString(data, delimiter, bds);
     }
 
-    public BigDecimal[] solveFor(String data, String delimiter, BigDecimal[] bds) {
+    public BigDecimal[] workWithString(String data, String delimiter, BigDecimal[] bds) {
         var inputs = data.split(delimiter);
         if (inputs.length < highestI) {
             Logger.error("Not enough items in received data");
@@ -80,12 +59,38 @@ public class MathOperation {
                 }
             }
         }
-        return bds;
+        return applyResult(bds);
     }
 
-    public BigDecimal[] solveDirect(BigDecimal[] bds) {
+    public BigDecimal[] solveDoubles(ArrayList<Double> data) {
+        return workWithDoubles(data, null);
+    }
+
+    public void continueDoubles(ArrayList<Double> data, BigDecimal[] bds) {
+        workWithDoubles(data, bds);
+    }
+
+    private BigDecimal[] workWithDoubles(ArrayList<Double> data, BigDecimal[] bds) {
+        if (bds == null)
+            bds = new BigDecimal[data.size()];
+        // Only convert the values we will actually use
+        for (Integer ref : referenced) {
+            if (ref < 100 && bds[ref] == null) { // meaning from input and don't overwrite
+                try {
+                    bds[ref] = BigDecimal.valueOf(data.get(ref));
+                } catch (NumberFormatException e) {
+                    Logger.error(e);
+                }
+            }
+        }
+        return applyResult(bds);
+    }
+
+    public BigDecimal[] applyResult(BigDecimal[] bds) {
         // First fill in all the now know values
         var result = solve(bds);
+        if (resultIndex == -1)
+            return bds;
         if (resultIndex < 100) { // Either referring to the input data
             bds[resultIndex] = result;
         } else { // Or a val ref, either permanent (1xx) or temp (2xx)
@@ -100,11 +105,6 @@ public class MathOperation {
         return solve(new BigDecimal[]{input}).doubleValue();
     }
 
-    public double solveSimple(double[] input) {
-        var bds = Arrays.stream(input).mapToObj(BigDecimal::valueOf).toArray(BigDecimal[]::new);
-        // First fill in all the now know values
-        return solve(bds).doubleValue();
-    }
     private BigDecimal solve(BigDecimal[] bds) {
         // First fill in all the now know values
         int refLength = steps.size();

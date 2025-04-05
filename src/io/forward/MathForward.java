@@ -180,7 +180,7 @@ public class MathForward extends AbstractForward {
         // Apply the operations
         BigDecimal[] bds = ops.get(0).solveDoubles(data);
         for (int index = 1; index < ops.size(); index++) {
-            ops.get(index).solveBDs(bds);
+            ops.get(index).continueDoubles(data, bds);
         }
         if (bds == null) {
             Logger.error(id + "(mf) -> Something went wrong processing the data.");
@@ -279,23 +279,26 @@ public class MathForward extends AbstractForward {
             return mop.getValRefs();
         }
 
+        /* If the input data is a string */
         public BigDecimal[] solveBDs(String data) {
             var bds = mop.solveRaw(data, delimiter);
             applyScale(bds);
             return bds;
         }
-
         public void continueBDs(String data, BigDecimal[] bds) {
             mop.continueRaw(data, delimiter, bds);
             applyScale(bds);
         }
+
+        /* if the input data is a arraylist with doubles */
         public BigDecimal[] solveDoubles(ArrayList<Double> data) {
             var bds = mop.solveDoubles(data);
             applyScale(bds);
             return bds;
         }
-        public void solveBDs(BigDecimal[] bds) {
-            mop.solveDirect(bds);
+
+        public void continueDoubles(ArrayList<Double> data, BigDecimal[] bds) {
+            mop.continueDoubles(data, bds);
             applyScale(bds);
         }
 
