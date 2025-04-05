@@ -5,16 +5,19 @@ is done in dcafs.
 
 ## What you need to know before
 
-- What the rtvals are.
+- What the [rtvals](rtvals.md) are.
+- What an ArrayList and StringBuilder are, is good to know.
 
 ## From String to functions.
 
 For the sake of this document, let's assume the equation is:  
-`i0=((i1-3)*(i3+5*2))/({group_name}+10*(i1-3))`
+`i0=((i1-3)*(i3+5*2))/({group_name}+10*(i1-3))`  
 This contains:
 
-- References to received data: i0,i1 and so on.
-- References to realtimevalues: {group_name}
+- References to the **array** containing the received data: i0,i1 and so on.
+    - On the left side of `=`, the solution will be stored. In this case, `i0` will be overwritten with the result.
+    - On the right side of `=`, these references will be replaced with the current value.
+- References to **realtimevalues** aka rtvals: {group_name}
 
 ### Checks
 

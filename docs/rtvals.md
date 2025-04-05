@@ -87,10 +87,12 @@ It's possible to issue commands if a condition is met, this is the same for int 
 
 By default, if the val is used inside a store, the string is just converted to int/real. But this behaviour can be overridden.
 ````xml
-<real group="outdoor" name="temperature" unit="°C">
+<group id="outdoor">
+  <real name="temperature" unit="°C">
     <!-- Instead of storing the value received, first add one -->
     <op>i0=i0+1</op>
-</real>
+  </real>  
+</group>
 ````
 
 ## Text
