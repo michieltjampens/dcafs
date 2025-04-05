@@ -1,12 +1,6 @@
 package util.math;
 
-import org.apache.commons.lang3.math.NumberUtils;
 import util.tools.Tools;
-
-import java.math.BigDecimal;
-import java.util.AbstractMap;
-import java.util.Map;
-import java.util.function.Function;
 
 public class Calculations {
 
@@ -17,28 +11,6 @@ public class Calculations {
     static final double A1 = 2.070e-5, A2 = -6.370e-10, A3 = 3.989e-15, B1 = 3.426e-2, B2 = 4.464e-4, B3 = 4.215e-1,
             B4 = -3.107e-3, C0 = 6.766097e-1, C1 = 2.00564e-2, C2 = 1.104259e-4, C3 = -6.9698e-7, C4 = 1.0031e-9;
 
-    public static Function<BigDecimal[],BigDecimal> procSalinity( String temp, String cond, String pressure){
-
-        var t = getIndexAndVal(temp);
-        int tempIndex = t.getKey();
-        double tempVal = t.getValue();
-
-        var c = getIndexAndVal(cond);
-        int condIndex = c.getKey();
-        double condVal = c.getValue();
-
-        var p = getIndexAndVal(pressure);
-        int pressIndex = p.getKey();
-        double pressVal = p.getValue();
-
-        return x -> {
-            var sal = calcSalinity(
-                    condIndex==-1?condVal:x[condIndex].doubleValue(),
-                    tempIndex==-1?tempVal:x[tempIndex].doubleValue(),
-                    pressIndex==-1?pressVal:x[pressIndex].doubleValue());
-            return BigDecimal.valueOf(sal);
-        };
-    }
     /**
      * Method that calculates the salinity based on CTP measurements
      *
@@ -134,35 +106,6 @@ public class Calculations {
     }
 
     /**
-     * Create a function to calculate soundvelocity based on values present in the array
-     * @param temp The index or value of temperature in the array (dC ITS90)
-     * @param salinity The index or value of salinity in the array (psu)
-     * @param pressure The index or value pressure in dB
-     * @return Function to calculate sound velocity in m/s
-     */
-    public static Function<BigDecimal[],BigDecimal> procSoundVelocity( String temp, String salinity, String pressure){
-
-        var t = getIndexAndVal(temp);
-        int tempIndex = t.getKey();
-        double tempVal = t.getValue();
-
-        var s = getIndexAndVal(salinity);
-        int salIndex = s.getKey();
-        double salVal = s.getValue();
-
-        var p = getIndexAndVal(pressure);
-        int pressIndex = p.getKey();
-        double pressVal = p.getValue();
-
-        return x -> {
-            var sv = calcSndVelC(
-                    salIndex==-1?salVal:x[salIndex].doubleValue(),
-                    tempIndex==-1?tempVal:x[tempIndex].doubleValue(),
-                    pressIndex==-1?pressVal:x[pressIndex].doubleValue());
-            return BigDecimal.valueOf(sv);
-        };
-    }
-    /**
      * Method that calculates the true windvelocity based on apparent wind and ships
      * navigation Source: <a href="http://coaps.fsu.edu/woce/truewind/paper/">...</a>
      *
@@ -188,47 +131,6 @@ public class Calculations {
         return Tools.roundDouble(Math.sqrt(tx * tx + ty * ty), 5);
     }
 
-    /**
-     * Create a function that calculates the true wind speed
-     * @param windvel The apparent wind velocity in knots
-     * @param winddir The apparent wind direction in degrees
-     * @param sogKnots The speed over ground in knots
-     * @param cog The course over ground in degrees
-     * @param heading  The heading in degrees
-     * @return A function that calculates true wind speed in knots
-     */
-    public static Function<BigDecimal[],BigDecimal> procTrueWindSpeed( String windvel, String winddir, String sogKnots, String cog,String heading){
-
-        var windv = getIndexAndVal(windvel);
-        int windvelIndex = windv.getKey();
-        double windvelVal = windv.getValue();
-
-        var wd = getIndexAndVal(winddir);
-        int winddirIndex = wd.getKey();
-        double winddirVal = wd.getValue();
-
-        var sk = getIndexAndVal(sogKnots);
-        int sogKnotsIndex = sk.getKey();
-        double sogKnotsVal = sk.getValue();
-
-        var cg = getIndexAndVal(cog);
-        int cogIndex = cg.getKey();
-        double cogVal = cg.getValue();
-
-        var hd = getIndexAndVal(heading);
-        int headingIndex = hd.getKey();
-        double headingVal = hd.getValue();
-
-        return x -> {
-            var dir = calcTrueWindVelocity(
-                    windvelIndex==-1?windvelVal:x[windvelIndex].doubleValue(),
-                    winddirIndex==-1?winddirVal:x[winddirIndex].doubleValue(),
-                    sogKnotsIndex==-1?sogKnotsVal:x[sogKnotsIndex].doubleValue(),
-                    cogIndex==-1?cogVal:x[cogIndex].doubleValue(),
-                    headingIndex==-1?headingVal:x[headingIndex].doubleValue());
-            return BigDecimal.valueOf(dir);
-        };
-    }
     /**
      * Method that calculates the True wind direction based on apparent wind and
      * ships navigation Source: <a href="http://coaps.fsu.edu/woce/truewind/paper/">...</a>
@@ -267,60 +169,5 @@ public class Calculations {
 
         }
         return Truedir;
-    }
-
-    /**
-     * Create a function that calculates the true wind speed
-     * @param windvel The apparent wind velocity in knots
-     * @param winddir The apparent wind direction in degrees
-     * @param sogKnots The speed over ground in knots
-     * @param cog The course over ground in degrees
-     * @param heading  The heading in degrees
-     * @return A function that calculates true wind speed in knots
-     */
-    public static Function<BigDecimal[],BigDecimal> procTrueWindDirection( String windvel, String winddir, String sogKnots, String cog,String heading){
-
-        // Apparent Wind Velocity
-        var windv = getIndexAndVal(windvel);
-        int windvelIndex = windv.getKey();
-        double windvelVal = windv.getValue();
-
-        var wd = getIndexAndVal(winddir);
-        int winddirIndex = wd.getKey();
-        double winddirVal = wd.getValue();
-
-        var sk = getIndexAndVal(sogKnots);
-        int sogKnotsIndex = sk.getKey();
-        double sogKnotsVal = sk.getValue();
-
-        var cg = getIndexAndVal(cog);
-        int cogIndex = cg.getKey();
-        double cogVal = cg.getValue();
-
-        var hd = getIndexAndVal(heading);
-        int headingIndex = hd.getKey();
-        double headingVal = hd.getValue();
-
-        return x -> {
-            var dir = calcTrueWindDirection(
-                    windvelIndex==-1?windvelVal:x[windvelIndex].doubleValue(),
-                    winddirIndex==-1?winddirVal:x[winddirIndex].doubleValue(),
-                    sogKnotsIndex==-1?sogKnotsVal:x[sogKnotsIndex].doubleValue(),
-                    cogIndex==-1?cogVal:x[cogIndex].doubleValue(),
-                    headingIndex==-1?headingVal:x[headingIndex].doubleValue());
-            return BigDecimal.valueOf(dir);
-        };
-    }
-    private static Map.Entry<Integer, Double> getIndexAndVal(String input){
-        int index;
-        double value;
-        if( input.startsWith("i")) {
-            index = NumberUtils.toInt(input.substring(1), -1);
-            value=0;
-        }else{
-            index=-1;
-            value=NumberUtils.toDouble(input);
-        }
-        return new AbstractMap.SimpleEntry<>(index, value);
     }
 }

@@ -373,34 +373,31 @@ public class ValStore {
         }
     }
     public void setValueAt(int index, BigDecimal d){
-        if( map)
-            return;
-        if( index>=rtvals.size() ) {
-            Logger.error(id + " -> Tried to set index "+index+" but only "+rtvals.size()+" items");
-            return;
-        }
-        var val = rtvals.get(index);
-        if( val == null )
-            return;
-        if( val instanceof RealVal) {
-            ((RealVal) val).value(d.doubleValue());
-        }else if( val instanceof IntegerVal ){
-            ((IntegerVal) val).value(d.intValue());
-        }else{
+        var val = getValAtIndex(index);
+
+        if (val instanceof RealVal rv) {
+            rv.value(d.doubleValue());
+        } else if (val instanceof IntegerVal iv) {
+            iv.value(d.intValue());
+        } else if (val != null) {
             val.parseValue(d.toPlainString());
         }
     }
     public void setValueAt(int index, String d){
-        if( map)
-            return;
-        if( index>=rtvals.size() ) {
-            Logger.error(id + " -> Tried to set index "+index+" but only "+rtvals.size()+" items");
-            return;
-        }
-        var val = rtvals.get(index);
-        if( val == null)
+        var val = getValAtIndex(index);
+        if (val == null)
             return;
         val.parseValue(d);
+    }
+
+    private AbstractVal getValAtIndex(int index) {
+        if (map)
+            return null;
+        if (index >= rtvals.size()) {
+            Logger.error(id + " -> Tried to set index " + index + " but only " + rtvals.size() + " items");
+            return null;
+        }
+        return rtvals.get(index);
     }
     public void resetValues(){
         rtvals.forEach(AbstractVal::resetValue);
