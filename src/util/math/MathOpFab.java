@@ -261,7 +261,7 @@ public class MathOpFab {
     }
 
     private static ArrayList<String[]> processBrackets(String expression, boolean debug) {
-        var subFormulas = new ArrayList<String[]>(); // List to contain all the sub-formulas
+        var subExpr = new ArrayList<String[]>(); // List to contain all the sub-formulas
 
         while (expression.contains("(")) { // Look for an opening bracket
             int close = expression.indexOf(")"); // Find the first closing bracket
@@ -270,19 +270,19 @@ public class MathOpFab {
             String part = expression.substring(open + 1, close); // get the part between the brackets
             String piece = expression.substring(open, close + 1); // includes the brackets
 
-            var res = MathUtils.splitAndProcessExpression(part, subFormulas.size() - 1, debug);
+            var res = MathUtils.splitAndProcessExpression(part, subExpr.size() - 1, debug);
             if (res.isEmpty()) {
                 Logger.error("Failed to build because of issues during " + part);
-                return subFormulas;
+                return subExpr;
             } else if (res.size() == 1 && res.get(0)[1].equals("0") && res.get(0)[2].equals("+")) { // Check if it's just simplification
                 expression = expression.replace(piece, res.get(0)[0]); // if so, directly replace it
             } else {
-                subFormulas.addAll(res);    // split that part in the sub-formulas
+                subExpr.addAll(res);    // split that part in the sub-formulas
                 // replace the sub part in the original formula with a reference to the last sub-formula
-                expression = expression.replace(piece, "o" + (subFormulas.size() - 1));
+                expression = expression.replace(piece, "o" + (subExpr.size() - 1));
             }
         }
-        return subFormulas;
+        return subExpr;
     }
 
     private MathOpFab parseToMathOps(String expression) {
