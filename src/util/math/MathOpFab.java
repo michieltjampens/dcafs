@@ -238,6 +238,7 @@ public class MathOpFab {
                     if (refs.get(a).id().equals(val)) {
                         Logger.info("Using old val:" + val);
                         inputs.add(100 + a);
+                        expression = expression.replace("{" + val + "}", "i" + (inputs.size() - 1));
                         continue iteratevals;
                     }
                 }
@@ -274,7 +275,7 @@ public class MathOpFab {
                 Logger.error("Failed to build because of issues during " + part);
                 return subFormulas;
             } else if (res.size() == 1 && res.get(0)[1].equals("0") && res.get(0)[2].equals("+")) { // Check if it's just simplification
-                expression = expression.replace(piece, res.get(0)[0]); // if so, directly replace it inside the formula
+                expression = expression.replace(piece, res.get(0)[0]); // if so, directly replace it
             } else {
                 subFormulas.addAll(res);    // split that part in the sub-formulas
                 // replace the sub part in the original formula with a reference to the last sub-formula

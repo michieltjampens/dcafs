@@ -35,20 +35,25 @@ public class MathOperation {
     }
 
     public BigDecimal[] solveRaw(String data, String delimiter) {
-        var bds = solveFor(data, delimiter);
+        var bds = solveFor(data, delimiter, null);
         if (bds.length == 0)
             return bds;
         return solveDirect(bds);
     }
 
+    public BigDecimal[] continueRaw(String data, String delimiter, BigDecimal[] bds) {
+        solveFor(data, delimiter, bds);
+        if (bds.length == 0)
+            return bds;
+        return solveDirect(bds);
+    }
     public BigDecimal[] solveDoubles(ArrayList<Double> data) {
         BigDecimal[] bds = new BigDecimal[data.size()];
         // Only convert the values we will actually use
-        for (int index = 0; index < referenced.length; index++) {
-            var ref = referenced[index];
-            if (ref < 100 && bds[index] == null) { // meaning from input and don't overwrite
+        for (Integer ref : referenced) {
+            if (ref < 100 && bds[ref] == null) { // meaning from input and don't overwrite
                 try {
-                    bds[index] = BigDecimal.valueOf(data.get(ref));
+                    bds[ref] = BigDecimal.valueOf(data.get(ref));
                 } catch (NumberFormatException e) {
                     Logger.error(e);
                 }
@@ -56,19 +61,20 @@ public class MathOperation {
         }
         return solveDirect(bds);
     }
-    public BigDecimal[] solveFor(String data, String delimiter) {
+
+    public BigDecimal[] solveFor(String data, String delimiter, BigDecimal[] bds) {
         var inputs = data.split(delimiter);
         if (inputs.length < highestI) {
             Logger.error("Not enough items in received data");
             return new BigDecimal[0];
         }
-        BigDecimal[] bds = new BigDecimal[inputs.length];
+        if (bds == null)
+            bds = new BigDecimal[inputs.length];
         // First fill in all the now know values
-        for (int index = 0; index < referenced.length; index++) {
-            var ref = referenced[index];
-            if (ref < 100 && bds[index] == null) { // meaning from input and don't overwrite
+        for (Integer ref : referenced) {
+            if (ref < 100 && bds[ref] == null) { // meaning from input and don't overwrite
                 try {
-                    bds[index] = NumberUtils.toScaledBigDecimal(inputs[ref]);
+                    bds[ref] = NumberUtils.toScaledBigDecimal(inputs[ref]);
                 } catch (NumberFormatException e) {
                     Logger.error(e);
                 }
@@ -106,7 +112,7 @@ public class MathOperation {
             var ref = referenced[index];
             if (ref < 100) { // meaning from input
                 try {
-                    scratchpad[index + refLength] = bds[index];
+                    scratchpad[index + refLength] = bds[ref];
                 } catch (NumberFormatException e) {
                     Logger.error(e);
                 }

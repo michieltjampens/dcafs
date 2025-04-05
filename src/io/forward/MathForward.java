@@ -161,9 +161,9 @@ public class MathForward extends AbstractForward {
         for (int index = 0; index < ops.size(); index++) {
             var operation = ops.get(index);
             if (index == 0) {
-                bds = operation.solveBDs(data, delimiter);
+                bds = operation.solveBDs(data);
             } else {
-                operation.solveBDs(bds);
+                operation.continueBDs(data, bds);
             }
         }
         if (bds == null) {
@@ -288,7 +288,7 @@ public class MathForward extends AbstractForward {
             return mop.getValRefs();
         }
 
-        public BigDecimal[] solveBDs(String data, String delimiter) {
+        public BigDecimal[] solveBDs(String data) {
             var bds = mop.solveRaw(data, delimiter);
             if (scale != -1) {
                 int index = mop.getResultIndex();
@@ -297,6 +297,13 @@ public class MathForward extends AbstractForward {
             return bds;
         }
 
+        public void continueBDs(String data, BigDecimal[] bds) {
+            mop.continueRaw(data, delimiter, bds);
+            if (scale != -1) {
+                int index = mop.getResultIndex();
+                bds[index] = bds[index].setScale(scale, RoundingMode.HALF_UP);
+            }
+        }
         public BigDecimal[] solveDoubles(ArrayList<Double> data) {
             var bds = mop.solveDoubles(data);
             if (scale != -1) {

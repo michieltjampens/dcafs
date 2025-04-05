@@ -30,16 +30,16 @@ public class MathUtils {
      * @return The result of the splitting, so i1+125 => {"i1","+","125"}
      */
     public static List<String[]> splitAndProcessExpression(String expression, int indexOffset, boolean debug ){
-
+        var result = new ArrayList<String[]>();
         var oriExpression=expression;
         // adding a negative number is the same as subtracting
         expression=expression.replace("+-","-");
         // Split it in parts: numbers,ix and operands
         var parts = extractParts(expression);
+        if (parts == null)
+            return result;
 
         if( debug ) Logger.info("-> Splitting: "+expression);
-
-        var result = new ArrayList<String[]>();
 
         indexOffset++; // For some reason this is done here
         if (parts.size() == 3) { // If there are only three parts, this is a single operation
@@ -133,13 +133,39 @@ public class MathUtils {
         }
         return split[0] + "=" + split[1];
     }
+
+    public static List<String> extractParts(String expression) {
+
+        var list = new ArrayList<String>();
+        var ops = "+-/*<>^=%~!°";
+
+        expression = normalizeScientificNotation(expression);
+
+        var build = new StringBuilder();
+        for (var it : expression.toCharArray()) {
+            if (ops.indexOf(it) == -1 || build.isEmpty()) {
+                build.append(it);
+            } else {
+                list.add(build.toString().replace("e", "E-"));
+                build.setLength(0);
+                list.add(String.valueOf(it));
+            }
+        }
+        if (!build.isEmpty()) {
+            list.add(build.toString().replace("e", "E-"));
+        } else {
+            Logger.error("Found an operand at the end of the expression? " + expression);
+            return null;
+        }
+        return list;
+    }
     /**
      * Chop a formula into processable parts splitting it according to operators fe. i1+5-> i1,+,5
      * The most error prone are scientific notations
      * @param formula The formula to chop into parts
      * @return The resulting pieces
      */
-    public static List<String> extractParts( String formula ){
+    public static List<String> extractParts_old(String formula) {
 
         if( formula.isEmpty() ) {
             Logger.warn("Tried to extract parts from empty formula");
@@ -147,7 +173,7 @@ public class MathUtils {
         }
         var alt = normalizeScientificNotation( formula );
         String ops = extractOperands( alt );
-        String[] spl = alt.split(OPS_REGEX); // now split the string based on operands, this now won't split scientific
+        String[] spl = alt.split("[" + ops + "]+=?"); // now split the string based on operands, this now won't split scientific
 
         var full = new ArrayList<String>();
         int b=0;
@@ -210,6 +236,10 @@ public class MathUtils {
         // So if this is the case, remove it from the ops line
         if( ops.startsWith("-")&&expression.startsWith("-"))
             ops=ops.substring(1);
+        // This also doesn't handle stuff like i0*-3 properly
+        if (expression.contains(ops) && ops.length() == 2) {
+            ops = ops.substring(0, 1);
+        }
         return ops;
     }
     /**
@@ -567,7 +597,6 @@ public class MathUtils {
                         }else{
                             proc = x -> x[i1].pow(bd2.intValue());
                         }
-
                     }else if(bd1 != null){ //  meaning first is a number and second an index
                         proc = x -> bd1.pow(x[i2].intValue());
                     }else{ // meaning both indexes
@@ -762,6 +791,8 @@ public class MathUtils {
 
         // Split it in parts: numbers,ix and operands
         var parts = extractParts(expression);
+        if (parts == null)
+            return error;
 
         if( debug ) Logger.info("-> Calculating: "+expression);
 
