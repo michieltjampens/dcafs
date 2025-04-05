@@ -7,26 +7,30 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
-## 3.0.1 (wip)
+## 3.0.2 (wip)
+
+## 3.0.1 (05/04/25)
 
 Mainly rewrite of the mathfab/mathforward combination to split it in its functional parts.
 This removed some functionality that didn't belong in there anyway.
 
 ### Telnet
-
 - Added `telnet:writable,id` allows a telnet session to request the writable of another session. Instead
   of the id, * is valid for the first session that isn't the current one.
 - Added ` >alt` suffix for commands issued through telnet, this will use the writable of the other
   session in the datagram so the result is shown there instead.
 
 ### Streammanager
-
 - Now gives an error when trying to connect to an ip:port or serial port already in use.
 
 ### RealtimeValues
-
 - Fixed, rv,iv etc weren't added to commandable anymore...
 - Fixed, `*v:id,update,value` wasn't looking at * but to id instead
+
+### Math
+
+- Fixed parsing of *- and the likes
+- Fixed parsing of negative exponents, parsing was fine but bigdecimals don't like it.
 
 ## 3.0.0 (31/03/25)
 
