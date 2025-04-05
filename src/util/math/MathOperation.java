@@ -16,6 +16,7 @@ public class MathOperation {
     int highestI = -1;
     BigDecimal[] scratchpad;
     int resultIndex = -1; // if it's an equation and not an expression
+    boolean debug = false;
 
     public MathOperation(String formula) {
         this.expression = formula;
@@ -125,7 +126,16 @@ public class MathOperation {
         // Do the calculations
         int index = 0;
         for (var step : steps) {
-            scratchpad[index] = step.apply(scratchpad);
+            try {
+                scratchpad[index] = step.apply(scratchpad);
+                if (debug)
+                    Logger.info("Result of " + index + ": " + scratchpad[index].toPlainString());
+            } catch (ArithmeticException f) {
+                Logger.error("(mop) -> Arithmetic error when trying step " + index + " for processing " + expression);
+            } catch (Exception e) {
+                Logger.error(e);
+                break;
+            }
             index++;
         }
         return scratchpad[index - 1];

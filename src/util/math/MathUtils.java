@@ -157,7 +157,22 @@ public class MathUtils {
             Logger.error("Found an operand at the end of the expression? " + expression);
             return null;
         }
+        fixNegativeExponent(list);
         return list;
+    }
+
+    private static void fixNegativeExponent(ArrayList<String> list) {
+
+        for (int index = 0; index < list.size(); index++) {
+            if (!list.get(index).equals("^"))
+                continue;
+            var exponent = list.get(index + 1);
+            if (!exponent.startsWith("-"))
+                continue;
+            list.set(index + 1, exponent.substring(1)); // Fix the exponent
+            list.add(index - 1, "/");
+            list.add(index - 1, "1");
+        }
     }
     /**
      * Chop a formula into processable parts splitting it according to operators fe. i1+5-> i1,+,5
