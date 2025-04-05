@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<dcafs>
+    <settings>
+        <mode>normal</mode>
+        <!-- Settings related to the telnet server -->
+        <telnet port="2323" title="dcafs"/>
+        <!-- The telnet server is available on port 2323 and the title presented is dcafs -->
+    </settings>
+    <rtvals>
+        <group id="test">
+            <flag def="true" name="flag"/>
+            <real def="0" name="real"/>
+            <real def="0" name="result"/>
+        </group>
+    </rtvals>
+    <paths>
+        <path id="hard">
+            <plainsrc interval="5s">1000,0,-4,0,3.0,0,0.01</plainsrc>
+        </path>
+        <path id="mathhard" delimiter="," src="path:hard">
+            <math>
+                <!-- Input: 1000,0,-4,0,3.0,0,0.01 -->
+                <op>{test_result}=(((i2*-2.5E-1 + (i4%3.0 + 7 * i6^-1)) - ((3.14 + i2) * (i6^0.5))) / (i4 - 2)) +
+                    i0*0.01
+                </op>
+                <!-- 711.086 -->
+            </math>
+        </path>
+        <path id="easy">
+            <plainsrc interval="6s">5,10,20,12,10</plainsrc>
+        </path>
+        <path id="matheasy1" delimiter="," src="path:easy">
+            <math>
+                <!-- Input: 5,10,20,12,10 -->
+                <!-- Test simple expression -->
+                <op>i0=(25+i0)*(10.1*i3)</op> <!-- (25+5)*(10.1*12) = 30*121.2 =3636 -->
+                <!-- 3636.00000,12.00,20,12,10 -->
+
+                <!-- Test having a rtval as output -->
+                <op>{test_real}=i0-636</op> <!-- pump_warmup becomes 3000 -->
+                <!-- 3636.00000,12.00,20,12,10 -->
+
+                <!-- Test having an rtval as input -->
+                <op>i2={test_real}/i2</op> <!-- 3000/20 = 150 -->
+                <!-- 3636.00000,10,150.00000000,12.00,10 -->
+
+                <!-- Use flags and negative after an operand -->
+                <op>i3={test_flag}*(i3*-2+16)</op> <!-- 1*(12*-2+16) -> -24+16=-8 -->
+                <!-- 3636.00000,10,150.00000000,-8.00,10 -->
+
+                <!-- Scientific notation -->
+                <op>i1=i1*12E-2+6</op> <!-- 10*0.12+6 = 1.2+6 = 7.2 -->
+                <!-- 3636.00000,7.2000,150.00000000,-8.00,10 -->
+                <op>i0--</op>
+                <!-- 3635.00000,7.2000,150.00000000,-8.00,10 -->
+                <op>i4*=3.33</op>
+                <!-- 3635.00000,7.2000,150.00000000,-8.00,33.3000 -->
+            </math>
+        </path>
+        <path id="matheasy2" delimiter="," src="path:easy">
+            <math>
+                <!-- Input: 5,10,20,12,10 -->
+                <op>i0=(25+(i1*12))*(i3+5)</op> <!--(25+(10*12))*(12+5) = (25+120)*(17)=145*17 = 2465 -->
+                <op>i1=i1+0.1</op> <!-- 10+0.1 = 10.1 -->
+                <op>i2=i2%3</op> <!-- 20%3=2 -->
+                <op>i3=i3^3.5</op> <!-- 12^3 = 1728 -->
+                <op>i4=i4/3+0.0000001</op>
+                <!-- 2465.0000,10.10,2.00,1728.000000,10-->
+            </math>
+        </path>
+
+    </paths>
+</dcafs>
