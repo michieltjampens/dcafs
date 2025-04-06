@@ -34,6 +34,7 @@ To hold all the data generated in this step, we'll use:
 
 - An `Arraylist<Integer>` called `references`
 - An `Arraylist<NummericVal>` for rtvals called `valRefs`
+- An optional `Integer` called `resultIndex`
 
 To make parsing easier, we'll normalize the references in the expression.  
 `((i1-3)*(i3+5*2))/({group_name}+10*(i1-3))`  
@@ -55,6 +56,14 @@ The `i` will be retained to reflect it's inserted.
     * Now `references` holds `[1,3,100]`
 
 After this, the expression becomes: `((i0-3)*(i1+5*2))/(i2+10*(i0-3))`
+
+3. **Handle the target reference**  
+   If an equation is being processed, handle it similarly:
+
+- For an `i*` reference, store the numeric part in `resultIndex`.
+- For a `rtval` reference, write the resulting index (with offset) in `resultIndex`.
+- For a `t*` reference (temporary storage), create placeholder `rtval`, follow the same procedure as `rtval`, but
+  write the index to `resultIndex` instead of `references`.
 
 To safe space, both ArrayLists are then converted to Arrays.
 
@@ -178,46 +187,18 @@ For example, `(i1+5-2*i3)` which became `[i1][+][5][-][2][*][i3]`.
 * Now the size of `parts` is three, so reorder the remaining elements `[i1][o4][+]` and add to results.
 * After processing `results` is return to the second step **2. Splitting in sub expressions**.
 
-### 4. Convert groups to lambda's
+### 4. Convert groups to Functions
 
 The final step in the parsing process. This uses an `ArrayList<Function<BigDecimal[], BigDecimal>>`
 called `steps` to store the lambda's.
 
 Now the elements in `subExpr` are iterated over one by one. A huge switch statement is used to convert
-such element to a Function that receives a `BigDecimal[]` and gets the resulting `BigDecimal` in return.
+such element to a Function that receives a `BigDecimal[]` and returns the solution as a `BigDecimal` .
 
-This is done by generating a function that executes the operand of the group on the value/ref parts.
-Value will become a hardcoded constant and ref refers to the index in the received `BigDecimal[]`.
+This is done by generating a function that executes the operand of the group on the value/ref parts.  
+(Value will become a hardcoded constant and ref refers to the index in the received `BigDecimal[]`).
 
-### 5. The left side of the equation
-
-This will instruct on what to do with the solution of the equation. There are three options:
-
-- An **index referring to the received data**, with the already known format of `i*`.
-- A **reference to a rtval** in the format `{group_name}`.
-- A **temporary storage** that will be used for intermediate results with the format `t*`
-
-We'll use the same rules as the conversions in step **1. Replacing references** annd store the result in an
-`Integer` called `resultIndex`.
-
-#### Index referring to the received data
-
-The `i` is removed and the remainder is parsed and written to `resultIndex`
-
-#### Reference to a rtval
-
-The global `rtvals` collection is searched for a match:
-
-- **If not found**, the parsing is aborted.
-- **If found**, it's added to `valRefs` and the index +100 is stored in `resultIndex`
-
-#### Temporary storage
-
-This is only relevant if the equation isn't singular (like multiple in succession in `MathForward`).
-Because in that case `valRefs` are shared, a rtval is created with id `dcafs_t*` and added to `valRefs`.
-The index of `dcafs_t*` gets 100 added to it and stored in `resultIndex`.
-
-### 6. Passing it on.
+### 5. Passing it on.
 
 With this the parsing is complete and all required info is given to the class that uses is.
 
