@@ -100,7 +100,7 @@ public class MathOpFab {
         // Rewrite the i's to reflect position in inputs
         var inputs = new ArrayList<Integer>();
         for (var i : is) {
-            expression = expression.replace("i" + i, "i" + inputs.size());
+            expression = expression.replace("i" + i, "r" + inputs.size());
             inputs.add(i);
         }
 

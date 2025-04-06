@@ -16,7 +16,7 @@ For the sake of this document, let's assume the equation is:
 This contains:
 - References to the **array** containing the received data: i0,i1 and so on.
     - On the left side of `=`, the **target** of the solution. Thus, in this case, `i0` will be assigned the solution.
-    - On the right side of `=`, the **expression**. Here references are instead replaced with the current value.
+      - On the right side of `=`, the **expression**. Here references are instead replaced with the current value.
 - References to **realtimevalues** aka rtvals: {group_name}.  
   (This could also be the target.)
 
@@ -34,6 +34,7 @@ To hold all the data generated in this step, we'll use:
 
 - An `Arraylist<Integer>` called `references`
 - An `Arraylist<NummericVal>` for rtvals called `valRefs`
+- An `Integer` called `highestI`
 - An optional `Integer` called `resultIndex`
 
 To make parsing easier, we'll normalize the references in the expression.  
@@ -46,16 +47,19 @@ The `i` will be retained to reflect it's inserted.
     * Use regex to collect them. In this case, it finds `[i1,i3]`
     * Sort the results. (e.g. `[i1,i3]` remains the same).
     * Add the numeric part to `references`. (e.g. `[1,3]`)
-    * Alters the expression to reflect the indexes in `references`. (e.g. change `i1` to `i0`)
+   * Alters the expression to reflect the indexes in `references`. (e.g. change `i1` to `r0`)
+   * The maximum value found in `references` is stored in `highestI`, this will be used to check if the received
+     data (potentially after splitting) actually has enough items.
 
 2. **Replace rtval references**
     * Follow the same process, but with an offset of 100 to differentiate `valRefs` from the old `i` references.
     * Ensure `group_name` exists in the global rtvals collection. If not, abort.
     * Add the rtval to the local `valRefs` and add its index + 100 to `references`.
-    * Replace `{group_name}` with `i2` (since we used index 2 in `references`).
+   * Replace `{group_name}` with `r2` (since we used index 2 in `references`).
     * Now `references` holds `[1,3,100]`
+   * This is repeated for every `rtval` in the expression.
 
-After this, the expression becomes: `((i0-3)*(i1+5*2))/(i2+10*(i0-3))`
+After this, the expression becomes: `((r0-3)*(r1+5*2))/(r2+10*(r0-3))`
 
 3. **Handle the target reference**  
    If an equation is being processed, handle it similarly:
@@ -166,25 +170,25 @@ To split `parts` further in groups of three:
       Once all operands have been accounted for, the process is complete.
 
 **Example**  
-For example, `(i1+5*2)` which became `[i1][+][5][*][2]`.
+For example, `(r1+5*2)` which became `[r1][+][5][*][2]`.
 
 * Following the order of operands, the first group found is `[5][*][2]`
-    * This can be calculated directly so gets replaced with 10 instead. Meaning `[i1][+][5][*][2]` became `[i1][+][10]`.
-* Next the size of `parts` is now three, so reorder the remaining elements `[i1][10][+]` and add to `results`.
+    * This can be calculated directly so gets replaced with 10 instead. Meaning `[r1][+][5][*][2]` became `[r1][+][10]`.
+* Next the size of `parts` is now three, so reorder the remaining elements `[r1][10][+]` and add to `results`.
 
-For example, `(i1+5-2*i3)` which became `[i1][+][5][-][2][*][i3]`.
+For example, `(i1+5-2*i3)` which became `[r1][+][5][-][2][*][r3]`.
 
-* Following the order of operands, the first group found is `[2][*][i3]`
+* Following the order of operands, the first group found is `[2][*][r3]`
     * This can't be calculated, so:
-        * Reorder to `[2][i3][*]`
+        * Reorder to `[2][r3][*]`
         * Add this to `results`
-        * Replace the group in `parts` with `[o3]`, to get `[i1][+][5][-][o3]`
-* Following the order of operands, the next group found is `[i1][+][5]`
+        * Replace the group in `parts` with `[o3]`, to get `[r1][+][5][-][o3]`
+* Following the order of operands, the next group found is `[r1][+][5]`
     * This can't be calculated, so:
-        * Reorder to `[i1][5][+]`
+        * Reorder to `[r1][5][+]`
         * Add this to `results`
-        * Replace the group in `parts` with `[o4]`, to get `[i1][+][o4]`
-* Now the size of `parts` is three, so reorder the remaining elements `[i1][o4][+]` and add to results.
+        * Replace the group in `parts` with `[o4]`, to get `[r1][+][o4]`
+* Now the size of `parts` is three, so reorder the remaining elements `[r1][o4][+]` and add to results.
 * After processing `results` is return to the second step **2. Splitting in sub expressions**.
 
 ### 4. Convert groups to Functions
@@ -200,18 +204,21 @@ This is done by generating a function that executes the operand of the group on 
 
 ### 5. Passing it on.
 
-With this the parsing is complete and all required info is given to the class that uses is.
+With this the parsing is complete and all required info has been gathered to compute the solution.
 
-- The `ArrayList<Function<BigDecimal[], BigDecimal>>` called steps holding the lambda's.
-- An `Integer[]` called `references`, that maps `i*` to the source
+- The `ArrayList<Function<BigDecimal[], BigDecimal>>` called `steps` holding the Functions.
+- An `Integer[]` called `references`, that maps `r*` to the source
 - A `NummericVal[]` holding the rtvals called `valRefs`
 - A `String` called `expression` holding the original expression for debug purposes.
 - An `Integer` called `resultIndex` holding the index to which the result of it all is written.
+- An `Integer` called `highestI`, holds the highest original `i*` index used.
+-
 
 Based on this info, some extras are determined.
 
-- An `Integer` called highestI, holds the highest `i*` index used.
-- A `BigDecimal[]` called `scratchpad` that will be given to the lambda's. The length of this array, is
+- A `BigDecimal[]` called `scratchpad` that will be given to the Functions. The length of this array, is
   equal to the length of `steps` and `references` combined.
 
-## From functions to solution
+## From Functions to the solution
+
+This might be easier to explain by example. 
