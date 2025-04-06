@@ -3,61 +3,60 @@
 The aim of this document is to explain how the parsing of mathematical equations
 is done in dcafs.
 
-## What you need to know before
+## Good to know before reading
 
-- What the [rtvals](rtvals.md) are.
-- What an ArrayList and StringBuilder are, is good to know.
+- That the [rtvals](rtvals.md) are the way dcafs stores realtime data. With `NumericVal` being an interface for the
+  ones that are numeric.
+- ArrayList holds objects; StringBuilder builds text — both grow as needed.
 
 ## From String to functions.
 
 For the sake of this document, let's assume the equation is:  
 `i0=((i1-3)*(i3+5*2))/({group_name}+10*(i1-3))`  
 This contains:
-
 - References to the **array** containing the received data: i0,i1 and so on.
-    - On the left side of `=`, the solution will be stored. In this case, `i0` will be overwritten with the result.
-    - On the right side of `=`, these references will be replaced with the current value.
-- References to **realtimevalues** aka rtvals: {group_name}
+    - On the left side of `=`, the **target** of the solution. Thus, in this case, `i0` will be assigned the solution.
+    - On the right side of `=`, the **expression**. Here references are instead replaced with the current value.
+- References to **realtimevalues** aka rtvals: {group_name}.  
+  (This could also be the target.)
 
 ### Checks
 
 Before any parsing is done, some things are checked and altered.
 
-- Check if the amount of brackets is even and in the right order.
-- Add brackets around the right side if none are present yet.
-- Replace things like `i0++` and `io*=4` to full equations.
+- That the amount of brackets is even, and they are the right sequence.
+- Add brackets around the expression, if none are present yet.
+- Replace things like `i0++` and `io*=4` to full equations e.g. `i0=i0+1` and `i0=i0*4`.
 
 ### 1. Replacing references
 
 To hold all the data generated in this step, we'll use:
 
-- An arraylist<Integer> called references
-- An arraylist<NummericVal> for rtvals called valRefs
+- An `Arraylist<Integer>` called `references`
+- An `Arraylist<NummericVal>` for rtvals called `valRefs`
 
-To make parsing easier, we'll normalize the references on the right side of the equation.  
-`((i1-3)*(i3+5*2))/({group_name}+10*(i1-3))`
-Instead of a reference to different sources, we'll refer to position in the new
-arraylist `references` instead. The `i` will be retained to show it's an input.
+To make parsing easier, we'll normalize the references in the expression.  
+`((i1-3)*(i3+5*2))/({group_name}+10*(i1-3))`  
+Instead of references to different sources, we'll refer to positions in the new
+`references` ArrayList.  
+The `i` will be retained to reflect it's inserted.
 
-1. Go through the expression and replace any `i*` style reference with an `i` followed by
-   the index in the `references` list.
+1. **Replace current i references**
+    * Use regex to collect them. In this case, it finds `[i1,i3]`
+    * Sort the results. (e.g. `[i1,i3]` remains the same).
+    * Add the numeric part to `references`. (e.g. `[1,3]`)
+    * Alters the expression to reflect the indexes in `references`. (e.g. change `i1` to `i0`)
 
-* `i1` becomes `i0` and 1 is added to references
-* `i3` becomes `i1` and 3 is added to references
-* Because of this `references` looks like this [1][3]
+2. **Replace rtval references**
+    * Follow the same process, but with an offset of 100 to differentiate `valRefs` from the old `i` references.
+    * Ensure `group_name` exists in the global rtvals collection. If not, abort.
+    * Add the rtval to the local `valRefs` and add its index + 100 to `references`.
+    * Replace `{group_name}` with `i2` (since we used index 2 in `references`).
+    * Now `references` holds `[1,3,100]`
 
-2. Look for rtval references, same process except add an offset of 100 to track that it refers
-   to the `valRefs` instead.
+After this, the expression becomes: `((i0-3)*(i1+5*2))/(i2+10*(i0-3))`
 
-* Check if `rtval_ref` is present in the global rtvals collection, if not abort.
-* Add the val to the local `valRefs` and add the index +100 to `references`.
-* Replace `{group_name}` with `i2` because we used index 2 in `references`.
-* Now `references` holds [1][3][100]
-
-After this, the expression becomes:  
-`((i0-3)*(i1+5*2))/(i2+10*(i0-3))`
-
-To safe some space, both ArrayLists are now converted to Arrays.
+To safe space, both ArrayLists are then converted to Arrays.
 
 ### 2. Splitting in sub expressions
 

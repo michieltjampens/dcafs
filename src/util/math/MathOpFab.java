@@ -93,6 +93,7 @@ public class MathOpFab {
         if (expression.isEmpty())
             return null;
 
+        // Extract all the 'i*' from the expression
         var is = determineReqInputs(expression);
         highestI = is[is.length - 1];
 
