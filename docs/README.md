@@ -1,29 +1,19 @@
-## Content of the files in this folder
+# Content of the files in this folder
 
-### Basics (updated to 3.0.0)
-Tries to teach the basics of using dcafs with the use of a dice rolling simulator.
-This simulator can be found in the examples sub folder.
+## Guides
 
-### Rtvals (updated to 3.0.0)
+* [Getting started](Basics.md) (updated to 3.0.0)
+* These guides explain how to use the modules (updated to 3.0.0)
+    * [I2C](i2c.md)
+    * [Paths](paths.md) (wip)
+        * [Editor](editor.md)
+    * [Realtimevalues](rtvals.md)
+    * [Store](store.md)
+    * [Stream Manager](streammanager.md)
+    * [Task Manager](taskmanager.md)
+* These guides explain how to use some of the helper classes
+    * [XMLdigger and XMLfab](XMLdigger%20and%20XMLfab.md)
 
-All the info about the various rtvals, except integration in store.
+## Logic explained
 
-### Store (updated to 3.0.0)
-
-All the info about the uses of store, only inside a stream for now.
-
-### I2C (updated to 3.0.0)
-
-All the info about the uses of i2c.
-
-### TaskManager (updated to 3.0.0)
-
-Explains how to use a task manager.
-
-### StreamManager (updated to 3.0.0)
-
-Explains how to use the Stream manager.
-
-### Paths (wip)
-
-Explains how to use paths.
+* [Math parser](MathParser.md) explains how parsing and solving mathematical equations is done in dcafs
