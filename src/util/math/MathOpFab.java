@@ -14,7 +14,7 @@ import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
 public class MathOpFab {
-
+    private static final Pattern I_REF_PATTERN = Pattern.compile("(?<![a-zA-Z0-9_])i[0-9]{1,2}(?![a-zA-Z0-9_])");
     ArrayList<Function<BigDecimal[], BigDecimal>> steps = new ArrayList<>();
     Integer[] referenced;
     NumericVal[] valRefs;
@@ -79,8 +79,8 @@ public class MathOpFab {
     private MathOpFab build(String expression, RealtimeValues rtvals, List<NumericVal> oldRefs) {
         if (debug)
             Logger.info("MathFab building for " + expression);
-
-        expression = normalizeExpression(expression);
+        // Fix stuff like i0++, i0*=3, remove spaces ,sin/cos/tan to placeholders
+        expression = MathUtils.normalizeExpression(expression);
 
         var resultTarget = "";
         if (expression.contains("=")) {
@@ -89,12 +89,12 @@ public class MathOpFab {
             expression = split[1];
         }
 
-        expression = MathUtils.checkBrackets(expression);
+        expression = MathUtils.checkBrackets(expression, '(', ')', true);
         if (expression.isEmpty())
             return null;
 
         // Extract all the 'i*' from the expression
-        var is = determineReqInputs(expression);
+        var is = extractIreferences(expression);
         highestI = is[is.length - 1];
 
         // Rewrite the i's to reflect position in inputs
@@ -127,13 +127,13 @@ public class MathOpFab {
         if (debug)
             Logger.info("MathOpFab building for " + expression);
 
-        expression = normalizeExpression(expression);
-        expression = MathUtils.checkBrackets(expression);
+        expression = MathUtils.normalizeExpression(expression);
+        expression = MathUtils.checkBrackets(expression, '(', ')', true);
 
         if (expression.isEmpty())
             return null;
 
-        var is = determineReqInputs(expression);
+        var is = extractIreferences(expression);
         highestI = is[is.length - 1];
 
         // Rewrite the i's to reflect position in inputs
@@ -154,15 +154,17 @@ public class MathOpFab {
         return parseToMathOps(expression);
     }
 
-    private static String normalizeExpression(String expression) {
-        expression = MathUtils.normalizeExpression(expression); // Replace stuff like i0++ with i0=i0+1
-        // words like sin,cos etc messes up the processing, replace with references
-        expression = MathUtils.replaceGeometricTerms(expression);
-        expression = expression.replace(" ", ""); // Remove any spaces
-        expression = MathUtils.handleCompoundAssignment(expression); // Replace stuff like i0*=5 with i0=i0*5
-        return expression;
-    }
 
+    private static int[] extractIreferences(String expression) {
+        return I_REF_PATTERN// Extract all the references
+                .matcher(expression)
+                .results()
+                .map(MatchResult::group)
+                .distinct()
+                .sorted() // so the highest one is at the bottom
+                .mapToInt(i -> NumberUtils.toInt(i.substring(1)))
+                .toArray();
+    }
     /**
      * Check the left part of the equation if exists and determine if it's referring to input data, a val or temp
      *
@@ -208,17 +210,6 @@ public class MathOpFab {
         return -1;
     }
 
-    private static int[] determineReqInputs(String expression) {
-        return Pattern.compile("i[0-9]{1,2}")// Extract all the references
-                .matcher(expression)
-                .results()
-                .map(MatchResult::group)
-                .distinct()
-                .sorted() // so the highest one is at the bottom
-                .mapToInt(i -> NumberUtils.toInt(i.substring(1)))
-                .toArray();
-    }
-
     private static String replaceRealtimeValues(String expression, ArrayList<NumericVal> refs, RealtimeValues rtvals, ArrayList<Integer> inputs) {
         // Replace the temp ones if they exist
         for (var ref : refs) {
@@ -230,6 +221,8 @@ public class MathOpFab {
         }
         // Do processing as normal
         var bracketVals = Tools.parseCurlyContent(expression, true);
+        if (bracketVals == null)
+            return "";
         int hasOld = refs.size();
 
         iteratevals:

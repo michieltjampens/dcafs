@@ -169,7 +169,7 @@ public class ConditionBlock extends AbstractBlock {
     }
 
     private static Optional<ArrayList<String>> splitInSubExpressions(String exp) {
-        exp = MathUtils.checkBrackets(exp);
+        exp = MathUtils.checkBrackets(exp, '(', ')', true);
         if (exp.isEmpty()) {
             return Optional.empty();
         }

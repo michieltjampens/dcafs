@@ -4,6 +4,7 @@ import com.fazecast.jSerialComm.SerialPort;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.gis.GisTools;
+import util.math.MathUtils;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -519,6 +520,9 @@ public class Tools {
 
     public static List<String> parseCurlyContent(String data, boolean distinct) {
         var contents = new HashSet<String>();
+        data = MathUtils.checkBrackets(data, '{', '}', false);
+        if (data.isEmpty())
+            return null;
         int b = 0;
         while (b != -1) {
             int a = data.indexOf("{");

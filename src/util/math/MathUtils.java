@@ -111,14 +111,21 @@ public class MathUtils {
             return op1Index;
         return Math.min(op1Index, op2Index);
     }
-
     public static String normalizeExpression(String expression) {
+        expression = MathUtils.normalizeDualOperand(expression); // Replace stuff like i0++ with i0=i0+1
+        // words like sin,cos etc messes up the processing, replace with references
+        expression = MathUtils.replaceGeometricTerms(expression);
+        expression = expression.replace(" ", ""); // Remove any spaces
+        expression = MathUtils.handleCompoundAssignment(expression); // Replace stuff like i0*=5 with i0=i0*5
+        return expression;
+    }
+
+    public static String normalizeDualOperand(String expression) {
         // Support ++ and --
         return expression.replace("++", "+=1")
                 .replace("--", "-=1")
                 .replace(" ", ""); //remove spaces
     }
-
     public static String handleCompoundAssignment(String exp) {
         if (!exp.contains("="))
             return exp;
@@ -134,6 +141,26 @@ public class MathUtils {
         return split[0] + "=" + split[1];
     }
 
+    /**
+     * The problem with scientific notation is that they can be mistaken for a combination of a word and numbers
+     * especially the negative one can be seen as an operation instead.
+     *
+     * @param expression The expression to fix
+     * @return Expression that has numbers with negative exp use e and positive use E instead
+     */
+    private static String normalizeScientificNotation(String expression) {
+        var ee = es.matcher(expression) // find the numbers with scientific notation
+                .results()
+                .map(MatchResult::group)
+                .distinct().toList();
+
+        for (String el : ee) { // Replace those with uppercase so they all use the same format
+            expression = expression.replace(el, el.toUpperCase());
+        }
+        // Replace the negative ones with a e and the positive ones with E to remove the sign
+        String alt = expression.replace("E-", "e");
+        return alt.replace("E+", "E");
+    }
     public static List<String> extractParts(String expression) {
 
         var list = new ArrayList<String>();
@@ -174,89 +201,7 @@ public class MathUtils {
             list.add(index - 1, "1");
         }
     }
-    /**
-     * Chop a formula into processable parts splitting it according to operators fe. i1+5-> i1,+,5
-     * The most error prone are scientific notations
-     * @param formula The formula to chop into parts
-     * @return The resulting pieces
-     */
-    public static List<String> extractParts_old(String formula) {
 
-        if( formula.isEmpty() ) {
-            Logger.warn("Tried to extract parts from empty formula");
-            return new ArrayList<>();
-        }
-        var alt = normalizeScientificNotation( formula );
-        String ops = extractOperands( alt );
-        String[] spl = alt.split("[" + ops + "]+=?"); // now split the string based on operands, this now won't split scientific
-
-        var full = new ArrayList<String>();
-        int b=0;
-        for (int a = 0; a < spl.length; a++) {
-            if (spl[a].isEmpty() && !formula.startsWith("!")) {
-                spl[a + 1] = "-" + spl[a + 1];
-            } else {
-                var m = es.matcher(Pattern.quote(spl[a])); // now check if it matches a scientific one
-                if( m.find() ){ // if so, replace the lowercase e back to uppercase with minus, for uppercase + is redundant
-                    full.add(spl[a].replace("e","E-"));
-                }else{ // if not, just add as is
-                    full.add(spl[a]);
-                }
-
-                // add the op
-                if( b<ops.length()) {
-                    if( ops.length()>b+1 && ops.charAt(b+1)=='=') { // == doesn't get processed properly, so fix this
-                        full.add(ops.substring(b, b + 2));
-                        b++;
-                    }else {// if not == just add it
-                        full.add(String.valueOf(ops.charAt(b)));
-                    }
-                }
-                b++;
-            }
-        }
-        return full;
-    }
-
-    /**
-     * The problem with scientific notation is that they can be mistaken for a combination of a word and numbers
-     * especially the negative one can be seen as an operation instead.
-     * @param expression The expression to fix
-     * @return Expression that has numbers with negative exp use e and positive use E instead
-     */
-    private static String normalizeScientificNotation( String expression ){
-        var ee = es.matcher(expression) // find the numbers with scientific notation
-                .results()
-                .map(MatchResult::group)
-                .distinct().toList();
-
-        for( String el : ee ){ // Replace those with uppercase so they all use the same format
-            expression = expression.replace(el,el.toUpperCase());
-        }
-        // Replace the negative ones with a e and the positive ones with E to remove the sign
-        String alt = expression.replace("E-","e");
-        return alt.replace("E+","E");
-    }
-
-    /**
-     * Extract all the used operands in order from the expression accounting for the possibility of a negative number in
-     * front
-     * @param expression The expression to process
-     * @return A string containing all the operands from the expression
-     */
-    private static String extractOperands( String expression ){
-        var ops = expression.replaceAll("[a-zA-Z0-9_:]", "");// To get the ops, just remove all other characters
-        ops=ops.replace(".","");// and the dots (special regex character)
-        // The above replaceAll doesn't handle it properly if the formula starts with a - (fe. -5*i1)
-        // So if this is the case, remove it from the ops line
-        if( ops.startsWith("-")&&expression.startsWith("-"))
-            ops=ops.substring(1);
-        // This also doesn't handle stuff like i0*-3 properly
-        if (expression.contains(ops) && ops.length() == 2) {
-            ops = ops.substring(0, 1);
-        }
-        return ops;
-    }
     /**
      * Convert the comparison sign to a compare function that accepts a double array
      * @param comp The comparison fe. < or >= etc
@@ -869,20 +814,21 @@ public class MathUtils {
         }
         return error;
     }
+
     /**
      * Check if the brackets used in the expression are correct (meaning same amount of opening as closing and no closing
      * if there wasn't an opening one before
      * @param expression The expression to check
      * @return The formula with enclosing brackets added if none were present or an empty string if there's an error
      */
-    public static String checkBrackets(String expression) {
+    public static String checkBrackets(String expression, char openChar, char closeChar, boolean addEnclosing) {
         boolean totalEnclosing = true;
         // No total enclosing brackets
         int cnt=0;
         for (int a = 0; a < expression.length(); a++) {
-            if (expression.charAt(a) == '(') {
+            if (expression.charAt(a) == openChar) {
                 cnt++;
-            } else if (expression.charAt(a) == ')') {
+            } else if (expression.charAt(a) == closeChar) {
                 cnt--;
             }
             if (cnt == 0 && a < expression.length() - 1)
@@ -896,7 +842,7 @@ public class MathUtils {
             Logger.error("Unclosed bracket in " + expression);
             return "";
         }
-        if (!totalEnclosing) // Add enclosing brackets
+        if (!totalEnclosing && addEnclosing) // Add enclosing brackets
             expression = "(" + expression + ")";
         return expression;
     }
@@ -1444,7 +1390,7 @@ public class MathUtils {
 
         formula = formula.replace(" ", ""); // But doesn't contain any spaces
 
-        formula = checkBrackets(formula);
+        formula = checkBrackets(formula, '(', ')',true);
         if (formula.isEmpty())
             return error;
 
