@@ -208,8 +208,12 @@ public class ValStore {
     private void digForDatabaseUse(Element store, XMLdigger dig) {
         if (store.hasAttribute("db")) {
             var db = dig.attr("db", "").split(";");
+            Logger.info("Got DB req: "+String.join(";",db));
             for (var dbi : db) {
                 var split = dbi.split(":");
+                if( split.length==1){
+                    Logger.error("DB attribute must contain a ':', got "+dig.attr("db", ""));
+                }
                 if (split[0].contains(",") && split[1].contains(",")) {
                     Logger.error(id + "(store) -> Can't have multiple id's and tables defined.");
                 } else if (split[0].contains(",")) { // multiple id's but same tables
