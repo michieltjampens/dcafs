@@ -302,7 +302,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
         var db = dbOpt.get();
         if (args.length == 2)
             return doTwoArgCmd(args, db, d.asHtml());
-        return doMultiArgCmd(d.cmd(), args, db);
+        return doMultiArgCmd(d, db);
     }
     private String doOneArgCmd( String[] cmds ,boolean html){
         StringJoiner join = new StringJoiner(html?"<br":"\r\n");
@@ -494,7 +494,9 @@ public class DatabaseManager implements QueryWriting, Commandable {
         };
     }
 
-    private String doMultiArgCmd(String cmd, String[] args, SQLDB db) {
+    private String doMultiArgCmd( Datagram d, SQLDB db) {
+        var args = d.argList();
+
         return switch (args[1]) {
             case "tablexml" -> {
                 // Select the correct server node
@@ -544,41 +546,35 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 db.setDoInserts(alter);
                 yield "Set do inserts for " + db.id() + " to " + alter;
             }
-            default -> "! No such subcommand in " + cmd + ": " + args[0];
+            case "tableinsert" -> doTableInsertCmd(d,db);
+            default -> "! No such subcommand in " + d.getData();
         };
     }
-    public String payloadCommand( String cmd, String args, Object payload){
-        String[] cmds = args.split(",");
-        if( payload==null)
-            return "! No valid payload given with "+cmd+":"+args;
-        if (cmds.length >= 2 && cmds[1].equals("tableinsert")) {
-            if (cmds.length < 3)
-                return "! Not enough arguments, needs to be dbm:dbid,tableinsert,tableid";
-            var dbOpt = getDatabase(cmds[0]);
-            if (dbOpt.isEmpty()) {
-                Logger.error(cmd + ":" + args + " -> Failed because no such database: " + cmds[0]);
-                return "! No such database: " + cmds[0];
+    public String doTableInsertCmd( Datagram d, SQLDB db ){
+        var cmds = d.argList();
+        if (cmds.length < 3)
+            return "! Not enough arguments, needs to be dbm:dbid,tableinsert,tableid";
+
+        var payload = d.payload();
+
+        var tiOpt = db.getTableInsert(cmds[2]);
+        if (tiOpt.isEmpty()) {
+            var id = "";
+            if (payload instanceof AbstractForward af) {
+                id = af.id();
             }
-            var db = dbOpt.get();
-            var tiOpt = db.getTableInsert(cmds[2]);
-            if (tiOpt.isEmpty()) {
-                var id = "";
-                if (payload instanceof AbstractForward af) {
-                    id = af.id();
-                }
-                Logger.error("dbm payload -> No table '" + cmds[2] + "' in " + cmds[0] + " requested by " + id);
-                return "! No such table id " + cmds[2] + " in " + cmds[0];
-            }
-            if (payload.getClass() == MathForward.class || payload.getClass() == EditorForward.class
-                    || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class) {
-                ((AbstractForward) payload).addTableInsert(tiOpt.get());
-                return "TableInsert added";
-            } else if (payload.getClass() == StoreCollector.class) {
-                ((StoreCollector) payload).addTableInsert(tiOpt.get());
-            }
-            return "! Payload isn't the correct object type for " + cmd + ":" + args;
+            Logger.error("dbm payload -> No table '" + cmds[2] + "' in " + cmds[0] + " requested by " + id);
+            return "! No such table id " + cmds[2] + " in " + cmds[0];
         }
-        return "! No such command " + cmd + ": " + args;
+        if (payload.getClass() == MathForward.class || payload.getClass() == EditorForward.class
+                || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class) {
+            ((AbstractForward) payload).addTableInsert(tiOpt.get());
+        } else if (payload.getClass() == StoreCollector.class) {
+            ((StoreCollector) payload).addTableInsert(tiOpt.get());
+        }else {
+            return "! Payload isn't the correct object type for " + d.getData();
+        }
+        return "TableInsert added";
     }
     /**
      * Response to MySQLdump related commands
