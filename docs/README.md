@@ -16,4 +16,4 @@
 
 ## Logic explained
 
-* [Math parser](MathParser.md) explains how parsing and solving mathematical equations is done in dcafs
+* [Math parser](MathParser.md) explains how parsing and then solving mathematical equations is done in dcafs
