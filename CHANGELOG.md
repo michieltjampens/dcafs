@@ -7,6 +7,8 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
+## 3.0.3 (wip)
+
 ## 3.0.2 (09/04/25)
 
 - Fixed, Refactor of Commandable broke tableinsert which means db inserts weren't working anymore.
