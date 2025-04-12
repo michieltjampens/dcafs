@@ -220,7 +220,7 @@ public class MathOpFab {
             }
         }
         // Do processing as normal
-        var bracketVals = Tools.parseCurlyContent(expression, true);
+        var bracketVals = Tools.extractCurlyContent(expression, true);
         if (bracketVals == null)
             return "";
         int hasOld = refs.size();

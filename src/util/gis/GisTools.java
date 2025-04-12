@@ -5,6 +5,7 @@ import util.tools.Tools;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.function.Function;
 
 public class GisTools {
@@ -335,4 +336,33 @@ public class GisTools {
         }
     }
 
+    /**
+     * Converts coordinates to the deg min.min format
+     *
+     * @param coordinates The coordinates to convert
+     * @return The result
+     */
+    public static String convertCoordinates(String[] coordinates) {
+
+        StringBuilder b = new StringBuilder();
+        ArrayList<Double> degrees = new ArrayList<>();
+
+        for (String item : coordinates)
+            degrees.add(GisTools.convertStringToDegrees(item));
+
+        if (degrees.size() % 2 == 0) { //meaning an even number of values
+            for (int a = 0; a < degrees.size(); a += 2) {
+                double la = degrees.get(a);
+                double lo = degrees.get(a + 1);
+
+                b.append("Result:").append(la).append(" and ").append(lo).append(" => ").append(GisTools.fromDegrToDegrMin(la, -1, "°")).append(" and ").append(GisTools.fromDegrToDegrMin(lo, -1, "°"));
+                b.append("\r\n");
+            }
+        } else {
+            for (double d : degrees) {
+                b.append("Result: ").append(degrees).append(" --> ").append(GisTools.fromDegrToDegrMin(d, -1, "°")).append("\r\n");
+            }
+        }
+        return b.toString();
+    }
 }

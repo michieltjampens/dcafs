@@ -183,7 +183,7 @@ public class StoreCmds {
     private static String doMapCmd(String[] args, String prefix, XMLfab fab) {
         if (args.length < 3)
             return "! Wrong amount of arguments -> " + prefix + "map,true/false";
-        if (!Tools.validBool(args[2]))
+        if (!Tools.isValidBoolean(args[2]))
             return "! Not a valid boolean: " + args[2];
         fab.attr("map", args[2]).build();
         return "Set map to '" + args[2] + "'";
@@ -192,7 +192,7 @@ public class StoreCmds {
     private static String doIdleResetCmd(String[] args, String prefix, XMLfab fab) {
         if (args.length < 3)
             return "! Wrong amount of arguments -> " + prefix + "idlereset,true/false";
-        if (!Tools.isBoolean(args[2]))
+        if (!Tools.isValidBoolean(args[2]))
             return "! Not a valid boolean state: " + args[2];
         fab.attr("idlereset", args[2]).build();
         return "Set the idlereset to '" + args[2] + "'";

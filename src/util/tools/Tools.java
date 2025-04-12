@@ -3,7 +3,6 @@ package util.tools;
 import com.fazecast.jSerialComm.SerialPort;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.gis.GisTools;
 import util.math.MathUtils;
 
 import java.io.BufferedReader;
@@ -18,9 +17,8 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -31,145 +29,192 @@ import java.util.stream.Stream;
  */
 public class Tools {
 
+    private static final Pattern DELIMITER_PATTERN = Pattern.compile("[ \t,;|]+");
+    private static final Pattern HEX_PATTERN = Pattern.compile("\\\\x([0-9A-Fa-f]{1,2})");
+
     /* ********************************* D O U B L E ********************************************* */
     /**
-     * More robust way of parsing strings to double than the standard
-     * Double.parseDouble method and return a chosen value on error Removes: space
-     * ',' '\n' '\r'
-     * 
-     * @param number The string double to parse
-     * @param error  The double to return if something went wrong
-     * @return The parsed double if successful or the chosen error value.
+     * Parses a string to a double, returning a default error value if parsing fails.
+     * <p>
+     * Input is first normalized to account for common formatting issues such as commas
+     * as decimal separators and stray newline characters. Null or unparseable values
+     * return the provided error fallback.
+     *
+     * @param number the string to parse
+     * @param error  the value to return if parsing fails
+     * @return the parsed double, or {@code error} if parsing fails
      */
     public static double parseDouble(String number, double error) {
-
-        if (number == null)
-            return error;
-
-        number = number.trim().replace(",", ".").replace("\n", "").replace("\r", "");
-
-        if (number.isBlank()) {
-            return error;
-        }
-        try {
-            return Double.parseDouble(number);
-        } catch (NumberFormatException e) {
-            return error;
-        }
+        return NumberUtils.toDouble(normalizeNumberInput(number), error);
     }
 
     /**
-     * Rounds a double to a certain amount of digits after the comma
-     * 
-     * @param r            The double to round
-     * @param decimalPlace The amount of digits
-     * @return The rounded double
+     * Normalizes a string representing a numeric value by:
+     * <ul>
+     *   <li>Trimming whitespace</li>
+     *   <li>Replacing commas with periods (e.g., for European decimal formats)</li>
+     *   <li>Removing newline and carriage return characters</li>
+     *   <li>Returning an empty string if input is {@code null}</li>
+     * </ul>
+     *
+     * @param number the input string to normalize
+     * @return a cleaned-up string safe for numeric parsing
      */
-    public static double roundDouble(double r, int decimalPlace) {
-        if (Double.isInfinite(r) || Double.isNaN(r) || decimalPlace < 0)
-            return r;
-        BigDecimal bd = BigDecimal.valueOf(r);
+    public static String normalizeNumberInput(String number) {
+        if (number == null) {
+            return "";
+        }
+        return number.trim()
+                .replace(",", ".")  // Make sure the correct one is used
+                .replace(";", "")
+                .replace("\n", "")
+                .replace("\r", "");
+    }
+    /**
+     * Rounds a double to a certain number of digits after the decimal point,
+     * using {@link RoundingMode#HALF_UP}, which always rounds .5 away from zero.
+     *
+     * @param value        the double to round
+     * @param decimalPlace the number of digits after the decimal point
+     * @return the rounded value, or the original if invalid input
+     */
+    public static double roundDouble(double value, int decimalPlace) {
+        if (Double.isInfinite(value) || Double.isNaN(value) || decimalPlace < 0)
+            return value;
+        BigDecimal bd = BigDecimal.valueOf(value);
         return bd.setScale(decimalPlace, RoundingMode.HALF_UP).doubleValue();
     }
     /* ******************************* I N T E G E R  ************************************************************ */
     /**
-     * More robust way of parsing strings to integer than the standard
-     * Integer.parseInteger method and return a chosen value on error Removes: space
-     * ',' '\n' '\r'
-     * 
-     * @param number The string integer to parse. If starts with 0x, it's considered
-     *               hex
-     * @param error  The integer to return if something went wrong
-     * @return The parsed integer if successful or the chosen error value.
+     * Parses a string to an integer, returning a default error value if parsing fails.
+     * <p>
+     * This method handles hexadecimal strings (prefixed with '0x') and normal integers.
+     * The input string is normalized before parsing, which removes common formatting issues
+     * such as extra whitespace and line breaks.
+     *
+     * @param number the string to parse
+     * @param error  the value to return if parsing fails
+     * @return the parsed integer, or {@code error} if parsing fails
      */
     public static int parseInt(String number, int error) {
-        try {
-            number = number.trim().replace("\n", "").replace("\r", "").replace(";", "");
+        number = normalizeNumberInput(number);
 
-            if (number.startsWith("0x")) {
+        if (number.startsWith("0x")) {
+            try {
                 return Integer.parseInt(number.substring(2), 16);
+            } catch (NumberFormatException e) {
+                return error;
             }
-            return Integer.parseInt(number);
-        } catch (NumberFormatException e) {
-            return error;
         }
+        return NumberUtils.toInt(number, error);
     }
-
     /**
-     * Check if the given string is parsable as a bool.
-     * @param value The value to check.
-     * @return True if it's a valid bool.
-     */
-    public static boolean validBool( String value ){
-        var valid = new String[]{"yes", "no", "true", "false", "1", "0"};
-        return Arrays.asList(valid).contains(value.toLowerCase().trim());
-    }
-
-    /**
-     * Parses a value to a boolean, returning the error value if conversion fails.
+     * Checks if the provided string can be interpreted as a boolean-like value.
+     * <p>
+     * This method returns true for values commonly recognized as boolean equivalents
+     * such as "yes", "no", "true", "false", "1", "0", "on", "off", "high", and "low".
+     * Additionally, any non-zero numeric string (e.g., "2", "100") is considered true,
+     * while "0" is considered false.
+     * <p>
+     * If the string cannot be interpreted as a valid boolean-like value or a numeric
+     * value (other than "0"), the method returns false.
      *
-     * @param value The value to parse.
-     * @param error The boolean value to return on error.
-     * @return The parsed value or error if failed.
+     * @param value The string to check.
+     * @return {@code true} if the value is a valid boolean-like string or a non-zero
+     *         number; {@code false} otherwise.
      */
-    public static boolean parseBool( String value, boolean error){
-        value=value.toLowerCase().trim();
-        if( value.equals("yes")||value.equals("true")||value.equals("1")||value.equals("on")||value.equals("high"))
-            return true;
-        if( value.equals("no")||value.equals("false")||value.equals("0")||value.equals("off")||value.equals("low"))
-            return false;
-        if( NumberUtils.isParsable(value) ){
-            return NumberUtils.toInt(value)!=0;
-        }
-        if( !value.isEmpty())
-            Logger.warn("No valid value received to convert to bool: "+value);
-        return error;
-    }
+    public static boolean isValidBoolean(String value) {
+        if (value == null) return false;
 
-    public static boolean isBoolean(String value) {
-        value = value.toLowerCase().trim();
-        if (value.equals("yes") || value.equals("true") || value.equals("1") || value.equals("on") || value.equals("high") ||
-                value.equals("no") || value.equals("false") || value.equals("0") || value.equals("off") || value.equals("low"))
+        var valid = new String[]{"yes", "no", "true", "false", "1", "0", "on", "off", "high", "low"};
+        if (Arrays.asList(valid).contains(value.toLowerCase().trim()))
             return true;
         return NumberUtils.isParsable(value);
     }
 
     /**
-     * Convert a signed byte to an unsigned integer.
-     * @param val The byte to convert
-     * @return The unsigned equivalent of the given value.
+     * Parses a string value and returns a boolean representation based on common boolean-like values.
+     * <p>
+     * The method checks for values like "yes", "true", "1", "on", and "high" as {@code true},
+     * and "no", "false", "0", "off", and "low" as {@code false}. It also parses numeric strings,
+     * where any non-zero number (e.g., "2", "100") is considered {@code true}, and "0" is considered {@code false}.
+     * If the string cannot be parsed to a boolean-like value, the specified {@code error} value is returned.
+     * A warning is logged if the string cannot be converted to a boolean or parsed as a number.
+     *
+     * @param value The string value to parse.
+     * @param error The default boolean value to return in case of an invalid or unrecognized input.
+     * @return {@code true} or {@code false} based on the string input, or the specified {@code error} value if invalid.
      */
-    public static int toUnsigned(byte val) {
-        int a = val;
-        return a < 0 ? a + 256 : a;
-    }
-    public static int toUnsignedWord(int val) {
-        return val < 0 ? val + 65536 : val;
+    public static boolean parseBool(String value, boolean error) {
+        if (value.isEmpty())
+            return error;
+
+        return switch (value.toLowerCase().trim()) {
+            case "yes", "true", "1", "on", "high" -> true;
+            case "no", "false", "0", "0.0", "off", "low" -> false;
+            default -> NumberUtils.isParsable(value) || error;
+        };
     }
     /**
-     * Adds spaces to the front of an integer till it has the specified length
+     * Converts a signed byte to an unsigned integer.
+     * This method takes a signed byte value (ranging from -128 to 127) and converts it to an unsigned integer
+     * representation (ranging from 0 to 255). The conversion ensures that negative byte values are correctly
+     * treated as their unsigned equivalents.
+     *
+     * @param val The signed byte value to be converted.
+     * @return The unsigned integer value corresponding to the byte.
+     */
+    public static int toUnsigned(byte val) {
+        return val & 0xFF; // This is equivalent to converting to unsigned byte
+    }
+
+    /**
+     * Converts a signed integer to an unsigned 16-bit integer.
+     * This method uses bitwise masking to convert the signed integer value into
+     * an unsigned 16-bit integer. It ensures that the resulting value is between
+     * 0 and 65535, regardless of the input's sign.
+     *
+     * @param val The signed integer to be converted to an unsigned 16-bit integer.
+     * @return The unsigned 16-bit integer representation of the input value.
+     */
+    public static int toUnsignedWord(int val) {
+        return val & 0xFFFF;
+    }
+
+    /* ************************************** S T R I N G ******************************************************** */
+    /**
+     * Adds spaces to the end of the string until it reaches the specified length.
+     * If the original string is already longer than the requested length, it remains unchanged.
+     *
      * @param ori the string to alter
      * @param length the requested length
-     * @return ori with spaces added to math the length (if ori was shorter)
+     * @return ori with spaces added to the end to match the length (if ori was shorter)
      */
     public static String addTrailingSpaces(String ori, int length) {
+        if (ori == null)
+            throw new IllegalArgumentException("Input string cannot be null");
+
         StringBuilder res = new StringBuilder(ori);
         while (res.length() < length)
             res.append(" ");
         return res.toString();
     }
-    /* ************************************** S T R I N G ******************************************************** */
-
     /**
-     * Check if the end of the string is a null.
+     * Checks if the last byte of the string is a null byte (0x00).
+     *
      * @param txt The string to check.
-     * @return True if the last character is null.
+     * @return True if the last byte is a null byte (0x00); false otherwise.
+     * @throws IllegalArgumentException If the input string is null.
      */
-    public static boolean isNullEnded( String txt ){
+    public static boolean isNullEnded(String txt) {
+        if (txt == null)
+            throw new IllegalArgumentException("Input string cannot be null");
+
         var bytes = txt.getBytes();
-        if( bytes.length==0)
-            return false;
-        return bytes[bytes.length-1]==0;
+        if (bytes.length == 0) {
+            return false; // Empty string doesn't have a null byte at the end
+        }
+        return bytes[bytes.length - 1] == 0;
     }
    /**
 	 * Convert the descriptive name of the delimiter to the actual findable string
@@ -185,53 +230,124 @@ public class Tools {
 	}
     /* ************************** * H E X A D E C I M A L ********************************************************* */
     /**
-     * Converts a array of bytes to a space separated string of hexadecimals (0x00
-     * 0x01)
-     * 
-     * @param data The array to parse
-     * @return The hex string
-     */
-    public static String fromBytesToHexString(byte[] data) {
-        if (data == null)
-            return "";
-        return fromBytesToHexString(data, 0, data.length);
-    }
-
-    /**
-     * Converts a part of an array of characters to a space separated string of
-     * hexadecimals (0x00 0x01), can work MSB->LSB and LSB->MSB
-     * 
+     * Converts a part of an array of characters to a space-separated string of
+     * hexadecimals (0x00 0x01), can work MSB->LSB and LSB->MSB.
+     *
      * @param data   The array to parse
      * @param offset Start index
      * @param length Amount of bytes from the start to convert, negative means LSB first
      * @return The hex string
      */
     public static String fromBytesToHexString(byte[] data, int offset, int length) {
-        if (data == null)
+        if (data == null || offset < 0 || offset >= data.length)
             return "";
 
         StringJoiner join = new StringJoiner(" 0x", "0x", "");
-        for (int x = offset; (length>0?x<offset+length:x>offset+length) && (length>0?x<data.length:x>-1); x+=(length>0?1:-1)) {
-            String hex = Integer.toHexString(data[x]).toUpperCase();
-            if (hex.length() > 2) {
-                hex = hex.substring(hex.length() - 2);
+
+        // Check if the direction is MSB->LSB or LSB->MSB
+        if (length > 0) {
+            // MSB -> LSB
+            for (int x = offset; x < offset + length && x < data.length; x++) {
+                join.add(formatByte(data[x]));
             }
-            join.add((hex.length() == 1 ? "0" : "") + hex);
+        } else {
+            // LSB -> MSB
+            for (int x = offset; x > offset + length && x >= 0; x--) {
+                join.add(formatByte(data[x]));
+            }
         }
+
         return join.toString();
     }
 
     /**
+     * Helper method to format a byte as a two-digit hexadecimal string.
+     *
+     * @param b The byte to format
+     * @return A two-digit hexadecimal string
+     */
+    private static String formatByte(byte b) {
+        String hex = Integer.toHexString(b & 0xFF).toUpperCase(); // mask with 0xFF to ensure unsigned byte
+        return (hex.length() == 1 ? "0" : "") + hex;
+    }
+
+    /**
+     * Converts an entire array of bytes to a space-separated string of hexadecimals (e.g., 0x00 0x01).
+     * This is a convenient wrapper for {@link #fromBytesToHexString(byte[], int, int)} with default parameters.
+     *
+     * @param data The array of bytes to convert.
+     * @return A space-separated string of hexadecimal representations of the byte array (e.g., "0x00 0x01").
+     */
+    public static String fromBytesToHexString(byte[] data) {
+        return fromBytesToHexString(data, 0, data.length);
+    }
+
+    /**
+     * Parses a string representation of a number in a given base (binary, decimal, hexadecimal)
+     * and converts it into a byte if possible.
+     *
+     * @param base   The base of the number (2 for binary, 10 for decimal, 16 for hexadecimal).
+     * @param number The string representation of the number to parse.
+     * @return An Optional containing the resulting byte if the number is valid, or an empty Optional if the parsing fails or the number is negative.
+     */
+    public static Optional<Byte> fromBaseToByte(int base, String number) {
+
+        number = switch (base) {
+            case 2 -> number.replace("0b", "");
+            case 10 -> number;
+            case 16 -> number.replace("0x", "");
+            default -> {
+                Logger.error("Not a valid base: '" + base + "' when  trying to convert " + number);
+                yield "";
+            }
+        };
+
+        if (number.isEmpty()) // skip empty strings or negatives
+            return Optional.empty();
+        if (number.startsWith("-")) { // skip empty strings or negatives
+            Logger.error("Trying to convert negative number: '" + number + "'");
+            return Optional.empty();
+        }
+        try {
+            int result = Integer.parseInt(number, base);
+            // Check if the parsed value fits in a byte (0 to 255)
+            if (result >= 0 && result <= 0xFF)
+                return Optional.of((byte) result); // return the byte value
+            return Optional.of((byte) (result / 256)); // return LSB byte value
+        } catch (java.lang.NumberFormatException e) {
+            Logger.error("Bad number format: " + number + " for base " + base);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses an array of numbers in ASCII format to a byte array.
+     *
+     * @param base    The base of these numbers (e.g., 2 for binary, 10 for decimal, 16 for hexadecimal).
+     * @param numbers The array of strings representing numbers to parse.
+     * @return The resulting byte array containing all parsed values.
+     */
+    public static byte[] fromBaseToBytes(int base, String[] numbers) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        for (String number : numbers)
+            fromBaseToByte(base, number).ifPresent(out::write);
+        return out.toByteArray();
+    }
+    /**
      * Converts a delimited string of hexes to a byte array
-     * 
-     * @param line The delimited line (will split on space, komma and semicolon)
-     * @return The resulting array
+     *
+     * @param line The delimited line (will split on space, comma and semicolon)
+     * @return The resulting array or an empty one if failed
      */
     public static byte[] fromHexStringToBytes(String line) {
-
-        line = line.toLowerCase().replace("0x", "");
+        if (line == null || line.trim().isEmpty()) {
+            Logger.error("Input line is null or empty.");
+            return null;
+        }
+        // Clean the line: lowercase and remove 'h'
         line = line.toLowerCase().replace("h", "");
 
+        // Split the string by delimiters and convert to byte array
         byte[] result = Tools.fromBaseToBytes(16, Tools.splitList(line));
         if (result.length == 0) {
             Logger.error("Failed to convert " + line);
@@ -241,69 +357,102 @@ public class Tools {
     /**
      * Converts a optionally space delimited string of binary nibbles to a byte array
      *
-     * @param line The delimited line will split on space
-     * @return The resulting array
+     * @param line The delimited line (will split on space)
+     * @return The resulting array or an empty array if conversion fails
      */
     public static byte[] fromBinaryStringToBytes(String line) {
+        if (line == null || line.trim().isEmpty()) {
+            Logger.error("Input line is null or empty.");
+            return new byte[0];  // Return an empty array for empty or invalid input
+        }
 
         var ori=line;
-        line = line.replace(" ","");
-        // add a space after each byte?
+        // Remove spaces from the line
+        line = line.replace(" ", "");
+        // Check if the length is a multiple of 8, indicating valid binary data
         if( line.length()%8!=0 ){
             Logger.error("Tried to convert binary '"+ori+"' to bytes, but incorrect amount of characters.");
             return new byte[0];
         }
+        // Split the line into 8-bit chunks and convert to bytes
         byte[] result = Tools.fromBaseToBytes(2, Tools.splitListOnLength(line,8));
         if (result.length == 0) {
-            Logger.error("Failed to convert " + line);
+            Logger.error("Failed to convert '" + ori + "' to bytes.");
         }
         return result;
     }
     /**
      * Converts a delimited string of decimals to a byte array
-     * 
-     * @param line The delimited line (will split on space, komma and semicolon)
-     * @return The resulting array
+     *
+     * @param line The delimited line (will split on space, comma, and semicolon)
+     * @return The resulting array or an empty array if conversion fails
      */
     public static byte[] fromDecStringToBytes(String line) {
+        if (line == null || line.trim().isEmpty()) {
+            Logger.error("Input line is null or empty.");
+            return new byte[0];  // Return an empty array for empty or invalid input
+        }
+
+        // Attempt to convert the decimal string to bytes
         byte[] result = Tools.fromBaseToBytes(10, Tools.splitList(line));
         if (result.length == 0) {
-            Logger.error("Failed to convert " + line);
+            Logger.error("Failed to convert '" + line + "' to bytes.");
         }
-        return result;
+        return result; // Return the resulting byte array (or empty array if no valid conversion)
     }
+
     /**
-     * Search the given txt for regex matches and alter those with the value but with append and or prepend
-     * @param txt The txt to check/alter
+     * Search the given text for regex matches and alter those with the value by appending and/or prepending.
+     * @param txt The text to check/alter
+     * @param filter The filter to apply on the matches (only those that match this will be altered)
      * @param regex The regex to look for
      * @param prepend The string to add in front
      * @param append The string to add in the back
-     * @return The altered text or the original if it failed
+     * @return The altered text, or the original if it failed
      */
     public static String alterMatches(String txt, String filter, String regex, String prepend, String append ){
         try {
-            var pat = Pattern.compile(regex);
-            var res = pat.matcher(txt)
-                    .results()
-                    .map(MatchResult::group)
-                    .filter( s -> s.matches(filter))
-                    .collect(Collectors.toCollection(ArrayList::new));
 
-            for( var r : res ){
-                txt=txt.replace(r,prepend+r+append);
+            var pat = Pattern.compile(regex);
+            Matcher matcher = pat.matcher(txt);
+
+            // Use StringBuilder to efficiently build the altered string
+            StringBuilder result = new StringBuilder();
+
+            int lastEnd = 0;
+            while (matcher.find()) {
+                String match = matcher.group();
+                // Only alter matches that pass the filter
+                if (match.matches(filter)) {
+                    // Append text before the match, then prepend and append the altered match
+                    result.append(txt, lastEnd, matcher.start());
+                    result.append(prepend).append(match).append(append);
+                } else {
+                    // Just append the match if it doesn't match the filter
+                    result.append(txt, lastEnd, matcher.end());
+                }
+                lastEnd = matcher.end();
             }
-        }catch( Exception e){
-            Logger.error(e);
+
+            // Append the remaining part of the string after the last match
+            result.append(txt.substring(lastEnd));
+
+            return result.toString(); // Return the altered text
+        }catch( Exception e) {
+            // Log the error and return the original text
+            Logger.error("Failed to alter matches: " + e.getMessage());
+            return txt; // Return the original text if an error occurs
         }
-        return txt;
     }
     /**
      * Replaces all the occurrences of the byte size hex escape sequences (fe.\x10) with their respective value
      * @param txt The text in which to replace them
      * @return The resulting bytes
      */
-    public static String fromEscapedStringToBytes( String txt ){
-
+    public static String fromEscapedStringToBytes( String txt) {
+        if (txt == null || txt.isEmpty()) {
+            return txt;
+        }
         // Replace the known ones like \t, \r and \n
         txt = txt.replace("\\t","\t")
                     .replace("\\r","\r")
@@ -312,24 +461,43 @@ public class Tools {
                     .replace("\\e","\\x1B");
 
         // First extract all the hexes
-        var hexes = Pattern.compile("[\\\\][x]([0-9]|[A-F]){1,2}")
-                .matcher(txt)//apply the pattern
-                .results()//gather the results
-                .map(MatchResult::group)//no idea
-                .toArray(String[]::new);//export to a string array
+        var matcher = HEX_PATTERN.matcher(txt);//apply the pattern
 
-        // Then replace all those hexes in the string with a null character
-        for( String hex : hexes) { // replace all the hexes with the escape
+        // Use StringBuilder for efficient string manipulation
+        StringBuilder sb = new StringBuilder(txt.length());
+
+        // Loop through and handle the hex replacement
+        int lastAppendPos = 0;
+        while (matcher.find()) {
+            sb.append(txt, lastAppendPos, matcher.start());  // Append text before the match
             try {
-                txt = txt.replace(hex, String.valueOf((char) Integer.parseInt(hex.substring(2), 16)));
-            }catch( NumberFormatException e){
-                Logger.error("Failed to convert: "+txt);
+                // Convert the hex escape sequence to a character
+                int hexValue = Integer.parseInt(matcher.group(1), 16);
+                sb.append((char) hexValue);  // Append the converted character
+            } catch (NumberFormatException e) {
+                Logger.error("Failed to convert: " + matcher.group(0));
             }
+            lastAppendPos = matcher.end();  // Update the last append position
         }
-        return txt;
-    }
-    public static byte[] fromStringToBytes( String txt ) {
 
+        // Append any remaining text after the last match
+        sb.append(txt, lastAppendPos, txt.length());
+
+        return sb.toString();
+    }
+
+    /**
+     * Converts a string to a byte array, replacing known escape sequences
+     * (such as \t, \r, \n, and \0) with their corresponding byte representations.
+     *
+     * @param txt The input string to convert. May contain escape sequences.
+     * @return A byte array representing the string with escape sequences replaced,
+     *         or an empty byte array if the input string is null or empty.
+     */
+    public static byte[] fromStringToBytes( String txt) {
+        if (txt == null || txt.isEmpty()) {
+            return new byte[0];
+        }
         // Replace the known ones like \t, \r and \n
         txt = txt.replace("\\t", "\t")
                 .replace("\\r", "\r")
@@ -337,87 +505,64 @@ public class Tools {
                 .replace("\\0", "\0");
         return txt.getBytes();
     }
+
     /**
-     * Splits a line trying multiple delimiters, first space, then semicolon and
-     * then comma and finally |
-     * 
-     * @param line The string to split
-     * @return The resulting array
+     * Splits a line into an array of strings based on multiple delimiters: space, semicolon,
+     * comma, or pipe ('|'). The order of preference for delimiters is: space, semicolon,
+     * comma, and pipe.
+     *
+     * @param line The string to split. May contain any of the supported delimiters.
+     * @return An array of strings resulting from splitting the input line.
+     *         If the input is null or empty, an empty array is returned.
      */
     public static String[] splitList(String line) {
         if (line == null || line.isEmpty()) {
             return new String[]{};
         }
         // Regex to match any of the delimiters (space, tab, semicolon, comma, or pipe)
-        return line.split("[ \t,;|]+");
+        return DELIMITER_PATTERN.split(line);
     }
 
+    /**
+     * Splits a string into an array using space, semicolon, comma, or pipe as delimiters.
+     * Ensures the array has at least `minCount` elements, filling with `filler` if necessary.
+     *
+     * @param line The string to split.
+     * @param minCount The minimum number of elements in the resulting array.
+     * @param filler The string used to fill if the array has fewer than `minCount` elements.
+     * @return An array of strings. Returns an empty array if the input is null or empty.
+     */
     public static String[] splitList(String line, int minCount, String filler) {
+        if (line == null || line.isEmpty()) {
+            return new String[]{};
+        }
         var list = new ArrayList<>(Arrays.asList(splitList(line)));
 
         while (list.size() < minCount)
             list.add(filler);
         return list.toArray(String[]::new);
     }
+
     /**
-     * Splits a line trying multiple delimiters, first space, then semicolon and
-     * then comma and finally |
+     * Splits a string into substrings of a specified length.
      *
-     * @param line The string to split
-     * @return The resulting array
+     * @param line The string to split. If null, an empty array will be returned.
+     * @param chars The length of each substring.
+     * @return An array of substrings. Returns an empty array if the input is null or an array with a single element if the string is shorter than the specified length.
      */
     public static String[] splitListOnLength(String line,int chars) {
-        ArrayList<String> eles = new ArrayList<>();
+        if (line == null)
+            return new String[0];
+
+        ArrayList<String> pieces = new ArrayList<>();
         int old=0;
-        while( old < line.length() ){
-            eles.add( line.substring(old,old+chars));
+        while( old < line.length()) {
+            pieces.add(line.substring(old, Math.min(old + chars, line.length())) );
             old+=chars;
         }
-        return eles.toArray(new String[1]);
+        return pieces.toArray(new String[0]);
     }
-    /**
-     * Parses an array with number in ascii format to a byte array
-     * 
-     * @param base    The base of these number (fe 2, 10 or 16)
-     * @param numbers The array to parse
-     * @return The resulting byte array
-     */
-    public static byte[] fromBaseToBytes(int base, String[] numbers) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        for (String number : numbers)
-            fromBaseToByte(base, number).ifPresent(out::write);
-        return out.toByteArray();
-    }
-    /**
-     * Parses a string with number in ascii format to a byte.
-     *
-     * @param base    The base of these number (fe 2, 10 or 16)
-     * @param number The value to parse
-     * @return The resulting byte if parsed or empty optional if something went wrong.
-     */
-    public static Optional<Byte> fromBaseToByte( int base, String number ){
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            if( number.isEmpty()) // skip empty strings
-                return Optional.empty();
-            if (base == 16) {
-                number = number.replace("0x", "");
-            } else if (base == 2) {
-                number = number.replace("0b", "");
-            }
-            int result = Integer.parseInt(number, base);
-            if (result <= 0xFF) {
-                out.write((byte) result);
-            } else {
-                out.write((byte) (result >> 8));
-                out.write((byte) (result % 256));
-            }
-        } catch (java.lang.NumberFormatException e) {
-            Logger.error("Bad number format: " + number);
-            return Optional.empty();
-        }
-        return Optional.of(out.toByteArray()[0]);
-    }
+
     /**
      * Converts meters to kilometers with the given amount of decimals
      * @param m The amount of meters
@@ -430,7 +575,17 @@ public class Tools {
         return roundDouble(m, decimals) + "m";
     }
     /* ***************************************** * O T H E R *************************************************** */
-    private static String loopNetworkInterfaces(String displayname, boolean ipv4, String what ){
+
+    /**
+     * Loops through network interfaces and retrieves either the MAC address or IP address
+     * based on the provided parameters.
+     *
+     * @param displayName The display name of the network interface to match (e.g., "eth0").
+     * @param ipv4        If true, returns an IPv4 address; otherwise, returns an IPv6 address.
+     * @param ipOrMac     Specifies whether to retrieve the "MAC" address or "ip" address.
+     * @return A string representing the desired network information, or an empty string if no match found.
+     */
+    private static String loopNetworkInterfaces(String displayName, boolean ipv4, String ipOrMac ){
         var join = new StringJoiner("\r\n");
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
@@ -440,13 +595,13 @@ public class Tools {
                 if (iface.isLoopback() || !iface.isUp())
                     continue;
 
-                if(what.equalsIgnoreCase("MAC")) {
-                    var mac = getMACfromInterface(iface, displayname);
-                    if (mac.isEmpty())
-                        continue;
-                    return mac;
-                }else if( what.equalsIgnoreCase("ip")){
-                    join.add( getIPfromInterface(iface,displayname,ipv4) );
+                if (ipOrMac.equalsIgnoreCase("MAC")) {
+                    var mac = getMACfromInterface(iface, displayName);
+                    if (!mac.isEmpty())
+                        return mac;
+                } else if (ipOrMac.equalsIgnoreCase("ip")) {
+                    // Get IP address if requested and add it to the StringJoiner
+                    join.add(getIpFromInterface(iface, displayName,ipv4) );
                 }
             }
         } catch (SocketException e) {
@@ -454,31 +609,62 @@ public class Tools {
         }
         return join.toString();
     }
-    private static String getMACfromInterface( NetworkInterface iface, String displayname ) throws SocketException {
-        String mac = Tools.fromBytesToHexString(iface.getHardwareAddress()).replace(" ", ":");
-        mac = mac.replace("0x", "");
-        if (iface.getDisplayName().equalsIgnoreCase(displayname))
+
+    /**
+     * Retrieves the MAC address of a network interface, formatted as a string.
+     * If the network interface's display name matches the specified display name, the MAC address is returned.
+     * The MAC address is formatted as a hexadecimal string with colons separating each byte.
+     *
+     * @param iface       The {@link NetworkInterface} whose MAC address is to be retrieved.
+     * @param displayName The display name of the network interface to match.
+     * @return The MAC address as a string in hexadecimal format, or an empty string if the interface doesn't match the display name or has no MAC address.
+     * @throws SocketException If an error occurs while retrieving the network interface details.
+     */
+    private static String getMACfromInterface(NetworkInterface iface, String displayName) throws SocketException {
+        var hardwareAddress = iface.getHardwareAddress();
+        if (hardwareAddress == null)
+            return ""; // No MAC address for this interface
+
+        String mac = Tools.fromBytesToHexString(hardwareAddress).replace(" ", ":").replace("0x", "");
+        if (iface.getDisplayName().equalsIgnoreCase(displayName))
             return mac;
-        return "";
+        return ""; // Return empty string if display name doesn't match
     }
-    private static String getIPfromInterface( NetworkInterface iface, String displayName,boolean ipv4 ) throws SocketException {
+
+    /**
+     * Retrieves an IP address from a network interface.
+     *
+     * <p>If a display name is provided and matches the interface, this returns the first matching IP address
+     * (IPv4 or IPv6, depending on the flag). If the display name is empty, it collects all matching IPs from all interfaces
+     * and returns them as a formatted string with MAC address info included.</p>
+     *
+     * @param iface       The network interface to inspect.
+     * @param displayName The name of the interface to filter by (e.g., "wlan0"), or empty to include all.
+     * @param ipv4        True to retrieve an IPv4 address, false for IPv6.
+     * @return A single IP address if a display name is specified and matched; otherwise, a list of matching IPs with MAC info.
+     * Returns an empty string if no matching address is found or the interface has no hardware address.
+     * @throws SocketException If a socket error occurs while accessing the interface.
+     */
+    private static String getIpFromInterface(NetworkInterface iface, String displayName, boolean ipv4) throws SocketException {
+        var hardwareAddress = iface.getHardwareAddress();
+        if (hardwareAddress == null)
+            return ""; // No MAC address for this interface
+        var mac = Tools.fromBytesToHexString(hardwareAddress).replace(" ", ":").replace("0x", "");
+
         var join = new StringJoiner("\r\n");
         Enumeration<InetAddress> addresses = iface.getInetAddresses();
         while (addresses.hasMoreElements()) {
-            InetAddress addr = addresses.nextElement();
-            String p = addr.getHostAddress();
-            String mac;
+            var inetAddress = addresses.nextElement();
+            var hostAddress = inetAddress.getHostAddress();
+
             if (displayName.isEmpty()) {
-                mac = Tools.fromBytesToHexString(iface.getHardwareAddress()).replace(" ", ":");
-                mac = mac.replace("0x", "");
-
-                if ((p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
-                    join.add(iface.getDisplayName() + " -> " + p + " [" + mac + "]");
-            } else {
-                if (iface.getDisplayName().equalsIgnoreCase(displayName) &&
-                        (p.contains(":") && !ipv4) || (p.contains(".") && ipv4))
-                        return p;
-
+                // Filter by IPv4 or IPv6
+                if ((hostAddress.contains(":") && !ipv4) || (hostAddress.contains(".") && ipv4))
+                    join.add(iface.getDisplayName() + " -> " + hostAddress + " [" + mac + "]");
+            } else if (iface.getDisplayName().equalsIgnoreCase(displayName)
+                    && (hostAddress.contains(":") && !ipv4)
+                    || (hostAddress.contains(".") && ipv4)) {
+                return hostAddress;
             }
         }
         return join.toString();
@@ -492,48 +678,60 @@ public class Tools {
      * @param ipv4        True if the IPv4 is wanted or false for IPv6
      * @return The found IP or empty string if not found
      */
-    public static String getIP(String displayName, boolean ipv4) {
-        return loopNetworkInterfaces(displayName,ipv4,"ip");
-    }
-    public static List<String[]> parseKeyValue(String data, boolean distinct){
-        var pairs = new ArrayList<String>();
-        int b =0;
-        while( b!=-1) {
-            int a = data.indexOf("{");
-            b = data.indexOf("}");
-            if (a != -1 && b != -1) {
-                pairs.add(data.substring(a+1, b));
-            }else if( b<a){
-                Logger.error("Error trying to find the : pairs, closing bracket earlier than opening one");
-                break;
-            }
-            data=data.substring(b+1);
-        }
-        var splits = new ArrayList<String[]>();
-        if( distinct ) {
-            pairs.stream().distinct().forEach(p -> splits.add(p.split(":")));
-        }else{
-            pairs.forEach(p -> splits.add(p.split(":")));
-        }
-        return splits;
+    public static String getIP(String displayName, boolean ipv4 ) {
+        return loopNetworkInterfaces(displayName, ipv4, "ip");
     }
 
-    public static List<String> parseCurlyContent(String data, boolean distinct) {
-        var contents = new HashSet<String>();
+    /**
+     * Extract key-value pairs from a string that contains data wrapped in curly braces.
+     * The key-value pairs are expected to be in the format of {key:value}, where keys
+     * and values are separated by a colon (":").
+     *
+     * @param data     The string to parse containing key-value pairs wrapped in curly braces.
+     * @param distinct If true, only unique key-value pairs are returned. If false, all pairs are included.
+     * @return A list of string arrays where each array contains two elements: the key and the value.
+     * An empty list is returned if no valid key-value pairs are found.
+     */
+    public static List<String[]> extractKeyValue(String data, boolean distinct) {
+        var keyValuePairs = new ArrayList<String[]>();
+        var matches = extractCurlyContent(data, distinct);
+        for (var match : matches) {
+            String[] kv = match.split(":", 2); // split into key and value only
+            if (kv.length == 2) {
+                keyValuePairs.add(kv);
+            } else {
+                Logger.error("Invalid key-value pair: {" + match + "}");
+            }
+        }
+        return keyValuePairs;
+    }
+
+    /**
+     * Extracts content enclosed within curly braces ('{...}') from the provided data string.
+     * Optionally, it can filter out duplicate matches based on the `distinct` flag.
+     *
+     * @param data     The string containing the content to extract.
+     * @param distinct If true, only unique content within curly braces will be included.
+     *                 If false, duplicates will be included.
+     * @return A list of strings, each representing the content found within curly braces.
+     * If no content is found, returns an empty list.
+     */
+    public static List<String> extractCurlyContent(String data, boolean distinct) {
+        var contents = new ArrayList<String>();
         data = MathUtils.checkBrackets(data, '{', '}', false);
         if (data.isEmpty())
-            return null;
-        int b = 0;
-        while (b != -1) {
-            int a = data.indexOf("{");
-            b = data.indexOf("}");
-            if (a != -1 && b != -1) {
-                contents.add(data.substring(a + 1, b));
-            } else if (b < a) {
-                Logger.error("Error trying to find the content, closing bracket earlier than opening one");
-                break;
+            return List.of();
+
+        var pattern = Pattern.compile("\\{([^{}]+)}");
+        var matcher = pattern.matcher(data);
+
+        while (matcher.find()) {
+            var match = matcher.group(0); // what's inside the curly braces
+            if (!contents.contains(match)) { // If not present yet, add it
+                contents.add(match);
+            } else if (!distinct) { // If already present but we don't mind duplicates
+                contents.add(match);
             }
-            data = data.substring(b + 1);
         }
         return contents.stream().toList();
     }
@@ -557,8 +755,8 @@ public class Tools {
      * @param html Whether to use html for newline etc
      * @return Descriptive result of the command, "Unknown command if not recognised
      */
-    public static String getSerialPorts( boolean html ){
-        StringJoiner response = new StringJoiner(html ? "<br>" : "\r\n","Ports found: ","");
+    public static String getSerialPorts(boolean html) {
+        var response = new StringJoiner(html ? "<br>" : "\r\n", "Ports found: ","");
         response.setEmptyValue("No ports found");
 
         Arrays.stream(SerialPort.getCommPorts()).forEach( sp -> response.add( sp.getSystemPortName()));
@@ -584,34 +782,7 @@ public class Tools {
         return join.toString();
     }
 
-    /**
-     * Converts coordinates to the deg min.min format
-     * @param coordinates The coordinates to convert
-     * @return The result
-     */
-    public static String convertCoordinates(String[] coordinates){
 
-        StringBuilder b = new StringBuilder();
-        ArrayList<Double> degrees = new ArrayList<>();
-
-        for( String item : coordinates )
-            degrees.add(GisTools.convertStringToDegrees(item));
-
-        if( degrees.size()%2 == 0 ){ //meaning an even number of values
-            for( int a=0;a<degrees.size();a+=2){
-                double la = degrees.get(a);
-                double lo = degrees.get(a+1);
-
-                b.append("Result:").append(la).append(" and ").append(lo).append(" => ").append(GisTools.fromDegrToDegrMin(la, -1, "°")).append(" and ").append(GisTools.fromDegrToDegrMin(lo, -1, "°"));
-                b.append("\r\n");
-            }
-        }else{
-            for( double d : degrees ){
-                b.append("Result: ").append(degrees).append(" --> ").append(GisTools.fromDegrToDegrMin(d, -1, "°")).append("\r\n");
-            }
-        }
-        return b.toString();
-    }
     /**
      * Get the age in seconds of the latest file in the raw folder
      * @return Age of last write to the daily raw file or -1 if no or empty file
@@ -640,6 +811,17 @@ public class Tools {
         }
     }
 
+    /**
+     * Checks if the current process is running with root (administrator) privileges on a Linux-based system.
+     * The method performs the following checks:
+     * 1. If the operating system is not Linux, it immediately returns {@code true}, indicating no root privileges.
+     * 2. If the operating system is Linux, it executes the command {@code id -u} to retrieve the current user's ID.
+     *    - If the result is "0", it means the current user has root privileges. The method will return {@code false}.
+     *    - If the result is not "0", the method returns {@code true}, indicating the absence of root privileges.
+     * 3. In case of any {@link IOException} during the command execution, the method will log the error and return {@code true}.
+     *
+     * @return {@code true} if the process does not have root privileges or the system is not Linux; {@code false} if the process has root privileges on a Linux system.
+     */
     public static boolean hasNoRootRights() {
         if (!System.getProperty("os.name").toLowerCase().startsWith("linux")) {
             Logger.warn("Not running linux, so no root");
@@ -648,15 +830,19 @@ public class Tools {
         try {
             ProcessBuilder pb = new ProcessBuilder("id", "-u");
             var process = pb.start();
-            process.getInputStream();
+
             BufferedReader stdInput
                     = new BufferedReader(new InputStreamReader(
                     process.getInputStream()));
+
+            var userId = stdInput.readLine();
+            // Close the BufferedReader to release the resources
+            stdInput.close();
             // If the result is 0, we have root rights
-            return !stdInput.readLine().equalsIgnoreCase("0");
+            return !userId.equalsIgnoreCase("0");
         } catch (IOException e) {
-            Logger.error(e);
-            return true;
+            Logger.error("Error checking root privileges: ", e);
+            return true; // Return true if there's an error (no root access)
         }
     }
 }

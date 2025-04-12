@@ -13,6 +13,7 @@ import util.LookAndFeel;
 import util.cmds.AdminCmds;
 import util.cmds.HistoryCmds;
 import util.data.StoreCmds;
+import util.gis.GisTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import worker.Datagram;
@@ -216,7 +217,7 @@ public class CommandPool {
 			case "retrieve" -> doRETRIEVE(d, eol);
 			case "sd" -> doShutDown(d.args(), eol);
 			case "serialports" -> Tools.getSerialPorts(d.asHtml());
-			case "conv" -> Tools.convertCoordinates(d.args().split(";"));
+			case "conv" -> GisTools.convertCoordinates(d.args().split(";"));
 			case "store" -> doStoreCommands(d.args(), wr, d.asHtml());
 			case "history" -> HistoryCmds.replyToCommand(d.args(), d.asHtml(), Paths.settings().getParent());
 			case "log" -> doTinyLogCommands(d.args());

@@ -31,7 +31,7 @@ public class ValTools {
             nums = new ArrayList<>();
 
         // Find all the real/flag/int pairs
-        var pairs = Tools.parseKeyValue(exp,true); // Add those of the format {d:id}
+        var pairs = Tools.extractKeyValue(exp, true); // Add those of the format {d:id}
 
         for( var p : pairs ) {
             boolean ok=false;
@@ -146,7 +146,7 @@ public class ValTools {
         if( !line.contains("{"))
             return line;
 
-        var pairs = Tools.parseKeyValue(line,true);
+        var pairs = Tools.extractKeyValue(line, true);
         for( var p : pairs ){
             if (p.length != 2) {
                 line = replaceTime(p[0], line, rtvals);
