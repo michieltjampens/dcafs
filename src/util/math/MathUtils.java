@@ -2,7 +2,6 @@ package util.math;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.tools.Tools;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -704,7 +703,7 @@ public class MathUtils {
             case "%" -> d1%d2;
             case "^" -> Math.pow(d1,d2);
             case "~" -> Math.abs(d1-d2);
-            case "scale" -> Tools.roundDouble(d1,(int)d2);
+            case "scale" -> MathUtils.roundDouble(d1, (int) d2);
             case "°" -> handleAngleDoublesOps(d1,d2);
             default ->{
                 Logger.error("Unknown operand: "+op);
@@ -1011,13 +1010,13 @@ public class MathUtils {
             case "scale" -> { // i0/25
                 try {
                     if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Tools.roundDouble(db1, db2.intValue());
+                        proc = x -> MathUtils.roundDouble(db1, db2.intValue());
                     } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Tools.roundDouble(x[i1], db2.intValue());
+                        proc = x -> MathUtils.roundDouble(x[i1], db2.intValue());
                     } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Tools.roundDouble(db1, x[i2].intValue());
+                        proc = x -> MathUtils.roundDouble(db1, x[i2].intValue());
                     } else { // meaning both indexes
-                        proc = x -> Tools.roundDouble(x[i1], x[i2].intValue());
+                        proc = x -> MathUtils.roundDouble(x[i1], x[i2].intValue());
                     }
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
@@ -1187,6 +1186,20 @@ public class MathUtils {
         return nulls==bds.length?null:bds;
     }
 
+    /**
+     * Rounds a double to a certain number of digits after the decimal point,
+     * using {@link RoundingMode#HALF_UP}, which always rounds .5 away from zero.
+     *
+     * @param value        the double to round
+     * @param decimalPlace the number of digits after the decimal point
+     * @return the rounded value, or the original if invalid input
+     */
+    public static double roundDouble(double value, int decimalPlace) {
+        if (Double.isInfinite(value) || Double.isNaN(value) || decimalPlace < 0)
+            return value;
+        BigDecimal bd = BigDecimal.valueOf(value);
+        return bd.setScale(decimalPlace, RoundingMode.HALF_UP).doubleValue();
+    }
     /**
      * Convert a 8bit value to an actual signed int
      * @param ori The value to convert
@@ -1375,7 +1388,7 @@ public class MathUtils {
         for (double d : set) {
             sum2 += (d - mean) * (d - mean);
         }
-        return Tools.roundDouble(Math.sqrt(sum2 / set.size()), decimals);
+        return MathUtils.roundDouble(Math.sqrt(sum2 / set.size()), decimals);
     }
 
     /**

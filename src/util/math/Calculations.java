@@ -1,7 +1,5 @@
 package util.math;
 
-import util.tools.Tools;
-
 public class Calculations {
 
     static final double[] a = { 0.0080, -0.1692, 25.3851, 14.0941, -7.0261, 2.7081 };/* constants for salinity calculation */
@@ -128,7 +126,7 @@ public class Calculations {
         double tx = windvel * Math.cos(app) + sogms * Math.cos(course);
         double ty = windvel * Math.sin(app) + sogms * Math.sin(course);
 
-        return Tools.roundDouble(Math.sqrt(tx * tx + ty * ty), 5);
+        return MathUtils.roundDouble(Math.sqrt(tx * tx + ty * ty), 5);
     }
 
     /**
@@ -157,7 +155,7 @@ public class Calculations {
 
         double Truedir = -999;
         if (Tu != 0 && Tv != 0) {
-            Truedir = Tools.roundDouble(270 - Math.toDegrees(Math.atan2(Tv, Tu)), 1);
+            Truedir = MathUtils.roundDouble(270 - Math.toDegrees(Math.atan2(Tv, Tu)), 1);
 
             while (Truedir > 360) {
                 Truedir -= 360;

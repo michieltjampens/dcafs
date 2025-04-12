@@ -1,6 +1,7 @@
 package util.gis;
 
 import org.apache.commons.lang3.math.NumberUtils;
+import util.math.MathUtils;
 import util.tools.Tools;
 
 import java.math.BigDecimal;
@@ -66,8 +67,8 @@ public class GisTools {
     	//5529.4463
     	int degr = (int) degrees;
     	BigDecimal di = BigDecimal.valueOf( degrees-degr );
-    	
-    	double res= Tools.roundDouble( Math.abs(di.multiply(BD60).doubleValue()),5);
+
+        double res = MathUtils.roundDouble(Math.abs(di.multiply(BD60).doubleValue()), 5);
     	StringBuilder ress = new StringBuilder("" + Math.abs(res));
     	ress.insert(0, (res < 10 ? "0" : ""));
     	while(ress.length()<8){
@@ -115,7 +116,7 @@ public class GisTools {
         double x = Math.cos(fromLat) * Math.sin(toLat)
                 - Math.sin(fromLat) * Math.cos(toLat) * Math.cos(toLon - fromLon);
         double d = Math.toDegrees(Math.atan2(y, x));
-        return Tools.roundDouble((d + 360) % 360, decimals);
+        return MathUtils.roundDouble((d + 360) % 360, decimals);
     }
 
     /**
@@ -174,8 +175,8 @@ public class GisTools {
         double deltaSigma = B * sinSigma * (cos2SigmaM + B / 4 * (cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM)
                 - B / 6 * cos2SigmaM * (-3 + 4 * sinSigma * sinSigma) * (-3 + 4 * cos2SigmaM * cos2SigmaM)));
         double s = bb * A * (sigma - deltaSigma);
-        result[0] = Tools.roundDouble(s / 1000, decimals);
-        result[1] = Tools.roundDouble(s * 0.000539956803, decimals);
+        result[0] = MathUtils.roundDouble(s / 1000, decimals);
+        result[1] = MathUtils.roundDouble(s * 0.000539956803, decimals);
         return result;
     }
 
@@ -194,7 +195,7 @@ public class GisTools {
             int decimals) {
         double x = Math.pow(Math.toRadians(toLon - fromLon) * Math.cos(Math.toRadians((fromLat + toLat) / 2)), 2);
         double y = Math.pow(Math.toRadians(toLat - fromLat), 2);
-        return Tools.roundDouble(Math.sqrt(x + y) * 6378.137, decimals);
+        return MathUtils.roundDouble(Math.sqrt(x + y) * 6378.137, decimals);
     }
 
     /**
@@ -228,7 +229,7 @@ public class GisTools {
         N = N_acc + k_0 * (G - G_) + F * Math.pow(dlambda, 4);
         E = 500000.0 + E_acc + H * Math.pow(dlambda, 3);
 
-        return new double[]{ Tools.roundDouble(E, 2), Tools.roundDouble(N, 2) };
+        return new double[]{MathUtils.roundDouble(E, 2), MathUtils.roundDouble(N, 2)};
     }
     public static Function<BigDecimal[],BigDecimal> procToUTM( String lat, String lon, Integer[] indexes ){
         int latIndex = findIndex(lat);
@@ -291,7 +292,7 @@ public class GisTools {
         double I = (-(eta_2f / (3 * Math.pow(m0, 3) * Math.pow(Rf, 3) * Math.cos(fif))));
         lon = LAMBDA_0 + dlambda + (I * Math.pow(E_acc, 3));
 
-        return new double[]{ Tools.roundDouble(Math.toDegrees(lat), 7), Tools.roundDouble(Math.toDegrees(lon), 7) };
+        return new double[]{MathUtils.roundDouble(Math.toDegrees(lat), 7), MathUtils.roundDouble(Math.toDegrees(lon), 7)};
     }
     public static Function<BigDecimal[],BigDecimal> procToGDC( String east, String northing, Integer[] indexes ){
         int eastIndex = findIndex(east);
@@ -328,7 +329,7 @@ public class GisTools {
         BigDecimal[] res1 = deg.divideAndRemainder(BigDecimal.ONE);
         BigDecimal min = res1[1].multiply(bd60);
         if (decimals != -1) {
-            double mm = Tools.roundDouble(min.doubleValue(), decimals);
+            double mm = MathUtils.roundDouble(min.doubleValue(), decimals);
             mm = Math.abs(mm);
             return d + deli + mm;
         } else {

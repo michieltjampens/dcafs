@@ -3,6 +3,7 @@ package io.collector;
 import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.math.MathUtils;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -82,9 +83,9 @@ public class FileCollector extends AbstractCollector{
         if( byteCount < 10000){
             size=byteCount+"B";
         }else if( byteCount < 1000000){
-            size = Tools.roundDouble(byteCount/1024.0,1)+"KB";
+            size = MathUtils.roundDouble(byteCount / 1024.0, 1) + "KB";
         }else{
-            size = Tools.roundDouble(byteCount/(1024.0*1024.0),1)+"MB";
+            size = MathUtils.roundDouble(byteCount / (1024.0 * 1024.0), 1) + "MB";
         }
         return "Writing to "+getPath()+" buffer containing "+dataBuffer.size()+"/"+batchSize+" items for a total of "+size;
     }

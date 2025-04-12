@@ -3,7 +3,7 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.tools.Tools;
+import util.math.MathUtils;
 import util.xml.XMLdigger;
 
 import java.math.BigDecimal;
@@ -110,7 +110,7 @@ public class RealVal extends NumberVal<Double>{
             val = Math.abs(val);
 
         if( digits != -1) {
-            value = Tools.roundDouble(val, digits);
+            value = MathUtils.roundDouble(val, digits);
         }else{
             value = val;
         }

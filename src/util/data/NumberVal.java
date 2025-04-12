@@ -7,7 +7,6 @@ import util.math.MathOpFab;
 import util.math.MathOperation;
 import util.math.MathUtils;
 import util.tools.TimeTools;
-import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
@@ -125,7 +124,7 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
             Logger.warn(id() + "(iv)-> Asked for the average of "+(group.isEmpty()?"":group+"_")+name+" but no history kept");
             return value.doubleValue();
         }
-        return Tools.roundDouble(total/history.size(),3);
+        return MathUtils.roundDouble(total / history.size(), 3);
     }
     /**
      * Get the current Standard Deviation based on the history rounded to digits + 2 or 5 digits if no scale was set

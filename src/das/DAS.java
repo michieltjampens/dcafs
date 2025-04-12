@@ -23,6 +23,7 @@ import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.database.DatabaseManager;
 import util.gis.Waypoints;
+import util.math.MathUtils;
 import util.tasks.TaskManagerPool;
 import util.tools.FileMonitor;
 import util.tools.TimeTools;
@@ -656,8 +657,8 @@ public class DAS implements Commandable{
         double totalMem = (double)Runtime.getRuntime().totalMemory();
         double usedMem = totalMem-Runtime.getRuntime().freeMemory();
 
-        totalMem = Tools.roundDouble(totalMem/(1024.0*1024.0),1);
-        usedMem = Tools.roundDouble(usedMem/(1024.0*1024.0),1);
+        totalMem = MathUtils.roundDouble(totalMem / (1024.0 * 1024.0), 1);
+        usedMem = MathUtils.roundDouble(usedMem / (1024.0 * 1024.0), 1);
 
         var memStatus = (usedMem > 70 ? "!! " : "") + "Memory: " + usedMem + "/" + totalMem + "MB";
         LookAndFeel.formatSplitStatusText(memStatus, report, html);

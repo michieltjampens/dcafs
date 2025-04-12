@@ -8,8 +8,8 @@ import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
+import util.math.MathUtils;
 import util.tools.TimeTools;
-import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
@@ -913,9 +913,9 @@ public class RealtimeValues implements Commandable {
 				index++;
 			}
 			if( subs.get(index).scale!=-1) // -1 scale is ignored by round double, but cleaner this way?
-				total = Tools.roundDouble(total,subs.get(index).scale);
+				total = MathUtils.roundDouble(total, subs.get(index).scale);
 			if( scale>0) // Apply scaling if any
-				total = Tools.roundDouble(total,scale);
+				total = MathUtils.roundDouble(total, scale);
 			return total + subs.get(index).unit;
 		}
 		public static class SubUnit{

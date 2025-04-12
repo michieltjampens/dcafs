@@ -9,8 +9,6 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -70,20 +68,7 @@ public class Tools {
                 .replace("\n", "")
                 .replace("\r", "");
     }
-    /**
-     * Rounds a double to a certain number of digits after the decimal point,
-     * using {@link RoundingMode#HALF_UP}, which always rounds .5 away from zero.
-     *
-     * @param value        the double to round
-     * @param decimalPlace the number of digits after the decimal point
-     * @return the rounded value, or the original if invalid input
-     */
-    public static double roundDouble(double value, int decimalPlace) {
-        if (Double.isInfinite(value) || Double.isNaN(value) || decimalPlace < 0)
-            return value;
-        BigDecimal bd = BigDecimal.valueOf(value);
-        return bd.setScale(decimalPlace, RoundingMode.HALF_UP).doubleValue();
-    }
+
     /* ******************************* I N T E G E R  ************************************************************ */
     /**
      * Parses a string to an integer, returning a default error value if parsing fails.
@@ -571,8 +556,8 @@ public class Tools {
      */
     public static String metersToKm(double m, int decimals) {
         if (m > 5000)
-            return roundDouble(m / 1000, 1) + "km";
-        return roundDouble(m, decimals) + "m";
+            return MathUtils.roundDouble(m / 1000, 1) + "km";
+        return MathUtils.roundDouble(m, decimals) + "m";
     }
     /* ***************************************** * O T H E R *************************************************** */
 
