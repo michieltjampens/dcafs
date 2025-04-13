@@ -208,7 +208,7 @@ public class DAS implements Commandable{
         addCommandable(rtvals,"stop");
     }
     private void prepareForwards(){
-        var pathPool = new PathPool(rtvals, nettyGroup,dbManager);
+        var pathPool = new PathPool(rtvals, nettyGroup);
         addCommandable(pathPool,"paths","path","pf");
         addCommandable(pathPool, ""); // empty cmd is used to stop data requests
     }

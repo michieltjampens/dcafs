@@ -2,7 +2,6 @@ package io.forward;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.data.ValTools;
@@ -20,55 +19,38 @@ import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class EditorForward {
-    private final ArrayList<Function<String,String>> edits = new ArrayList<>(); // Map of all the edits being done
-    String delimiter;
-    RealtimeValues rtvals;
-    boolean readOk;
-    boolean parsedOk = false;
-    String id = "";
-    ArrayList<String[]> rulesString = new ArrayList<>();
+public class EditorStepFab {
 
-    public EditorForward(Element ele, String delimiter, RealtimeValues rtvals) {
-        this.rtvals = rtvals;
-        this.delimiter = delimiter;
-        readOk = readFromXML(ele);
+    public static Optional<EditorStep> buildEditorStep(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
+        return digEditorNode(dig, rtvals, delimiter);
     }
 
-    public Optional<EditorStep> getStep() {
-        if (!readOk)
-            return Optional.empty();
-        return Optional.of(new EditorStep(edits));
-    }
+    @SuppressWarnings("unchecked")
+    private static Optional<EditorStep> digEditorNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
+        ArrayList<Function<String, String>> edits = new ArrayList<>();
 
-    public String id() {
-        return id;
-    }
-    public boolean readFromXML(Element editor) {
-
-        var dig = XMLdigger.goIn(editor);
-
-        delimiter = dig.attr("delimiter", delimiter);
-        id = dig.attr("id", id);
-
-        edits.clear();
+        var deli = dig.attr("delimiter", delimiter);
+        var id = dig.attr("id", "");
+        
         var info = new StringJoiner("\r\n");
         if( dig.hasPeek("*")){
             var set = dig.digOut("*")
                     .stream()
-                    .map(node -> processNode(node, info))
+                    .map(node -> processNode(node, deli, rtvals, info))
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
             edits.addAll(set);
         }else{
-            var edit = processNode(dig, info);
+            var edit = processNode(dig, delimiter, rtvals, info);
             if (edit != null)
                 edits.add(edit);
         }
-        return true;
+        if (edits.isEmpty())
+            return Optional.empty();
+        return Optional.of(new EditorStep(edits.toArray(Function[]::new)));
     }
 
-    Function<String, String> processNode(XMLdigger dig, StringJoiner info) {
+    private static Function<String, String> processNode(XMLdigger dig, String delimiter, RealtimeValues rtvals, StringJoiner info) {
         String deli = dig.attr("delimiter",delimiter,true);
         deli = Tools.fromEscapedStringToBytes(deli);
         String content = dig.value("");
@@ -84,8 +66,7 @@ public class EditorForward {
             index = dig.attr("i",-1);
 
         if( content == null ){
-            Logger.error(id+" -> Missing content in an edit.");
-            parsedOk=false;
+            Logger.error(" -> Missing content in an edit.");
             return null;
         }
         if( index == -1 ){
@@ -95,32 +76,32 @@ public class EditorForward {
         return switch (type) {
             case "charsplit" -> {
                 info.add("-> Charsplit on " + deli + " on positions " + content);
-                Logger.info(id() + " -> Added charsplit with delimiter " + deli + " on positions " + content);
+                Logger.info(" -> Added charsplit with delimiter " + deli + " on positions " + content);
                 yield addCharSplit(deli, content);
             }
             case "resplit" -> {
                 info.add("-> Resplit edit on delimiter " + deli + " with formula " + content);
-                Logger.info(id() + " -> Added resplit edit on delimiter " + deli + " with formula " + content);
+                Logger.info(" -> Added resplit edit on delimiter " + deli + " with formula " + content);
                 yield addResplit(deli, content, error, leftover.equalsIgnoreCase("append"), rtvals);
             }
             case "rexsplit", "regexsplit" -> {
                 info.add("-> Get items from " + content + " and join with " + deli);
-                Logger.info(id() + " -> Get items from " + content + " and join with " + deli);
+                Logger.info(" -> Get items from " + content + " and join with " + deli);
                 yield addRexsplit(deli, content);
             }
             case "redate", "reformatdate" -> {
                 info.add("-> redate edit on delimiter " + deli + " from " + from + " to " + content + " at " + index);
-                Logger.info(id() + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content+ " at "+index);
+                Logger.info(" -> Added redate edit on delimiter " + deli + " from " + from + " to " + content + " at " + index);
                 yield addRedate(from, content, index, deli);
             }
             case "retime", "reformattime" -> {
-                Logger.info(id() + " -> Added retime edit on delimiter " + deli + " from " + from + " to " + content);
+                Logger.info(" -> Added retime edit on delimiter " + deli + " from " + from + " to " + content);
                 info.add("-> Retime edit on delimiter " + deli + " from " + from + " to " + content);
                 yield addRetime(from, content, index, deli);
             }
             case "replace" -> {
                 if (find.isEmpty()) {
-                    Logger.error(id() + " -> Tried to add an empty replace.");
+                    Logger.error(" -> Tried to add an empty replace.");
                     yield null;
                 }
                 info.add("-> Replacing " + find + " with " + content);
@@ -128,94 +109,93 @@ public class EditorForward {
             }
             case "rexreplace", "regexreplace" -> {
                 if (find.isEmpty()) {
-                    Logger.error(id() + " -> Tried to add an empty replace.");
+                    Logger.error(" -> Tried to add an empty replace.");
                     yield null;
                 }
                 info.add("-> Replacing matching regex " + find + " with " + content);
                 yield addRegexReplacement(find, content);
             }
             case "remove" -> {
-                Logger.info(id() + " -> Remove occurrences off " + content);
+                Logger.info(" -> Remove occurrences off " + content);
                 info.add("-> Removing " + content + " from data");
                 yield addReplacement(content, "");
             }
             case "trim", "trimspaces" -> {
-                Logger.info(id() + " -> Trimming spaces");
+                Logger.info(" -> Trimming spaces");
                 info.add("-> Trimming spaces");
                 yield addTrim();
             }
             case "rexremove", "regexremove" -> {
-                Logger.info(id() + " -> RexRemove matches off " + content);
+                Logger.info(" -> RexRemove matches off " + content);
                 info.add("-> Using regex " + content + " to remove data");
                 yield addRexRemove(content);
             }
             case "rexkeep", "regexkeep" -> {
-                Logger.info(id() + " -> Keep result of " + content);
+                Logger.info(" -> Keep result of " + content);
                 info.add("-> Only keeping result of regex " + content);
                 yield addRexsplit("", content);
             }
             case "prepend", "prefix", "addprefix" -> {
-                Logger.info(id() + " -> Added prepend of " + content);
+                Logger.info(" -> Added prepend of " + content);
                 info.add("-> Prepending " + content);
                 yield addPrepend(content);
             }
             case "append", "suffix", "addsuffix" -> {
-                Logger.info(id() + " -> Added append of " + content);
+                Logger.info(" -> Added append of " + content);
                 info.add("-> Appending " + content);
                 yield addAppend(content);
             }
             case "insert" -> {
-                Logger.info(id() + " -> Added insert of " + content);
+                Logger.info(" -> Added insert of " + content);
                 info.add("-> Inserting " + content + " at index " + dig.attr("index", ""));
                 yield addInsert(dig.attr("index", -1), content);
             }
             case "cutstart", "cutfromstart" -> {
                 if (NumberUtils.toInt(content, 0) == 0) {
-                    Logger.warn(id() + " -> Invalid number given to cut from start " + content);
+                    Logger.warn(" -> Invalid number given to cut from start " + content);
                     yield null;
                 }
-                Logger.info(id() + " -> Added cut start of " + content + " chars");
+                Logger.info(" -> Added cut start of " + content + " chars");
                 info.add("-> Cutting " + content + " characters from the start");
                 yield addCutStart(NumberUtils.toInt(content, 0));
             }
             case "cutend", "cutfromend" -> {
                 if (NumberUtils.toInt(content, 0) == 0) {
-                    Logger.warn(id() + " -> Invalid number given to cut from end " + content);
+                    Logger.warn(" -> Invalid number given to cut from end " + content);
                     yield null;
                 }
-                Logger.info(id() + " -> Added cut end of " + content + " chars");
+                Logger.info(" -> Added cut end of " + content + " chars");
                 info.add("-> Cutting " + content + " characters from the end of the data.");
                 yield addCutEnd(NumberUtils.toInt(content, 0));
             }
             case "toascii" -> {
-                Logger.info(id() + " -> Added conversion to char");
+                Logger.info(" -> Added conversion to char");
                 info.add("-> Converting to ascii");
                 yield converToAscii(deli);
             }
             case "millisdate" -> {
-                Logger.info(id() + " -> Added millis conversion to " + content);
+                Logger.info(" -> Added millis conversion to " + content);
                 info.add("-> Formatting millis at index " + index + " (split on " + deli + ") according to " + content);
                 yield addMillisToDate(content, index, deli);
             }
             case "listreplace" -> {
                 int first = dig.attr("first", 0);
-                Logger.info(id + "(ef) -> Added listreplace of " + content + " of index " + index);
+                Logger.info("(ef) -> Added listreplace of " + content + " of index " + index);
                 info.add("-> Listreplace at index " + index + " after split with '" + deli + "' using " + content);
                 yield addListReplace(content, deli, index, first);
             }
             case "indexreplace","replaceindex" -> {
-                Logger.info(id + "(ef) -> Added indexreplace with " + content + " at index " + index);
+                Logger.info("(ef) -> Added indexreplace with " + content + " at index " + index);
                 info.add("-> IndexReplace with " + content + " at index " + index);
                 yield addIndexReplace(index, deli, content, rtvals);
             }
             case "removeindex" -> {
-                Logger.info(id + "(ef) -> Added remove index " + index);
+                Logger.info("(ef) -> Added remove index " + index);
                 info.add("-> Remove item at index " + index);
                 yield addIndexReplace(NumberUtils.toInt(content, -1), deli, "", rtvals);
             }
             default -> {
-                Logger.error(id + " -> Unknown type used : '" + type + "'");
-                parsedOk = false;
+                Logger.error(" -> Unknown type used : '" + type + "'");
                 yield null;
             }
         };
@@ -532,19 +512,6 @@ public class EditorForward {
             Arrays.stream(input.split(delimiter)).forEach( x -> join.add(String.valueOf((char) NumberUtils.createInteger(x).intValue())));
             return join.toString();
         };
-    }
-    /**
-     * Test the workings of the editor by giving a string to process
-     * @param input The string to process
-     * @return The resulting string
-     */
-    public String test( String input ){
-        Logger.info(id+" -> From: "+input);
-        for( var edit:edits){
-            input = edit.apply(input);
-        }
-        Logger.info(id+" -> To:   "+input);
-        return input;
     }
     /**
      * Get an overview of all the available edit types

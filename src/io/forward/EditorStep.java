@@ -1,13 +1,12 @@
 package io.forward;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.function.Function;
 
 public class EditorStep extends AbstractStep {
-    ArrayList<Function<String, String>> edits;
+    Function<String, String>[] edits;
 
-    public EditorStep(ArrayList<Function<String, String>> edits) {
+    public EditorStep(Function<String, String>[] edits) {
         this.edits = edits;
     }
 

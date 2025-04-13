@@ -6,11 +6,9 @@ import das.Paths;
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
-import util.database.QueryWriting;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -23,11 +21,10 @@ public class PathPool implements Commandable {
     private final HashMap<String, PathForward> paths = new HashMap<>();
     private final RealtimeValues rtvals;
     private final EventLoopGroup nettyGroup;
-    private final QueryWriting qw;
 
-    public PathPool(RealtimeValues rtvals, EventLoopGroup group, QueryWriting qw){
+    public PathPool(RealtimeValues rtvals, EventLoopGroup group) {
         this.rtvals=rtvals;
-        this.qw=qw;
+
         nettyGroup=group;
         readPathsFromXML();
     }

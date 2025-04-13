@@ -21,7 +21,10 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.StringJoiner;
-import java.util.concurrent.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class PathForward implements Writable {
@@ -198,14 +201,12 @@ public class PathForward implements Writable {
                     if (mfOpt.isEmpty())
                         return;
                     parent = addToOrMakeParent(mfOpt.get(), parent);
-
                 }
                 case "editor" -> {
-                    var editOpt = new EditorForward(step.currentTrusted(), delimiter, rtvals).getStep();
+                    var editOpt = EditorStepFab.buildEditorStep(step, delimiter, rtvals);
                     if (editOpt.isEmpty())
                         return;
                     parent = addToOrMakeParent(editOpt.get(), parent);
-
                 }
                 case "cmd" -> {
                     var cmdOpt = StepFab.buildCmdStep(step, delimiter, rtvals);

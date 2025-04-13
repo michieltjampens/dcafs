@@ -4,7 +4,7 @@ import io.Writable;
 import io.email.Email;
 import io.email.EmailSending;
 import io.email.EmailWorker;
-import io.forward.EditorForward;
+import io.forward.EditorStepFab;
 import io.forward.FilterStepFab;
 import io.matrix.MatrixClient;
 import io.telnet.TelnetCodes;
@@ -487,7 +487,8 @@ public class CommandPool {
 			case "filter":
 				return FilterStepFab.getHelp(eol);
 			case "math": break;
-			case "editor": return EditorForward.getHelp(eol);
+			case "editor":
+				return EditorStepFab.getHelp(eol);
 			default:
 				return "! No such subcommand in help: " + arg;
 		}
