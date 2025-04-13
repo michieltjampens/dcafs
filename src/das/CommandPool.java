@@ -5,7 +5,7 @@ import io.email.Email;
 import io.email.EmailSending;
 import io.email.EmailWorker;
 import io.forward.EditorForward;
-import io.forward.FilterForward;
+import io.forward.FilterStepFab;
 import io.matrix.MatrixClient;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
@@ -484,7 +484,8 @@ public class CommandPool {
 					join.add("   -> For sending ESC to a stream, use '\\e'");
 					join.add("   -> ...").add("");
 				break;
-			case "filter": return FilterForward.getHelp(eol);
+			case "filter":
+				return FilterStepFab.getHelp(eol);
 			case "math": break;
 			case "editor": return EditorForward.getHelp(eol);
 			default:

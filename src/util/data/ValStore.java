@@ -1,10 +1,13 @@
 package util.data;
 
+import das.Core;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
+import util.database.TableInsert;
 import util.math.MathUtils;
 import util.xml.XMLdigger;
 import util.xml.XMLtools;
+import worker.Datagram;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -15,6 +18,8 @@ public class ValStore {
     private final ArrayList<AbstractVal> calVal = new ArrayList<>();
     private final ArrayList<String> calOps = new ArrayList<>();
     private final ArrayList<String[]> dbInsert = new ArrayList<>();
+    private final ArrayList<TableInsert> tis = new ArrayList<>();
+
     private String delimiter = ",";
     private String id;
 
@@ -57,6 +62,10 @@ public class ValStore {
     public ArrayList<String[]> dbInsertSets(){
         return dbInsert;
     }
+
+    public void addTableInsert(TableInsert ti) {
+        tis.add(ti);
+    }
     public String id(){
         return id;
     }
@@ -69,6 +78,7 @@ public class ValStore {
     public void setIdleReset( boolean state){
         idleReset = state;
     }
+
     public static Optional<ValStore> build( Element store, String id, RealtimeValues rtvals){
 
         if( id.isEmpty() && !store.hasAttribute("group"))  {
@@ -171,13 +181,6 @@ public class ValStore {
             while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
                 rtvals.add(null);
 
-            /*
-            if (i == -1) {
-                var grid = val.attr("group", groupID);
-                Logger.error("No valid index given for " + grid + "_" + val.value(""));
-                valid = false;
-                return false;
-            }*/
             final int pos = i; // need a final to use in lambda's
             if (rtvals.get(i) != null) {
                 Logger.warn(id + "(store) -> Already using index " + i + " overwriting previous content!");
@@ -226,6 +229,9 @@ public class ValStore {
                     dbInsert.add(split);
                 }
             }
+            // Request the tableinsert
+            var last = dbInsert.get(dbInsert.size() - 1);
+            Core.addToQueue(Datagram.system("dbm:" + last[0] + ",tableinsert," + last[1]).payload(this));
         } else {
             Logger.info(id + " -> No database referenced.");
             dbInsert.clear();
@@ -317,10 +323,24 @@ public class ValStore {
                 }
             }
         }
-        // Now try the calvals?
-        if (dbOk)
+        // Now try the calvals & db insert?
+        if (dbOk) {
             doCalVals();
+            doDbInserts();
+        }
         return dbOk;
+    }
+
+    private void doDbInserts() {
+        if (tis.isEmpty())
+            return;
+
+        tis.forEach(ti -> {
+            for (var db : dbInsertSets()) {
+                if (ti.id().equals(db[0]))
+                    ti.insertStore(db);
+            }
+        });
     }
     public boolean apply(ArrayList<Double> vals){
         if( map ){
@@ -375,33 +395,6 @@ public class ValStore {
                 Logger.error("Failed to calculate for "+calVal.get(op).id());
             }
         }
-    }
-    public void setValueAt(int index, BigDecimal d){
-        var val = getValAtIndex(index);
-
-        if (val instanceof RealVal rv) {
-            rv.value(d.doubleValue());
-        } else if (val instanceof IntegerVal iv) {
-            iv.value(d.intValue());
-        } else if (val != null) {
-            val.parseValue(d.toPlainString());
-        }
-    }
-    public void setValueAt(int index, String d){
-        var val = getValAtIndex(index);
-        if (val == null)
-            return;
-        val.parseValue(d);
-    }
-
-    private AbstractVal getValAtIndex(int index) {
-        if (map)
-            return null;
-        if (index >= rtvals.size()) {
-            Logger.error(id + " -> Tried to set index " + index + " but only " + rtvals.size() + " items");
-            return null;
-        }
-        return rtvals.get(index);
     }
     public void resetValues(){
         rtvals.forEach(AbstractVal::resetValue);

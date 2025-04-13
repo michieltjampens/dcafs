@@ -4,7 +4,8 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
-import io.forward.MathForward;
+import io.forward.MathStep;
+import io.forward.StepFab;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.tinylog.Logger;
@@ -72,7 +73,7 @@ public class MatrixClient implements Writable, Commandable {
     String since = "";
     HttpClient httpClient;
 
-    MathForward math;
+    MathStep math;
     boolean downloadAll=true;
     Path dlFolder=Path.of("downloads");
     private final HashMap<String,String> macros = new HashMap<>();
@@ -88,7 +89,7 @@ public class MatrixClient implements Writable, Commandable {
     private static final String EVENT_ID_REGEX = "^\\$[a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
 
     public MatrixClient(RealtimeValues rtvals ){
-        math = new MathForward(null,rtvals);
+        math = StepFab.buildMathStep(null, ",", rtvals).orElse(null);
         readFromXML();
     }
 

@@ -21,6 +21,7 @@ public class MathUtils {
     static final String[] COMPARES={"<","<=","==","!=",">=",">"};
     static final String OPS_REGEX= "[+\\-/*<>^=%~!°]+=?";
     static final Pattern es = Pattern.compile("\\de[+-]?\\d");
+    static final MathContext MATH_CONTEXT = new MathContext(10, RoundingMode.HALF_UP);
     /**
      * Splits a simple expression of the type i1+125 etc. into distinct parts i1,+,125
      * @param expression The expression to split
@@ -516,13 +517,13 @@ public class MathUtils {
             case "/": // i0/25
                 try {
                     if (bd1 != null && bd2 != null) { // meaning both numbers
-                        proc = x -> bd1.divide(bd2, DIV_SCALE, RoundingMode.HALF_UP);
+                        proc = x -> bd1.divide(bd2, MATH_CONTEXT);
                     } else if (bd1 == null && bd2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1].divide(bd2, DIV_SCALE, RoundingMode.HALF_UP);
+                        proc = x -> x[i1].divide(bd2, MATH_CONTEXT);
                     } else if (bd1 != null) { //  meaning first is a number and second an index
-                        proc = x -> bd1.divide(x[i2], DIV_SCALE, RoundingMode.HALF_UP);
+                        proc = x -> bd1.divide(x[i2], MATH_CONTEXT);
                     } else { // meaning both indexes
-                        proc = x -> x[i1].divide(x[i2], DIV_SCALE, RoundingMode.HALF_UP);
+                        proc = x -> x[i1].divide(x[i2], MATH_CONTEXT);
                     }
                 }catch (IndexOutOfBoundsException | NullPointerException e){
                     Logger.error("Bad things when "+first+" "+op+" "+second+ " was processed");
@@ -669,7 +670,7 @@ public class MathUtils {
             case "+" -> bd1.add(bd2);
             case "-" -> bd1.subtract(bd2);
             case "*" -> bd1.multiply(bd2);
-            case "/" -> bd1.divide(bd2, DIV_SCALE, RoundingMode.HALF_UP);
+            case "/" -> bd1.divide(bd2, MATH_CONTEXT);
             case "%" -> bd1.remainder(bd2);
             case "^" -> bd1.pow(bd2.intValue());
             case "~" -> bd1.min(bd2).abs();

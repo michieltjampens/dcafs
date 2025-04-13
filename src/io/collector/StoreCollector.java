@@ -14,7 +14,6 @@ import java.util.Optional;
  */
 public class StoreCollector extends AbstractCollector {
     private ValStore store;
-    private final ArrayList<TableInsert> tis = new ArrayList<>();
 
     public StoreCollector(Element ele, RealtimeValues rtvals  ){
         super( ele.getAttribute("id") );
@@ -24,7 +23,6 @@ public class StoreCollector extends AbstractCollector {
         }
     }
     public boolean readFromXML(Element fwElement, RealtimeValues rtvals) {
-        tis.clear(); // Clear any links that might already exist
         id = fwElement.getAttribute("id"); // Will need an id for the store
         store = ValStore.build(fwElement, id, rtvals).orElse(null); // Get the store
         return store!=null;
@@ -56,12 +54,6 @@ public class StoreCollector extends AbstractCollector {
         if( store !=null ) {
             if (!store.apply(data))
                 return true;
-            tis.forEach(ti -> {
-                for (var db : store.dbInsertSets()) {
-                    if (ti.id().equals(db[0]))
-                        ti.insertStore(db);
-                }
-            });
         }else{
             Logger.error(id+"(sc) -> Forward without a valid store...");
             return false;
@@ -83,14 +75,6 @@ public class StoreCollector extends AbstractCollector {
      */
     public Optional<ValStore> getStore(){
         return Optional.ofNullable(store);
-    }
-
-    /**
-     * Adds a link to the database that this store inserts data into
-     * @param ti The TableInsert that refers to the database needed
-     */
-    public void addTableInsert( TableInsert ti ){
-        tis.add(ti);
     }
     /**
      * Check if this needs a database link

@@ -44,11 +44,11 @@ public class PathPool implements Commandable {
         // From the paths section
         XMLdigger.goIn(Paths.settings(), "dcafs", "paths").digOut("path").forEach(
                 pathDig -> {
-                    PathForward path = new PathForward(rtvals,nettyGroup,qw);
+                    PathForward path = new PathForward(rtvals, nettyGroup);
                     path.readFromXML(pathDig, Paths.storage());
+
                     var oldPath = paths.get(path.id());
                     if (oldPath != null) { //meaning it exists already
-                        oldPath.lastTargets().forEach(path::addTarget); // Pass targets on to the new path
                         oldPath.getTargets().forEach(path::addTarget);
                         oldPath.stop();
                         paths.remove(oldPath.id());
@@ -184,16 +184,7 @@ public class PathPool implements Commandable {
         if (wr == null)
             return "! No valid writable";
 
-        if( args.length==2)
-            return pf.debugStep("*", wr);
-
-        if (args.length != 3)
-            return "! Incorrect number of arguments, needs to be pf:id,debug<,stepnr/stepid> (from 0 or -1 for customsrc)";
-
-        int nr = NumberUtils.toInt(args[2], -2);
-        if (nr == -2)
-            return pf.debugStep(args[2], wr);
-        return pf.debugStep(nr, wr);
+        return "";
     }
 
     private String doRequest(Datagram d) {
@@ -219,7 +210,7 @@ public class PathPool implements Commandable {
                     return "! No such path: " + args[0] ;
                 dig.usePeek();
                 if (!paths.containsKey(args[0])) // Exists in xml but not in map
-                    paths.put( args[0], new PathForward(rtvals, nettyGroup, qw) );
+                    paths.put(args[0], new PathForward(rtvals, nettyGroup));
                 var rep = paths.get(args[0]).readFromXML(dig, Paths.storage());
                 Core.addToQueue(Datagram.system("dbm","reloadstores"));
                 if (!rep.isEmpty() && !res.startsWith("Path ") && !res.startsWith("Set ")) // empty is good, starting means new so not full

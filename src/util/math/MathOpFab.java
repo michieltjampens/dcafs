@@ -155,7 +155,7 @@ public class MathOpFab {
     }
 
 
-    private static int[] extractIreferences(String expression) {
+    public static int[] extractIreferences(String expression) {
         return I_REF_PATTERN// Extract all the references
                 .matcher(expression)
                 .results()

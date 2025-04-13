@@ -370,11 +370,10 @@ public class TelnetHandler extends SimpleChannelInboundHandler<byte[]> implement
 		}
 	}
 
-	public boolean giveObject(String info, Object object) {
+    public void giveObject(String info, Object object) {
 		if (info.equals("writable"))
 			altSession = (Writable) object;
-		return true;
-	}
+    }
 	@Override
 	public boolean writeLine(String origin, String data) {
 		if( data.equalsIgnoreCase("Clearing requests")) {

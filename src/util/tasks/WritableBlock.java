@@ -50,7 +50,7 @@ public class WritableBlock extends AbstractBlock implements Writable {
     }
 
     @Override
-    public boolean giveObject(String info, Object object) {
+    public void giveObject(String info, Object object) {
         if (info.equalsIgnoreCase("writable")) {
             target = (Writable) object;
             if (target != null) {
@@ -60,15 +60,12 @@ public class WritableBlock extends AbstractBlock implements Writable {
                 } else {
                     doNext();
                 }
-                return true;
             } else {
                 Logger.info(id() + " -> Received null instead of response to " + dest);
-                return true;
             }
         } else {
             Logger.warn(id() + " -> Given object with unknown info... ?" + info);
         }
-        return false;
     }
 
     @Override

@@ -39,7 +39,7 @@ public interface Writable {
         return this;
     }
 
-    default boolean giveObject(String info, Object object) {
+    default void giveObject(String info, Object object) {
         throw new UnsupportedOperationException("Not implemented");
     }
 }

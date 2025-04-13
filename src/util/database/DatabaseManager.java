@@ -8,6 +8,7 @@ import io.forward.*;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
+import util.data.ValStore;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -559,18 +560,12 @@ public class DatabaseManager implements QueryWriting, Commandable {
 
         var tiOpt = db.getTableInsert(cmds[2]);
         if (tiOpt.isEmpty()) {
-            var id = "";
-            if (payload instanceof AbstractForward af) {
-                id = af.id();
-            }
-            Logger.error("dbm payload -> No table '" + cmds[2] + "' in " + cmds[0] + " requested by " + id);
+            Logger.error("dbm payload -> No table '" + cmds[2] + "' in " + cmds[0] + " requested by ??");
             return "! No such table id " + cmds[2] + " in " + cmds[0];
         }
-        if (payload.getClass() == MathForward.class || payload.getClass() == EditorForward.class
-                || payload.getClass() == FilterForward.class || payload.getClass() == CmdForward.class) {
-            ((AbstractForward) payload).addTableInsert(tiOpt.get());
-        } else if (payload.getClass() == StoreCollector.class) {
-            ((StoreCollector) payload).addTableInsert(tiOpt.get());
+        var ti = tiOpt.get();
+        if (payload instanceof ValStore vs) {
+            vs.addTableInsert(ti);
         }else {
             return "! Payload isn't the correct object type for " + d.getData();
         }

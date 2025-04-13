@@ -1,6 +1,5 @@
 package io.forward;
 
-import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -10,91 +9,66 @@ import util.data.ValTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
-import worker.Datagram;
 
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-public class EditorForward extends AbstractForward{
+public class EditorForward {
     private final ArrayList<Function<String,String>> edits = new ArrayList<>(); // Map of all the edits being done
+    String delimiter;
+    RealtimeValues rtvals;
+    boolean readOk;
+    boolean parsedOk = false;
+    String id = "";
+    ArrayList<String[]> rulesString = new ArrayList<>();
 
-    public EditorForward(String id, String source, RealtimeValues rtvals ){
-        super(id,source,rtvals);
-    }
-    public EditorForward(Element ele, RealtimeValues rtvals  ){
-        super(rtvals);
+    public EditorForward(Element ele, String delimiter, RealtimeValues rtvals) {
+        this.rtvals = rtvals;
+        this.delimiter = delimiter;
         readOk = readFromXML(ele);
     }
 
-    @Override
-    protected boolean addData(String data) {
-
-        if( data.startsWith("corrupt")){
-            String d = data;
-            targets.removeIf(t -> !t.writeLine(id, d));
-            return true;
-        }
-
-        if( debug ) // extra info given if debug is active
-            Logger.info(id()+" -> Before: "+data); // how the data looked before
-
-        for( var edit:edits){
-            data = edit.apply(data);
-            if( data == null ){
-                Logger.error(id+"(ef) -> Editor step failed, stopped processing.");
-                return true; // Still accept new data
-            }
-        }
-
-        if( debug ){ // extra info given if debug is active
-            Logger.info(id()+" -> After: "+data);
-        }
-        String finalData = data;
-
-        // Use multithreading so the writables don't have to wait for the whole process
-        nextSteps.parallelStream().forEach( ns -> ns.writeLine(id(),finalData));
-        targets.parallelStream().forEach( wr -> wr.writeLine(id(),finalData));
-
-        if( log )
-            Logger.tag("RAW").info( id() + "\t" + data);
-
-        if( !cmds.isEmpty())
-            cmds.forEach( cmd-> Core.addToQueue(Datagram.system(cmd).writable(this)));
-
-        applyDataToStore(data);
-        // If there are no targets, no label, this no longer needs to be a target
-        if( noTargets() ){
-            valid=false;
-            return false;
-        }
-        return true;
+    public Optional<EditorStep> getStep() {
+        if (!readOk)
+            return Optional.empty();
+        return Optional.of(new EditorStep(edits));
     }
 
-    @Override
+    public String id() {
+        return id;
+    }
     public boolean readFromXML(Element editor) {
-        parsedOk=true;
+
         var dig = XMLdigger.goIn(editor);
-        if( !readBasicsFromXml(dig))
-            return false;
+
+        delimiter = dig.attr("delimiter", delimiter);
+        id = dig.attr("id", id);
 
         edits.clear();
+        var info = new StringJoiner("\r\n");
         if( dig.hasPeek("*")){
-            dig.digOut("*").forEach(this::processNode);
+            var set = dig.digOut("*")
+                    .stream()
+                    .map(node -> processNode(node, info))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            edits.addAll(set);
         }else{
-            processNode(dig);
+            var edit = processNode(dig, info);
+            if (edit != null)
+                edits.add(edit);
         }
         return true;
     }
 
-    private void processNode(XMLdigger dig ){
+    Function<String, String> processNode(XMLdigger dig, StringJoiner info) {
         String deli = dig.attr("delimiter",delimiter,true);
         deli = Tools.fromEscapedStringToBytes(deli);
         String content = dig.value("");
@@ -112,146 +86,167 @@ public class EditorForward extends AbstractForward{
         if( content == null ){
             Logger.error(id+" -> Missing content in an edit.");
             parsedOk=false;
-            return;
+            return null;
         }
         if( index == -1 ){
             index=0;
         }
         var type = dig.attr("type",dig.tagName(""));
-
-        switch (type) {
+        return switch (type) {
             case "charsplit" -> {
-                addCharSplit(deli, content);
+                info.add("-> Charsplit on " + deli + " on positions " + content);
                 Logger.info(id() + " -> Added charsplit with delimiter " + deli + " on positions " + content);
+                yield addCharSplit(deli, content);
             }
             case "resplit" -> {
-                addResplit(deli, content, error, leftover.equalsIgnoreCase("append"));
+                info.add("-> Resplit edit on delimiter " + deli + " with formula " + content);
                 Logger.info(id() + " -> Added resplit edit on delimiter " + deli + " with formula " + content);
+                yield addResplit(deli, content, error, leftover.equalsIgnoreCase("append"), rtvals);
             }
             case "rexsplit", "regexsplit" -> {
-                addRexsplit(deli, content);
+                info.add("-> Get items from " + content + " and join with " + deli);
                 Logger.info(id() + " -> Get items from " + content + " and join with " + deli);
+                yield addRexsplit(deli, content);
             }
             case "redate", "reformatdate" -> {
-                addRedate(from, content, index, deli);
+                info.add("-> redate edit on delimiter " + deli + " from " + from + " to " + content + " at " + index);
                 Logger.info(id() + " -> Added redate edit on delimiter " + deli + " from " + from + " to " + content+ " at "+index);
+                yield addRedate(from, content, index, deli);
             }
             case "retime", "reformattime" -> {
-                addRetime(from, content, index, deli);
                 Logger.info(id() + " -> Added retime edit on delimiter " + deli + " from " + from + " to " + content);
+                info.add("-> Retime edit on delimiter " + deli + " from " + from + " to " + content);
+                yield addRetime(from, content, index, deli);
             }
             case "replace" -> {
                 if (find.isEmpty()) {
                     Logger.error(id() + " -> Tried to add an empty replace.");
-                } else {
-                    addReplacement(find, content);
+                    yield null;
                 }
+                info.add("-> Replacing " + find + " with " + content);
+                yield addReplacement(find, content);
             }
             case "rexreplace", "regexreplace" -> {
                 if (find.isEmpty()) {
                     Logger.error(id() + " -> Tried to add an empty replace.");
-                } else {
-                    addRegexReplacement(find, content);
+                    yield null;
                 }
+                info.add("-> Replacing matching regex " + find + " with " + content);
+                yield addRegexReplacement(find, content);
             }
             case "remove" -> {
-                addReplacement(content, "");
                 Logger.info(id() + " -> Remove occurrences off " + content);
+                info.add("-> Removing " + content + " from data");
+                yield addReplacement(content, "");
             }
             case "trim", "trimspaces" -> {
-                addTrim();
                 Logger.info(id() + " -> Trimming spaces");
+                info.add("-> Trimming spaces");
+                yield addTrim();
             }
             case "rexremove", "regexremove" -> {
-                addRexRemove(content);
                 Logger.info(id() + " -> RexRemove matches off " + content);
+                info.add("-> Using regex " + content + " to remove data");
+                yield addRexRemove(content);
             }
             case "rexkeep", "regexkeep" -> {
-                addRexsplit("", content);
                 Logger.info(id() + " -> Keep result of " + content);
+                info.add("-> Only keeping result of regex " + content);
+                yield addRexsplit("", content);
             }
             case "prepend", "prefix", "addprefix" -> {
-                addPrepend(content);
                 Logger.info(id() + " -> Added prepend of " + content);
+                info.add("-> Prepending " + content);
+                yield addPrepend(content);
             }
             case "append", "suffix", "addsuffix" -> {
-                addAppend(content);
                 Logger.info(id() + " -> Added append of " + content);
+                info.add("-> Appending " + content);
+                yield addAppend(content);
             }
             case "insert" -> {
-                addInsert(dig.attr("index", -1), content);
                 Logger.info(id() + " -> Added insert of " + content);
+                info.add("-> Inserting " + content + " at index " + dig.attr("index", ""));
+                yield addInsert(dig.attr("index", -1), content);
             }
             case "cutstart", "cutfromstart" -> {
-                if (NumberUtils.toInt(content, 0) != 0) {
-                    addCutStart(NumberUtils.toInt(content, 0));
-                    Logger.info(id() + " -> Added cut start of " + content + " chars");
-                } else {
+                if (NumberUtils.toInt(content, 0) == 0) {
                     Logger.warn(id() + " -> Invalid number given to cut from start " + content);
+                    yield null;
                 }
+                Logger.info(id() + " -> Added cut start of " + content + " chars");
+                info.add("-> Cutting " + content + " characters from the start");
+                yield addCutStart(NumberUtils.toInt(content, 0));
             }
             case "cutend", "cutfromend" -> {
-                if (NumberUtils.toInt(content, 0) != 0) {
-                    addCutEnd(NumberUtils.toInt(content, 0));
-                    Logger.info(id() + " -> Added cut end of " + content + " chars");
-                } else {
+                if (NumberUtils.toInt(content, 0) == 0) {
                     Logger.warn(id() + " -> Invalid number given to cut from end " + content);
+                    yield null;
                 }
+                Logger.info(id() + " -> Added cut end of " + content + " chars");
+                info.add("-> Cutting " + content + " characters from the end of the data.");
+                yield addCutEnd(NumberUtils.toInt(content, 0));
             }
             case "toascii" -> {
-                converToAscii(deli);
                 Logger.info(id() + " -> Added conversion to char");
+                info.add("-> Converting to ascii");
+                yield converToAscii(deli);
             }
             case "millisdate" -> {
-                addMillisToDate(content, index, deli);
                 Logger.info(id() + " -> Added millis conversion to " + content);
+                info.add("-> Formatting millis at index " + index + " (split on " + deli + ") according to " + content);
+                yield addMillisToDate(content, index, deli);
             }
             case "listreplace" -> {
                 int first = dig.attr("first", 0);
-                addListReplace(content, deli, index, first);
                 Logger.info(id + "(ef) -> Added listreplace of " + content + " of index " + index);
+                info.add("-> Listreplace at index " + index + " after split with '" + deli + "' using " + content);
+                yield addListReplace(content, deli, index, first);
             }
             case "indexreplace","replaceindex" -> {
-                addIndexReplace(index,deli,content);
                 Logger.info(id + "(ef) -> Added indexreplace with " + content + " at index " + index);
+                info.add("-> IndexReplace with " + content + " at index " + index);
+                yield addIndexReplace(index, deli, content, rtvals);
             }
             case "removeindex" -> {
-                addIndexReplace( NumberUtils.toInt(content,-1),deli,"");
                 Logger.info(id + "(ef) -> Added remove index " + index);
+                info.add("-> Remove item at index " + index);
+                yield addIndexReplace(NumberUtils.toInt(content, -1), deli, "", rtvals);
             }
             default -> {
                 Logger.error(id + " -> Unknown type used : '" + type + "'");
                 parsedOk = false;
+                yield null;
             }
-        }
+        };
     }
-    private void addListReplace( String content, String deli, int index, int first){
-        rulesString.add( new String[]{"","listreplace","At "+index+" convert to "+content} );
+
+    private static Function<String, String> addListReplace(String content, String deli, int index, int first) {
         String[] opts = content.split(",");
-        Function<String,String> edit = input ->
+        return input ->
         {
             String[] items = input.split(deli);
             if( index > items.length ){
-                Logger.error( id +"(ef) -> (ListReplace) Not enough elements after split of "+input);
+                Logger.error("(ef) -> (ListReplace) Not enough elements after split of " + input);
                 return null;
             }
             int pos = NumberUtils.toInt(items[index],Integer.MAX_VALUE);
             if( pos == Integer.MAX_VALUE){
-                Logger.error(id+" (ef) -> (ListReplace) Parsing to int failed for "+items[index]);
+                Logger.error(" (ef) -> (ListReplace) Parsing to int failed for " + items[index]);
                 return null;
             }
             pos = pos-first;
             if( pos <0 || pos > opts.length){
-                Logger.error( id+" (ef) -> (ListReplace) Invalid index for the list ("+pos+")");
+                Logger.error(" (ef) -> (ListReplace) Invalid index for the list (" + pos + ")");
                 return null;
             }
             items[index]=opts[pos];
             return String.join(deli,items);
         };
-        edits.add(edit);
     }
-    private void addCharSplit( String deli, String positions){
-        rulesString.add( new String[]{"","charsplit","At "+positions+" to "+deli} );
+
+    private static Function<String, String> addCharSplit(String deli, String positions) {
+
         String[] pos = Tools.splitList(positions);
         var indexes = new ArrayList<Integer>();
         if( !pos[0].equals("0"))
@@ -265,10 +260,10 @@ public class EditorForward extends AbstractForward{
             delimiter=deli;
         }
 
-        Function<String,String> edit = input ->
+        return input ->
         {
             if(indexes.get(indexes.size()-1) > input.length()){
-                Logger.error(id+ "(ef) Can't split "+input+" if nothing is at "+indexes.get(indexes.size()-1));
+                Logger.error("(ef) Can't split " + input + " if nothing is at " + indexes.get(indexes.size() - 1));
                 return null;
             }
             try {
@@ -281,21 +276,20 @@ public class EditorForward extends AbstractForward{
                     result.add(leftover);
                 return result.toString();
             }catch( ArrayIndexOutOfBoundsException e){
-                Logger.error(id+ "(ef) Failed to apply charsplit on "+input);
+                Logger.error("(ef) Failed to apply charsplit on " + input);
             }
             return null;
         };
-        edits.add(edit);
     }
-    private void addMillisToDate( String to, int index, String delimiter ){
-        rulesString.add( new String[]{"","millisdate","millis -> "+to} );
-        Function<String,String> edit = input ->
+
+    private static Function<String, String> addMillisToDate(String to, int index, String delimiter) {
+        return input ->
         {
             String[] split = input.split(delimiter);
             if( split.length > index){
                 long millis = NumberUtils.toLong(split[index],-1L);
                 if( millis == -1L ){
-                    Logger.error( id() + "(ef) -> Couldn't convert "+split[index]+" to millis");
+                    Logger.error("(ef) -> Couldn't convert " + split[index] + " to millis");
                     return null;
                 }
                 var ins = Instant.ofEpochMilli(millis);
@@ -306,19 +300,18 @@ public class EditorForward extends AbstractForward{
                         split[index] = DateTimeFormatter.ofPattern(to).withZone(ZoneId.of("UTC")).format(ins);
                     }
                     if (split[index].isEmpty()) {
-                        Logger.error(id() + "(ef) -> Failed to convert datetime " + split[index]);
+                        Logger.error("(ef) -> Failed to convert datetime " + split[index]);
                         return null;
                     }
                     return String.join(delimiter, split);
                 }catch(IllegalArgumentException | DateTimeException e){
-                    Logger.error( id() + "(ef) -> Invalid format in millis to date: "+to+" -> "+e.getMessage());
+                    Logger.error("(ef) -> Invalid format in millis to date: " + to + " -> " + e.getMessage());
                     return null;
                 }
             }
-            Logger.error(id+"(ef) -> To few elements after split for millistodate in "+input);
+            Logger.error("(ef) -> To few elements after split for millistodate in " + input);
             return null;
         };
-        edits.add(edit);
     }
     /**
      * Alter the formatting of a date field
@@ -327,29 +320,28 @@ public class EditorForward extends AbstractForward{
      * @param index On which position of the split data
      * @param delimiter The delimiter to split the data
      */
-    private void addRedate( String from, String to, int index, String delimiter ){
-        rulesString.add( new String[]{"","redate",from+" -> "+to} );
+    private static Function<String, String> addRedate(String from, String to, int index, String delimiter) {
+
         String deli;
         if( delimiter.equalsIgnoreCase("*")){
             deli="\\*";
         }else{
             deli=delimiter;
         }
-        Function<String,String> edit = input ->
+        return input ->
         {
             String[] split = input.split(deli);
             if( split.length > index){
                 split[index] = TimeTools.reformatDate(split[index], from, to);
                 if( split[index].isEmpty()) {
-                    Logger.error( id() + " -> Failed to convert datetime "+input.split(deli)[index]);
+                    Logger.error(" -> Failed to convert datetime " + input.split(deli)[index]);
                     return null;
                 }
                 return String.join(deli,split);
             }
-            Logger.error(id+" -> To few elements after split for redate in "+input);
+            Logger.error(" -> To few elements after split for redate in " + input);
             return null;
         };
-        edits.add(edit);
     }
     /**
      * Alter the formatting of a time field
@@ -358,36 +350,33 @@ public class EditorForward extends AbstractForward{
      * @param index On which position of the split data
      * @param delimiter The delimiter to split the data
      */
-    private void addRetime( String from, String to, int index, String delimiter ){
-        rulesString.add( new String[]{"","retime",from+" -> "+to} );
+    private static Function<String, String> addRetime(String from, String to, int index, String delimiter) {
+
         String deli;
         if( delimiter.equalsIgnoreCase("*")){
             deli="\\*";
         }else{
             deli=delimiter;
         }
-        Function<String,String> edit = input ->
+        return input ->
         {
             String[] split = input.split(deli);
             if( split.length > index){
                 split[index] = TimeTools.reformatTime(split[index],from,to);
                 if( split[index].isEmpty()) {
-                    Logger.error(id+"(ef) -> Tried to retime "+input+" but no such index "+index);
+                    Logger.error("(ef) -> Tried to retime " + input + " but no such index " + index);
                     return null;
                 }
                 return String.join(deli,split);
             }
-            Logger.error(id+" -> To few elements after split for retime in "+input);
+            Logger.error(" -> To few elements after split for retime in " + input);
             return null;
         };
-        edits.add(edit);
     }
-    private void addRexsplit( String delimiter, String regex){
-        rulesString.add( new String[]{"","rexsplit","deli:"+delimiter+" ->"+regex} );
 
+    private static Function<String, String> addRexsplit(String delimiter, String regex) {
         var results = Pattern.compile(regex);
-
-        Function<String,String> edit = input ->
+        return input ->
         {
             var items = results.matcher(input)
                     .results()
@@ -395,16 +384,13 @@ public class EditorForward extends AbstractForward{
                     .toArray(String[]::new);
             return String.join(delimiter,items);
         };
-        edits.add(edit);
     }
     /**
      * Split a data string according to the given delimiter, then stitch it back together based on resplit
      * @param delimiter The string to split the data with
      * @param resplit The format of the new string, using i0 etc to get original values
      */
-    private void addResplit( String delimiter, String resplit, String error, boolean append){
-
-        rulesString.add( new String[]{"","resplit","deli:"+delimiter+" ->"+resplit} );
+    private static Function<String, String> addResplit(String delimiter, String resplit, String error, boolean append, RealtimeValues rtvals) {
 
         var is = Pattern.compile("i[0-9]{1,3}")
                 .matcher(resplit)
@@ -417,13 +403,13 @@ public class EditorForward extends AbstractForward{
             filler[a]=filler[a].replace("§","");
 
         if(is.length==0) {
-            Logger.warn(id+"(ef)-> No original data referenced in the resplit");
+            Logger.warn("(ef)-> No original data referenced in the resplit");
         }
 
         int[] indexes = Arrays.stream(is).mapToInt(i -> NumberUtils.toInt(i.substring(1))).toArray();
         String deli = delimiter.equals("*") ? "\\*" : delimiter;
 
-        Function<String,String> edit = input ->
+        return input ->
         {
             String[] inputEles = input.split(deli); // Get the source data
 
@@ -435,7 +421,7 @@ public class EditorForward extends AbstractForward{
                         join.add( ValTools.parseRTline(filler[a+1],error,rtvals));
                     inputEles[indexes[a]] = null;
                 }catch( IndexOutOfBoundsException e){
-                    Logger.error(id+"(ef) -> Out of bounds when processing: "+input);
+                    Logger.error("(ef) -> Out of bounds when processing: " + input);
                     return null;
                 }
             }
@@ -449,107 +435,103 @@ public class EditorForward extends AbstractForward{
             }
             return join.toString();
         };
-        edits.add(edit);
     }
-    private void addIndexReplace( int index, String delimiter, String value ){
+
+    private static Function<String, String> addIndexReplace(int index, String delimiter, String value, RealtimeValues rtvals) {
         if( index==-1) {
-            Logger.error(id+"(ef) -> Invalid index given for indexreplace/removeindex");
-            return;
+            Logger.error("(ef) -> Invalid index given for indexreplace/removeindex");
+            return null;
         }
         if( value.isEmpty() ) {
-            rulesString.add( new String[]{"","removeindex","i"+index} );
             if( index==0 ){
-                edits.add( input -> {
+                return input -> {
                     int a = input.indexOf(delimiter);
                     if( a == -1 )
                         return input;
                     return input.substring(a);
-                });
+                };
             }else {
-                edits.add(input -> {
+                return input -> {
                     var its = input.split(delimiter);
                     var list = new ArrayList<>(Arrays.asList(its));
                     if (index < list.size()) {
                         list.remove(index);
                     } else {
-                        Logger.error(id+"(ef) -> Tried to remove index " + index + " from " + input + " but no such thing.");
+                        Logger.error("(ef) -> Tried to remove index " + index + " from " + input + " but no such thing.");
                         return null;
                     }
                     return String.join(delimiter, list);
-                });
+                };
             }
         }else{
-            rulesString.add( new String[]{"","indexreplace","i"+index+"->"+value} );
-            edits.add(input -> {
+            return input -> {
                 var its = input.split(delimiter);
                 if (its.length > index)
                     its[index] = ValTools.parseRTline(value, its[index], rtvals);
                 return String.join(delimiter, its);
-            });
+            };
         }
     }
     /**
      * Add a string to the start of the data
      * @param addition The string to add at the start
      */
-    private void addPrepend( String addition ){
-        rulesString.add( new String[]{"","prepend","add:"+addition} );
-        edits.add( input -> addition+input );
+    private static Function<String, String> addPrepend(String addition) {
+        return input -> addition + input;
     }
     /**
      * Add a string to the end of the data
      * @param addition The string to add at the end
      */
-    private void addAppend( String addition ){
-        rulesString.add( new String[]{"","append","add:"+addition} );
-        edits.add(  input -> input+addition );
+    private static Function<String, String> addAppend(String addition) {
+        return input -> input + addition;
     }
-    private void addInsert( int position, String addition ){
-        rulesString.add( new String[]{"","insert","add:"+addition+" at "+position} );
-        edits.add( input -> {
+
+    private static Function<String, String> addInsert(int position, String addition) {
+        return input -> {
             if( input.length() < position ) {
-                Logger.error(id + "(ef) -> Tried to insert " + addition + " at index " + position + " but input string to short -> >" + input + "<");
+                Logger.error("(ef) -> Tried to insert " + addition + " at index " + position + " but input string to short -> >" + input + "<");
                 return null;
             }
             if (position == -1) {
-                Logger.error(id + "(ef) -> Tried to insert at -1 index");
+                Logger.error("(ef) -> Tried to insert at -1 index");
                 return null;
             }
             return input.substring(0,position)+addition+input.substring(position);
-        } );
+        };
     }
-    private void addReplacement( String find, String replace){
-        edits.add( input -> input.replace(Tools.fromEscapedStringToBytes(find),Tools.fromEscapedStringToBytes(replace)) );
-        rulesString.add( new String[]{"","replace","from "+find+" -> "+replace} );
+
+    private static Function<String, String> addReplacement(String find, String replace) {
+        return input -> input.replace(Tools.fromEscapedStringToBytes(find), Tools.fromEscapedStringToBytes(replace));
     }
-    private void addTrim( ){
-        rulesString.add( new String[]{"","Trim","Trim spaces "} );
-        edits.add(String::trim);
+
+    private static Function<String, String> addTrim() {
+        return String::trim;
     }
-    private void addRexRemove( String find ){
-        rulesString.add( new String[]{"","regexremove","Remove "+find} );
-        edits.add( input -> input.replaceAll(find,"" ) );
+
+    private static Function<String, String> addRexRemove(String find) {
+        return input -> input.replaceAll(find, "");
     }
-    private void addRegexReplacement( String find, String replace){
+
+    private static Function<String, String> addRegexReplacement(String find, String replace) {
         String r = replace.isEmpty()?" ":replace;
-        rulesString.add( new String[]{"","regexreplace","from "+find+" -> '"+r+"'"} );
-        edits.add( input -> input.replaceAll(find,r ) );
+        return input -> input.replaceAll(find, r);
     }
-    private void addCutStart(int characters ){
-        rulesString.add( new String[]{"","cropstart","remove "+characters+" chars from start of data"} );
-        edits.add( input -> input.length()>characters?input.substring(characters):null );
+
+    private static Function<String, String> addCutStart(int characters) {
+        return input -> input.length() > characters ? input.substring(characters) : null;
     }
-    private void addCutEnd( int characters ){
-        rulesString.add( new String[]{"","cutend","remove "+characters+" chars from end of data"} );
-        edits.add( input -> input.length()>characters?input.substring(0,input.length()-characters):null );
+
+    private static Function<String, String> addCutEnd(int characters) {
+        return input -> input.length() > characters ? input.substring(0, input.length() - characters) : null;
     }
-    private void converToAscii(String delimiter){
-        rulesString.add( new String[]{"","tochar","convert delimited data to char's"} );
-        edits.add( input -> {
+
+    private static Function<String, String> converToAscii(String delimiter) {
+        return input -> {
             var join = new StringJoiner("");
             Arrays.stream(input.split(delimiter)).forEach( x -> join.add(String.valueOf((char) NumberUtils.createInteger(x).intValue())));
             return join.toString();
-        } );
+        };
     }
     /**
      * Test the workings of the editor by giving a string to process
@@ -563,10 +545,6 @@ public class EditorForward extends AbstractForward{
         }
         Logger.info(id+" -> To:   "+input);
         return input;
-    }
-    @Override
-    protected String getXmlChildTag() {
-        return "editor";
     }
     /**
      * Get an overview of all the available edit types

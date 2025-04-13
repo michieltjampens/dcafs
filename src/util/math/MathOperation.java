@@ -43,6 +43,10 @@ public class MathOperation {
     }
 
     public BigDecimal[] workWithString(String data, String delimiter, BigDecimal[] bds) {
+        if (delimiter.isEmpty()) {
+            Logger.warn("Delimiter is empty");
+            return new BigDecimal[0];
+        }
         var inputs = data.split(delimiter);
         if (inputs.length < highestI) {
             Logger.error("Not enough items in received data");

@@ -1,7 +1,9 @@
 package io.hardware.i2c;
 
 import das.Core;
-import io.forward.MathForward;
+import io.forward.MathStep;
+import io.forward.StepFab;
+import io.forward.StoreStep;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
@@ -76,9 +78,9 @@ public class I2COpSet {
                 case "write" -> ops.add( new I2CWrite(altDig));
                 case "alter"-> ops.add( new I2CAlter(altDig));
                 case "math" -> altDig.current().ifPresent( x -> {
-                    var mf = new MathForward(x,rtvals);
-                    if( mf.isReadOk() ) {
-                        ops.add(mf);
+                    var mf = StepFab.buildMathStep(dig, ",", rtvals);
+                    if (mf.isPresent()) {
+                        ops.add(mf.get());
                     }else{
                         Logger.info(id+"(i2cop) -> Failed to read math node");
                         valid=false;
@@ -89,10 +91,8 @@ public class I2COpSet {
                     if( store.isInvalid()){
                         valid=false;
                     }else {
-                        if (ops.get(ops.size() - 1) instanceof MathForward mf) {
-                            mf.setStore(store);
-                            for( var db : store.dbInsertSets() )
-                                Core.addToQueue( Datagram.system("dbm",db[0]+",tableinsert,"+db[1]).payload(mf));
+                        if (ops.get(ops.size() - 1) instanceof MathStep ms) {
+                            ms.setNext(new StoreStep(store));
                         } else { // Not added to a math
                             ops.add(store);
                         }
@@ -149,16 +149,11 @@ public class I2COpSet {
                 index=0;
                 return -1;
             }
-        }else if( ops.get(index) instanceof MathForward mf){
-            var res = mf.addData(received); // Note that a math can contain a store, this will work with bigdecimals
-            if( !lastOp ) {  // Not the last operation, replace the int arraylist with the calculated doubles
-                received.clear();
-                received.addAll(res); // Refill with altered values
-            }
+        } else if (ops.get(index) instanceof MathStep ms) {
+            ms.takeStep(received); // Note that a math can contain a store, this will work with bigdecimals
         }else if( ops.get(index) instanceof ValStore st){
             st.apply(received);
         }
-
         if( !lastOp) {
             index++;    // Increment to go to the next op
             if( ops.get(index) instanceof I2COp op) {
@@ -210,8 +205,10 @@ public class I2COpSet {
     }
     public void removeRtvals( RealtimeValues rtvals){
         for( var op : ops ){
-            if( op instanceof MathForward mf ){
-                mf.getStore().ifPresent( store -> store.removeRealtimeValues(rtvals));
+            if (op instanceof MathStep ms) {
+                var store = ms.getStore();
+                if (store != null)
+                    store.removeRealtimeValues(rtvals);
             }else if( op instanceof ValStore store ){
                 store.removeRealtimeValues(rtvals);
             }

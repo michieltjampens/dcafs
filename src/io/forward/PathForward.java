@@ -8,7 +8,6 @@ import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.data.ValTools;
-import util.database.QueryWriting;
 import util.database.SQLiteDB;
 import util.tools.FileTools;
 import util.tools.TimeTools;
@@ -21,13 +20,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
-public class PathForward {
+public class PathForward implements Writable {
 
     private String src = ""; // The source of the data for the path
 
@@ -39,22 +36,26 @@ public class PathForward {
     EventLoopGroup nettyGroup; // Threaded processing is done with this
 
     String id; // The id of the path
-    private final ArrayList<AbstractForward> stepsForward = new ArrayList<>(); // The steps to take in the path
+    private final ArrayList<AbstractStep> stepsForward = new ArrayList<>(); // The steps to take in the path
     Path workPath; // The path to the working folder of dcafs
 
     private int maxBufferSize=5000; // maximum size of read buffer (if the source is a file)
     String error=""; // Last error that occurred
     boolean valid=false; // Whether this path is valid (xml processing went ok)
-    QueryWriting db;
+    boolean selfTarget = false;
+    boolean active = false;
+    private String delimiter = ",";
 
-    public PathForward(RealtimeValues rtvals, EventLoopGroup nettyGroup, QueryWriting db){
+    ThreadPoolExecutor executor = new ThreadPoolExecutor(1,
+            Math.min(3, Runtime.getRuntime().availableProcessors()), // max allowed threads
+            30L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>());
+
+    public PathForward(RealtimeValues rtvals, EventLoopGroup nettyGroup) {
         this.rtvals = rtvals;
         this.nettyGroup=nettyGroup;
-        this.db=db;
     }
-    public String id(){
-        return id;
-    }
+
     public PathForward src( String src){
         this.src=src;
         return this;
@@ -67,8 +68,6 @@ public class PathForward {
     public String readFromXML(XMLdigger dig, Path workpath) {
 
         // Reset things
-        var oldTargets = new ArrayList<>(targets);
-        targets.clear();
         clearStores();
 
         this.workPath=workpath;
@@ -77,215 +76,180 @@ public class PathForward {
         customs.forEach(CustomSrc::stop);
 
         if (!stepsForward.isEmpty()) {// If this is a reload, reset the steps
-            stepsForward.forEach( step -> Core.addToQueue(Datagram.system("nothing").writable(step))); // stop asking for data
-            stepsForward.forEach( AbstractForward::invalidate ); // Make sure these get removed as targets
-            lastStep().ifPresent(ls -> oldTargets.addAll(ls.getTargets())); // retain old targets
             stepsForward.clear();
         }
 
         id = dig.attr("id","");
         src = dig.attr("src", "");
-        String delimiter = dig.attr("delimiter","");
+        delimiter = dig.attr("delimiter", delimiter);
 
         var importPathOpt = dig.attr("import",null,null);
         if (importPathOpt.isPresent()) { // If present overwrite the digger
-            var importPath = importPathOpt.get();
-            if( !importPath.isAbsolute()) // If the path isn't absolute
-                importPath = workPath.resolve(importPath); // Make it so
-
-            dig = XMLdigger.goIn(importPath,"dcafs","path");
-            if (!dig.isValid()) {
-                Logger.error(id + "(pf) -> No valid path script found: " + importPath);
-                error = "No valid path script found: " + importPath;
-                String xmlError = XMLtools.checkXML(importPath);
-                if (!xmlError.isEmpty())
-                    Core.addToQueue(Datagram.system("telnet:error,PathForward: " + error));
-                return error;
-            }
-            // Using a new digger, so check id and delimiter that might not have been set
-            id = id.isEmpty() ? dig.attr("id", "") : id; // Earlier id has priority
-            delimiter = dig.attr("delimiter", delimiter); // This delimiter has priority
-            Logger.info(id + "(pf) -> Valid path script found at " + importPath);
+            var response = doImport(importPathOpt.get());
+            if (!response.isEmpty())
+                return response;
         }
-        var steps = dig.peekOut("*");
-        if (steps.isEmpty()) {
+
+        if (!dig.hasChilds()) {
             error = "No child nodes found";
             return error;
         }
 
-        // If the step doesn't have a source and it's the first step
-        if (stepsForward.isEmpty() && !XMLdigger.goIn(steps.get(0)).hasAttr("src"))
-            steps.get(0).setAttribute("src", src);
-
         // Now process all the steps
-        var validData = addSteps(steps, delimiter,null);
-        // Restore old requests
-        if (!oldTargets.isEmpty() && !stepsForward.isEmpty())
-            oldTargets.forEach(this::addTarget);
-
-        if (!lastStep().map(AbstractForward::noTargets).orElse(false) || validData)
-            reloadSrc();
+        addSteps(dig, delimiter, null);
 
         customs.trimToSize();
         stepsForward.trimToSize();
 
-        stepsForward.forEach(AbstractForward::requestSource);
+        // Check if there are StoreSteps or MathStep wants data
+        for (var step : stepsForward) {
+            if (step.wantsData()) {
+                selfTarget = true;
+                break;
+            }
+        }
         valid=true;
         error="";
 
         if (src.isEmpty() && customs.isEmpty()) {
             Logger.error(id() + "(pf) -> This path doesn't have a src!");
+        } else if (selfTarget) {
+            reloadSrc();
         }
         return "";
     }
 
+    /**
+     * Handle the path being in a seperate file instead of settings.xml
+     *
+     * @param importPath The path where the xml can be found
+     * @return Empty string if it went ok, error message if it didn't
+     */
+    private String doImport(Path importPath) {
+
+        if (!importPath.isAbsolute()) // If the path isn't absolute
+            importPath = workPath.resolve(importPath); // Make it so
+
+        var dig = XMLdigger.goIn(importPath, "dcafs", "path");
+        if (!dig.isValid()) {
+            Logger.error(id + "(pf) -> No valid path script found: " + importPath);
+            error = "No valid path script found: " + importPath;
+            String xmlError = XMLtools.checkXML(importPath);
+            if (!xmlError.isEmpty())
+                Core.addToQueue(Datagram.system("telnet:error,PathForward: " + error));
+            return error;
+        }
+        // Using a new digger, so check id and delimiter that might not have been set
+        id = id.isEmpty() ? dig.attr("id", "") : id; // Earlier id has priority
+        delimiter = dig.attr("delimiter", delimiter); // This delimiter has priority
+        Logger.info(id + "(pf) -> Valid path script found at " + importPath);
+        return "";
+    }
     public void reloadSrc() {
+        if (active)
+            return;
         if (customs.isEmpty()) { // If no custom sources
             if (stepsForward.isEmpty()) {
                 Logger.error(id + "(pf) -> No steps to take, this often means something went wrong processing it");
                 return;
             }
-            Core.addToQueue(Datagram.system("stop").writable(stepsForward.get(0)));
-            Core.addToQueue(Datagram.system(src).writable(stepsForward.get(0))); // Request it
-        } else if (!stepsForward.isEmpty()) { // and there are steps
-            targets.add(stepsForward.get(0));
+            Core.addToQueue(Datagram.system("stop").writable(this));
+            Core.addToQueue(Datagram.system(src).writable(this)); // Request it
+            active = true;
+        } else { // and there are steps
             customs.forEach(CustomSrc::start);
+            active=true;
         }
     }
 
-    private boolean addSteps( ArrayList<Element> steps, String delimiter, AbstractForward parent ){
-        boolean reqData=false;
+    private void addSteps(XMLdigger steps, String delimiter, AbstractStep parent) {
 
-        String prevTag = "";
-        for( Element step : steps ){
-            var dig = XMLdigger.goIn(step);
-            if(step.getTagName().endsWith("src")){
-                maxBufferSize = dig.attr("buffer",2500);
-                customs.add(new CustomSrc(step));
+        for (var step : steps.digOut("*")) {
+
+            if (step.tagName("").endsWith("src")) {
+                maxBufferSize = step.attr("buffer", 2500);
+                customs.add(new CustomSrc(step.currentTrusted()));
                 continue;
             }
-            // If this step doesn't have a delimiter, alter it
-            if( !step.hasAttribute("delimiter") && !delimiter.isEmpty())
-                step.setAttribute("delimiter",delimiter);
-            // If this step doesn't have an id, alter it
-            if( !step.hasAttribute("id")) {
-                var altId = parent == null ? id + "_" + stepsForward.size() : parent.firstParentId() + "_" + parent.siblings();
-                step.setAttribute("id", altId);
-            }
-            parent = switch( step.getTagName() ){
-                case "case", "if" -> {
-                    FilterForward ff = new FilterForward(step);
-                    // Now link to the source
-                    checkParent(parent, ff, prevTag);
-                    // Go deeper
-                    reqData |= addSteps(new ArrayList<>(dig.currentSubs()), delimiter, ff);
-                    yield step.getTagName().equals("case") ? parent : ff; // This doesn't alter the parent
+
+            switch (step.tagName("")) {
+                case "if" -> {
+                    var filterOpt = FilterStepFab.buildFilterStep(step, delimiter, rtvals, executor);
+                    if (filterOpt.isPresent()) {
+                        var filter = filterOpt.get();
+                        if (parent == null) {
+                            parent = filter;
+                            stepsForward.add(parent);
+                            addSteps(step, delimiter, parent);
+                        } else { // Nested?
+                            parent.setNext(filter);
+                            addSteps(step, delimiter, filter);
+                        }
+                    }
                 }
-                case "filter" -> checkParent( parent,new FilterForward(step), prevTag );
-                case "math" -> checkParent(parent, new MathForward(step, rtvals), prevTag);
-                case "editor" -> checkParent( parent,new EditorForward(step, rtvals), prevTag );
-                case "cmd" -> checkParent( parent,new CmdForward(step, rtvals), prevTag );
-                case "store" -> addStoreStep(parent, step);
-                default -> parent;
+                case "filter" -> {
+                    var filterOpt = FilterStepFab.buildFilterStep(step, delimiter, rtvals, executor);
+                    if (filterOpt.isEmpty())
+                        return;
+                    parent = addToOrMakeParent(filterOpt.get(), parent);
+                }
+                case "math" -> {
+                    var mfOpt = StepFab.buildMathStep(step, delimiter, rtvals);
+                    if (mfOpt.isEmpty())
+                        return;
+                    parent = addToOrMakeParent(mfOpt.get(), parent);
+
+                }
+                case "editor" -> {
+                    var editOpt = new EditorForward(step.currentTrusted(), delimiter, rtvals).getStep();
+                    if (editOpt.isEmpty())
+                        return;
+                    parent = addToOrMakeParent(editOpt.get(), parent);
+
+                }
+                case "cmd" -> {
+                    var cmdOpt = StepFab.buildCmdStep(step, delimiter, rtvals);
+                    if (cmdOpt.isEmpty())
+                        return;
+                    parent = addToOrMakeParent(cmdOpt.get(), parent);
+                }
+                case "store" -> {
+                    parent = addStoreStep(parent, step);
+                    if (parent == null)
+                        return;
+                }
+                default ->{}
             };
-            prevTag=step.getTagName();
         }
-        return reqData;
     }
 
-    private AbstractForward addStoreStep(AbstractForward parent, Element step) {
-        if (parent == null) {// No parent node, so it's the only node in the path...?
-            Logger.warn("Still to implement a path that only contains a store, put the store in the stream instead");
-            return null;
+    private AbstractStep addToOrMakeParent(AbstractStep step, AbstractStep parent) {
+        if (parent != null) {
+            parent.setNext(step);
+        } else {
+            stepsForward.add(step);
         }
+        return step;
+    }
 
-        var store = ValStore.build(step, id, rtvals).orElse(null);
+    private AbstractStep addStoreStep(AbstractStep parent, XMLdigger step) {
+        var store = ValStore.build(step.currentTrusted(), id, rtvals).orElse(null);
         if (store == null)
-            return parent;
-
-        parent.setStore(store);
-        for (var db : store.dbInsertSets())
-            Core.addToQueue(Datagram.system("dbm:" + db[0] + ",tableinsert," + db[1]).payload(parent));
-
-        return parent; // This doesn't alter the parent
+            return null;
+        var storeStep = new StoreStep(store);
+        return addToOrMakeParent(storeStep, parent);
     }
-    private AbstractForward checkParent( AbstractForward parent, AbstractForward child, String prevTag){
-        if (parent==null){ // No parent so root of the path, so get the source of the path and it's a step
-            stepsForward.add(child);
-            child.addSource(src); // It's in the root, so add the path source
-        }else{ // Not the root, so add it to the parent
-            if( prevTag.equalsIgnoreCase("if")){
-                var ff = (FilterForward)parent;
-                ff.addReverseTarget(child);
-            }else {
-                parent.addNextStep(child);
-            }
-        }
-        return child;
-    }
-    public void clearStores(){
-        stepsForward.forEach(x -> x.removeStoreVals(rtvals));
+
+    public void clearStores() {
+        stepsForward.forEach(step -> {
+            var store = step.getStore();
+            if (store != null)
+                store.removeRealtimeValues(rtvals);
+        });
     }
 
     public boolean isValid(){
         return valid;
-    }
-
-    public String debugStep( String step, Writable wr ){
-        var join = new StringJoiner(", ", "Request for ", " received");
-        join.setEmptyValue("No such step");
-        var ok = false;
-        for( var sf : stepsForward ) {
-            sf.removeTarget(wr);
-            if( step.equals("*") || sf.id.equalsIgnoreCase(step)) {
-                sf.addTarget(wr);
-                join.add(sf.id());
-                ok=true;
-            }
-        }
-        if(ok) {
-            if (!targets.contains(stepsForward.get(0))) // Check if the first step is a target, if not
-                targets.add(stepsForward.get(0)); // add it
-            enableSource();
-            if( step.equals("*"))
-                Core.addToQueue( Datagram.system(src).writable(wr));
-        }
-        return join.toString();
-    }
-    public String debugStep( int step, Writable wr ){
-        if( wr==null )
-            return "! No proper writable received";
-        if( step >= stepsForward.size() )
-            return "! Wanted step " + step + " but only " + stepsForward.size() + " available";
-
-        for( var ab : stepsForward )
-            ab.removeTarget(wr);
-
-        if( !customs.isEmpty() ){
-            if( step == -1){
-                targets.add(wr);
-                customs.forEach(CustomSrc::start);
-            }else if( step < stepsForward.size()){
-                stepsForward.get(step).addTarget(wr);
-            }
-        }else if(step !=-1 && step < stepsForward.size() ){
-            stepsForward.get(step).addTarget(wr);
-        }else{
-            return "! Failed to request data, bad index given";
-        }
-        var s = stepsForward.get(step);
-
-        return "Request for "+s.getXmlChildTag()+":"+s.id+" received";
-    }
-    public Optional<AbstractForward> lastStep(){
-        if (stepsForward.isEmpty())
-            return Optional.empty();
-        var step = stepsForward.get(stepsForward.size()-1);
-        return Optional.ofNullable(step.getLastStep());
-    }
-
-    public ArrayList<Writable> lastTargets() {
-        return lastStep().map(af -> af.targets).orElse(new ArrayList<>());
     }
     public String toString(){
         if (customs.isEmpty() && stepsForward.isEmpty())
@@ -300,65 +264,60 @@ public class PathForward {
         for (var af : stepsForward)
             join.add("|-> " + af.toString()).add("");
 
-        join.add("=> gives the data from " + stepsForward.get(stepsForward.size() - 1).id());
+        join.add("=> gives the data from " + stepsForward.get(stepsForward.size() - 1));
         return join.toString();
     }
     public ArrayList<Writable> getTargets(){
         return targets;
     }
-    public void addTarget(Writable wr){
-        if (!stepsForward.isEmpty()) {
-            var target = stepsForward.get(stepsForward.size() - 1).getLastStep();
-            target.addTarget(wr);
-        } else {
-            if (targets.isEmpty()) {
-                customs.forEach(CustomSrc::start);
-            }
+
+    @Override
+    public boolean writeLine(String origin, String data) {
+        for (var step : stepsForward)
+            executor.submit(() -> step.takeStep(data, null));
+        return true;
+    }
+
+    @Override
+    public boolean writeString(String data) {
+        for (var target : targets)
+            executor.submit(() -> target.writeLine(id, data));
+        return true;
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public void addTarget(Writable wr) {
+        if (!targets.contains(wr)) {
             targets.add(wr);
-        }
-    }
-    public void addTarget(Writable wr, String id){
-        for( var step : stepsForward){
-            var fw = step.getStepById(id);
-            if( fw!=null) {
-                fw.addTarget(wr);
-                return;
-            }
-        }
-        Logger.warn("No matching step found for "+id);
-    }
-    private void enableSource(){
-        if( targets.size()==1 ){
-            if( customs.isEmpty()){
-                Core.addToQueue( Datagram.system(src).writable(stepsForward.get(0)));
-            }else{
-                customs.forEach(CustomSrc::start);
-            }
+            if (!stepsForward.isEmpty())
+                stepsForward.get(stepsForward.size() - 1).getFeedbackFromLastStep(this);
+            reloadSrc();
         }
     }
 
-    /**
-     * Remove a writable as a target from any part of the path
-     * @param wr The writable to remove
-     */
-    public void removeTarget( Writable wr){
-        if (stepsForward.isEmpty()) {
-            targets.remove(wr);// Stop giving data
-        }else{
-            for( var step : stepsForward )
-                step.removeTarget(wr);
-
-            lastStep().ifPresent( ls -> ls.removeTarget(wr));
-        }
+    public void addTarget(Writable wr, String stepId) {
+        Logger.info("TODO -> Add " + wr.id() + " to " + stepId);
     }
 
-    public void stop(){
-        lastStep().ifPresent(AbstractForward::removeTargets);
-        targets.clear();
-        customs.forEach(CustomSrc::stop);
-        customs.clear();
+    public void removeTarget(Writable wr) {
+        targets.remove(wr);
+        if (targets.isEmpty() && !selfTarget)
+            stop();
+    }
+    public void stop() {
+        if (!customs.isEmpty())
+            customs.forEach(CustomSrc::stop);
+        Core.addToQueue(Datagram.system("stop").writable(this));
+        active=false;
     }
 
+    @Override
+    public boolean isConnectionValid() {
+        return true;
+    }
     private class CustomSrc{
         String pathOrData;
         String path;
@@ -444,31 +403,40 @@ public class PathForward {
         }
         public void write(){
             targets.removeIf( x -> !x.isConnectionValid());
-            if( targets.isEmpty() )
+            if (targets.isEmpty() && !selfTarget)
                 stop();
 
-            switch (srcType) {
-                case CMD ->
+            var line = switch (srcType) {
+                case CMD ->{
                         targets.forEach(t -> Core.addToQueue(Datagram.system(pathOrData).writable(t).toggleSilent()));
-                case RTVALS -> {
-                    var write = ValTools.parseRTline(pathOrData, "-999", rtvals);
-                    targets.forEach(x -> x.writeLine(id, write));
+                    yield "";
                 }
-                case PLAIN -> targets.forEach(x -> x.writeLine(id, pathOrData));
+                case RTVALS -> ValTools.parseRTline(pathOrData, "-999", rtvals);
+                case PLAIN -> pathOrData;
                 case SQLITE -> writeFromSQLite();
-                case FILE -> writeFromFile();
+                case FILE -> {
+                    writeFromFile();
+                    yield "";
+                }
+                default -> "";
+            };
+            if (!line.isEmpty()) {
+                if (stepsForward.isEmpty()) {
+                    targets.forEach(x -> x.writeLine(id, line));
+                } else {
+                    if (selfTarget || !targets.isEmpty())
+                        writeLine("custom", line);
+                }
             }
         }
 
-        private void writeFromSQLite() {
+        private String writeFromSQLite() {
             if (!buffer.isEmpty()) {
-                String line = buffer.remove(0);
-                targets.forEach(wr -> wr.writeLine(id, line));
-                return;
+                return buffer.remove(0);
             }
             if (readOnce) {
                 stop();
-                return;
+                return "";
             }
             var lite = SQLiteDB.createDB("custom", Path.of(path));
             var dataOpt = lite.doSelect(pathOrData);
@@ -476,12 +444,13 @@ public class PathForward {
 
             if (dataOpt.isEmpty()) {
                 Logger.error("Tried to read from db but failed: " + path);
-                return;
+                return "";
             }
             readOnce = true;
             for (var record : dataOpt.get()) {
                 buffer.add(record.stream().map(Object::toString).collect(Collectors.joining(";")));
             }
+            return "";
         }
 
         private void writeFromFile() {
@@ -522,6 +491,8 @@ public class PathForward {
                     }
                     String line = buffer.remove(0);
                     targets.forEach(wr -> wr.writeLine(id, line));
+                    if (selfTarget)
+                        writeLine("id",line);
                     if (!label.isEmpty())
                         Core.addToQueue(Datagram.build(line).label(label));
 

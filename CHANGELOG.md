@@ -7,7 +7,27 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
-## 3.0.3 (wip)
+## 3.1.0 (wip)
+
+- Rewrote PathForward to be similar in logic as taskmanager.
+- Filter now allows the use of 'or' and 'and' and ,like the editor, it's now possible to
+  use the tag name instead of the type attr.
+
+```xml
+
+<filter>
+  <rule type="contains">1000</rule>
+  <or/> <!-- or and, if none is mentioned, defaults to 'and' -->
+  <contains>-6</contains>
+  <contains>1000 OR -6</contains> <!-- Does the same as the three lines above -->
+</filter>
+```
+
+```xml
+
+<if contains="1001 OR -4"> <!-- Is also possible now -->
+</if>
+```
 
 ## 3.0.2 (09/04/25)
 
