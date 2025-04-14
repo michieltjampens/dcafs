@@ -166,6 +166,7 @@ public class PathForward implements Writable {
     }
 
     private void addSteps(XMLdigger steps, String delimiter, AbstractStep parent) {
+        FilterStep lastIf=null;
 
         for (var step : steps.digOut("*")) {
 
@@ -174,6 +175,8 @@ public class PathForward implements Writable {
                 customs.add(new CustomSrc(step.currentTrusted()));
                 continue;
             }
+            if( !step.currentTrusted().hasAttribute("delimiter"))
+                step.currentTrusted().setAttribute("delimiter",delimiter);
 
             switch (step.tagName("")) {
                 case "if" -> {
@@ -183,39 +186,44 @@ public class PathForward implements Writable {
                         if (parent == null) {
                             parent = filter;
                             stepsForward.add(parent);
-                            addSteps(step, delimiter, parent);
+                            addSteps(step, delimiter, parent);// Add all sub steps
+                            parent=parent.getLastStep(); // Point to last sub
                         } else { // Nested?
                             parent.setNext(filter);
+                            if( lastIf!=null)
+                                lastIf.setFailure(filter);
                             addSteps(step, delimiter, filter);
                         }
+                        lastIf=filter;
+                        continue;
                     }
                 }
                 case "filter" -> {
                     var filterOpt = FilterStepFab.buildFilterStep(step, delimiter, rtvals, executor);
                     if (filterOpt.isEmpty())
                         return;
-                    parent = addToOrMakeParent(filterOpt.get(), parent);
+                    parent = addToOrMakeParent(filterOpt.get(), parent, lastIf);
                 }
                 case "math" -> {
                     var mfOpt = StepFab.buildMathStep(step, delimiter, rtvals);
                     if (mfOpt.isEmpty())
                         return;
-                    parent = addToOrMakeParent(mfOpt.get(), parent);
+                    parent = addToOrMakeParent(mfOpt.get(), parent,lastIf);
                 }
                 case "editor" -> {
                     var editOpt = EditorStepFab.buildEditorStep(step, delimiter, rtvals);
                     if (editOpt.isEmpty())
                         return;
-                    parent = addToOrMakeParent(editOpt.get(), parent);
+                    parent = addToOrMakeParent(editOpt.get(), parent,lastIf);
                 }
                 case "cmd" -> {
                     var cmdOpt = StepFab.buildCmdStep(step, delimiter, rtvals);
                     if (cmdOpt.isEmpty())
                         return;
-                    parent = addToOrMakeParent(cmdOpt.get(), parent);
+                    parent = addToOrMakeParent(cmdOpt.get(), parent,lastIf);
                 }
                 case "store" -> {
-                    parent = addStoreStep(parent, step);
+                    parent = addStoreStep(parent, step,lastIf);
                     if (parent == null)
                         return;
                 }
@@ -224,7 +232,11 @@ public class PathForward implements Writable {
         }
     }
 
-    private AbstractStep addToOrMakeParent(AbstractStep step, AbstractStep parent) {
+    private AbstractStep addToOrMakeParent(AbstractStep step, AbstractStep parent, FilterStep lastIf) {
+        if( lastIf!=null){
+            lastIf.setFailure(step);
+            lastIf=null;
+        }
         if (parent != null) {
             parent.setNext(step);
         } else {
@@ -233,12 +245,13 @@ public class PathForward implements Writable {
         return step;
     }
 
-    private AbstractStep addStoreStep(AbstractStep parent, XMLdigger step) {
+    private AbstractStep addStoreStep(AbstractStep parent, XMLdigger step, FilterStep lastIf) {
+
         var store = ValStore.build(step.currentTrusted(), id, rtvals).orElse(null);
         if (store == null)
             return null;
         var storeStep = new StoreStep(store);
-        return addToOrMakeParent(storeStep, parent);
+        return addToOrMakeParent(storeStep, parent,lastIf);
     }
 
     public void clearStores() {
