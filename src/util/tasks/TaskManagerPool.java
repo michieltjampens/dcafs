@@ -258,7 +258,7 @@ public class TaskManagerPool implements Commandable {
                     yield "! Not enough parameters, need tm:id,addtaskset,tasksetid";
                 tl = tasklists.get(cmds[1]);
 
-                if (tl.addBlankTaskset(cmds[2])) {
+                if (TaskManagerFab.addBlankTaskset(cmds[2],tl.getScriptPath())) {
                     yield "Taskset added";
                 }
                 yield "! Failed to add taskset";

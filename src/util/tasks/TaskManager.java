@@ -1,14 +1,12 @@
 package util.tasks;
 
 import io.Writable;
-import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.NumericVal;
 import util.data.RealtimeValues;
 import util.tools.TimeTools;
-import util.xml.XMLfab;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -54,16 +52,15 @@ public class TaskManager implements Writable {
         Logger.info(id + " -> Starting startups");
         startup.forEach(AbstractBlock::start);
     }
-    public boolean addStarter(AbstractBlock start) {
+    public void addStarter(AbstractBlock start) {
         if (start == null)
-            return false;
+            return;
         if (start.id().isEmpty()) { // No id means it's not addressed but run at startup
             start.id("startup" + startup.size());
             startup.add(start);
         } else {
             starters.put(start.id(), start);
         }
-        return true;
     }
 
     public boolean startTask(String id) {
@@ -141,25 +138,8 @@ public class TaskManager implements Writable {
         return false;
     }
 
-    /**
-     * Add a blank TaskSet to this TaskManager
-     *
-     * @param id The id of the taskset
-     * @return True if successful
-     */
-    public boolean addBlankTaskset(String id) {
-        var fab = XMLfab.withRoot(scriptPath, "dcafs", "tasklist", "tasksets");
-        fab.addParentToRoot("taskset").attr("id", id).attr("run", "oneshot").attr("name", "More descriptive info");
-        fab.addChild("task", "Hello").attr("output", "log:info").attr("trigger", "delay:0s");
-        return fab.build();
-    }
-
     public String getLastError() {
         return "TODO";
-    }
-    @Override
-    public boolean writeString(String data) {
-        return false;
     }
 
     @Override

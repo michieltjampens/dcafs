@@ -6,6 +6,7 @@ import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.tools.Tools;
 import util.xml.XMLdigger;
+import util.xml.XMLfab;
 import worker.Datagram;
 
 import java.nio.file.Path;
@@ -356,5 +357,17 @@ public class TaskManagerFab {
                 yield null;
             }
         };
+    }
+    /**
+     * Add a blank TaskSet to this TaskManager
+     *
+     * @param id The id of the taskset
+     * @return True if successful
+     */
+    public static boolean addBlankTaskset(String id, Path scriptPath) {
+        var fab = XMLfab.withRoot(scriptPath, "dcafs", "tasklist", "tasksets");
+        fab.addParentToRoot("taskset").attr("id", id).attr("run", "oneshot").attr("name", "More descriptive info");
+        fab.addChild("task", "Hello").attr("output", "log:info").attr("trigger", "delay:0s");
+        return fab.build();
     }
 }
