@@ -14,8 +14,11 @@ public class FilterStep extends AbstractStep {
 
     public void takeStep(String data, BigDecimal[] bds) {
         if (predicate != null) {
-            if (predicate.test(data))
+            if (predicate.test(data)) {
                 doNext(data, bds);
+            }else{
+                doFailure(data,bds);
+            }
         }
     }
 }

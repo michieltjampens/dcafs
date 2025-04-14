@@ -34,12 +34,17 @@ public class EditorStepFab {
         
         var info = new StringJoiner("\r\n");
         if( dig.hasPeek("*")){
-            var set = dig.digOut("*")
+            for( var node : dig.digOut("*")){
+                var proc = processNode(node, deli, rtvals, info);
+                if( proc !=null )
+                    edits.add(proc);
+            }
+            /*var set = dig.digOut("*")
                     .stream()
                     .map(node -> processNode(node, deli, rtvals, info))
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
-            edits.addAll(set);
+            edits.addAll(set);*/
         }else{
             var edit = processNode(dig, delimiter, rtvals, info);
             if (edit != null)
