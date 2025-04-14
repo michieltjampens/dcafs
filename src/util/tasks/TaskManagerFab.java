@@ -1,69 +1,56 @@
 package util.tasks;
 
 import io.email.Email;
-import io.netty.channel.EventLoop;
+import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.nio.file.Path;
+import java.util.Optional;
 
-public class BlockFab {
+public class TaskManagerFab {
+    public static boolean reloadTaskManager( TaskManager tm ){
+        var dig = XMLdigger.goIn(tm.getScriptPath(),"dcafs","tasklist");
+        startDigging(dig,tm);
+        return true;
+    }
+    public static Optional<TaskManager> buildTaskManager(String id, Path script, EventLoopGroup eventLoop, RealtimeValues rtvals) {
+        var tm = new TaskManager(id,eventLoop,rtvals);
+        tm.setScriptPath(script);
 
-    public static void readFromXml(XMLdigger dig, EventLoop eventLoop, RealtimeValues rtvals) {
-
-        var fabTools = new FabTools().eventloop(eventLoop).rtvals(rtvals);
-
-        HashMap<String, AbstractBlock> starters = new HashMap<>();
-        ArrayList<AbstractBlock> startup = new ArrayList<>();
-
+        var dig = XMLdigger.goIn(script,"dcafs","tasklist");
+        if( startDigging(dig,tm) )
+            return Optional.of(tm);
+        return Optional.empty();
+    }
+    private static boolean startDigging( XMLdigger dig, TaskManager tm){
         if (dig.hasPeek("tasksets")) {
             dig.digDown("tasksets");
             AbstractBlock onFailure = null;
             // Process taskset
             for (var taskset : dig.digOut("taskset")) {
-                parseSet(taskset, onFailure, eventLoop, rtvals);
+                if( !parseSet(taskset, onFailure, tm ) )
+                    return false;
             }
         }
         dig.goUp("tasklist");
         dig.digDown("tasks");
 
-        for (var task : dig.digOut("task"))
-            addStarter(processTask(task, null, rtvals, eventLoop), starters, startup);
-    }
-
-    private static class FabTools {
-        RealtimeValues rtvals;
-        EventLoop eventLoop;
-
-        public FabTools rtvals(RealtimeValues rtvals) {
-            this.rtvals = rtvals;
-            return this;
+        for (var task : dig.digOut("task")) {
+            var processed = processTask(task, null, tm);
+            if( processed==null)
+                return false;
+            tm.addStarter(processed);
         }
-
-        public FabTools eventloop(EventLoop eventloop) {
-            this.eventLoop = eventloop;
-            return this;
-        }
+        return true;
     }
-
-    public static void addStarter(AbstractBlock start, HashMap<String, AbstractBlock> starters, ArrayList<AbstractBlock> startup) {
-        if (start == null)
-            return;
-        if (start.id().isEmpty()) { // No id means it's not addressed but run at startup
-            start.id("startup" + startup.size());
-            startup.add(start);
-        } else {
-            starters.put(start.id(), start);
-        }
-    }
-
-    private static void parseSet(XMLdigger taskset, AbstractBlock onFailure, FabTools ft) {
-        var eventLoop = ft.eventLoop;
-        var rtvals = ft.rtvals;
+    
+    private static boolean parseSet(XMLdigger taskset, AbstractBlock onFailure, TaskManager tm) {
+        var eventLoop = tm.eventLoopGroup();
+        var rtvals = tm.rtvals();
 
         var id = taskset.attr("id", "");
         var type = taskset.attr("type", "oneshot").split(":", 2);
@@ -74,9 +61,9 @@ public class BlockFab {
         if (!isStep) {  // Everything starts at once so add splitter
             start.addNext(new SplitBlock(eventLoop).setInterval(type.length == 2 ? type[1] : ""));
             for (var task : taskset.digOut("task")) {
-                if (start.addNext(processTask(task, null, rtvals, eventLoop)) == null) {
+                if (start.addNext(processTask(task, null, tm)) == null) {
                     Logger.error(id + "(tm) -> Issue processing task, aborting.");
-                    return;
+                    return false;
                 }
             }
         } else {
@@ -84,7 +71,9 @@ public class BlockFab {
             for (var task : taskset.digOut("*")) {
                 switch (task.tagName("")) {
                     case "task" -> {
-                        var first = processTask(task, prev, rtvals, eventLoop);
+                        var first = processTask(task, prev, tm);
+                        if( first==null)
+                            return false;
                         if (onFailure != null) {
                             onFailure.setFailureBlock(first);
                             onFailure = null;
@@ -93,21 +82,22 @@ public class BlockFab {
                             prev.addNext(new DelayBlock(eventLoop).useDelay(type[1]));
                     }
                     case "retry" -> {
-                        var result = parseRetry(task, prev);
+                        var result = parseRetry(task, prev,tm);
                         if (result != null)
                             onFailure = result;
                     }
                     case "while" -> {
-                        var result = parseWhile(task, prev);
+                        var result = parseWhile(task, prev, tm);
                         if (result != null)
                             prev = result;
                     }
-                    default -> prev.addNext(parseNode(task));
+                    default -> prev.addNext(parseNode(task, tm));
                 }
             }
         }
         start.updateChainId();
-        addStarter(start);
+        tm.addStarter(start);
+        return true;
     }
 
     /**
@@ -117,7 +107,11 @@ public class BlockFab {
      * @param start The block to attach to
      * @return The resulting block
      */
-    private static AbstractBlock processTask(XMLdigger task, AbstractBlock start, RealtimeValues rtvals, EventLoop eventLoop) {
+    private static AbstractBlock processTask(XMLdigger task, AbstractBlock start, TaskManager tm) {
+        var eventLoop = tm.eventLoopGroup();
+        var rtvals = tm.rtvals();
+        var sharedMem = tm.sharedMem();
+
         var id = task.attr("id", "");
 
         // Handle req
@@ -127,12 +121,12 @@ public class BlockFab {
             req = new ConditionBlock(rtvals, sharedMem).setCondition(reqAttr);
 
         // Check if it's delayed
-        var delay = handleDelay(task, eventLoop);
+        var delay = handleDelay( task, eventLoop );
 
         // Handle target
-        var target = handleTarget(task, eventLoop);
+        var target = handleTarget( task, tm );
         if (target == null) {
-            Logger.error(this.id + "(tm) -> Task '" + id + "' needs a valid target!");
+            Logger.error("(tm) -> Task '" + id + "' needs a valid target!");
             return null;
         }
         // Combine it all
@@ -154,7 +148,7 @@ public class BlockFab {
      *
      * @param task Digger pointing to the node
      */
-    private static AbstractBlock handleDelay(XMLdigger task, EventLoop eventLoop) {
+    private static AbstractBlock handleDelay(XMLdigger task, EventLoopGroup eventLoop) {
         var delay = task.attr("delay", "-1s");
         var interval = task.attr("interval", "");
         var timeAttr = task.matchAttr("time", "localtime");
@@ -183,7 +177,9 @@ public class BlockFab {
      *
      * @param task Digger pointing to the node
      */
-    private static AbstractBlock handleTarget(XMLdigger task, EventLoop eventLoop) {
+    private static AbstractBlock handleTarget(XMLdigger task, TaskManager tm ) {
+        var eventLoop = tm.eventLoopGroup();
+
         var target = task.attr("output", "system").split(":", 2);
         var content = task.value("");
 
@@ -196,16 +192,16 @@ public class BlockFab {
                 var attachment = task.attr("attachment", "");
                 yield new EmailBlock(Email.to(target[1]).subject(subs[0]).content(subs[1]).attachment(attachment));
             }
-            case "manager" -> new ControlBlock(this).setMessage(content);
+            case "manager" -> new ControlBlock(tm).setMessage(content);
             case "telnet" -> new CmdBlock(Datagram.system("telnet", "broadcast," + target[1] + "," + content));
             default -> {
-                Logger.error(id + " (tm) -> Unknown target " + target[0]);
+                Logger.error(" (tm) -> Unknown target " + target[0]);
                 yield null;
             }
         };
     }
 
-    private static AbstractBlock handleStreamTarget(XMLdigger task, String[] target, String content, EventLoop eventLoop) {
+    private static AbstractBlock handleStreamTarget(XMLdigger task, String[] target, String content, EventLoopGroup eventLoop) {
 
         AbstractBlock block;
         if (task.attr("interval", "").isEmpty()) { // If not an interval, not many repeats so don't use writable
@@ -232,7 +228,10 @@ public class BlockFab {
      * @param prev The previous block in the chain
      * @return The next block should become the failure block of this one
      */
-    private static AbstractBlock parseRetry(XMLdigger task, AbstractBlock prev, RealtimeValues rtvals, EventLoop eventLoop) {
+    private static AbstractBlock parseRetry(XMLdigger task, AbstractBlock prev, TaskManager tm) {
+        var rtvals = tm.rtvals();
+        var eventLoop = tm.eventLoopGroup();
+        var sharedMem = tm.sharedMem();
 
         String onFail = task.attr("onfail", "stop");
         var counter = new CounterBlock(task.attr("retries", -1));
@@ -240,7 +239,7 @@ public class BlockFab {
         if (task.hasChilds()) {
             // Do the internal ones
             for (var node : task.digOut("*"))
-                first = addToOrBecomeFirst(first, counter, parseNode(node));
+                first = addToOrBecomeFirst(first, counter, parseNode(node,tm));
             prev.addNext(first);
         } else {
             // No child nodes
@@ -257,7 +256,25 @@ public class BlockFab {
             return null;
         return counter;
     }
-
+    /**
+     * Builds the sequence of nodes
+     * @param first The first node in the sequence
+     * @param failure The node to go to on failure
+     * @param added The new node to add
+     * @return The first node
+     */
+    private static AbstractBlock addToOrBecomeFirst(AbstractBlock first, AbstractBlock failure, AbstractBlock added) {
+        if (first == null) {
+            first = added;
+            first.setFailureBlock(failure);
+            failure.setNext(first); // After the failure process, go to  the first block again
+        } else {
+            if (!(added instanceof WritableBlock))
+                added.setFailureBlock(failure);
+            first.addNext(added);
+        }
+        return first;
+    }
     /**
      * Processes a retry node, either single node or with child nodes
      *
@@ -265,7 +282,10 @@ public class BlockFab {
      * @param prev The previous block in the chain
      * @return This block is the end of the updated chain
      */
-    private static AbstractBlock parseWhile(XMLdigger task, AbstractBlock prev, RealtimeValues rtvals, EventLoop eventLoop) {
+    private static AbstractBlock parseWhile(XMLdigger task, AbstractBlock prev, TaskManager tm ) {
+        var rtvals = tm.rtvals();
+        var eventLoop = tm.eventLoopGroup();
+        var sharedMem = tm.sharedMem();
 
         AbstractBlock first = null;
         var counter = new CounterBlock(task.attr("maxruns", -1));
@@ -276,10 +296,10 @@ public class BlockFab {
             // Do the internal ones
             for (var node : task.digOut("*")) {
                 if (first == null) {
-                    first = parseNode(node);
+                    first = parseNode(node,tm);
                     counter.setNext(first);
                 } else {
-                    first.addNext(parseNode((node)));
+                    first.addNext(parseNode(node,tm));
                 }
                 if (first != null)
                     first.getLastBlock().setFailureBlock(dummy);
@@ -305,7 +325,11 @@ public class BlockFab {
         return dummy;
     }
 
-    private static AbstractBlock parseNode(XMLdigger node, RealtimeValues rtvals, EventLoop eventLoop) {
+    private static AbstractBlock parseNode(XMLdigger node, TaskManager tm) {
+        var rtvals = tm.rtvals();
+        var eventLoop = tm.eventLoopGroup();
+        var sharedMem = tm.sharedMem();
+
         var content = node.value("");
         return switch (node.tagName("")) {
             case "delay" -> new DelayBlock(eventLoop).useDelay(content);

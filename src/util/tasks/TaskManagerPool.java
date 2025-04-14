@@ -49,22 +49,26 @@ public class TaskManagerPool implements Commandable {
                 p = Paths.storage().resolve(p);
 
             if (Files.exists(p)) {
-                addTaskList(tm.getAttribute("id"), p);
+                addTaskManager(tm.getAttribute("id"), p);
             } else {
                 Logger.error("No such task xml: " + p);
             }
         });
     }
 
-    public TaskManager addTaskList(String id, TaskManager tl) {
-        tasklists.put(id, tl);
-        return tl;
+    public TaskManager addTaskManager(String id, TaskManager tm) {
+        if( tm != null )
+            tasklists.put(id, tm);
+        return tm;
     }
 
-    public TaskManager addTaskList(String id, Path scriptPath) {
-        var tm = new TaskManager(id, eventLoop, rtvals);
-        tm.setScriptPath(scriptPath);
-        return addTaskList(id, tm);
+    public TaskManager addTaskManager(String id, Path scriptPath) {
+        var tm = TaskManagerFab.buildTaskManager(id,scriptPath,eventLoop,rtvals);
+        if( tm.isEmpty()){
+            Logger.error("(tm) -> Failed to create "+id);
+            return null;
+        }
+        return addTaskManager(id, tm.get());
     }
 
     public void startStartups() {
@@ -76,11 +80,12 @@ public class TaskManagerPool implements Commandable {
         tasklists.values().forEach(tm -> tm.startTask(id));
     }
     /**
-     * Reload all the tasklists
+     * Reload all the taskmanagers
      */
     public String reloadAll() {
         StringJoiner errors = new StringJoiner("\r\n");
         for (TaskManager tl : tasklists.values()) {
+            TaskManagerFab.reloadTaskManager(tl);
             if (!tl.reloadTasks())
                 errors.add(tl.id() + " -> " + tl.getLastError());
         }
@@ -122,7 +127,8 @@ public class TaskManagerPool implements Commandable {
                     return "! Already a taskmanager with that id";
                 if (Files.notExists(scriptPath.resolve(args[1] + ".xml")))
                     return "! No such script in the default location";
-                if (addTaskList(args[1], scriptPath.resolve(args[1] + ".xml")).reloadTasks()) {
+                var tm = addTaskManager(args[1], scriptPath.resolve(args[1] + ".xml"));
+                if ( tm!=null ) {
                     XMLfab.withRoot(Paths.settings(), "dcafs", "settings")
                             .addChild("taskmanager", "tmscripts" + File.separator + args[1] + ".xml").attr("id", args[1]).build();
                     return "Loaded " + args[1];
@@ -189,12 +195,13 @@ public class TaskManagerPool implements Commandable {
             return "Already a file in the tmscripts folder with that name, load it with tm:load," + args[1];
         }
         // Add it to das
-        addTaskList(args[1], newScriptPath);
+        if( addTaskManager(args[1], newScriptPath)==null )
+            return "Failed to create TaskManager "+args[1];
         Core.addToQueue(Datagram.system("commandable", args[1]).payload(this)); // Create  the commandable reference
         return "Tasklist added, " + args[1] + ":reload to run it.";
     }
 
-    private void createBlankScript(String[] cmds, Path scriptPath) {
+    private static void createBlankScript(String[] cmds, Path scriptPath) {
         XMLfab tmFab = XMLfab.withRoot(Paths.settings(), "dcafs", "settings");
         tmFab.addChild("taskmanager", "tmscripts" + File.separator + cmds[1] + ".xml").attr("id", cmds[1]).build();
         tmFab.build();
@@ -293,11 +300,6 @@ public class TaskManagerPool implements Commandable {
             }
         }
     }
-
-    public String payloadCommand(String cmd, String args, Object payload) {
-        return "! No such cmds in " + cmd;
-    }
-
     @Override
     public boolean removeWritable(Writable wr) {
         return false;
