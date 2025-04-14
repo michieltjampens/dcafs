@@ -64,7 +64,8 @@ public class ValStore {
     }
 
     public void addTableInsert(TableInsert ti) {
-        tis.add(ti);
+        if( !tis.contains(ti))
+            tis.add(ti);
     }
     public String id(){
         return id;
@@ -230,8 +231,8 @@ public class ValStore {
                 }
             }
             // Request the tableinsert
-            var last = dbInsert.get(dbInsert.size() - 1);
-            Core.addToQueue(Datagram.system("dbm:" + last[0] + ",tableinsert," + last[1]).payload(this));
+            for( var last : dbInsert )
+                Core.addToQueue(Datagram.system("dbm:" + last[0] + ",tableinsert," + last[1]).payload(this));
         } else {
             Logger.info(id + " -> No database referenced.");
             dbInsert.clear();
