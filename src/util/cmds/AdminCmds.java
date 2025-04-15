@@ -21,10 +21,10 @@ import java.util.StringJoiner;
 import java.util.regex.Pattern;
 
 public class AdminCmds {
-    public static String doADMIN(String args, EmailSending sendEmail, Commandable tmCmd, boolean html) {
+    public static String doADMIN(String arg, EmailSending sendEmail, Commandable tmCmd, boolean html) {
 
-        String[] cmds = args.split(",");
-        return switch (cmds[0]) {
+        String[] args = arg.split(",");
+        return switch (args[0]) {
             case "?" -> doHelpCmd(html);
             case "checkgpios","checkgpio" ->{
                 if (SystemUtils.IS_OS_WINDOWS)
@@ -32,22 +32,22 @@ public class AdminCmds {
                 yield InterruptPins.checkGPIOS();
             }
             case "getlogs" -> doGetLogsCmd(sendEmail);
-            case "getlastraw" -> doGetLastRawCmd(sendEmail);
+            case "getlastraw" -> doGetLastRawCmd(sendEmail, args);
             case "clock" -> TimeTools.formatLongUTCNow();
             case "regex" -> {
-                if (cmds.length != 3)
+                if (args.length != 3)
                     yield "! Invalid amount of parameters";
-                yield "Matches? " + cmds[1].matches(Pattern.quote(cmds[2]));
+                yield "Matches? " + args[1].matches(Pattern.quote(args[2]));
             }
             case "ipv4" -> Tools.getIP("", true);
             case "ipv6" -> Tools.getIP("", false);
-            case "sleep" -> doSleepCmd(cmds, tmCmd);
+            case "sleep" -> doSleepCmd(args, tmCmd);
             case "lt" -> Tools.listThreads(html);
             case "gc" -> {
                 System.gc();
                 yield "Tried to execute GC";
             }
-            case "phypower" -> doPhyPowrCmd(cmds);
+            case "phypower" -> doPhyPowrCmd(args);
             case "reboot" -> doRebootCmd();
             case "addstatuscheck" -> {
                 var fab = XMLfab.withRoot(Paths.settings(), "dcafs", "settings", "statuscheck");
@@ -57,7 +57,7 @@ public class AdminCmds {
                 fab.build();
                 yield "Statuscheck node added";
             }
-            default -> "! No such subcommand in admin:" + args;
+            default -> "! No such subcommand in admin:" + arg;
         };
     }
 
@@ -149,7 +149,7 @@ public class AdminCmds {
         return "! Never gonna happen?";
     }
 
-    private static String doGetLastRawCmd(EmailSending sendEmail) {
+    private static String doGetLastRawCmd(EmailSending sendEmail, String[] args) {
         if (sendEmail == null)
             return "! No email functionality active.";
 
@@ -158,7 +158,11 @@ public class AdminCmds {
             var last = list.filter(f -> !Files.isDirectory(f)).max(Comparator.comparingLong(f -> f.toFile().lastModified()));
             if (last.isPresent()) {
                 var path = last.get();
-                sendEmail.sendEmail(Email.toAdminAbout("Raw.log").subject("File attached (probably)").attachment(path));
+                if (args.length > 1) {
+                    sendEmail.sendEmail(Email.to(args[1]).subject("Raw data file").content("Raw File attached (probably)").attachment(path));
+                } else {
+                    sendEmail.sendEmail(Email.toAdminAbout("raw.log").content("File attached (probably)").attachment(path));
+                }
                 return "Tried sending " + path;
             }
             return "! File not found";
