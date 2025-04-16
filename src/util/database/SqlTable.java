@@ -525,9 +525,15 @@ public class SqlTable{
         }
         prep.enableLock();
         var dd = prep.getData();
-        if (count > 0) {
-            dd.subList(0, count).clear();
+
+        if (count > 0 && dd.size() > count) {
+            // Remove elements directly from the list to avoid using subList()
+            for (int i = 0; i < count; i++) {
+                dd.remove(0);  // Remove the first 'count' elements
+            }
         }
+        // Clean up null values if any
+        dd.removeIf(Objects::isNull);
 
         if( !dd.isEmpty() ){
             Logger.debug(id+" -> Not all records removed ("+dd.size()+" left)");
