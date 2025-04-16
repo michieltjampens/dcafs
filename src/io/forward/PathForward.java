@@ -227,6 +227,9 @@ public class PathForward implements Writable {
                     if (parent == null)
                         return;
                 }
+                case "return" -> {
+                    parent=null;
+                }
                 default ->{}
             };
         }
