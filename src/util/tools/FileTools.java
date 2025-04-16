@@ -82,7 +82,7 @@ public class FileTools {
      * @param path    The path of the file
      */
     public static void readTxtFile(ArrayList<String> content, Path path) {
-        content.addAll( readLines(path,1,-1) );
+        content.addAll(readLines(path, 1, -1, true));
     }
 
     /**
@@ -108,7 +108,7 @@ public class FileTools {
      * @param amount The amount of lines to read, if less lines are available it will read till end of file
      * @return List of read lines or an empty list of none were read
      */
-    public static ArrayList<String> readLines( Path path, long start, long amount) {
+    public static ArrayList<String> readLines(Path path, long start, long amount, boolean utfFirst) {
 
         var read = new ArrayList<String>();
         if( start==0) {
@@ -125,20 +125,30 @@ public class FileTools {
         if( start<0 || amount==0 )
             return read;
 
-        if( !readLimitedLines(path,start, StandardCharsets.UTF_8,read) ){
-            Logger.info("Retrying with ISO_8859_1");
-            readLimitedLines(path,start, StandardCharsets.ISO_8859_1,read );
+        if (utfFirst) {
+            if (!readLimitedLines(path, start, amount, StandardCharsets.UTF_8, read)) {
+                Logger.info("Retrying with ISO_8859_1");
+                readLimitedLines(path, start, amount, StandardCharsets.ISO_8859_1, read);
+            }
+        } else {
+            if (!readLimitedLines(path, start, amount, StandardCharsets.ISO_8859_1, read)) {
+                Logger.info("Retrying with UTF8");
+                readLimitedLines(path, start, amount, StandardCharsets.UTF_8, read);
+            }
         }
         return read;
     }
-    private static boolean readLimitedLines( Path path, long start, Charset cs, ArrayList<String> read){
+
+    private static boolean readLimitedLines(Path path, long start, long numLines, Charset cs, ArrayList<String> read) {
         try( var lines = Files.lines(path, cs) ) {
             try{
-                var l = lines.skip(start - 1);
-                read.addAll(l.toList());
+                lines.skip(start - 1)
+                        .limit(numLines)    // Limit the next lines to 'numLines'
+                        .forEach(read::add); // Add each line to the 'read' list
                 return true;
             }catch ( UncheckedIOException d ) {
                 Logger.error("Malformed Failed reading with (charset) " + cs + " while reading " + path);
+                read.clear();
             }
         } catch (IOException ex) {
             Logger.error(ex);

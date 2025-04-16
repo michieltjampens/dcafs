@@ -161,7 +161,7 @@ public class FileCollector extends AbstractCollector{
 
         /* Headers change ?*/
         if( Files.exists(getPath()) ) {
-            var curHead = FileTools.readLines(getPath(), 1, headers.size());
+            var curHead = FileTools.readLines(getPath(), 1, headers.size(), true);
             headerChanged = !headers.equals(curHead);
         }
     }
