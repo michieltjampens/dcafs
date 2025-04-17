@@ -3,8 +3,6 @@ package util.database;
 import das.Commandable;
 import das.Paths;
 import io.Writable;
-import io.collector.StoreCollector;
-import io.forward.*;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
@@ -243,26 +241,6 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 }
             }
         }
-    }
-
-    /**
-     * Add a blank table node to the given database (can be both server or sqlite)
-     * @param id The id of the database the table belongs to
-     * @param table The name of the table
-     * @param format The format of the table
-     * @return True if build
-     */
-    public static boolean addBlankTableToXML( String id, String table, String format){
-
-        var dig = XMLdigger.goIn(Paths.settings(),"dcafs","databases");
-        if( dig.hasPeek("sqlite","id",id) || dig.hasPeek("server","id",id)){ // it's a server
-            dig.usePeek();
-        }else{
-            return false;
-        }
-        return XMLfab.alterDigger(dig)
-                        .filter(xmLfab -> SqlTable.addBlankToXML(xmLfab, table, format))
-                        .isPresent();
     }
     /* ********************************** C O M M A N D A B L E *********************************************** */
 
@@ -525,7 +503,7 @@ public class DatabaseManager implements QueryWriting, Commandable {
                 yield "! " + args[0] + " is not an SQLite";
             }
             case "addtable" -> {
-                if (DatabaseManager.addBlankTableToXML(args[0], args[2], args.length == 4 ? args[3] : "")) {
+                if (SqlTableFab.addBlankTableToXML(args[0], args[2], args.length == 4 ? args[3] : "")) {
                     if (args.length == 4)
                         yield "Added a partially setup table to " + args[0] + " in the settings.xml, edit it to set column names etc";
                     yield "Created tablenode for " + args[0] + " inside the db node";

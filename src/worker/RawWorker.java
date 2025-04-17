@@ -38,6 +38,7 @@ public class RawWorker {
     private long totalSort = 0;
     private long linesToday = 0;
     private long workerStart = 0;
+    private long sortedLines = 0;
 
     public RawWorker(RealtimeValues rtvals) {
         var dig = Paths.digInSettings("rawworker");
@@ -66,8 +67,7 @@ public class RawWorker {
         long lineNumber = 0;
         if (files.isEmpty()) {
             var total = Instant.now().toEpochMilli() - startTime;
-            Logger.info("Finished files in " + TimeTools.convertPeriodToString(total, TimeUnit.MILLISECONDS));
-            Logger.info("Contained lines: " + totalLines);
+            Logger.info("Finished processing " + totalLines + " lines from files in " + TimeTools.convertPeriodToString(total, TimeUnit.MILLISECONDS));
             return;
         }
 
@@ -188,10 +188,12 @@ public class RawWorker {
                 list.add(x);
             }
         }
+
         map.clear(); // Clears  the map but retains capacity and thus memory usage
         totalSort += Instant.now().toEpochMilli() - time;
+        sortedLines += list.size();
         if (files.isEmpty()) {
-            Logger.info("Total time spent sorting: " + TimeTools.convertPeriodToString(totalSort, TimeUnit.MILLISECONDS));
+            Logger.info("Total time spent sorting " + sortedLines + " lines: " + TimeTools.convertPeriodToString(totalSort, TimeUnit.MILLISECONDS));
             // No longer need to data, so free memory
             map = new ConcurrentHashMap<>(1);
         }

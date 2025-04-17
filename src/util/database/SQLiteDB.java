@@ -113,7 +113,7 @@ public class SQLiteDB extends SQLDB{
         });
 
         /* Tables */
-        dig.peekOut("table").forEach(table -> SqlTable.readFromXml(table).ifPresent(t -> tables.put(t.name, t)));
+        dig.digOut("table").forEach(table -> SqlTableFab.buildSqlTable(table, false).ifPresent(t -> tables.put(t.getTableName(), t)));
 
         /* Create the content */
         getCurrentTables(false);
@@ -238,7 +238,7 @@ public class SQLiteDB extends SQLDB{
         });
         for( SqlTable table : tables.values() ){
             if (table.hasColumns()) {// Don't overwrite existing info
-                Logger.debug( id() + " -> The table "+table.getName()+" has already been setup, not adding the columns");
+                Logger.debug(id() + " -> The table " + table.getTableName() + " has already been setup, not adding the columns");
                 continue;
             }
             readTableInfo(table);
@@ -246,28 +246,18 @@ public class SQLiteDB extends SQLDB{
         return true;
     }
     private void readTableInfo(SqlTable table){
-        readTable(con, "PRAGMA table_info(\"" + table.getName() + "\");", rs -> {
+        readTable(con, "PRAGMA table_info(\"" + table.getTableName() + "\");", rs -> {
             try {
-                String column = rs.getString(rs.findColumn("name"));
-                String type = rs.getString(rs.findColumn("type"));
+                var columnName = rs.getString(rs.findColumn("name"));
+                var type = rs.getString(rs.findColumn("type"));
 
-                switch (type.toLowerCase()) {
-                    case "integer" -> table.addInteger(column);
-                    case "real" -> table.addReal(column);
-                    case "text" -> {
-                        if (column.equalsIgnoreCase("timestamp")) {
-                            table.addTimestamp(column);
-                        } else {
-                            table.addText(column);
-                        }
-                    }
-                    default -> Logger.warn("Unknown type: " + type);
+                var col = SqlTableFab.addColumnToTable(table, type.toLowerCase(), columnName);
+                if (col != null) {
+                    col.notnull = rs.getBoolean(rs.findColumn("notnull"));
+                    col.primary = rs.getBoolean(rs.findColumn("pk"));
                 }
-
-                table.setNotNull(rs.getBoolean(rs.findColumn("notnull")));
-                table.setPrimaryKey(rs.getBoolean(rs.findColumn("pk")));
             } catch (SQLException e) {
-                Logger.error("Error during read of table info for:"+table.getName(), e);
+                Logger.error("Error during read of table info for:" + table.getTableName(), e);
             }
         });
     }

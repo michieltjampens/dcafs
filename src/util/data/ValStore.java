@@ -9,7 +9,6 @@ import util.xml.XMLdigger;
 import util.xml.XMLtools;
 import worker.Datagram;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -280,8 +279,12 @@ public class ValStore {
     private void mapFlag( boolean state){
         map=state;
     }
-    public ArrayList<AbstractVal> getAllVals(){
-        return rtvals;
+
+    public ArrayList<String> getCurrentValues() {
+        var values = new ArrayList<String>(rtvals.size() + 1);
+        for (var val : rtvals)
+            values.add(val == null ? null : val.stringValue());
+        return values;
     }
     /* ****************************** M A P P E D **************************************************** */
     public boolean mapped(){
@@ -314,7 +317,7 @@ public class ValStore {
             dbOk = items[0].equalsIgnoreCase(lastKey);
         }else {
             if (items.length < rtvals.size()) {
-                Logger.warn(id + " -> Can't apply store, not enough data in the line received.");
+                Logger.warn(id + " -> Can't apply store, not enough data in the line received. -> " + line);
                 return false;
             }
             dbOk = true;

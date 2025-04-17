@@ -229,7 +229,7 @@ public class SQLDB extends Database implements TableInsert{
                 connectionAttempts++;
                 // Dump after x attempts?
                 if (connectionAttempts % 5 == 0) {
-                    tables.values().forEach(t -> t.dumpData("", Paths.storage().resolve("db").resolve(id + "_" + t.getName() + ".csv")));
+                    tables.values().forEach(t -> t.dumpData("", Paths.storage().resolve("db").resolve(id + "_" + t.getTableName() + ".csv")));
 
                 }
             }
@@ -356,11 +356,11 @@ public class SQLDB extends Database implements TableInsert{
         // Get the column information....
         for( SqlTable table :tables.values() ){
             if( table.hasColumns() ){// Don't overwrite existing info
-                Logger.debug(id+"(db) -> The table "+table.getName()+" has already been setup, not adding the columns");
+                Logger.debug(id + "(db) -> The table " + table.getTableName() + " has already been setup, not adding the columns");
                 continue;
             }
             if( type == DBTYPE.MSSQL ){
-                Logger.debug(id+"(db) -> The table "+table.getName()+" is inside a MSSQL DB, no column request query.");
+                Logger.debug(id + "(db) -> The table " + table.getTableName() + " is inside a MSSQL DB, no column request query.");
                 continue;
             }
             requestColumns(table);
@@ -400,7 +400,7 @@ public class SQLDB extends Database implements TableInsert{
         });
     }
     private void requestColumns(SqlTable table){
-        String tblName = table.getName();
+        String tblName = table.getTableName();
         if( type == DBTYPE.POSTGRESQL )
             tblName = "'"+tblName+"'";
         final boolean[] first = {true};//so it can be uses in lambda
@@ -410,28 +410,7 @@ public class SQLDB extends Database implements TableInsert{
                 String name = rs.getString(1);
                 String colType = rs.getString(2).toLowerCase();
 
-                // Check if it's the first column, regardless of type
-                if (first[0]) {
-                    first[0] = false;  // Mark that the first column has been processed
-                    if (colType.equals("timestamp")) {
-                        table.addUTCDateTime(name, "", true);  // Handle first timestamp/datetime column
-                        return;  // Exit early to prevent further processing for this row
-                    }
-                }
-
-                switch (colType) {
-                    case "text", "char" -> table.addText(name);
-                    case "double", "decimal", "float", "real" -> table.addReal(name);
-                    case "int", "integer", "bit", "boolean" -> table.addInteger(name);
-                    case "timestamp" -> table.addLocalDateTime(name, "", false);
-                    case "long" -> {
-                        if (name.equals("timestamp"))
-                            table.addEpochMillis(name);
-                    }
-                    case "timestamptz", "datetime" -> table.addUTCDateTime(name, "", false);
-                    default ->
-                            Logger.error(id + " -> Found unknown column type in " + table.getName() + ": " + name + " -> " + colType);
-                }
+                SqlTableFab.addColumnToTable(table, colType, name);
             } catch (SQLException e) {
                 Logger.error(id+"(db) -> Error during table read: "+e.getErrorCode());
             }
@@ -465,7 +444,7 @@ public class SQLDB extends Database implements TableInsert{
 
     private void createTables() {
         tables.values().forEach(tbl -> {
-            Logger.debug(id + "(db) -> Checking to create " + tbl.getName() + " read from?" + tbl.isReadFromDB());
+            Logger.debug(id + "(db) -> Checking to create " + tbl.getTableName() + " read from?" + tbl.isReadFromDB());
             if (!tbl.isServer() && !tbl.hasColumns()) {
                 lastError = "Note: Tried to create a table without columns, not allowed in SQLite.";
             } else if (tbl.isReadFromXML()) {
@@ -474,21 +453,21 @@ public class SQLDB extends Database implements TableInsert{
                     if (type == DBTYPE.MARIADB) // Mariadb allows setting the precision of datetime
                         create = create.replace("DATETIME", "DATETIME(" + mariadbTimePrecision + ")");
                     stmt.execute(create);
-                    if (tables.get(tbl.getName()) != null && tbl.hasIfNotExists()) {
-                        Logger.warn(id + "(db) -> Already a table with the name " + tbl.getName() + " nothing done because 'IF NOT EXISTS'.");
+                    if (tables.get(tbl.getTableName()) != null && tbl.hasIfNotExists()) {
+                        Logger.warn(id + "(db) -> Already a table with the name " + tbl.getTableName() + " nothing done because 'IF NOT EXISTS'.");
                     }
                     tbl.flagAsReady(); // Created on database, so flag as ready
                 } catch (SQLException e) {
                     Logger.error(id + "(db) -> Failed to create table with: " + tbl.create());
                     Logger.error(e.getMessage());
-                    tbl.setLastError(e.getMessage() + " when creating " + tbl.name + " for " + id);
+                    tbl.setLastError(e.getMessage() + " when creating " + tbl.tableName + " for " + id);
                 }
             } else if (tbl.isReadFromDB()) {
                 var fab = Paths.fabInSettings("databases");
                 fab.selectOrAddChildAsParent(tbl.isServer() ? "server" : "sqlite", "id", id);
                 tbl.writeToXml(fab, true);
                 tbl.flagAsReady(); // Wrote to xml, so flag as ready
-                Logger.debug(id + "(db) -> Not creating " + tbl.getName() + " because already read from database...");
+                Logger.debug(id + "(db) -> Not creating " + tbl.getTableName() + " because already read from database...");
             }
         });
     }
@@ -552,8 +531,8 @@ public class SQLDB extends Database implements TableInsert{
     }
     public void buildStores( RealtimeValues rtvals ){
         tables.values().stream()
-                .filter(table -> !table.hasValidStore())
-                .forEach(x -> x.buildStore(rtvals));
+                .filter(table -> table.noValidStore(""))
+                .forEach(table -> SqlTableFab.buildTableStore(table, rtvals));
     }
     public synchronized boolean insertStore(String[] dbInsert ) {
         if (!doInserts)
@@ -692,10 +671,10 @@ public class SQLDB extends Database implements TableInsert{
         idleTime = (int) TimeTools.parsePeriodStringToSeconds(dbDig.peekAt("idleclose").value("5m"));
 
         /* Tables */
-        for( var table : dbDig.peekOut("table")){
-            SqlTable.readFromXml(table).ifPresent( t -> {
+        for (var table : dbDig.digOut("table")) {
+            SqlTableFab.buildSqlTable(table, true).ifPresent(t -> {
                 t.toggleServer();
-                tables.put(t.name, t);
+                tables.put(t.getTableName(), t);
             });
         }
         // Mariadb
@@ -750,8 +729,8 @@ public class SQLDB extends Database implements TableInsert{
     public int writeTableToXml( XMLfab fab, String tableName ){
         int cnt=0;
         for( var table : tables.values() ){
-            if( (table.name.equalsIgnoreCase(tableName) || tableName.equals("*"))
-                    && fab.hasChild("table","name",table.name).isEmpty() ){
+            if ((table.tableName.equalsIgnoreCase(tableName) || tableName.equals("*"))
+                    && fab.hasChild("table", "name", table.tableName).isEmpty()) {
                     table.writeToXml( fab, false);
                     cnt++;
             }
@@ -1000,7 +979,7 @@ public class SQLDB extends Database implements TableInsert{
                                         cnt = sqlTable.fillStatement(id, ps);
                                         if( cnt > 0 ){
                                             ps.executeBatch();
-                                            sqlTable.clearRecords(id, cnt);
+                                            sqlTable.clearTempRecords(id);
                                             if (!con.getAutoCommit())
                                                 con.commit();
                                             if( hasRecords() ) // if there are records left, the timestamp should be reset
@@ -1013,7 +992,7 @@ public class SQLDB extends Database implements TableInsert{
                                         Logger.error(id()+" (db)-> Batch error, clearing batched:"+e.getMessage());
                                         insertErrors++;
                                         Logger.error(e.getErrorCode());
-                                        Logger.error(id() + " (db)-> Removed bad records: " + sqlTable.clearRecords(id, e.getLargeUpdateCounts())); // just drop the data or try one by one?
+                                        Logger.error(id() + " (db)-> Removed bad records: " + sqlTable.removeBadRecordsAndQueue(id, e.getLargeUpdateCounts())); // just drop the data or try one by one?
                                     } catch (SQLException e) {
                                         errors = doSqlException(e, sqlTable, errors);
                                         if (errors > 10)
