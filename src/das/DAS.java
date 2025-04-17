@@ -33,6 +33,7 @@ import util.xml.XMLfab;
 import util.xml.XMLtools;
 import worker.Datagram;
 import worker.LabelWorker;
+import worker.RawWorker;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -59,6 +60,7 @@ public class DAS implements Commandable{
     private I2CWorker i2cWorker; // Worker that interacts with i2c devices
 
     /* */
+    RawWorker rawWorker;
     private StreamManager streamManager; // Pool of all the stream objects
     private TcpServer trans; // TCP server that takes requests
     private TelnetServer telnet; // Telnet server for the user CLI
@@ -130,6 +132,7 @@ public class DAS implements Commandable{
         digForMatrix( digger );     // Add matrix
         addMqttPool();              // Add MQTT
         addTaskManagerPool();       // Add Taskmanagers
+        digForRawWorker();          // Add rawworker
 
         /* Regular check if the system clock was changed */
         nettyGroup.schedule(this::checkClock,5,TimeUnit.MINUTES);
@@ -141,7 +144,6 @@ public class DAS implements Commandable{
         addTelnetServer();  // Add Telnet Server
 
         attachShutDownHook();
-
     }
 
     private static String figureOutTinyLogPath() {
@@ -266,6 +268,12 @@ public class DAS implements Commandable{
             Logger.info("Reading interrupt gpio's from settings.xml");
             isrs = new InterruptPins(rtvals);
             addCommandable(isrs, "gpios", "isr");
+        }
+    }
+
+    private void digForRawWorker() {
+        if (Paths.digInSettings("rawworker").isValid()) {
+            rawWorker = new RawWorker(rtvals);
         }
     }
     /**
@@ -545,6 +553,9 @@ public class DAS implements Commandable{
         if( (!statusMatrixRoom.isEmpty()||(emailWorker != null && !statusEmail.isEmpty())) && statusCheckInterval >0) // No use checking if we can't report on it or if it's disabled
             nettyGroup.schedule(this::checkStatus,20,TimeUnit.MINUTES); // First check, twenty minutes after startup
 
+        if (rawWorker != null)
+            rawWorker.start(true);
+
         Logger.info("Finished startAll");
     }
     /* **************************** * S T A T U S S T U F F *********************************************************/
@@ -718,11 +729,13 @@ public class DAS implements Commandable{
     /* END OF COMMANDABLE */
     public static void main(String[] args) {
 
+
         DAS das = new DAS();
 
         if( das.telnet == null ){  // If no telnet server was created
             das.addTelnetServer(); // Do it anyway
         }
+
         das.startAll(); // Run all the processes that need to happen after initialization of the components
 
         Logger.info("Dcafs "+version+" boot finished!");
