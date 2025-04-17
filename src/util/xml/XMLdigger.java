@@ -738,14 +738,26 @@ public class XMLdigger {
      * @return The path or an empty optional
      */
     public Optional<Path> attr( String tag, Path parent){
-        if( valid && root.hasAttribute(tag)) {
-            var at = root.getAttribute(tag);
-            var p = Path.of(at);
-            if( p.isAbsolute() ) {
-                return Optional.of(p);
-            }else{
-                return Optional.of(parent.resolve(at));
-            }
+        if (!valid)
+            return Optional.empty();
+
+        String path = null;
+        if (peeked) {
+            if (peek != null && peek.hasAttribute(tag))
+                path = peek.getAttribute(tag);
+        } else if (last.hasAttribute(tag)) {
+            path = last.getAttribute(tag);
+        }
+
+        if (path == null) {
+            Logger.error("No attribute called " + tag + " found");
+            return Optional.empty();
+        }
+        var p = Path.of(path);
+        if (p.isAbsolute()) {
+            return Optional.of(p);
+        } else if (parent != null) {
+            return Optional.of(parent.resolve(p));
         }
         return Optional.empty();
     }
