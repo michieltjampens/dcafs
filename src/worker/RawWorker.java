@@ -5,20 +5,21 @@ import io.forward.AbstractStep;
 import io.forward.LinkedStepsFab;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
-import util.tools.FileTools;
 import util.tools.TimeTools;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.*;
 import java.util.stream.IntStream;
 
 public class RawWorker {
-    static int WORKERS = 5;
+    static int WORKERS = 8;
 
     int MINIMUM_SIZE = 50000;
     final BlockingQueue<String> queue = new LinkedBlockingQueue<>(); // max size
@@ -32,6 +33,7 @@ public class RawWorker {
     private AbstractStep[] cleanup;
     private AbstractStep[] storage;
     private ConcurrentHashMap<Long, String> map = new ConcurrentHashMap<>(250000);
+
     private int stageOne = 0;
     private long totalLines = 0;
     private long startTime = 0;
@@ -39,6 +41,8 @@ public class RawWorker {
     private long linesToday = 0;
     private long workerStart = 0;
     private long sortedLines = 0;
+    private long readingTime = 0;
+    private long waitingTime = 0;
 
     public RawWorker(RealtimeValues rtvals) {
         var dig = Paths.digInSettings("rawworker");
@@ -68,6 +72,8 @@ public class RawWorker {
         if (files.isEmpty()) {
             var total = Instant.now().toEpochMilli() - startTime;
             Logger.info("Finished processing " + totalLines + " lines from files in " + TimeTools.convertPeriodToString(total, TimeUnit.MILLISECONDS));
+            Logger.info("Time spent reading: " + TimeTools.convertPeriodToString(readingTime, TimeUnit.MILLISECONDS)
+                    + " and waiting " + TimeTools.convertPeriodToString(waitingTime, TimeUnit.MILLISECONDS));
             return;
         }
 
@@ -79,26 +85,33 @@ public class RawWorker {
         var date = files.get(0).getFileName().toString().substring(0, 10);
         Logger.info("Started reading: " + date);
 
-        long time = Instant.now().toEpochMilli();
         while (!files.isEmpty() && files.get(0).getFileName().toString().substring(0, 10).equals(date)) {
             try {
-                List<String> chunk = FileTools.readLines(files.remove(0), 1, -1, false);
-                for (String line : chunk) {
-                    lineNumber++;
-                    queue.put(lineNumber + "|" + line); // blocks if full (unlikely here)
+                var t = Instant.now().toEpochMilli();
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(Files.newInputStream(files.remove(0)), StandardCharsets.ISO_8859_1), 64 * 1024)) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        lineNumber++;
+                        queue.put(lineNumber + "|" + line);
+                    }
+                } catch (IOException e) {
+                    Logger.error(e);
                 }
+                readingTime += Instant.now().toEpochMilli() - t;
+
+                t = Instant.now().toEpochMilli();
                 synchronized (queue) {
                     while (queue.size() > MINIMUM_SIZE) {
                         queue.wait(10);  // Wait with a timeout or indefinitely if needed
                     }
                 }
+                waitingTime += Instant.now().toEpochMilli() - t;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
             }
         }
-        long period = Instant.now().toEpochMilli() - time;
-        Logger.info("Time to read the day: " + TimeTools.convertPeriodToString(period, TimeUnit.MILLISECONDS));
         Logger.info("Total lines this day: " + lineNumber);
         linesToday = lineNumber;
         totalLines += lineNumber;
@@ -202,14 +215,10 @@ public class RawWorker {
     }
 
     public void doStage2(ArrayList<String> data) {
-        // for( var line : data ){
-        Logger.info("Starting stage 2");
         for (String line : data) {
-            // storage[0].takeStep( line.split("\t",2)[1],null);
             storage[0].takeStep(line, null);
         }
         data.clear();
-        Logger.info("->Finished stage 2");
         start(false);
     }
 }
