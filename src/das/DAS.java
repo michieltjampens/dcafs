@@ -48,7 +48,7 @@ import java.util.stream.Stream;
 
 public class DAS implements Commandable{
 
-    private static final String version = "3.0.3";
+    private static final String version = "3.1.0";
 
     private final String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
