@@ -13,13 +13,12 @@ import util.xml.XMLdigger;
 
 import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Predicate;
 
 public class FilterStepFab {
 
-    public static Optional<FilterStep> buildFilterStep(XMLdigger dig, String delimiter, RealtimeValues rtvals, ThreadPoolExecutor executor) {
-        return digFilterNode(dig, rtvals, executor, delimiter);
+    public static Optional<FilterStep> buildFilterStep(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
+        return digFilterNode(dig, rtvals, delimiter);
     }
 
     /**
@@ -28,14 +27,14 @@ public class FilterStepFab {
      * @param dig The element containing the setup
      * @return True if all went fine
      */
-    private static Optional<FilterStep> digFilterNode(XMLdigger dig, RealtimeValues rtvals, ThreadPoolExecutor executor, String delimiter) {
+    private static Optional<FilterStep> digFilterNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
 
         Predicate<String> rules = null;
 
         // If rules are defined by tagnames that represent types
         if (dig.hasChilds() && !dig.tagName("").equals("if")) {
             rules = processTagTypes(dig, delimiter, rtvals);
-            return Optional.of(new FilterStep(rules, executor));
+            return Optional.of(new FilterStep(rules));
         }
         // For a filter without rules or an if tag
         if (!dig.value("").isEmpty() || dig.tagName("").equals("if")) { // If only a single rule is defined
@@ -46,13 +45,13 @@ public class FilterStepFab {
             // If no type attribute nor a check attribute
             for (var att : dig.allAttr().split(",")) {
                 if (!(att.equals("id") || att.startsWith("delim") || att.startsWith("src"))) {
-                    rules = concatValues(dig.attr(att, ""), att, delimiter, rtvals);
+                    rules = concatValues(dig.attr(att, "", true), att, delimiter, rtvals);
                 }
             }
         }
         if (rules == null)
             return Optional.empty();
-        return Optional.of(new FilterStep(rules, executor));
+        return Optional.of(new FilterStep(rules));
     }
 
     private static Predicate<String> processTagTypes(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
