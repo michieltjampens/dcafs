@@ -85,7 +85,7 @@ public class RawWorker {
                 List<String> chunk = FileTools.readLines(files.remove(0), 1, -1, false);
                 for (String line : chunk) {
                     lineNumber++;
-                    queue.put(lineNumber + line); // blocks if full (unlikely here)
+                    queue.put(lineNumber + "|" + line); // blocks if full (unlikely here)
                 }
                 synchronized (queue) {
                     while (queue.size() > MINIMUM_SIZE) {
@@ -165,8 +165,8 @@ public class RawWorker {
                     }
                     break;
                 }
-
-                var parts = line.split("\\[", 2);
+                // Split the data in the id and the original data
+                var parts = line.split("\\|", 2);
                 var result = steps.takeStep(parts[1], null);
                 if (!result.isEmpty())
                     map.put(Long.parseLong(parts[0]), result);
@@ -188,11 +188,11 @@ public class RawWorker {
                 list.add(x);
             }
         }
-        // No longer need to data, so free memory
-        map.clear();
+        map.clear(); // Clears  the map but retains capacity and thus memory usage
         totalSort += Instant.now().toEpochMilli() - time;
         if (files.isEmpty()) {
             Logger.info("Total time spent sorting: " + TimeTools.convertPeriodToString(totalSort, TimeUnit.MILLISECONDS));
+            // No longer need to data, so free memory
             map = new ConcurrentHashMap<>(1);
         }
         // Start on stage 2...
