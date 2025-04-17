@@ -89,6 +89,7 @@ public class PathForward implements Writable {
             error = "No child nodes found";
             return error;
         }
+        digForCustoms(dig);
 
         // Now process all the steps
         stepsForward = LinkedStepsFab.buildLink(dig, rtvals, delimiter);
