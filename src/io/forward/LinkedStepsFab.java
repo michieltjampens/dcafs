@@ -1,7 +1,7 @@
 package io.forward;
 
 import util.data.RealtimeValues;
-import util.data.ValStore;
+import util.data.ValStoreFab;
 import util.xml.XMLdigger;
 
 import java.util.ArrayList;
@@ -97,8 +97,8 @@ public class LinkedStepsFab {
 
     private static AbstractStep addStoreStep(AbstractStep parent, XMLdigger step, FabTools ft) {
 
-        var store = ValStore.build(step.currentTrusted(), ft.id, ft.rtvals).orElse(null);
-        if (store == null)
+        var store = ValStoreFab.buildValStore(step, ft.id, ft.rtvals);
+        if (store.isInvalid())
             return null;
         var storeStep = new StoreStep(store);
         return addToOrMakeParent(storeStep, parent, ft);

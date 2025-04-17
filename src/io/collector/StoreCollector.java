@@ -1,10 +1,10 @@
 package io.collector;
 
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.data.RealtimeValues;
 import util.data.ValStore;
-import util.database.TableInsert;
+import util.data.ValStoreFab;
+import util.xml.XMLdigger;
 
 import java.util.ArrayList;
 import java.util.Optional;
@@ -15,28 +15,29 @@ import java.util.Optional;
 public class StoreCollector extends AbstractCollector {
     private ValStore store;
 
-    public StoreCollector(Element ele, RealtimeValues rtvals  ){
-        super( ele.getAttribute("id") );
-        valid = readFromXML(ele,rtvals);
+    public StoreCollector(XMLdigger dig, RealtimeValues rtvals) {
+        super(dig.attr("id", ""));
+        valid = readFromXML(dig, rtvals);
         if( valid ) {
             store.shareRealtimeValues(rtvals);
         }
     }
-    public boolean readFromXML(Element fwElement, RealtimeValues rtvals) {
-        id = fwElement.getAttribute("id"); // Will need an id for the store
-        store = ValStore.build(fwElement, id, rtvals).orElse(null); // Get the store
-        return store!=null;
+
+    public boolean readFromXML(XMLdigger dig, RealtimeValues rtvals) {
+        id = dig.attr("id", ""); // Will need an id for the store
+        store = ValStoreFab.buildValStore(dig, id, rtvals); // Get the store
+        return !store.isInvalid();
     }
     /**
      * Reload the setup, removing old rtvals and sharing new ones
-     * @param storeEle  The element with store tag
+     * @param dig  The element with store tag
      * @param rtvals The RealtimeValues shared by all objects
      * @return True if reading went fine, false if not
      */
-    public boolean reload( Element storeEle, RealtimeValues rtvals ){
+    public boolean reload(XMLdigger dig, RealtimeValues rtvals) {
         if( store != null )
             store.removeRealtimeValues(rtvals);
-        if( readFromXML(storeEle,rtvals) ) {
+        if (readFromXML(dig, rtvals)) {
             store.shareRealtimeValues(rtvals);
             return true;
         }

@@ -1,22 +1,17 @@
 package util.data;
 
-import das.Core;
 import org.tinylog.Logger;
-import org.w3c.dom.Element;
 import util.database.TableInsert;
 import util.math.MathUtils;
-import util.xml.XMLdigger;
-import util.xml.XMLtools;
-import worker.Datagram;
 
 import java.util.*;
 import java.util.stream.Stream;
 
 public class ValStore {
-    private final ArrayList<AbstractVal> rtvals = new ArrayList<>();
-    private final ArrayList<AbstractVal> calVal = new ArrayList<>();
-    private final ArrayList<String> calOps = new ArrayList<>();
-    private final ArrayList<String[]> dbInsert = new ArrayList<>();
+    private final ArrayList<AbstractVal> localValRefs = new ArrayList<>();
+    private ArrayList<AbstractVal> calVal = new ArrayList<>();
+    private ArrayList<String> calOps = new ArrayList<>();
+    private ArrayList<String[]> dbInsert = new ArrayList<>();
     private final ArrayList<TableInsert> tis = new ArrayList<>();
 
     private String delimiter = ",";
@@ -32,24 +27,14 @@ public class ValStore {
     public ValStore(String id){
         this.id=id;
     }
-    public ValStore(String id, Element ele, RealtimeValues rtvals){
-        this.id=id;
-        reload(ele,rtvals);
-    }
+
     public void delimiter( String del ){
         this.delimiter=del;
     }
     public String delimiter(){
         return delimiter;
     }
-    public void db( String db, String table ){
-        Logger.info( id+" (Store) -> DB set to "+db+"->"+table);
-        if( dbInsert.isEmpty()) {
-            dbInsert.add(new String[]{db, table});
-        }else{
-            dbInsert.set(0,new String[]{db, table});
-        }
-    }
+
     public String db(){
         if( dbInsert.isEmpty())
             return "";
@@ -58,231 +43,73 @@ public class ValStore {
             join.add(db[0]+":"+db[1]);
         return join.toString();
     }
-    public ArrayList<String[]> dbInsertSets(){
-        return dbInsert;
-    }
-
     public void addTableInsert(TableInsert ti) {
         if( !tis.contains(ti))
             tis.add(ti);
     }
+
     public String id(){
         return id;
     }
     public void id(String id){
         this.id=id;
     }
+
     public void addVals( ArrayList<AbstractVal> rtvals){
-        this.rtvals.addAll(rtvals);
+        this.localValRefs.addAll(rtvals);
     }
     public void setIdleReset( boolean state){
         idleReset = state;
     }
 
-    public static Optional<ValStore> build( Element store, String id, RealtimeValues rtvals){
-
-        if( id.isEmpty() && !store.hasAttribute("group"))  {
-            Logger.error("No id/group found");
-            return Optional.empty();
-        }
-
-        var valStore = new ValStore(id);
-        if (valStore.reload(store, rtvals))
-            return Optional.of( valStore );
-
-        return Optional.empty();
-    }
-    public static Optional<ValStore> build( Element parentNode ){
-        Element storeNode;
-        if( parentNode.getTagName().equals("store")){ // If already in the node
-            storeNode=parentNode;
-        }else{ // If not
-            var storeOpt = XMLtools.getFirstChildByTag(parentNode,"store");
-            if( storeOpt.isEmpty())
-                return Optional.empty();
-            storeNode=storeOpt.get();
-        }
-
-        String id = storeNode.getAttribute("id");
-        return ValStore.build(storeNode,id,null);
-    }
-    public boolean reload(Element store, RealtimeValues rtv){
-        if( rtv!=null)
-            removeRealtimeValues(rtv);
-
-        rtvals.clear();
-        calVal.clear();
-
-        var dig = XMLdigger.goIn(store);
-
-        var groupID = dig.attr("group",id);
-        delimiter( dig.attr("delimiter",delimiter()) );
-        setIdleReset( dig.attr("idlereset",false) );
-
-        // Checking for database connection
-        digForDatabaseUse(store, dig);
-
-        // Map
-        mapFlag( dig.attr("map",false) );
-        if( mapped() ) { // key based
-            if (!digMapBased(dig, groupID))
-                return false;
-        } else { // index based
-            if (!digIndexBased(dig, groupID))
-                return false;
-        }
-        if (rtv != null)
-            shareRealtimeValues(rtv);
-        return true;
+    public ArrayList<String[]> dbInsertSets() {
+        return dbInsert;
     }
 
-    private boolean digMapBased(XMLdigger dig, String groupID) {
-        var vals = dig.currentSubs();
-        for (var val : dig.digOut("*")) {
-            if (checkForCalVal(val, groupID))
-                continue;
-
-            var key = val.attr("key", "");
-            switch (val.tagName("")) {
-                case "real" -> RealVal.build(val.currentTrusted(), groupID)
-                        .ifPresent(v -> putAbstractVal(key, v));
-                case "int" -> IntegerVal.build(val.currentTrusted(), groupID)
-                        .ifPresent(v -> putAbstractVal(key, v));
-                case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID)
-                        .ifPresent(v -> putAbstractVal(key, v));
-                case "text" -> TextVal.build(val.currentTrusted(), groupID)
-                        .ifPresent(v -> putAbstractVal(key, v));
-                default -> {
-                }
-            }
-        }
-        if (mapSize() + calVal.size() != (vals.size())) {
-            Logger.error("Failed to create an AbstractVal for " + groupID + " while mapping.");
-            return false;
-        }
-        return true;
+    public void setDbInsert(ArrayList<String[]> dbInsert) {
+        this.dbInsert = dbInsert;
     }
 
-    private boolean digIndexBased(XMLdigger dig, String groupID) {
-        ArrayList<AbstractVal> rtvals = new ArrayList<>();
-        calOps.clear();
-
-        for (var val : dig.digOut("*")) {
-            if (checkForCalVal(val, groupID))
-                continue;
-
-            // Find the index wanted
-            int i = val.attr("index", -1);
-            if (i == -1)
-                i = val.attr("i", -1);
-            if (i == -1)
-                i = rtvals.size();
-
-            while (i >= rtvals.size()) // Make sure the arraylist has at least the same amount
-                rtvals.add(null);
-
-            final int pos = i; // need a final to use in lambda's
-            if (rtvals.get(i) != null) {
-                Logger.warn(id + "(store) -> Already using index " + i + " overwriting previous content!");
-            }
-            switch (val.tagName("")) {
-                case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "int", "integer" ->
-                        IntegerVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "ignore" -> rtvals.add(null);
-                case "text" -> TextVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "macro" -> {
-                    Logger.warn("Val of type macro ignored");
-                    rtvals.add(null);
-                }
-                default -> {
-                }
-            }
-            if (rtvals.get(pos) == null) {
-                Logger.error("Failed to create an AbstractVal for " + groupID + " of type " + val.tagName(""));
-                return false;
-            }
-        }
-        addVals(rtvals);
-        return true;
+    public void setCalval(ArrayList<AbstractVal> calVal, ArrayList<String> calOps) {
+        this.calVal = calVal;
+        this.calOps = calOps;
     }
 
-    private void digForDatabaseUse(Element store, XMLdigger dig) {
-        if (store.hasAttribute("db")) {
-            var db = dig.attr("db", "").split(";");
-            Logger.info("Got DB req: "+String.join(";",db));
-            for (var dbi : db) {
-                var split = dbi.split(":");
-                if( split.length==1){
-                    Logger.error("DB attribute must contain a ':', got "+dig.attr("db", ""));
-                }
-                if (split[0].contains(",") && split[1].contains(",")) {
-                    Logger.error(id + "(store) -> Can't have multiple id's and tables defined.");
-                } else if (split[0].contains(",")) { // multiple id's but same tables
-                    for (var id : split[0].split(","))
-                        dbInsert.add(new String[]{id, split[1]});
-                } else if (split[1].contains(",")) { // multiple tables but same id
-                    for (var table : split[1].split(","))
-                        dbInsert.add(new String[]{split[0], table});
-                } else { // one of each
-                    dbInsert.add(split);
-                }
-            }
-            // Request the tableinsert
-            for( var last : dbInsert )
-                Core.addToQueue(Datagram.system("dbm:" + last[0] + ",tableinsert," + last[1]).payload(this));
-        } else {
-            Logger.info(id + " -> No database referenced.");
-            dbInsert.clear();
-        }
-    }
-    private boolean checkForCalVal(XMLdigger dig, String groupID) {
-        String o = dig.attr("o", "");
-        if (!o.isEmpty()) { // Skip o's
-            calOps.add(o);
-            switch (dig.tagName("")) {
-                case "real" -> RealVal.build(dig.currentTrusted(), groupID).ifPresent(calVal::add);
-                case "int", "integer" -> IntegerVal.build(dig.currentTrusted(), groupID).ifPresent(calVal::add);
-                default -> {
-                    Logger.error("Can't do calculation on any other than real and int for now");
-                    return false;
-                }
-            }
-            return true;
-        }
-        return false;
-    }
     public boolean isInvalid(){
         return !valid;
     }
+
+    public void invalidate() {
+        valid = false;
+    }
     public void shareRealtimeValues(RealtimeValues rtv){
-        rtvals.replaceAll(rtv::AddIfNewAndRetrieve);
+        localValRefs.replaceAll(rtv::AddIfNewAndRetrieve);
         valMap.replaceAll((k, v) -> rtv.AddIfNewAndRetrieve(v));
         calVal.replaceAll(rtv::AddIfNewAndRetrieve);
     }
     public void removeRealtimeValues( RealtimeValues rtv){
-        rtvals.forEach(rtv::removeVal);
+        localValRefs.forEach(rtv::removeVal);
         valMap.values().forEach(rtv::removeVal);
         calVal.forEach(rtv::removeVal);
     }
     public int size(){
-        return rtvals.size();
+        return localValRefs.size();
     }
 
     public void addEmptyVal(){
-        rtvals.add(null);
+        localValRefs.add(null);
     }
     public void addAbstractVal( AbstractVal val){
-        rtvals.add(val);
+        localValRefs.add(val);
     }
-    private void mapFlag( boolean state){
+
+    public void mapFlag(boolean state) {
         map=state;
     }
 
     public ArrayList<String> getCurrentValues() {
-        var values = new ArrayList<String>(rtvals.size() + 1);
-        for (var val : rtvals)
+        var values = new ArrayList<String>(localValRefs.size() + 1);
+        for (var val : localValRefs)
             values.add(val == null ? null : val.stringValue());
         return values;
     }
@@ -316,14 +143,14 @@ public class ValStore {
             }
             dbOk = items[0].equalsIgnoreCase(lastKey);
         }else {
-            if (items.length < rtvals.size()) {
+            if (items.length < localValRefs.size()) {
                 Logger.warn(id + " -> Can't apply store, not enough data in the line received. -> " + line);
                 return false;
             }
             dbOk = true;
-            for (int a = 0; a < rtvals.size(); a++) {
-                if (rtvals.get(a) != null && dbOk) {
-                    dbOk = rtvals.get(a).parseValue(items[a]);
+            for (int a = 0; a < localValRefs.size(); a++) {
+                if (localValRefs.get(a) != null && dbOk) {
+                    dbOk = localValRefs.get(a).parseValue(items[a]);
                 }
             }
         }
@@ -351,15 +178,15 @@ public class ValStore {
             Logger.error(id+"(store) -> Map not supported in apply with integer array");
             return false;
         }else {
-            if (vals.size() < rtvals.size()) {
+            if (vals.size() < localValRefs.size()) {
                 Logger.warn(id + "(store) -> Can't apply store, not enough data in the line received.");
                 return false;
             }
-            for (int a = 0; a < rtvals.size(); a++) {
-                if (rtvals.get(a) != null ) {
-                    if( rtvals.get(a) instanceof IntegerVal iv ){
+            for (int a = 0; a < localValRefs.size(); a++) {
+                if (localValRefs.get(a) != null) {
+                    if (localValRefs.get(a) instanceof IntegerVal iv) {
                         iv.value(vals.get(a).intValue());
-                    }else if( rtvals.get(a) instanceof RealVal rv ){
+                    } else if (localValRefs.get(a) instanceof RealVal rv) {
                         rv.value(vals.get(a));
                     }else{
                         Logger.error(id+" (store) -> Tried to apply an integer to a flag or text");
@@ -376,7 +203,7 @@ public class ValStore {
         for( int op=0;op<calOps.size();op++ ){
             var form = calOps.get(op);
 
-            for (AbstractVal val : Stream.of(rtvals, valMap.values()).flatMap(Collection::stream).filter(Objects::nonNull).toList()) {
+            for (AbstractVal val : Stream.of(localValRefs, valMap.values()).flatMap(Collection::stream).filter(Objects::nonNull).toList()) {
                 form = form.replace(val.id(), val.stringValue()); // Replace the id with the value
                 if (!form.contains("_"))// Means all id's were replaced, so stop looking
                     break;
@@ -401,7 +228,7 @@ public class ValStore {
         }
     }
     public void resetValues(){
-        rtvals.forEach(AbstractVal::resetValue);
+        localValRefs.forEach(AbstractVal::resetValue);
         valMap.values().forEach(AbstractVal::resetValue);
         calVal.forEach(AbstractVal::resetValue);
     }
@@ -414,7 +241,7 @@ public class ValStore {
         join.add("\r\nStore splits on '"+delimiter+"'"+(db().length()>1?"":" and in db at "+db()));
         join.add( "Rtvals:");
         int index=0;
-        for( var val :rtvals ){
+        for (var val : localValRefs) {
             if( val !=null){
                 join.add( "   i"+index+" -> "+val.id() );
             }

@@ -465,14 +465,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if( stOpt.isPresent() ){ // Already has a store for that stream
 			sc = stOpt.get();
 			bs.removeTarget(sc);
-			if (sc.reload(st, rtvals)) { // Rebuild store
+			if (sc.reload(XMLdigger.goIn(st), rtvals)) { // Rebuild store
 				Logger.info( bs.id() +" -> Reloaded store");
 			}else{
 				Logger.error( bs.id() +" -> Failed to reload store");
 				return false;
 			}
 		}else{
-			sc = new StoreCollector(st, rtvals);
+			sc = new StoreCollector(XMLdigger.goIn(st), rtvals);
 			if (sc.getStore().isEmpty()) {
 				Logger.error(bs.id()+" -> Failed to load store");
 			}else {

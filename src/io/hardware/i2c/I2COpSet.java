@@ -1,6 +1,5 @@
 package io.hardware.i2c;
 
-import das.Core;
 import io.forward.MathStep;
 import io.forward.StepFab;
 import io.forward.StoreStep;
@@ -8,9 +7,9 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.data.ValStore;
+import util.data.ValStoreFab;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
-import worker.Datagram;
 
 import java.util.ArrayList;
 import java.util.StringJoiner;
@@ -87,7 +86,7 @@ public class I2COpSet {
                     }
                 });
                 case "store" -> {
-                    var store = new ValStore(id, altDig.currentTrusted(),rtvals);
+                    var store = ValStoreFab.buildValStore(altDig, id, rtvals);
                     if( store.isInvalid()){
                         valid=false;
                     }else {
