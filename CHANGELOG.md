@@ -9,10 +9,10 @@ Note: Version numbering: x.y.z
 
 ## 3.1.0 (wip)
 
+## Paths
 - Rewrote PathForward to be similar in logic as taskmanager.
 - Filter now allows the use of 'or' and 'and' and ,like the editor, it's now possible to
   use the tag name instead of the type attr.
-
 ```xml
 
 <filter>
@@ -22,12 +22,51 @@ Note: Version numbering: x.y.z
   <contains>1000 OR -6</contains> <!-- Does the same as the three lines above -->
 </filter>
 ```
-
 ```xml
-
 <if contains="1001 OR -4"> <!-- Is also possible now -->
 </if>
 ```
+
+- Added the `return` node, mainly useful in combination with the `if`
+  - For now only one behavior will add others in the future
+  - Turns two consecutive if's into an if/else if
+
+```xml
+
+<path>
+  <if contains="1001">
+    <!-- do stuff -->
+    <return/> <!-- After arriving here, leave the path early -->
+  </if>
+  <if contains="-4"> <!-- Is also possible now -->
+    <!-- Do other stuff -->
+  </if>
+</path>
+``` 
+
+- Added the node 're'
+
+### Raw worker
+
+- Added worker to reprocess raw log file if it doesn't require realtime data  (except in store)
+- How it works:
+  - Reads data from a single day and starts stage 1 processing (these are things that can be multithreaded)
+  - Each line gets a counter prefix for sorting it later
+  - Data is sorted to match the original sequence
+  - Stage two is done with the sorted data (this is the store to db step)
+  - Start the next day
+
+````xml
+
+<rawworker filepath="todo">
+  <stage1>
+    <!-- Path forwards except store -->
+  </stage1>
+  <stage2>
+    <!-- Path forwards including store -->
+  </stage2>
+</rawworker>
+````
 
 ## 3.0.2 (09/04/25)
 
