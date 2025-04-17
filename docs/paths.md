@@ -31,6 +31,38 @@ Simple example.
 </path>
 ```
 
+## Nested structures
+
+Filter allows the use of `if` nodes. The default behaviour is that all if's are tried.
+Meaning that if the data is altered in one if, the next one starts from that data.
+
+```xml
+
+<path delimiter="," id="gps">
+    <if start="$GPGGA">
+        <!-- Do things here if it starts with $GPGGA -->
+    </if>
+    <if start="$GPZDA">
+        <!-- Do things here if it starts with $GPZDA -->
+    </if>
+</path>
+```
+
+If this is unwanted behaviour, the `return` node can be used to shortcircuit the path.
+Which essentially creates an if/else (if) structure.
+
+```xml
+
+<path delimiter="," id="gps">
+    <if start="$GPGGA">
+        <!-- Do things here if it starts with $GPGGA -->
+        <return/> <!-- The path doesn't go beyond this point -->
+    </if>
+    <if start="$GPZDA">
+        <!-- Do things here if it starts with $GPZDA -->
+    </if>
+</path>
+```
 ### Rules
 
 Note: All rules don't have to end on 's'. If this seems more logical, it can be omitted.
