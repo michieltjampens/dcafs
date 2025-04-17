@@ -15,8 +15,8 @@ public class SqlTableFab {
 
     public static Optional<SqlTable> buildSqlTable(XMLdigger dig, boolean server) {
 
-        String tableName = dig.attr("name", "").trim();
-        SqlTable table = SqlTable.withName(tableName);
+        var tableName = dig.attr("name", "").trim();
+        var table = SqlTable.withName(tableName);
 
         boolean ok = true;
 
@@ -45,16 +45,16 @@ public class SqlTableFab {
     }
 
     public static void buildTableStore(SqlTable table, RealtimeValues rtvals) {
-        table.stores.values().forEach(store -> store.removeRealtimeValues(rtvals));
-        table.stores.clear();
+        table.getStores().values().forEach(store -> store.removeRealtimeValues(rtvals));
+        table.getStores().clear();
 
-        for (var prep : table.preps.entrySet()) {
-            var store = buildStore(rtvals, table.getTableName(), table.columns, prep.getValue());
+        for (var prep : table.getPreps().entrySet()) {
+            var store = buildStore(rtvals, table.getTableName(), table.getColumns(), prep.getValue());
             if (store == null || store.isInvalid()) {
                 Logger.error("Failed to build store for " + table.getTableName());
                 return;
             }
-            table.stores.put(prep.getKey(), store);
+            table.getStores().put(prep.getKey(), store);
         }
     }
 

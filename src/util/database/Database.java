@@ -53,12 +53,6 @@ public abstract class Database{
     public String id() {
         return id;
     }
-    public String getLastError(){
-        String l = lastError;
-        lastError="";
-        return l;
-    }
-
     /**
      * Read the part of the node that contains the information on records flushing
      *
@@ -146,13 +140,6 @@ public abstract class Database{
      * @throws Exception Catch any exception so the thread doesn't get killed
      */
     public abstract void checkState( int secondsPassed ) throws Exception;
-    /**
-     * Insert into database without checking the type of values
-     * @param table  The table to insert into
-     * @param values The values to insert
-     * @return -2=No such table, -1=No such statement,0=bad amount of values,1=ok
-     */
-    public abstract int addDirectInsert(String table, Object... values);
     /**
      * Write a select query and then retrieve the content of a single column from it base on the (case insensitive) name
      * @param query The query to execute

@@ -113,7 +113,7 @@ public class SQLDB extends Database implements TableInsert{
         return type == DBTYPE.UNKNOWN;
     }
 
-    private DBTYPE parseType(String type) {
+    private static DBTYPE parseType(String type) {
         return switch (type.toLowerCase()) {
             case "mysql" -> DBTYPE.MYSQL;
             case "mariadb" -> DBTYPE.MARIADB;
@@ -199,27 +199,7 @@ public class SQLDB extends Database implements TableInsert{
             if (!loadClass(type))
                 return false;
 
-            try {
-                state = STATE.CON_BUSY;
-                con = DriverManager.getConnection(irl, user, pass);
-                Logger.info(id + "(db) -> Connection: " + irl + con);
-                state = STATE.HAS_CON; // Connection established, change state
-            } catch (SQLException ex) {
-                String message = ex.getMessage();
-                int eol = message.indexOf("\n");
-                if (eol != -1)
-                    message = message.substring(0, eol);
-                if (LookAndFeel.isNthAttempt(connectionAttempts))
-                    Logger.error(id + "(db) -> (" + connectionAttempts + ") Failed to make connection to database! " + message);
-                if (!message.toLowerCase().contains("access denied")) {
-                    state = STATE.NEED_CON; // Failed to connect, set state to try again
-                } else {
-                    state = STATE.ACCESS_DENIED;
-                    Logger.error(id + "(dbm) -> Access denied, no use retrying.");
-                }
-                return false;
-            }
-            return true;
+            return attemptConnection();
         }, scheduler).thenAccept(result -> {
             // Callback after task is completed
             if (result) {
@@ -237,6 +217,29 @@ public class SQLDB extends Database implements TableInsert{
         return true;
     }
 
+    private boolean attemptConnection() {
+        try {
+            state = STATE.CON_BUSY;
+            con = DriverManager.getConnection(irl, user, pass);
+            Logger.info(id + "(db) -> Connection: " + irl + con);
+            state = STATE.HAS_CON; // Connection established, change state
+        } catch (SQLException ex) {
+            String message = ex.getMessage();
+            int eol = message.indexOf("\n");
+            if (eol != -1)
+                message = message.substring(0, eol);
+            if (LookAndFeel.isNthAttempt(connectionAttempts))
+                Logger.error(id + "(db) -> (" + connectionAttempts + ") Failed to make connection to database! " + message);
+            if (!message.toLowerCase().contains("access denied")) {
+                state = STATE.NEED_CON; // Failed to connect, set state to try again
+            } else {
+                state = STATE.ACCESS_DENIED;
+                Logger.error(id + "(dbm) -> Access denied, no use retrying.");
+            }
+            return false;
+        }
+        return true;
+    }
     protected void doOnConnectionMade() {
         connectionAttempts = 0;
         if (!tablesRetrieved) {
@@ -250,18 +253,25 @@ public class SQLDB extends Database implements TableInsert{
         if (busyPrepared)
             scheduler.submit(new DoPrepared());
     }
-    private boolean loadClass(DBTYPE type) {
+
+    /**
+     * Load the driver associated with the used database
+     *
+     * @param type The database type (mssql,mysql,mariadb and so on)
+     * @return The result of loading the class
+     */
+    private static boolean loadClass(DBTYPE type) {
         try {
             switch (type) { // Set the class according to the database, might not be needed anymore
                 case MSSQL -> Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
                 case MYSQL, MARIADB -> Class.forName("org.mariadb.jdbc.Driver");
                 case POSTGRESQL -> Class.forName("org.postgresql.Driver");
             }
+            return true;
         } catch (ClassNotFoundException ex) {
-            Logger.error(id + "(db) -> Driver issue with SQLite!");
+            Logger.error("(db) -> Driver issue, probably sqlite",ex);
             return false;
         }
-        return true;
     }
     @Override
     public boolean disconnect() {
@@ -273,8 +283,7 @@ public class SQLDB extends Database implements TableInsert{
                 Logger.info(id+" -> Closed connection");
                 return true;
             } catch (SQLException e) { // Failed to close it somehow
-                Logger.error(id+" (db)-> "+e);
-                return false;
+                Logger.error(id + " (db)-> " + e.getMessage());
             }
         }
         return false;
@@ -349,9 +358,9 @@ public class SQLDB extends Database implements TableInsert{
      * @return True if successful
      */
     @Override
-    public boolean getCurrentTables(boolean clear){
+    public boolean getCurrentTables(boolean clear) {
 
-        requestTables(clear);
+        requestTablesSetupFromDb(clear);
 
         // Get the column information....
         for( SqlTable table :tables.values() ){
@@ -367,7 +376,8 @@ public class SQLDB extends Database implements TableInsert{
         }     
         return true;
     }
-    private void requestTables(boolean clear){
+
+    private void requestTablesSetupFromDb(boolean clear){
         if( clear ) // If clear is set, first clear existing tables
             tables.clear();
 
@@ -460,7 +470,7 @@ public class SQLDB extends Database implements TableInsert{
                 } catch (SQLException e) {
                     Logger.error(id + "(db) -> Failed to create table with: " + tbl.create());
                     Logger.error(e.getMessage());
-                    tbl.setLastError(e.getMessage() + " when creating " + tbl.tableName + " for " + id);
+                    tbl.setLastError(e.getMessage() + " when creating " + tbl.getTableName() + " for " + id);
                 }
             } else if (tbl.isReadFromDB()) {
                 var fab = Paths.fabInSettings("databases");
@@ -559,7 +569,7 @@ public class SQLDB extends Database implements TableInsert{
         if (!hasRecords())
             firstPrepStamp = Instant.now().toEpochMilli();
 
-        if (table.insertStore("")) {
+        if (table.insertFromStore("")) {
             if (tables.values().stream().mapToInt(SqlTable::getRecordCount).sum() > maxQueries && isValid(3))
                 flushPrepared();
             return true;
@@ -728,9 +738,9 @@ public class SQLDB extends Database implements TableInsert{
      */
     public int writeTableToXml( XMLfab fab, String tableName ){
         int cnt=0;
-        for( var table : tables.values() ){
-            if ((table.tableName.equalsIgnoreCase(tableName) || tableName.equals("*"))
-                    && fab.hasChild("table", "name", table.tableName).isEmpty()) {
+        for( var table : tables.values()) {
+            if ((table.getTableName().equalsIgnoreCase(tableName) || tableName.equals("*"))
+                    && fab.hasChild("table", "name", table.getTableName()).isEmpty()) {
                     table.writeToXml( fab, false);
                     cnt++;
             }
@@ -968,7 +978,7 @@ public class SQLDB extends Database implements TableInsert{
         public void run() {
             // Process the prepared statements
             tables.values().stream().filter( SqlTable::hasRecords ).forEach(
-                    sqlTable -> sqlTable.getPreps().forEach(
+                    sqlTable -> sqlTable.getPreps().keySet().forEach(
                             id ->
                             {
                                 boolean ok=true;

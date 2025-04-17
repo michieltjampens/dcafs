@@ -19,19 +19,20 @@ import java.util.*;
 
 public class SqlTable{
 
-    String tableName;
-
+    private final HashMap<String, SqlTableFab.PrepStatement> preps = new HashMap<>();
+    private final String tableName;
+    private final ArrayList<SqlColumn> columns = new ArrayList<>();
+    private final HashMap<String, ValStore> stores = new HashMap<>();
     enum TABLE_STATE {
         NEW, READ_FROM_XML, XML_FAILED, FOUND_IN_DB, READ_FROM_DB, READY
     }
 
     TABLE_STATE ready_state = TABLE_STATE.NEW;
-    ArrayList<SqlColumn> columns = new ArrayList<>();
-    HashMap<String, ValStore> stores = new HashMap<>();
+
     boolean ifnotexists = false;
     boolean server = false;
 
-    HashMap<String, SqlTableFab.PrepStatement> preps = new HashMap<>();
+
     String lastError="";
 
     private long prepCount=0;
@@ -40,7 +41,16 @@ public class SqlTable{
         this.tableName = name;
         preps.put("", new SqlTableFab.PrepStatement());
     }
-    boolean validStore=false;
+
+    /**
+     * Create a SQLiteTable object for a table with the given name
+     *
+     * @param name The name of the table
+     * @return The created object
+     */
+    public static SqlTable withName(String name) {
+        return new SqlTable(name);
+    }
     /**
      * By default, this assumes it's for sqlite, with this it's toggled to be for a server instead
      */
@@ -64,13 +74,36 @@ public class SqlTable{
         }
     }
 
+    public ArrayList<SqlColumn> getColumns() {
+        return columns;
+    }
+
+    public String getColumnTypes() {
+        var join = new StringJoiner(",");
+        columns.forEach(c -> join.add(String.valueOf(c.type)));
+        return join.toString();
+    }
+
+    /**
+     * Check if this table has columns
+     *
+     * @return True if it is not empty
+     */
+    public boolean hasColumns() {
+        return !columns.isEmpty();
+    }
     public void addStore(String key, ValStore store) {
-        if (store != null && !store.isInvalid()) {
+        if (store != null && !store.isInvalid())
             stores.put(key, store);
-            validStore = true;
-        } else {
-            validStore = false;
-        }
+    }
+
+    public HashMap<String, ValStore> getStores() {
+        return stores;
+    }
+
+    public boolean noValidStore(String id) {
+        var store = stores.get(id);
+        return store == null || store.isInvalid();
     }
     /**
      * Get the last error that has occurred during sql operations
@@ -90,13 +123,29 @@ public class SqlTable{
     public boolean isReadFromXML() {
         return ready_state == TABLE_STATE.READ_FROM_XML;
     }
+
+    /**
+     * Flag that the sqltable was read from a database (and not from xml)
+     */
+    public void flagAsReadFromDB() {
+        ready_state = TABLE_STATE.READ_FROM_DB;
+    }
+
+    /**
+     * Check if the table was read from the database (instead of xml)
+     *
+     * @return True if read from database
+     */
+    public boolean isReadFromDB() {
+        return ready_state == TABLE_STATE.READ_FROM_DB;
+    }
+
     public void flagAsReady() {
         ready_state = TABLE_STATE.READY;
     }
     public boolean isReady() {
         return ready_state == TABLE_STATE.READY;
     }
-
     /**
      * Store the setup of a table in xml
      *
@@ -126,29 +175,6 @@ public class SqlTable{
         }
     }
     /**
-     * Create a SQLiteTable object for a table with the given name
-     * 
-     * @param name The name of the table
-     * @return The created object
-     */
-    public static SqlTable withName(String name) {
-        return new SqlTable(name);
-    }
-
-    /**
-     * Flag that the sqltable was read from a database (and not from xml)
-     */
-    public void flagAsReadFromDB(){
-        ready_state = TABLE_STATE.READ_FROM_DB;
-    }
-    /**
-     * Check if the table was read from the database (instead of xml)
-     * @return True if read from database
-     */
-    public boolean isReadFromDB(){
-        return ready_state == TABLE_STATE.READ_FROM_DB;
-    }
-    /**
      * Get the name of the table
      * 
      * @return The table name
@@ -164,16 +190,6 @@ public class SqlTable{
     public boolean hasIfNotExists() {
         return ifnotexists;
     }
-
-    /**
-     * Check if this table has columns
-     * 
-     * @return True if it is not empty
-     */
-    public boolean hasColumns() {
-        return !columns.isEmpty();
-    }
-
     /**
      * Get the CREATE statement to make this table
      * 
@@ -203,9 +219,9 @@ public class SqlTable{
      * @return The CREATE statement in string format
      */
     public String toString() {
-        if( columns.isEmpty() ) {
+        if (columns.isEmpty() )
             return "CREATE TABLE" + (ifnotexists ? " IF NOT EXISTS " : " ") + "`" + tableName + "`;";
-        }
+
         StringJoiner join = new StringJoiner(", ",
                 "CREATE TABLE " + (ifnotexists ? "IF NOT EXISTS" : "") + " `" + tableName + "` (", " );");
         columns.forEach(x -> join.add(x.toString()));
@@ -230,8 +246,9 @@ public class SqlTable{
             return getPreparedStatement();
         return getPrep(id).map(SqlTableFab.PrepStatement::getStatement).orElse("");
     }
-    public Set<String> getPreps(){
-        return preps.keySet();
+
+    public HashMap<String, SqlTableFab.PrepStatement> getPreps() {
+        return preps;
     }
     public String getPreparedStatement() {
         SqlTableFab.PrepStatement prep = preps.get("");
@@ -277,7 +294,6 @@ public class SqlTable{
         }
         return count;
     }
-
     public void dumpData(String id, Path path) {
         SqlTableFab.PrepStatement prep = preps.get(id);
         if( prep==null )
@@ -336,11 +352,8 @@ public class SqlTable{
         return getPrep("").map(p -> p.add(values) ? 1 : 0).orElse(-1);
     }
 
-    public boolean noValidStore(String id) {
-        var store = stores.get(id);
-        return store == null || store.isInvalid();
-    }
-    public boolean insertStore( String id ){
+
+    public boolean insertFromStore(String id ){
         if( stores.isEmpty())
             return false;
 
@@ -379,11 +392,7 @@ public class SqlTable{
     public long getPrepCount(){
         return prepCount;
     }
-    public String getColumnTypes(){
-        var join = new StringJoiner(",");
-        columns.forEach( c->join.add(String.valueOf(c.type)) );
-        return join.toString();
-    }
+
 
     /**
      * Gives all the data as strings to be parsed to the correct object, so it can use the prepared statement
