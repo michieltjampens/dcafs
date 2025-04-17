@@ -197,15 +197,11 @@ public class PathForward implements Writable {
 
     @Override
     public boolean writeLine(String origin, String data) {
-        for (var step : stepsForward)
-            step.takeStep(data, null);
-        return true;
-    }
-
-    @Override
-    public boolean writeString(String data) {
-        for (var target : targets)
-            target.writeLine(id, data);
+        for (var step : stepsForward) {
+            var res = step.takeStep(data, null);
+            for (var target : targets)
+                target.writeLine(id, res);
+        }
         return true;
     }
 
@@ -216,8 +212,6 @@ public class PathForward implements Writable {
     public void addTarget(Writable wr) {
         if (!targets.contains(wr)) {
             targets.add(wr);
-            if (stepsForward.length != 0)
-                stepsForward[stepsForward.length - 1].getFeedbackFromLastStep(this);
             reloadSrc();
         }
     }
