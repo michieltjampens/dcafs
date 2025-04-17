@@ -18,7 +18,7 @@ public class MathStep extends AbstractStep {
     }
 
     @Override
-    public void takeStep(String data, BigDecimal[] bds) {
+    public String takeStep(String data, BigDecimal[] bds) {
         // Apply the operations
         bds = ops[0].solveBDs(data);
         for (int index = 1; index < ops.length; index++) {
@@ -26,11 +26,11 @@ public class MathStep extends AbstractStep {
         }
         if (bds == null) {
             Logger.error("(mf) -> Something went wrong processing the data.");
-            return;
+            return "error";
         }
         // Overwrite the original data with the calculated values if applicable.
         var combined = recombineData(data, bds, ops[0].getDelimiter());
-        doNext(appendSuffix(suffix, combined), bds);
+        return doNext(appendSuffix(suffix, combined), bds);
     }
 
     public void takeStep(ArrayList<Double> data) {

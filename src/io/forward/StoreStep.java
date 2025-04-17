@@ -13,9 +13,9 @@ public class StoreStep extends AbstractStep {
     }
 
     @Override
-    public void takeStep(String data, BigDecimal[] bds) {
+    public String takeStep(String data, BigDecimal[] bds) {
         store.apply(data);
-        doNext(data, bds);
+        return doNext(data, bds);
     }
 
     public ValStore getStore() {

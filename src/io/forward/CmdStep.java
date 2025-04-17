@@ -20,12 +20,12 @@ public class CmdStep extends AbstractStep {
     }
 
     @Override
-    public void takeStep(String data, BigDecimal[] bds) {
+    public String takeStep(String data, BigDecimal[] bds) {
         String[] split = data.split(delimiter); // Split the data according to the delimiter
 
         if (split.length < highestI) {
             Logger.error("Not enough items in received data: " + data);
-            return;
+            return "error";
         }
         for (var cmd : cmds) {
             String alter = cmd.cmd;
@@ -38,7 +38,7 @@ public class CmdStep extends AbstractStep {
             }
             Core.addToQueue(Datagram.system(alter));
         }
-        doNext(data, bds);
+        return doNext(data, bds);
     }
 
     public void addCmd(String ori, String cmd) {

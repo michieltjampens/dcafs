@@ -11,10 +11,10 @@ public class EditorStep extends AbstractStep {
     }
 
     @Override
-    public void takeStep(String data, BigDecimal[] bds) {
+    public String takeStep(String data, BigDecimal[] bds) {
         for (var edit : edits) {
             data = edit.apply(data);
         }
-        doNext(data, bds);
+        return doNext(data, bds);
     }
 }

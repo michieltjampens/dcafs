@@ -15,7 +15,7 @@ public abstract class AbstractStep {
     String info = "";
     boolean wantsData = false;
 
-    public abstract void takeStep(String data, BigDecimal[] bds);
+    public abstract String takeStep(String data, BigDecimal[] bds);
 
     public void setNext(AbstractStep next) {
         if (next != null) {
@@ -35,17 +35,19 @@ public abstract class AbstractStep {
         this.feedback = feedback;
     }
 
-    public void doNext(String data, BigDecimal[] bds) {
+    public String doNext(String data, BigDecimal[] bds) {
         if (next == null) { // Meaning the last step in the chain
             if (feedback != null && data != null)
                 feedback.writeString(data);
-            return;
+            return data;
         }
-        next.takeStep(data, bds);
+        return next.takeStep(data, bds);
     }
-    public void doFailure(String data, BigDecimal[] bds) {
+
+    public String doFailure(String data, BigDecimal[] bds) {
         if (failure != null)
-            failure.takeStep(data, bds);
+            return failure.takeStep(data, bds);
+        return "";
     }
     public AbstractStep getLastStep(){
         if( next != null )
@@ -84,6 +86,22 @@ public abstract class AbstractStep {
             feedback = wr;
         } else {
             next.getFeedbackFromLastStep(wr);
+        }
+    }
+
+    public void removeStore() {
+        if (next instanceof StoreStep) {
+            next = null;
+        }
+        if (next != null) {
+            next.removeStore();
+        }
+        if (failure != null) {
+            if (failure instanceof StoreStep) {
+                failure = null;
+            } else {
+                failure.removeStore();
+            }
         }
     }
 }
