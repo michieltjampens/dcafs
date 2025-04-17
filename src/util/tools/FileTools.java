@@ -84,22 +84,6 @@ public class FileTools {
     public static void readTxtFile(ArrayList<String> content, Path path) {
         content.addAll(readLines(path, 1, -1, true));
     }
-
-    /**
-     * Check how many lines the given file contains
-     * @param file The path to the file
-     * @return The amount of lines or -1 if failed
-     */
-    public static long getLineCount( Path file ){
-        if( Files.notExists(file))
-            return -1;
-        try( var lines = Files.lines(file)){
-            return lines.count();
-        }catch(IOException e){
-            Logger.error(e);
-        }
-        return -1;
-    }
     /**
      * Read amount of lines from a file starting at start
      * 
@@ -118,9 +102,6 @@ public class FileTools {
         if( Files.notExists(path)){
             Logger.error("Tried to read lines from "+path+" but no such file");
             return read;
-        }
-        if( amount == -1){
-            amount = FileTools.getLineCount(path);
         }
         if( start<0 || amount==0 )
             return read;
@@ -141,15 +122,17 @@ public class FileTools {
 
     private static boolean readLimitedLines(Path path, long start, long numLines, Charset cs, ArrayList<String> read) {
         try( var lines = Files.lines(path, cs) ) {
-            try{
-                lines.skip(start - 1)
-                        .limit(numLines)    // Limit the next lines to 'numLines'
+            var stream = lines.skip(start - 1);
+            if (numLines != -1) {
+                stream.limit(numLines)    // Limit the next lines to 'numLines'
                         .forEach(read::add); // Add each line to the 'read' list
-                return true;
-            }catch ( UncheckedIOException d ) {
-                Logger.error("Malformed Failed reading with (charset) " + cs + " while reading " + path);
-                read.clear();
+            } else {
+                stream.forEach(read::add);
             }
+                return true;
+        } catch (UncheckedIOException d) {
+            Logger.error("Malformed Failed reading with (charset) " + cs + " while reading " + path);
+            read.clear();
         } catch (IOException ex) {
             Logger.error(ex);
         }
