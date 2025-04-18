@@ -8,9 +8,9 @@
 		<if start="$GPGGA">
 			<editor>
 				<!-- In: $GPGGA,204418.00,5113.583474,N,00256.13867,E,4,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
-				<retime from="HHmmss.SS" i="1">HH:mm:ss.SSS</retime>
-				<rexreplace regex="[NE]">1</rexreplace>
-				<rexreplace regex="[SW]">-1</rexreplace>
+				<reformattime from="HHmmss.SS" i="1">HH:mm:ss.SSS</reformattime>
+				<regexreplace regex="[NE]">1</regexreplace>
+				<regexreplace regex="[SW]">-1</regexreplace>
 				<listreplace i="6">None,GPS,DGPS,PPS,RTK,fRTK,Estimated,Manual,Unknown</listreplace>
 			<!-- Out: $GPGGA,20:44:18.000,51.22639123,1,2.93564450,1,RTK,12,0.8,7.75,M,47.15,M,1.0,1283*79 -->
 			</editor>
@@ -26,6 +26,7 @@
 				<real i="4" def="0" unit="°">longitude</real><!-- longitude with unit ° -->
 				<text i="6" def="None">fix</text> <!-- Type of GPS fix if any -->
 			</store>
+			<return/>
 		</if>
 		<!-- Check if it's a GPVTG -->
 		<if start="$GPVTG">
@@ -34,18 +35,20 @@
 			  <real def="0" i="5" unit="kn">sogknots</real>
 			  <real def="0" i="7" unit="m/s">sogms</real>
 			</store>
+			<return/>
 		</if>
 		<!-- Check if it's a GPZDA -->
 		<if start="$GPZDA">
 			<editor>
 				<!-- In: $GPZDA,204418.00,16,05,2021,,*6E -->
-				<retime i="1" from="HHmmss.SS">HH:mm:ss.SSS</retime>
+				<reformattime i="1" from="HHmmss.SS">HH:mm:ss.SSS</reformattime>
 				<resplit leftover="remove">i4-i3-i2 i1</resplit>
 				<!-- Out:  2021-05-16 20:44:18.000 -->
 			</editor>
 			<store>
 				<text i="0">timestamp</text>
 			</store>
+			<return/>
 		</if>
   </path>
 </dcafs>
