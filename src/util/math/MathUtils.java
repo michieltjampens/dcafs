@@ -322,11 +322,11 @@ public class MathUtils {
     /**
      * Replaces the string equivalent of the math compare symbols to the symbols fe. below -> <
      *
-     * @param op The operation to convert
+     * @param operation The operation to convert
      * @return The operation after conversion
      */
-    public static String mapExpressionToSymbols(String op) {
-
+    public static String mapExpressionToSymbols(String operation) {
+        var op = operation;
         op = op.replace("->", "-");
 
         op = op.replace(" and ", " && ");

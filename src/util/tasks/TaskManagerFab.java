@@ -84,16 +84,24 @@ public class TaskManagerFab {
                     }
                     case "retry" -> {
                         var result = parseRetry(task, prev,tm);
-                        if (result != null)
-                            onFailure = result;
+                        if (result == null)
+                            return false;
+                        onFailure = result;
                     }
                     case "while" -> {
                         var result = parseWhile(task, prev, tm);
-                        if (result != null)
-                            prev = result;
+                        if (result == null)
+                            return false;
+                        prev = result;
                     }
-                    default -> prev.addNext(parseNode(task, tm));
+                    default -> {
+                        var result = parseNode(task, tm);
+                        if (result == null)
+                            return false;
+                        prev.addNext(result);
+                    }
                 }
+
             }
         }
         start.updateChainId();
@@ -117,9 +125,7 @@ public class TaskManagerFab {
 
         // Handle req
         var reqAttr = task.attr("req", "");
-        ConditionBlock req = null;
-        if (!reqAttr.isEmpty())
-            req = new ConditionBlock(rtvals, sharedMem).setCondition(reqAttr);
+        var req = LogicFab.buildConditionBlock(reqAttr, rtvals, sharedMem).orElse(null);
 
         // Check if it's delayed
         var delay = handleDelay( task, eventLoop );
@@ -245,7 +251,10 @@ public class TaskManagerFab {
         } else {
             // No child nodes
             // <retry interval="20s" retries="-1">{f:icos_sol4} equals 1</retry>
-            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(task.value(""));
+            var cond = LogicFab.buildConditionBlock(task.value(""), rtvals, sharedMem).orElse(null);
+            if (cond == null)
+                return null;
+
             var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
 
             cond.setFailureBlock(counter); // If condition fails, go to delay
@@ -314,7 +323,9 @@ public class TaskManagerFab {
         } else {
             // No child nodes
             // <while interval="20s" maxruns="-1">{f:icos_sol4} equals 1</retry>
-            var cond = new ConditionBlock(rtvals, sharedMem).setCondition(task.value(""));
+            var cond = LogicFab.buildConditionBlock(task.value(""), rtvals, sharedMem).orElse(null);
+            if (cond == null)
+                return null;
             var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
 
             cond.setNext(counter).setFailureBlock(dummy);  // If ok, go to counter, if not, dummy
@@ -334,7 +345,7 @@ public class TaskManagerFab {
         var content = node.value("");
         return switch (node.tagName("")) {
             case "delay" -> new DelayBlock(eventLoop).useDelay(content);
-            case "req" -> new ConditionBlock(rtvals, sharedMem).setCondition(content);
+            case "req" -> LogicFab.buildConditionBlock(content, rtvals, sharedMem).orElse(null);
             case "stream" -> {
                 var id = node.attr("to", "");
                 yield new WritableBlock().setMessage(id, content);

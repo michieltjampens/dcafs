@@ -7,7 +7,7 @@ import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.math.MathOpFab;
 import util.math.MathUtils;
-import util.tasks.ConditionBlock;
+import util.tasks.LogicFab;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 
@@ -225,24 +225,22 @@ public class FilterStepFab {
 
         var is = MathOpFab.extractIreferences(value);
 
-        var block = new ConditionBlock(rtvals, null).setCondition(value);
-        if (!block.isInvalid())
-            return null;
-        return (p -> {
+        var blockOpt = LogicFab.buildConditionBlock(value, rtvals, null);
+        return blockOpt.<Predicate<String>>map(conditionBlock -> (p -> {
             try {
                 String[] vals = p.split(delimiter);
                 for (int index : is) {
-                    if (!block.alterSharedMem(index, NumberUtils.toDouble(vals[index]))) {
+                    if (!conditionBlock.alterSharedMem(index, NumberUtils.toDouble(vals[index]))) {
                         Logger.error(" (ff) -> Tried to add a NaN to shared mem");
                         return false;
                     }
                 }
-                return block.start();
+                return conditionBlock.start();
             } catch (ArrayIndexOutOfBoundsException e) {
                 Logger.error("(ff) -> Index out of bounds when trying to find the number in " + p + " for math check.");
                 return false;
             }
-        });
+        })).orElse(null);
     }
 
     public static String getHelp(String eol) {
