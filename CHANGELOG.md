@@ -9,6 +9,10 @@ Note: Version numbering: x.y.z
 
 ## 3.1.0 (wip)
 
+## Global
+
+- Slow move towards fabricator classes for leaner runtime classes.
+
 ## Paths
 - Rewrote PathForward to be similar in logic as taskmanager.
 - Filter now allows the use of 'or' and 'and' and ,like the editor, it's now possible to
@@ -26,11 +30,9 @@ Note: Version numbering: x.y.z
 <if contains="1001 OR -4"> <!-- Is also possible now -->
 </if>
 ```
-
 - Added the `return` node, mainly useful in combination with the `if`
   - For now only one behavior will add others in the future
   - Turns two consecutive if's into an if/else if
-
 ```xml
 
 <path>
@@ -44,17 +46,16 @@ Note: Version numbering: x.y.z
 </path>
 ``` 
 
-- Added the node 're'
-
 ### Raw worker
 
 - Added worker to reprocess raw log file if it doesn't require realtime data  (except in store)
 - How it works:
-  - Reads data from a single day and starts stage 1 processing (these are things that can be multithreaded)
+  - Reads data from a single day
   - Each line gets a counter prefix for sorting it later
+  - Starts stage 1 processing (these are things that can be multithreaded)
   - Data is sorted to match the original sequence
-  - Stage two is done with the sorted data (this is the store to db step)
-  - Start the next day
+  - Stage two is done with the sorted data (this is the store to DB step)
+  - Read the next day
 
 ````xml
 
@@ -67,6 +68,18 @@ Note: Version numbering: x.y.z
   </stage2>
 </rawworker>
 ````
+
+### Evalcore
+
+- Moved all code related to both logic and math parser to their own package.
+- Rewrote the layout of both parsers, now the code is no longer split over modules according to requirements
+  but one single central one.
+- Each has a 'fab', LogicFab and MathFab that fabricate evaluators MathEvaluator and LogicEvaluator.
+- Now the chaining of Math expressions is part of the class instead of needing a separate one. But it's not like an
+  Evaluator contain multiple expressions (for now).
+- Logic parser was rewritten to allow more complicated expressions (brackets and negation) and the parsing
+  now attempts 'lazy evaluation' or 'shortcircuit' while before it just evaluated everything. No nesting of brackets
+  (yet) though.
 
 ## 3.0.2 (09/04/25)
 
