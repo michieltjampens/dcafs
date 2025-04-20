@@ -16,7 +16,7 @@ public class CmdBlock extends AbstractBlock implements Writable {
         d = Datagram.system(command).writable(this).toggleSilent();
     }
     @Override
-    boolean start() {
+    public boolean start() {
         Core.addToQueue(d);
         return true;
     }

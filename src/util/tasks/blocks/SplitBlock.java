@@ -29,7 +29,7 @@ public class SplitBlock extends AbstractBlock implements Writable {
     }
 
     @Override
-    boolean start() {
+    public boolean start() {
         if (interval == 0) {
             nexts.forEach(n -> eventLoop.submit(n::start));
         } else {

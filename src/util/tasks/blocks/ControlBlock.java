@@ -16,7 +16,7 @@ public class ControlBlock extends AbstractBlock {
     }
 
     @Override
-    boolean start() {
+    public boolean start() {
         manager.writeLine(id(), message);
         return false;
     }

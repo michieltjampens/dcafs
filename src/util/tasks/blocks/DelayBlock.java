@@ -53,7 +53,7 @@ public class DelayBlock extends AbstractBlock {
         taskDays = TimeTools.convertDAY(split[1]);
     }
     @Override
-    boolean start() {
+    public boolean start() {
         clean = false;
         firstRun();
         return true;

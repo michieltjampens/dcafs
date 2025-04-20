@@ -27,7 +27,7 @@ public class WritableBlock extends AbstractBlock implements Writable {
     }
 
     @Override
-    boolean start() {
+    public boolean start() {
         if (target != null) {
             if (!target.writeLine(id, data)) {
                 Logger.info(id + " -> Failed to send to " + dest);

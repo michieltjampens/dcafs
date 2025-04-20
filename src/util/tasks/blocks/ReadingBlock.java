@@ -32,7 +32,7 @@ public class ReadingBlock extends AbstractBlock implements Writable {
     }
 
     @Override
-    boolean start() {
+    public boolean start() {
         if (!writableAsked) {
             Core.addToQueue(Datagram.system(src).writable(this)); // Request data updates from src
             writableAsked = true;

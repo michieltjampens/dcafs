@@ -11,7 +11,7 @@ public class CounterBlock extends AbstractBlock {
     }
 
     @Override
-    boolean start() {
+    public boolean start() {
         clean = false;
         if (tempCount == 0) {
             Logger.info(id + " -> Count ran out, executing failure (if any).");

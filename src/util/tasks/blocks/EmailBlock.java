@@ -13,7 +13,7 @@ public class EmailBlock extends AbstractBlock implements Writable {
         this.email = email;
     }
     @Override
-    boolean start() {
+    public boolean start() {
 
         if (email.content().length() < 30) { // Commands are short
             // Start by checking if the content is a command or just content
