@@ -1,4 +1,4 @@
-package util.tasks;
+package util.tasks.blocks;
 
 import das.Core;
 import io.Writable;

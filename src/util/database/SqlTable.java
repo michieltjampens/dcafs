@@ -23,6 +23,7 @@ public class SqlTable{
     private final String tableName;
     private final ArrayList<SqlColumn> columns = new ArrayList<>();
     private final HashMap<String, ValStore> stores = new HashMap<>();
+
     enum TABLE_STATE {
         NEW, READ_FROM_XML, XML_FAILED, FOUND_IN_DB, READ_FROM_DB, READY
     }

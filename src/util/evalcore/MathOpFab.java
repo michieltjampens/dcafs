@@ -1,20 +1,18 @@
-package util.math;
+package util.evalcore;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.NumericVal;
 import util.data.RealVal;
 import util.data.RealtimeValues;
-import util.tools.Tools;
+import util.math.MathUtils;
 
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.function.Function;
-import java.util.regex.MatchResult;
-import java.util.regex.Pattern;
 
 public class MathOpFab {
-    private static final Pattern I_REF_PATTERN = Pattern.compile("(?<![a-zA-Z0-9_])i[0-9]{1,2}(?![a-zA-Z0-9_])");
+
     ArrayList<Function<BigDecimal[], BigDecimal>> steps = new ArrayList<>();
     Integer[] referenced;
     NumericVal[] valRefs;
@@ -80,7 +78,7 @@ public class MathOpFab {
         if (debug)
             Logger.info("MathFab building for " + expression);
         // Fix stuff like i0++, i0*=3, remove spaces ,sin/cos/tan to placeholders
-        expression = MathUtils.normalizeExpression(expression);
+        expression = normalizeExpression(expression);
 
         var resultTarget = "";
         if (expression.contains("=")) {
@@ -89,12 +87,12 @@ public class MathOpFab {
             expression = split[1];
         }
 
-        expression = MathUtils.checkBrackets(expression, '(', ')', true);
+        expression = ParseTools.checkBrackets(expression, '(', ')', true);
         if (expression.isEmpty())
             return null;
 
         // Extract all the 'i*' from the expression
-        var is = extractIreferences(expression);
+        var is = ParseTools.extractIreferences(expression);
         highestI = is[is.length - 1];
 
         // Rewrite the i's to reflect position in inputs
@@ -112,7 +110,7 @@ public class MathOpFab {
         if (!resultTarget.isEmpty()) {
             resultIndex = determineResultIndex(resultTarget, rtvals, refs);
         }
-        expression = replaceRealtimeValues(expression, refs, rtvals, inputs);
+        expression = ParseTools.replaceRealtimeValues(expression, refs, rtvals, inputs);
         valRefs = refs.toArray(NumericVal[]::new);
         referenced = inputs.toArray(Integer[]::new);
 
@@ -127,13 +125,13 @@ public class MathOpFab {
         if (debug)
             Logger.info("MathOpFab building for " + expression);
 
-        expression = MathUtils.normalizeExpression(expression);
-        expression = MathUtils.checkBrackets(expression, '(', ')', true);
+        expression = normalizeExpression(expression);
+        expression = ParseTools.checkBrackets(expression, '(', ')', true);
 
         if (expression.isEmpty())
             return null;
 
-        var is = extractIreferences(expression);
+        var is = ParseTools.extractIreferences(expression);
         highestI = is[is.length - 1];
 
         // Rewrite the i's to reflect position in inputs
@@ -153,18 +151,60 @@ public class MathOpFab {
         // Next go through the brackets from left to right (inner)
         return parseToMathOps(expression);
     }
-
-
-    public static int[] extractIreferences(String expression) {
-        return I_REF_PATTERN// Extract all the references
-                .matcher(expression)
-                .results()
-                .map(MatchResult::group)
-                .distinct()
-                .sorted() // so the highest one is at the bottom
-                .mapToInt(i -> NumberUtils.toInt(i.substring(1)))
-                .toArray();
+    public static String normalizeExpression(String expression) {
+        expression = normalizeDualOperand(expression); // Replace stuff like i0++ with i0=i0+1
+        // words like sin,cos etc messes up the processing, replace with references
+        expression = replaceGeometricTerms(expression);
+        expression = expression.replace(" ", ""); // Remove any spaces
+        expression = handleCompoundAssignment(expression); // Replace stuff like i0*=5 with i0=i0*5
+        return expression;
     }
+    public static String normalizeDualOperand(String expression) {
+        // Support ++ and --
+        return expression.replace("++", "+=1")
+                .replace("--", "-=1")
+                .replace(" ", ""); //remove spaces
+    }
+    public static String replaceGeometricTerms(String formula) {
+        // Replace to enable geometric stuff?
+        formula = formula.replace("cos(", "1°(");
+        formula = formula.replace("cosd(", "1°(");
+        formula = formula.replace("cosr(", "2°(");
+
+        formula = formula.replace("sin(", "3°(");
+        formula = formula.replace("sind(", "3°(");
+        formula = formula.replace("sinr(", "4°(");
+        formula = formula.replace("abs(", "5°(");
+
+        // Remove unneeded brackets?
+        int dot = formula.indexOf("°(");
+        String cleanup;
+        while (dot != -1) {
+            cleanup = formula.substring(dot + 2); // Get the formula without found °(
+            int close = cleanup.indexOf(")"); // find a closing bracket
+            String content = cleanup.substring(0, close);// Get te content of the bracket
+            if (NumberUtils.isCreatable(content) || content.matches("i\\d+")) { // If it's just a number or index
+                formula = formula.replace("°(" + content + ")", "°" + content);
+            }
+            dot = cleanup.indexOf("°(");
+        }
+        return formula;
+    }
+    public static String handleCompoundAssignment(String exp) {
+        if (!exp.contains("="))
+            return exp;
+        // The expression might be a simple i0 *= 2, so replace such with i0=i0*2 because of the way it's processed
+        // A way to know this is the case, is that normally the summed length of the split items is one lower than
+        // the length of the original expression (because the = ), if not that means an operand was in front of '='
+        var split = exp.split("[+-/*^]?=");
+        int lengthAfterSplit = split[0].length() + split[1].length();
+        if (lengthAfterSplit + 1 != exp.length()) { // Support += -= *= and /= fe. i0+=1
+            String[] spl = exp.split("="); //[0]:i0+ [1]:1
+            split[1] = spl[0] + split[1]; // split[1]=i0+1
+        }
+        return split[0] + "=" + split[1];
+    }
+
     /**
      * Check the left part of the equation if exists and determine if it's referring to input data, a val or temp
      *
@@ -210,49 +250,7 @@ public class MathOpFab {
         return -1;
     }
 
-    private static String replaceRealtimeValues(String expression, ArrayList<NumericVal> refs, RealtimeValues rtvals, ArrayList<Integer> inputs) {
-        // Replace the temp ones if they exist
-        for (var ref : refs) {
-            var id = ref.id();
-            if (id.startsWith("dcafs_")) {
-                var it = id.substring(6);
-                expression = expression.replace(it, "{" + id + "}");
-            }
-        }
-        // Do processing as normal
-        var bracketVals = Tools.extractCurlyContent(expression, true);
-        if (bracketVals == null)
-            return "";
-        int hasOld = refs.size();
 
-        iteratevals:
-        for (var val : bracketVals) {
-            if (hasOld != 0) {
-                for (int a = 0; a < hasOld; a++) { // No use looking beyond old elements
-                    if (refs.get(a).id().equals(val)) {
-                        Logger.info("Using old val:" + val);
-                        inputs.add(100 + a);
-                        expression = expression.replace("{" + val + "}", "i" + (inputs.size() - 1));
-                        continue iteratevals;
-                    }
-                }
-            }
-            var result = rtvals.getAbstractVal(val);
-            if (result.isEmpty()) {
-                Logger.error("No such rtval yet: " + val);
-                return "";
-            } else if (result.get() instanceof NumericVal nv) {
-                int size = inputs.size();
-                expression = expression.replace("{" + val + "}", "i" + size);
-                inputs.add(100 + refs.size());
-                refs.add(nv);
-            } else {
-                Logger.error("Can't work with " + result.get() + " NOT a numeric val.");
-                return "";
-            }
-        }
-        return expression;
-    }
 
     private static ArrayList<String[]> processBrackets(String expression, boolean debug) {
         var subExpr = new ArrayList<String[]>(); // List to contain all the sub-formulas
@@ -264,7 +262,7 @@ public class MathOpFab {
             String part = expression.substring(open + 1, close); // get the part between the brackets
             String piece = expression.substring(open, close + 1); // includes the brackets
 
-            var res = MathUtils.splitAndProcessExpression(part, subExpr.size() - 1, debug);
+            var res = MathUtils.splitAndProcessMathExpression(part, subExpr.size() - 1, debug);
             if (res.isEmpty()) {
                 Logger.error("Failed to build because of issues during " + part);
                 return subExpr;
@@ -288,7 +286,7 @@ public class MathOpFab {
             subFormulas.stream().map(x -> x[0] + x[2] + x[1]).forEach(Logger::info);
 
         var failed = subFormulas.stream()
-                .map(sub -> MathUtils.decodeBigDecimalsOp(sub[0], sub[1], sub[2], subFormulas.size()))
+                .map(sub -> ParseTools.decodeBigDecimalsOp(sub[0], sub[1], sub[2], subFormulas.size()))
                 .peek(x -> steps.add(x))
                 .anyMatch(Objects::isNull);
         if (failed) {

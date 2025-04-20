@@ -1,11 +1,13 @@
 package io.forward;
 
+import io.forward.steps.CmdStep;
+import io.forward.steps.MathStep;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
-import util.math.MathOpFab;
-import util.math.MathOperation;
-import util.math.MathOperationSolver;
-import util.tools.Tools;
+import util.evalcore.MathOpFab;
+import util.evalcore.MathOperation;
+import util.evalcore.MathOperationSolver;
+import util.evalcore.ParseTools;
 import util.xml.XMLdigger;
 
 import java.util.ArrayList;
@@ -113,7 +115,7 @@ public class StepFab {
     private static void processCmd(CmdStep step, RealtimeValues rtvals, String cmd) {
         var ori = cmd;
 
-        var refs = Tools.extractCurlyContent(cmd, true);
+        var refs = ParseTools.extractCurlyContent(cmd, true);
         if (!refs.isEmpty()) {
             for (int a = 0; a < refs.size(); a++) {
                 var val = rtvals.getAbstractVal(refs.get(a));
@@ -126,7 +128,7 @@ public class StepFab {
             }
         }
         // Find all the i's
-        var iss = MathOpFab.extractIreferences(cmd);
+        var iss = ParseTools.extractIreferences(cmd);
         step.setHighestI(iss[iss.length - 1]); // keep the highest one
         step.addCmd(ori, cmd);
     }

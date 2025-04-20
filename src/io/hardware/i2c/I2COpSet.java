@@ -1,8 +1,8 @@
 package io.hardware.i2c;
 
-import io.forward.MathStep;
+import io.forward.steps.MathStep;
 import io.forward.StepFab;
-import io.forward.StoreStep;
+import io.forward.steps.StoreStep;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;

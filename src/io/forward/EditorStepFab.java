@@ -1,5 +1,6 @@
 package io.forward;
 
+import io.forward.steps.EditorStep;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
@@ -17,7 +18,6 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class EditorStepFab {
 

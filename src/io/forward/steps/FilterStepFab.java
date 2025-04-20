@@ -1,13 +1,12 @@
-package io.forward;
+package io.forward.steps;
 
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
-import util.math.MathOpFab;
+import util.evalcore.LogicFab;
 import util.math.MathUtils;
-import util.tasks.LogicFab;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 
@@ -122,35 +121,41 @@ public class FilterStepFab {
         value = Tools.fromEscapedStringToBytes(value);
         Logger.info(" -> Adding rule " + type + " > " + value);
 
-        return switch (StringUtils.removeEnd(type, "s")) {
-            case "item" ->
-                    createItemCount(delimiter, Tools.parseInt(values[0], -1), Tools.parseInt(values.length == 1 ? values[0] : values[1], -1));
-            case "maxitem" -> createItemMaxCount(delimiter, Tools.parseInt(value, -1));
-            case "minitem" -> createItemMinCount(delimiter, Tools.parseInt(value, -1));
-            case "start" -> createStartsWith(value);
-            case "nostart", "!start" -> createStartsNotWith(value);
-            case "end" -> createEndsWith(value);
-            case "contain", "include" -> createContains(value);
-            case "!contain" -> createContainsNot(value);
-            case "c_start" -> createCharAt(Tools.parseInt(values[0], -1) - 1, value.charAt(value.indexOf(",") + 1));
-            case "c_end" -> createCharFromEnd(Tools.parseInt(values[0], -1) - 1, value.charAt(value.indexOf(",") + 1));
-            case "minlength" -> createMinimumLength(Tools.parseInt(value, -1));
-            case "maxlength" -> createMaximumLength(Tools.parseInt(value, -1));
-            case "nmea" -> createNMEAcheck(Tools.parseBool(value, true));
-            case "regex" -> createRegex(value);
-            case "math" -> createCheckBlock(delimiter, value, rtvals);
-            default -> {
-                if (type.startsWith("at")) {
-                    var in = type.substring(2);
-                    int index = NumberUtils.toInt(in, -1);
-                    if (index != -1) {
-                        yield createItemAtIndex(index, delimiter, value);
+        try {
+            return switch (StringUtils.removeEnd(type, "s")) {
+                case "item" ->
+                        createItemCount(delimiter, Tools.parseInt(values[0], -1), Tools.parseInt(values.length == 1 ? values[0] : values[1], -1));
+                case "maxitem" -> createItemMaxCount(delimiter, Tools.parseInt(value, -1));
+                case "minitem" -> createItemMinCount(delimiter, Tools.parseInt(value, -1));
+                case "start" -> createStartsWith(value);
+                case "nostart", "!start" -> createStartsNotWith(value);
+                case "end" -> createEndsWith(value);
+                case "contain", "include" -> createContains(value);
+                case "!contain" -> createContainsNot(value);
+                case "c_start" -> createCharAt(Tools.parseInt(values[0], -1) - 1, value.charAt(value.indexOf(",") + 1));
+                case "c_end" ->
+                        createCharFromEnd(Tools.parseInt(values[0], -1) - 1, value.charAt(value.indexOf(",") + 1));
+                case "minlength" -> createMinimumLength(Tools.parseInt(value, -1));
+                case "maxlength" -> createMaximumLength(Tools.parseInt(value, -1));
+                case "nmea" -> createNMEAcheck(Tools.parseBool(value, true));
+                case "regex" -> createRegex(value);
+                case "logic" -> createLogicEvaluator(delimiter, value, rtvals);
+                default -> {
+                    if (type.startsWith("at")) {
+                        var in = type.substring(2);
+                        int index = NumberUtils.toInt(in, -1);
+                        if (index != -1) {
+                            yield createItemAtIndex(index, delimiter, value);
+                        }
                     }
+                    Logger.error(" -> Unknown type chosen " + type);
+                    yield null;
                 }
-                Logger.error(" -> Unknown type chosen " + type);
-                yield null;
-            }
-        };
+            };
+        }catch (NumberFormatException | IndexOutOfBoundsException e ){
+            Logger.error("Failed to create filter rule: "+e.getMessage());
+            return null;
+        }
     }
 
     /* Filters */
@@ -220,27 +225,25 @@ public class FilterStepFab {
         return (p -> (MathUtils.doNMEAChecksum(p)) == ok);
     }
 
-    /* Complicated ones? */
-    private static Predicate<String> createCheckBlock(String delimiter, String value, RealtimeValues rtvals) {
+    /**
+     * Creates a logic evaluator predicate based on the given expression and delimiter.
+     *
+     * @param delimiter The delimiter used to split the input string.
+     * @param expression The logic expression to be parsed.
+     * @param rtvals The global real-time values collection to get references from
+     * @return A predicate that evaluates the logic expression, or null if the evaluator couldn't be created.
+     */
+    private static Predicate<String> createLogicEvaluator(String delimiter, String expression, RealtimeValues rtvals) {
+        // Create logic evaluator
+        var logEval = LogicFab.parseComparison(expression, rtvals, null);
+        if (logEval.isEmpty()) {
+            Logger.error("Failed to build logic evaluator");
+            return null;
+        }
 
-        var is = MathOpFab.extractIreferences(value);
-
-        var blockOpt = LogicFab.buildConditionBlock(value, rtvals, null);
-        return blockOpt.<Predicate<String>>map(conditionBlock -> (p -> {
-            try {
-                String[] vals = p.split(delimiter);
-                for (int index : is) {
-                    if (!conditionBlock.alterSharedMem(index, NumberUtils.toDouble(vals[index]))) {
-                        Logger.error(" (ff) -> Tried to add a NaN to shared mem");
-                        return false;
-                    }
-                }
-                return conditionBlock.start();
-            } catch (ArrayIndexOutOfBoundsException e) {
-                Logger.error("(ff) -> Index out of bounds when trying to find the number in " + p + " for math check.");
-                return false;
-            }
-        })).orElse(null);
+        var le = logEval.get();
+        // Return predicate using the logic evaluator
+        return p -> le.eval(p, delimiter).orElse(false);
     }
 
     public static String getHelp(String eol) {

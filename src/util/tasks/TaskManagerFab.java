@@ -4,6 +4,7 @@ import io.email.Email;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
+import util.tasks.blocks.*;
 import util.tools.Tools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -125,7 +126,7 @@ public class TaskManagerFab {
 
         // Handle req
         var reqAttr = task.attr("req", "");
-        var req = LogicFab.buildConditionBlock(reqAttr, rtvals, sharedMem).orElse(null);
+        var req = ConditionBlock.build(reqAttr, rtvals, sharedMem).orElse(null);
 
         // Check if it's delayed
         var delay = handleDelay( task, eventLoop );
@@ -251,7 +252,7 @@ public class TaskManagerFab {
         } else {
             // No child nodes
             // <retry interval="20s" retries="-1">{f:icos_sol4} equals 1</retry>
-            var cond = LogicFab.buildConditionBlock(task.value(""), rtvals, sharedMem).orElse(null);
+            var cond = ConditionBlock.build(task.value(""), rtvals, sharedMem).orElse(null);
             if (cond == null)
                 return null;
 
@@ -323,7 +324,7 @@ public class TaskManagerFab {
         } else {
             // No child nodes
             // <while interval="20s" maxruns="-1">{f:icos_sol4} equals 1</retry>
-            var cond = LogicFab.buildConditionBlock(task.value(""), rtvals, sharedMem).orElse(null);
+            var cond = ConditionBlock.build(task.value(""), rtvals, sharedMem).orElse(null);
             if (cond == null)
                 return null;
             var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
@@ -345,7 +346,7 @@ public class TaskManagerFab {
         var content = node.value("");
         return switch (node.tagName("")) {
             case "delay" -> new DelayBlock(eventLoop).useDelay(content);
-            case "req" -> LogicFab.buildConditionBlock(content, rtvals, sharedMem).orElse(null);
+            case "req" -> ConditionBlock.build(content, rtvals, sharedMem).orElse(null);
             case "stream" -> {
                 var id = node.attr("to", "");
                 yield new WritableBlock().setMessage(id, content);

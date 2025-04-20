@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<dcafs>
+    <settings>
+        <!-- Settings related to the telnet server -->
+        <telnet port="23" title="DCAFS">
+            <textcolor>lightgray</textcolor>
+        </telnet>
+    </settings>
+    <streams>
+        <stream id="text" type="tcp,tcpserver,udp,udpclient,modbus">
+            <address opt="false">ip:port</address>
+            <echo opt="true">bool</echo>
+            <log opt="true">bool</log>
+            <eol opt="true">delimiter</eol> <!-- The eol of a message being carriage return and line feed -->
+            <prefixorigin opt="true">bool</prefixorigin> <!-- Prepend the id of the stream in front of raw data -->
+            <ttl opt="true">period</ttl> <!-- No ttl specified, normal format for example 5m (for 5 minutes) or 10s etc -->
+            <label opt="true">text</label>
+            <triggered>
+                <cmd when="open,close,idle,!idle">text</cmd>
+                <write when="hello,wakeup">text</write>
+            </triggered>
+            <store opt="true" group="text">
+
+            </store>
+        </stream>
+        <stream id="text" type="serial">
+            <port opt="false">text</port>
+            <!-- all of the above -->
+            <serialsetings opt="true">19200,8,1,none</serialsetings> <!-- Baudrate,databits(5-8),stopbits(1-2),parity(even,odd,stick) -->
+        </stream>
+    </streams>
+</dcafs>

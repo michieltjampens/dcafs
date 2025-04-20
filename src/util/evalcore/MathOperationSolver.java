@@ -1,4 +1,4 @@
-package util.math;
+package util.evalcore;
 
 import org.tinylog.Logger;
 import util.data.NumericVal;

@@ -1,9 +1,9 @@
-package io.forward;
+package io.forward.steps;
 
 import das.Core;
 import org.tinylog.Logger;
 import util.data.AbstractVal;
-import util.math.MathOpFab;
+import util.evalcore.ParseTools;
 import worker.Datagram;
 
 import java.math.BigDecimal;
@@ -33,7 +33,7 @@ public class CmdStep extends AbstractStep {
                 for (int a = 0; a < vals.size(); a++)
                     alter = alter.replace("{" + a + "}", vals.get(a).stringValue());
             }
-            for (Integer i : MathOpFab.extractIreferences(alter)) {
+            for (Integer i : ParseTools.extractIreferences(alter)) {
                 alter = alter.replace("i" + i, split[i]);
             }
             Core.addToQueue(Datagram.system(alter));

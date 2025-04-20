@@ -92,8 +92,7 @@ That minimum actually uses the default for a lot of settings.
     <stream id="sensor" type="serial">
         <port>ttymxc0</port>
         <!-- all of the above -->
-        <serialsetings>19200,8,1,none
-        </serialsetings> <!-- Baudrate,databits(5-8),stopbits(1-2),parity(even,odd,stick) -->
+        <serialsetings>19200,8,1,none</serialsetings> <!-- Baudrate,databits(5-8),stopbits(1-2),parity(even,odd,stick) -->
     </stream>
 </streams>
 ```

@@ -1,4 +1,4 @@
-package util.tasks;
+package util.tasks.blocks;
 
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;

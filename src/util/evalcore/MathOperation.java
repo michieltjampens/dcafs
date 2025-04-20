@@ -1,4 +1,4 @@
-package util.math;
+package util.evalcore;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;

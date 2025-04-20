@@ -1,4 +1,4 @@
-package util.tasks;
+package util.tasks.blocks;
 
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
@@ -16,13 +16,15 @@ public class OriginBlock extends AbstractBlock {
         this.info = info;
         return this;
     }
-
+    public String getInfo(){
+        return info;
+    }
     public void updateChainId() {
         next.resetId();
         next.buildId(id);
     }
     @Override
-    boolean start() {
+    public boolean start() {
         runs++;
         doNext();
         Logger.info(id + " -> Starting...");

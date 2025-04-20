@@ -3,8 +3,8 @@ package util.data;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.math.MathUtils;
+import util.evalcore.ParseTools;
 import util.tools.TimeTools;
-import util.tools.Tools;
 
 import java.util.ArrayList;
 import java.util.Objects;
@@ -31,7 +31,7 @@ public class ValTools {
             nums = new ArrayList<>();
 
         // Find all the real/flag/int pairs
-        var pairs = Tools.extractKeyValue(exp, true); // Add those of the format {d:id}
+        var pairs = ParseTools.extractKeyValue(exp, true); // Add those of the format {d:id}
 
         for( var p : pairs ) {
             boolean ok=false;
@@ -114,11 +114,11 @@ public class ValTools {
         if( expr.isEmpty()) // If any part of the conversion failed
             return result;
 
-        var parts = MathUtils.extractParts(expr);
+        var parts = ParseTools.extractParts(expr);
         if( parts.size()==1 ){
             result = NumberUtils.createDouble(expr);
         }else if (parts.size()==3){
-            result = Objects.requireNonNull(MathUtils.decodeDoublesOp(parts.get(0), parts.get(2), parts.get(1), 0)).apply(new Double[]{});
+            result = Objects.requireNonNull(ParseTools.decodeDoublesOp(parts.get(0), parts.get(2), parts.get(1), 0)).apply(new Double[]{});
         }else{
             try {
                 result = MathUtils.noRefCalculation(expr, Double.NaN, false);
@@ -146,7 +146,7 @@ public class ValTools {
         if( !line.contains("{"))
             return line;
 
-        var pairs = Tools.extractKeyValue(line, true);
+        var pairs = ParseTools.extractKeyValue(line, true);
         for( var p : pairs ){
             if (p.length != 2) {
                 line = replaceTime(p[0], line, rtvals);

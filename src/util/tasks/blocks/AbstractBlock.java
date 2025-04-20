@@ -1,4 +1,4 @@
-package util.tasks;
+package util.tasks.blocks;
 
 import io.Writable;
 import io.telnet.TelnetCodes;
@@ -13,7 +13,7 @@ public abstract class AbstractBlock {
     int order = -1;
     boolean clean = true;
 
-    abstract boolean start();
+    public abstract boolean start();
 
     void doNext() {
         if (next != null)

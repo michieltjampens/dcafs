@@ -667,59 +667,7 @@ public class Tools {
         return loopNetworkInterfaces(displayName, ipv4, "ip");
     }
 
-    /**
-     * Extract key-value pairs from a string that contains data wrapped in curly braces.
-     * The key-value pairs are expected to be in the format of {key:value}, where keys
-     * and values are separated by a colon (":").
-     *
-     * @param data     The string to parse containing key-value pairs wrapped in curly braces.
-     * @param distinct If true, only unique key-value pairs are returned. If false, all pairs are included.
-     * @return A list of string arrays where each array contains two elements: the key and the value.
-     * An empty list is returned if no valid key-value pairs are found.
-     */
-    public static List<String[]> extractKeyValue(String data, boolean distinct) {
-        var keyValuePairs = new ArrayList<String[]>();
-        var matches = extractCurlyContent(data, distinct);
-        for (var match : matches) {
-            String[] kv = match.split(":", 2); // split into key and value only
-            if (kv.length == 2) {
-                keyValuePairs.add(kv);
-            } else {
-                Logger.error("Invalid key-value pair: {" + match + "}");
-            }
-        }
-        return keyValuePairs;
-    }
 
-    /**
-     * Extracts content enclosed within curly braces ('{...}') from the provided data string.
-     * Optionally, it can filter out duplicate matches based on the `distinct` flag.
-     *
-     * @param data     The string containing the content to extract.
-     * @param distinct If true, only unique content within curly braces will be included.
-     *                 If false, duplicates will be included.
-     * @return A list of strings, each representing the content found within curly braces.
-     * If no content is found, returns an empty list.
-     */
-    public static List<String> extractCurlyContent(String data, boolean distinct) {
-        var contents = new ArrayList<String>();
-        data = MathUtils.checkBrackets(data, '{', '}', false);
-        if (data.isEmpty())
-            return List.of();
-
-        var pattern = Pattern.compile("\\{([^{}]+)}");
-        var matcher = pattern.matcher(data);
-
-        while (matcher.find()) {
-            var match = matcher.group(0); // what's inside the curly braces
-            if (!contents.contains(match)) { // If not present yet, add it
-                contents.add(match);
-            } else if (!distinct) { // If already present but we don't mind duplicates
-                contents.add(match);
-            }
-        }
-        return contents.stream().toList();
-    }
     /**
      * Get the IP of this system.
      * @return IP of this system.

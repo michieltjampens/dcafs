@@ -1,6 +1,8 @@
 package util.data;
 
-import util.math.MathUtils;
+import org.tinylog.Logger;
+import util.evalcore.LogicEvaluator;
+import util.evalcore.LogicFab;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -17,7 +19,7 @@ import java.util.function.Supplier;
 public class TriggeredCmd {
     private String cmd;
     private TRIGGERTYPE type;
-    private Function<Double, Boolean> comp;
+    private LogicEvaluator logEval;
     private boolean triggered = false;
     enum TRIGGERTYPE {ALWAYS,CHANGED,STDEV,COMP}
 
@@ -32,9 +34,15 @@ public class TriggeredCmd {
                     type = TRIGGERTYPE.STDEV;
                     trigger = trigger.replace("stdev", "");
                 }
-                comp = MathUtils.parseSingleCompareFunction(trigger);
-                if (comp == null)
+                if( !trigger.startsWith("i0"))
+                    trigger= "i0 "+trigger;
+                var logEvalOpt = LogicFab.parseComparison(trigger,null,null);
+                if (logEvalOpt.isEmpty()) {
                     this.cmd = "";
+                    Logger.error("Failed to create logic evaluator for "+trigger);
+                }else{
+                    logEval=logEvalOpt.get();
+                }
             }
         }
     }
@@ -60,16 +68,16 @@ public class TriggeredCmd {
             case COMP -> {
                 // Explicitly cast val to double if it's a valid Number
                 if (val instanceof Double) {
-                    ok = comp.apply((Double) val); // Cast val to Double explicitly
+                    ok = logEval.eval((Double) val).orElse(false); // Cast val to Double explicitly
                 } else {
                     // Handle other cases for val not being Double
-                    ok = comp.apply(val.doubleValue()); // Use doubleValue() for other Number types
+                    ok = logEval.eval(val.doubleValue()).orElse(false); // Use doubleValue() for other Number types
                 }
             }
             case STDEV -> {
                 var sd = stdevSupplier.get();
                 if (Double.isNaN(sd)) return false;
-                ok = comp.apply(sd);
+                ok = logEval.eval(sd).orElse(false);
             }
             default -> {
                 return false;

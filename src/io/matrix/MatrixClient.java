@@ -4,7 +4,7 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
-import io.forward.MathStep;
+import io.forward.steps.MathStep;
 import io.forward.StepFab;
 import org.json.JSONObject;
 import org.json.JSONTokener;

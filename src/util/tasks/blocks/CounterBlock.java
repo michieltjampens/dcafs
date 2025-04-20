@@ -1,4 +1,4 @@
-package util.tasks;
+package util.tasks.blocks;
 
 import org.tinylog.Logger;
 

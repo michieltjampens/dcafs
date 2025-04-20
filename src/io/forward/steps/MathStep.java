@@ -1,7 +1,7 @@
-package io.forward;
+package io.forward.steps;
 
 import org.tinylog.Logger;
-import util.math.MathOperationSolver;
+import util.evalcore.MathOperationSolver;
 import util.math.MathUtils;
 
 import java.math.BigDecimal;

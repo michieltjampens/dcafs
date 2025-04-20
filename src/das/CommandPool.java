@@ -5,7 +5,7 @@ import io.email.Email;
 import io.email.EmailSending;
 import io.email.EmailWorker;
 import io.forward.EditorStepFab;
-import io.forward.FilterStepFab;
+import io.forward.steps.FilterStepFab;
 import io.matrix.MatrixClient;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;

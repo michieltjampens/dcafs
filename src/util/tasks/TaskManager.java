@@ -6,6 +6,8 @@ import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.NumericVal;
 import util.data.RealtimeValues;
+import util.tasks.blocks.AbstractBlock;
+import util.tasks.blocks.OriginBlock;
 import util.tools.TimeTools;
 
 import java.nio.file.Path;
@@ -105,7 +107,7 @@ public class TaskManager implements Writable {
         starters.values().stream()
                 .filter(bl -> bl instanceof OriginBlock)
                 .map(bl -> (OriginBlock) bl)
-                .forEach(ori -> LookAndFeel.formatHelpLine(ori.id() + " -> " + ori.info, false, join));
+                .forEach(ori -> LookAndFeel.formatHelpLine(ori.id() + " -> " + ori.getInfo(), false, join));
         return join.toString();
     }
 
