@@ -4,9 +4,8 @@ import io.forward.steps.CmdStep;
 import io.forward.steps.MathStep;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
-import util.evalcore.MathOpFab;
-import util.evalcore.MathOperation;
-import util.evalcore.MathOperationSolver;
+import util.evalcore.MathEvaluator;
+import util.evalcore.MathFab;
 import util.evalcore.ParseTools;
 import util.xml.XMLdigger;
 
@@ -36,7 +35,7 @@ public class StepFab {
         if (dig == null)
             return Optional.empty();
 
-        ArrayList<MathOperationSolver> solvers = new ArrayList<>();
+        ArrayList<MathEvaluator> mathEvals = new ArrayList<>();
 
         var suffix = dig.attr("suffix", "");
         delimiter = dig.attr("delimiter", delimiter);
@@ -54,28 +53,25 @@ public class StepFab {
             for (var define : defines.entrySet())
                 expression = expression.replace(define.getKey(), define.getValue());
 
-            Optional<MathOperation> mopOpt;
-            if (solvers.isEmpty()) {
-                mopOpt = MathOpFab.withExpression(expression, rtvals).getMathOp();
+            Optional<MathEvaluator> meOpt;
+            if (mathEvals.isEmpty()) {
+                meOpt = MathFab.parseExpression(expression, rtvals);
             } else {
-                mopOpt = MathOpFab.withExpression(expression, rtvals, solvers.get(solvers.size() - 1).getValRefs()).getMathOp();
+                var oldRefs = mathEvals.get(mathEvals.size() - 1).getRefs();
+                meOpt = MathFab.parseExpression(expression, rtvals, oldRefs);
             }
-            if (mopOpt.isEmpty()) {
+            if (meOpt.isEmpty()) {
                 Logger.error("(mf) -> Failed to parse " + op.value(""));
                 return Optional.empty();
             }
-            var mop = mopOpt.get();
-            if (mop.getResultIndex() >= 100 && mop.getResultIndex() < 200) //meaning an rtval
+            var mathEval = meOpt.get();
+            if (mathEval.updatesRtval()) //meaning an rtval is updated because of it
                 doUpdate = true;
-
-            var opSolver = new MathOperationSolver(op.value(""), delimiter, mop);
-            opSolver.scale(op.attr("scale", -1));
-            opSolver.cmd(op.attr("cmd", ""));
-            solvers.add(opSolver);
+            mathEval.setScale(op.attr("scale", -1));
+            mathEvals.add(mathEval);
         }
-        var step = new MathStep(solvers.toArray(MathOperationSolver[]::new), suffix);
+        var step = new MathStep(mathEvals.toArray(MathEvaluator[]::new), suffix, delimiter);
         step.setWantsData(doUpdate);
-
         return Optional.of(step);
     }
 

@@ -106,12 +106,13 @@ public class IntegerVal extends NumberVal<Integer>{
         }
         try {
             var res = NumberUtils.createInteger(val.trim());
-            if( parseOp != null) {
-                var dres = parseOp.solveSimple(BigDecimal.valueOf(res));
+            if (mathEval != null) {
+                var bdOpt = mathEval.eval(BigDecimal.valueOf(res));
+                var dres = bdOpt.map(BigDecimal::doubleValue).orElse(Double.NaN);
                 if( Double.isNaN(dres)) {
-                    Logger.error(id() + " -> Failed to parse " + val + " with " + parseOp.getExpression());
+                    Logger.error(id() + " -> Failed to calculate " + val + " with " + mathEval.getOriginalExpression());
                 }else{
-                    res = (int) dres;
+                    res = dres.intValue();
                 }
             }
             value(res);

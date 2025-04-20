@@ -72,10 +72,10 @@ public class RealVal extends NumberVal<Double>{
         var res = NumberUtils.toDouble(val,Double.NaN);
 
         if(!Double.isNaN(res)){
-            if( parseOp != null) {
-                res = parseOp.solveSimple(BigDecimal.valueOf(res));
+            if (mathEval != null) {
+                res = mathEval.eval(BigDecimal.valueOf(res)).map(BigDecimal::doubleValue).orElse(Double.NaN);
                 if( Double.isNaN(res))
-                    Logger.error(id() + " -> Failed to parse " + val + " with " + parseOp.getExpression());
+                    Logger.error(id() + " -> Failed to parse " + val + " with " + mathEval.getOriginalExpression());
             }
             rawValue=res;
             value(res);

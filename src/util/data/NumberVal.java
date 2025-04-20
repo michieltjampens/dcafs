@@ -3,8 +3,8 @@ package util.data;
 import das.Core;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.evalcore.MathOpFab;
-import util.evalcore.MathOperation;
+import util.evalcore.MathEvaluator;
+import util.evalcore.MathFab;
 import util.math.MathUtils;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 public abstract class NumberVal<T extends Number> extends AbstractVal implements NumericVal{
     protected T value,defVal;
     protected T min,max;
-    protected MathOperation parseOp;
+    protected MathEvaluator mathEval;
     protected int digits=-1;
     /* History */
     protected ArrayList<T> history;
@@ -28,15 +28,15 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
     protected boolean keepMinMax=false;
     protected boolean abs=false;
 
-    public void setParseOp( String op ){
+    public void setMathEval(String op) {
         op=op.replace("i","i0");
         op=op.replace("i00","i0"); // just in case it was actually with i0
-        var opOpt = MathOpFab.withExpression(op).getMathOp();
+        var opOpt = MathFab.parseExpression(op, null);
         if (opOpt.isEmpty()) {
             Logger.error(id() +" -> Tried to apply an invalid op for parsing "+op);
         }else{
             Logger.info(id()+" -> Applying "+op+" after parsing to real/double.");
-            parseOp = opOpt.get();
+            mathEval = opOpt.get();
         }
     }
 
@@ -94,7 +94,7 @@ public abstract class NumberVal<T extends Number> extends AbstractVal implements
         if( op.isEmpty() )
             op = dig.peekAt("op").value("");
         if( !op.isEmpty())
-            setParseOp(op);
+            setMathEval(op);
     }
     /* *********************************** H I S T O R Y ************************************************************* */
     public boolean enableHistory(int count){

@@ -8,7 +8,8 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MathUtils {
 
@@ -29,7 +30,7 @@ public class MathUtils {
         expression=expression.replace("+-","-");
         // Split it in parts: numbers,ix and operands
         var parts = ParseTools.extractParts(expression);
-        if (parts == null)
+        if (parts.isEmpty())
             return result;
 
         if( debug ) Logger.info("-> Splitting: "+expression);

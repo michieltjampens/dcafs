@@ -9,7 +9,6 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public class LogicFab {
-    public record LogicOperation(Function<Double[],Double> func, boolean logic) {}
 
     private static final Map<String, String> compareInverts = new LinkedHashMap<>();
     static {
@@ -95,7 +94,6 @@ public class LogicFab {
         logicEval.setHighestI(highestI); // Highest encountered I reference
         logicEval.setRefs(refs.toArray(NumericVal[]::new)); // All encountered vals and temps
         logicEval.setRefLookup(referenced);  // Array to link the r* to the actual values
-
 
         for( int a=0;a<blocks.size();a++) {
             var parts =blocks.get(a);

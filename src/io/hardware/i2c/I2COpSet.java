@@ -1,13 +1,14 @@
 package io.hardware.i2c;
 
 import io.forward.steps.MathStep;
-import io.forward.StepFab;
 import io.forward.steps.StoreStep;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.data.ValStoreFab;
+import util.evalcore.MathEvaluator;
+import util.evalcore.MathFab;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
@@ -77,11 +78,11 @@ public class I2COpSet {
                 case "write" -> ops.add( new I2CWrite(altDig));
                 case "alter"-> ops.add( new I2CAlter(altDig));
                 case "math" -> altDig.current().ifPresent( x -> {
-                    var mf = StepFab.buildMathStep(dig, ",", rtvals);
-                    if (mf.isPresent()) {
-                        ops.add(mf.get());
+                    var me = MathFab.parseExpression(x.getTextContent(), rtvals, null);
+                    if (me.isPresent()) {
+                        ops.add(me.get());
                     }else{
-                        Logger.info(id+"(i2cop) -> Failed to read math node");
+                        Logger.info(id + "(i2cop) -> Failed to read math node.");
                         valid=false;
                     }
                 });
@@ -148,8 +149,8 @@ public class I2COpSet {
                 index=0;
                 return -1;
             }
-        } else if (ops.get(index) instanceof MathStep ms) {
-            ms.takeStep(received); // Note that a math can contain a store, this will work with bigdecimals
+        } else if (ops.get(index) instanceof MathEvaluator me) {
+            me.eval(received); // Note that a math can contain a store, this will work with bigdecimals
         }else if( ops.get(index) instanceof ValStore st){
             st.apply(received);
         }

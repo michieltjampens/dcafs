@@ -17,6 +17,10 @@ public class BaseEvaluator {
     void setRefs( NumericVal[] refs){
         this.refs=refs;
     }
+
+    public NumericVal[] getRefs() {
+        return refs;
+    }
     public String getOriginalExpression(){
         return originalExpression;
     }

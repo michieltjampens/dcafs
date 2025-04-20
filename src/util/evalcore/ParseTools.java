@@ -20,6 +20,7 @@ public class ParseTools {
     static final Pattern es = Pattern.compile("\\de[+-]?\\d");
     static final MathContext MATH_CONTEXT = new MathContext(10, RoundingMode.HALF_UP);
     private static final Pattern I_REF_PATTERN = Pattern.compile("(?<![a-zA-Z0-9_])i[0-9]{1,2}(?![a-zA-Z0-9_])");
+    private static final Pattern T_REF_PATTERN = Pattern.compile("(?<![a-zA-Z0-9_])i[0-9]{1,2}(?![a-zA-Z0-9_])");
 
     public static List<String> extractParts(String expression) {
 
@@ -88,7 +89,15 @@ public class ParseTools {
         }
     }
     public static int[] extractIreferences(String expression) {
-        return I_REF_PATTERN// Extract all the references
+        return extractreferences(expression, I_REF_PATTERN);// Extract all the references
+    }
+
+    public static int[] extractTreferences(String expression) {
+        return extractreferences(expression, T_REF_PATTERN);// Extract all the references
+    }
+
+    private static int[] extractreferences(String expression, Pattern pattern) {
+        return pattern// Extract all the references
                 .matcher(expression)
                 .results()
                 .map(MatchResult::group)
@@ -170,24 +179,23 @@ public class ParseTools {
         }
         return keyValuePairs;
     }
-    public static String replaceRealtimeValues(String expression, ArrayList<NumericVal> refs, RealtimeValues rtvals, ArrayList<Integer> inputs) {
-        // Replace the temp ones if they exist
-        for (var ref : refs) {
-            var id = ref.id();
-            if (id.startsWith("dcafs_")) {
-                var it = id.substring(6);
-                expression = expression.replace(it, "{" + id + "}");
-            }
+
+    public static String replaceRealtimeValues(String expression, ArrayList<NumericVal> refs, RealtimeValues rtvals, ArrayList<Integer> refLookup) {
+        if (rtvals == null) {
+            Logger.warn("Couldn't replace rtvals refs because rtvals is null when parsing: " + expression);
+            return expression;
         }
         // Do processing as normal
         var bracketVals = ParseTools.extractCurlyContent(expression, true);
-        if (bracketVals == null)
+        if (bracketVals == null) {
+            Logger.error("Failed to extract curly brackets from " + expression);
             return "";
-        int hasOld = refs.size();
+        }
+        // int hasOld = refs.size();
 
         iteratevals:
         for (var val : bracketVals) {
-            if (hasOld != 0) {
+            /*if (hasOld != 0) {
                 for (int a = 0; a < hasOld; a++) { // No use looking beyond old elements
                     if (refs.get(a).id().equals(val)) {
                         Logger.info("Using old val:" + val);
@@ -196,15 +204,15 @@ public class ParseTools {
                         continue iteratevals;
                     }
                 }
-            }
+            }*/
             var result = rtvals.getAbstractVal(val);
             if (result.isEmpty()) {
                 Logger.error("No such rtval yet: " + val);
                 return "";
             } else if (result.get() instanceof NumericVal nv) {
-                int size = inputs.size();
+                int size = refLookup.size();
                 expression = expression.replace("{" + val + "}", "r" + size);
-                inputs.add(100 + refs.size());
+                refLookup.add(100 + refs.size());
                 refs.add(nv);
             } else {
                 Logger.error("Can't work with " + result.get() + " NOT a numeric val.");
