@@ -22,16 +22,22 @@ public class LinkedStepsFab {
 
         var rtvals = ft.rtvals;
         var delimiter = ft.delimiter;
-
+        int node = 0;
         for (var step : steps.digOut("*")) {
 
             if (!step.currentTrusted().hasAttribute("delimiter"))
                 step.currentTrusted().setAttribute("delimiter", delimiter);
 
+            if (!step.hasAttr("id"))
+                step.currentTrusted().setAttribute("id", ft.id + "_" + node + "_" + (step.tagName("").substring(0, 1).toUpperCase()));
+
             switch (step.tagName("")) {
                 case "if" -> {
+                    var ifId = ft.id + "_" + node + "_I";
                     var filterOpt = FilterStepFab.buildFilterStep(step, delimiter, rtvals);
                     if (filterOpt.isPresent()) {
+                        var oldId = ft.id;
+                        ft.id = ifId;
                         var filter = filterOpt.get();
                         if (parent == null) {
                             parent = filter;
@@ -43,6 +49,7 @@ public class LinkedStepsFab {
                             ft.setIfFailure(filter);
                             addSteps(step, ft, filter);
                         }
+                        ft.id = oldId;
                         ft.overwriteLastIf(filter);
                         continue;
                     }
@@ -82,7 +89,7 @@ public class LinkedStepsFab {
                 default -> {
                 }
             }
-            ;
+            node++;
         }
     }
 

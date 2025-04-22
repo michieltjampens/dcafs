@@ -187,12 +187,13 @@ update the vals to their default value, if those are set...
 
 It's possible to do calculations with the values in a store.
 ```xml
-<store>
-      <real group="o1" i="1" unit="V">voltage</real>
-      <real group="o1" i="2" unit="mA">current</real>
+
+<store group="o1">
+  <real i="1" unit="V">voltage</real>
+  <real i="2" unit="mA">current</real>
       <!-- calculate the product of the voltage and current to get the power in watt -->
-      <!-- Instead of 'i' (for input) the letter 'o' is used -->  
-      <real group="o1" o="(o1_voltage*o1_current)/1000" unit="W">power</real> 
+      <!-- Instead of 'i' (for input) the letter 'o' is used -->
+  <real o="(o1_voltage*o1_current)/1000" unit="W">power</real>
 </store>
 ```
 

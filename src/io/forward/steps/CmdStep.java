@@ -15,8 +15,9 @@ public class CmdStep extends AbstractStep {
     private int highestI = -1;
     private final String delimiter;
 
-    public CmdStep(String delimiter) {
+    public CmdStep(String id, String delimiter) {
         this.delimiter = delimiter;
+        this.id = id;
     }
 
     @Override

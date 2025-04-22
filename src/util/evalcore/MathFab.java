@@ -78,13 +78,16 @@ public class MathFab {
 
         // Purely for debugging purposes
         var join = new StringJoiner("\r\n");
-        for (var sub : subExpressions)
-            join.add(sub[0] + sub[2] + sub[1] + " -> o?");
+
+        for (int x = 0; x < subExpressions.size(); x++) {
+            var sub = subExpressions.get(x);
+            join.add("o" + x + "=" + sub[0] + sub[2] + sub[1]);
+        }
         mathEval.setParseResult(join.toString());
 
         for (int a = 0; a < subExpressions.size(); a++) {
             var sub = subExpressions.get(a);
-            var op = ParseTools.decodeBigDecimalsOp(sub[0], sub[1], sub[2], subExpressions.size());
+            var op = ParseTools.decodeBigDecimalsOp(sub[0], sub[1], sub[2], refLookup.size());
             if (op == null)
                 return Optional.empty();
             mathEval.addOp(a, op);
@@ -225,9 +228,11 @@ public class MathFab {
     private static ArrayList<NumericVal> handleTempVariables(String expression, NumericVal[] oldRefs, ArrayList<Integer> refLookup) {
         // Add temporary references of linked evals if any
         var refs = new ArrayList<NumericVal>();
-        for (var old : oldRefs) {
-            if (old.id().startsWith("dcafs_"))
-                refs.add(old);
+        if (oldRefs != null) {
+            for (var old : oldRefs) {
+                if (old.id().startsWith("dcafs_"))
+                    refs.add(old);
+            }
         }
         var ts = ParseTools.extractTreferences(expression);
         for (var t : ts) {

@@ -9,7 +9,6 @@ import util.evalcore.MathFab;
 import util.evalcore.ParseTools;
 import util.xml.XMLdigger;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Optional;
 
@@ -35,7 +34,7 @@ public class StepFab {
         if (dig == null)
             return Optional.empty();
 
-        ArrayList<MathEvaluator> mathEvals = new ArrayList<>();
+        var baseId = dig.attr("id", "");
 
         var suffix = dig.attr("suffix", "");
         delimiter = dig.attr("delimiter", delimiter);
@@ -45,7 +44,11 @@ public class StepFab {
 
         // Find all the references to realtime values
         boolean doUpdate = false;
+        MathEvaluator eval = null;
+        int opCnt = 0;
         for (var op : dig.digOut("op")) {
+            var id = baseId + "_" + opCnt;
+            opCnt++;
 
             var expression = op.value("");
 
@@ -54,10 +57,10 @@ public class StepFab {
                 expression = expression.replace(define.getKey(), define.getValue());
 
             Optional<MathEvaluator> meOpt;
-            if (mathEvals.isEmpty()) {
+            if (eval == null) {
                 meOpt = MathFab.parseExpression(expression, rtvals);
             } else {
-                var oldRefs = mathEvals.get(mathEvals.size() - 1).getRefs();
+                var oldRefs = eval.getLastRefs();
                 meOpt = MathFab.parseExpression(expression, rtvals, oldRefs);
             }
             if (meOpt.isEmpty()) {
@@ -65,12 +68,17 @@ public class StepFab {
                 return Optional.empty();
             }
             var mathEval = meOpt.get();
+            mathEval.setId(id);
             if (mathEval.updatesRtval()) //meaning an rtval is updated because of it
                 doUpdate = true;
             mathEval.setScale(op.attr("scale", -1));
-            mathEvals.add(mathEval);
+            if (eval == null) {
+                eval = mathEval;
+            } else {
+                eval.moveIn(mathEval);
+            }
         }
-        var step = new MathStep(mathEvals.toArray(MathEvaluator[]::new), suffix, delimiter);
+        var step = new MathStep(eval, suffix, delimiter);
         step.setWantsData(doUpdate);
         return Optional.of(step);
     }
@@ -99,7 +107,7 @@ public class StepFab {
     public static Optional<CmdStep> digCmdNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
         // First read the basics (things common to all forwards)
         delimiter = dig.attr("delimiter", delimiter);
-        var step = new CmdStep(delimiter);
+        var step = new CmdStep(dig.attr("id", ""), delimiter);
         if (dig.tagName("").equals("cmds")) { // meaning multiple
             dig.peekOut("cmd").forEach(cmd -> processCmd(step, rtvals, cmd.getTextContent()));
         } else {

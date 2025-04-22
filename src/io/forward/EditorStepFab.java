@@ -14,7 +14,10 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -52,7 +55,7 @@ public class EditorStepFab {
         }
         if (edits.isEmpty())
             return Optional.empty();
-        return Optional.of(new EditorStep(edits.toArray(Function[]::new)));
+        return Optional.of(new EditorStep(id, edits.toArray(Function[]::new)));
     }
 
     private static Function<String, String> processNode(XMLdigger dig, String delimiter, RealtimeValues rtvals, StringJoiner info) {

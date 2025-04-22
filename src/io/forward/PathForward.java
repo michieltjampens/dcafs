@@ -3,6 +3,7 @@ package io.forward;
 import das.Core;
 import io.Writable;
 import io.forward.steps.AbstractStep;
+import io.forward.steps.MathStep;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
@@ -150,6 +151,7 @@ public class PathForward implements Writable {
             }
     }
     public void reloadSrc() {
+
         if (active)
             return;
         if (customs.isEmpty()) { // If no custom sources
@@ -238,6 +240,17 @@ public class PathForward implements Writable {
         return true;
     }
 
+    public String getMathDebug(String id) {
+        if (stepsForward.length == 0)
+            return "No steps yet and  thus no math...";
+        for (var step : stepsForward) {
+            if (step instanceof MathStep ms)
+                return ms.getDebugInfo(id);
+        }
+        return "No matching math found";
+    }
+
+    /* ******************************************************************************************************* */
     private class CustomSrc{
         String pathOrData;
         String path;

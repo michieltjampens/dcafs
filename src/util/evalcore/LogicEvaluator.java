@@ -8,9 +8,10 @@ import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class LogicEvaluator extends BaseEvaluator{
+public class LogicEvaluator extends BaseEvaluator implements Evaluator {
 
-    private record LogicOperation(Function<Double[],Double> func, double logic) {}
+    private record LogicOperation(Function<Double[], Double> func, double logic) {
+    }
 
     LogicOperation[] logicOps;
     Double[] scratchpad;

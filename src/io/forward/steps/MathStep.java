@@ -8,12 +8,12 @@ import java.math.BigDecimal;
 import java.util.StringJoiner;
 
 public class MathStep extends AbstractStep {
-    MathEvaluator[] ops;
+    MathEvaluator op;
     String suffix;
     String delimiter = ",";
 
-    public MathStep(MathEvaluator[] ops, String suffix, String delimiter) {
-        this.ops = ops;
+    public MathStep(MathEvaluator op, String suffix, String delimiter) {
+        this.op = op;
         this.suffix = suffix;
         this.delimiter = delimiter;
     }
@@ -21,17 +21,19 @@ public class MathStep extends AbstractStep {
     @Override
     public String takeStep(String data, BigDecimal[] bds) {
         // Apply the operations
-        bds = ops[0].updateBdArray(null, data, delimiter);
-        for (MathEvaluator op : ops) {
+        try {
+            bds = op.prepareBdArray(bds, data, delimiter);
+            if (bds.length == 0) {
+                Logger.error("Something went wrong building bd array");
+                return "error";
+            }
             var res = op.eval(bds);
             if (res.isEmpty()) {
                 Logger.error("Failed to calculate for expression: " + op.getOriginalExpression());
                 return "error";
             }
-            op.updateBdArray(bds, data, delimiter);
-        }
-        if (bds == null) {
-            Logger.error("(mf) -> Something went wrong processing the data.");
+        } catch (NullPointerException np) {
+            Logger.error("Nullpointer in MathStep: " + np.getMessage());
             return "error";
         }
         // Overwrite the original data with the calculated values if applicable.
@@ -61,5 +63,9 @@ public class MathStep extends AbstractStep {
                 yield data;
             }
         };
+    }
+
+    public String getDebugInfo(String id) {
+        return op.getInfo(id);
     }
 }

@@ -6,8 +6,9 @@ import java.util.function.Function;
 public class EditorStep extends AbstractStep {
     Function<String, String>[] edits;
 
-    public EditorStep(Function<String, String>[] edits) {
+    public EditorStep(String id, Function<String, String>[] edits) {
         this.edits = edits;
+        this.id = id;
     }
 
     @Override

@@ -14,6 +14,7 @@ public abstract class AbstractStep {
     Writable feedback;
     String info = "";
     boolean wantsData = false;
+    String id;
 
     public abstract String takeStep(String data, BigDecimal[] bds);
 

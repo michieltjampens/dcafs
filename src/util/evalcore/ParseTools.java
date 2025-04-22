@@ -241,7 +241,7 @@ public class ParseTools {
         var matcher = pattern.matcher(data);
 
         while (matcher.find()) {
-            var match = matcher.group(0); // what's inside the curly braces
+            var match = matcher.group(1); // what's inside the curly braces
             if (!contents.contains(match)) { // If not present yet, add it
                 contents.add(match);
             } else if (!distinct) { // If already present but we don't mind duplicates
@@ -272,7 +272,7 @@ public class ParseTools {
             }else{
                 bd1=null;
                 int index = NumberUtils.createInteger( first.substring(1));
-                i1 = first.startsWith("o")?index:index+offset;
+                i1 = first.startsWith("o") ? index + offset : index;
             }
             if(NumberUtils.isCreatable(second) ) {
                 bd2 = NumberUtils.createBigDecimal(second);
@@ -280,7 +280,7 @@ public class ParseTools {
             }else{
                 bd2=null;
                 int index = NumberUtils.createInteger( second.substring(1));
-                i2 = second.startsWith("o")?index:index+offset;
+                i2 = second.startsWith("o") ? index + offset : index;
             }
         }catch( NumberFormatException e){
             Logger.error("Something went wrong decoding: "+first+" or "+second);
@@ -343,8 +343,13 @@ public class ParseTools {
             case "/": // i0/25
                 try {
                     if (bd1 != null && bd2 != null) { // meaning both numbers
+                        if (bd2.equals(BigDecimal.ZERO))
+                            Logger.warn("Requested to divide by zero for " + (first + op + second));
                         proc = x -> bd1.divide(bd2, MATH_CONTEXT);
-                    } else if (bd1 == null && bd2 != null) { // meaning first is an index and second a number
+                    } else if (bd1 == null && bd2 != null) {
+                        // meaning first is an index and second a number
+                        if (bd2.equals(BigDecimal.ZERO))
+                            Logger.warn("Requested to divide by zero for " + (first + op + second));
                         proc = x -> x[i1].divide(bd2, MATH_CONTEXT);
                     } else if (bd1 != null) { //  meaning first is a number and second an index
                         proc = x -> bd1.divide(x[i2], MATH_CONTEXT);

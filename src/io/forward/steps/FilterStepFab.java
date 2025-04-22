@@ -29,11 +29,12 @@ public class FilterStepFab {
     private static Optional<FilterStep> digFilterNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
 
         Predicate<String> rules = null;
+        var id = dig.attr("id", "");
 
         // If rules are defined by tagnames that represent types
         if (dig.hasChilds() && !dig.tagName("").equals("if")) {
             rules = processTagTypes(dig, delimiter, rtvals);
-            return Optional.of(new FilterStep(rules));
+            return Optional.of(new FilterStep(id, rules));
         }
         // For a filter without rules or an if tag
         if (!dig.value("").isEmpty() || dig.tagName("").equals("if")) { // If only a single rule is defined
@@ -50,7 +51,7 @@ public class FilterStepFab {
         }
         if (rules == null)
             return Optional.empty();
-        return Optional.of(new FilterStep(rules));
+        return Optional.of(new FilterStep(id, rules));
     }
 
     private static Predicate<String> processTagTypes(XMLdigger dig, String delimiter, RealtimeValues rtvals) {

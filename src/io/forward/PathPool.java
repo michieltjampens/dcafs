@@ -172,6 +172,7 @@ public class PathPool implements Commandable {
                 yield result.isEmpty() ? "Path reloaded" : result;
             }
             case "list" -> pf == null ? "! No such path: " + args[0] : "Path: " + pf.id() + d.eol() + pf;
+            case "mathdebug" -> pf == null ? "! No such path " + args[0] : pf.getMathDebug("*");
             default -> doRequest(d);
         };
     }

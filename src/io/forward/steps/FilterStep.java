@@ -6,7 +6,8 @@ import java.util.function.Predicate;
 public class FilterStep extends AbstractStep {
     Predicate<String> predicate;
 
-    public FilterStep(Predicate<String> predicate) {
+    public FilterStep(String id, Predicate<String> predicate) {
+        this.id = id;
         this.predicate = predicate;
     }
 

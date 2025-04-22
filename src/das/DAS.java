@@ -22,9 +22,9 @@ import org.tinylog.provider.ProviderRegistry;
 import util.LookAndFeel;
 import util.data.RealtimeValues;
 import util.database.DatabaseManager;
+import util.evalcore.LogicFab;
 import util.gis.Waypoints;
 import util.math.MathUtils;
-import util.evalcore.LogicFab;
 import util.tasks.TaskManagerPool;
 import util.tools.FileMonitor;
 import util.tools.TimeTools;
@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 
 public class DAS implements Commandable{
 
-    private static final String version = "3.1.0";
+    private static final String version = "3.0.0";
 
     private final String tinylogPath;
     private final LocalDateTime bootupTimestamp = LocalDateTime.now(); // Store timestamp at boot up to calculate uptime
