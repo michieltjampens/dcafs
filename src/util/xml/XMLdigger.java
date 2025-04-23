@@ -26,6 +26,7 @@ public class XMLdigger {
     private Element root;
     private Element last;
     private Element peek;
+    private Element savePoint;
     private boolean peeked=false;
     private final ArrayList<Element> siblings = new ArrayList<>();
 
@@ -312,6 +313,15 @@ public class XMLdigger {
         var parent = (Element) root.getParentNode();
         if( parent!=null)
             root=parent;
+    }
+
+    public void savePoint() {
+        savePoint = last;
+    }
+
+    public void loadPoint() {
+        last = savePoint;
+        peeked = false;
     }
     /**
      * Force this digger to be invalid
