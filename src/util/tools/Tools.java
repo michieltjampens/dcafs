@@ -131,13 +131,20 @@ public class Tools {
      * @return {@code true} or {@code false} based on the string input, or the specified {@code error} value if invalid.
      */
     public static boolean parseBool(String value, boolean error) {
+        return parseBool(value).orElse(error);
+    }
+
+    public static Optional<Boolean> parseBool(String value) {
         if (value.isEmpty())
-            return error;
+            return Optional.empty();
 
         return switch (value.toLowerCase().trim()) {
-            case "yes", "true", "1", "on", "high" -> true;
-            case "no", "false", "0", "0.0", "off", "low" -> false;
-            default -> NumberUtils.isParsable(value) || error;
+            case "yes", "true", "1", "on", "high" -> Optional.of(true);
+            case "no", "false", "0", "0.0", "off", "low" -> Optional.of(false);
+            default -> {
+                var ok = NumberUtils.isParsable(value);
+                yield ok ? Optional.of(ok) : Optional.empty();
+            }
         };
     }
     /**

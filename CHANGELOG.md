@@ -7,112 +7,17 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
-## 3.1.0 (wip)
+## 3.0.0 (wip)
 
-## Global
-
-- Slow move towards fabricator classes for leaner runtime classes.
-
-## Paths
-- Rewrote PathForward to be similar in logic as taskmanager.
-- Filter now allows the use of 'or' and 'and' and ,like the editor, it's now possible to
-  use the tag name instead of the type attr.
-```xml
-
-<filter>
-  <rule type="contains">1000</rule>
-  <or/> <!-- or and, if none is mentioned, defaults to 'and' -->
-  <contains>-6</contains>
-  <contains>1000 OR -6</contains> <!-- Does the same as the three lines above -->
-</filter>
-```
-```xml
-<if contains="1001 OR -4"> <!-- Is also possible now -->
-</if>
-```
-- Added the `return` node, mainly useful in combination with the `if`
-  - For now only one behavior will add others in the future
-  - Turns two consecutive if's into an if/else if
-```xml
-
-<path>
-  <if contains="1001">
-    <!-- do stuff -->
-    <return/> <!-- After arriving here, leave the path early -->
-  </if>
-  <if contains="-4"> <!-- Is also possible now -->
-    <!-- Do other stuff -->
-  </if>
-</path>
-``` 
-
-### Raw worker
-
-- Added worker to reprocess raw log file if it doesn't require realtime data  (except in store)
-- How it works:
-  - Reads data from a single day
-  - Each line gets a counter prefix for sorting it later
-  - Starts stage 1 processing (these are things that can be multithreaded)
-  - Data is sorted to match the original sequence
-  - Stage two is done with the sorted data (this is the store to DB step)
-  - Read the next day
-
-````xml
-
-<rawworker filepath="todo">
-  <stage1>
-    <!-- Path forwards except store -->
-  </stage1>
-  <stage2>
-    <!-- Path forwards including store -->
-  </stage2>
-</rawworker>
-````
-
-### Evalcore
-
-- Moved all code related to both logic and math parser to their own package.
-- Rewrote the layout of both parsers, now the code is no longer split over modules according to requirements
-  but one single central one.
-- Each has a 'fab', LogicFab and MathFab that fabricate evaluators MathEvaluator and LogicEvaluator.
-- Now the chaining of Math expressions is part of the class instead of needing a separate one. But it's not like an
-  Evaluator contain multiple expressions (for now).
-- Logic parser was rewritten to allow more complicated expressions (brackets and negation) and the parsing
-  now attempts 'lazy evaluation' or 'shortcircuit' while before it just evaluated everything. No nesting of brackets
-  (yet) though.
-
-## 3.0.2 (09/04/25)
-
-- Fixed, Refactor of Commandable broke tableinsert which means db inserts weren't working anymore.
-
-## 3.0.1 (05/04/25)
-
-Mainly rewrite of the mathfab/mathforward combination to split it in its functional parts.
-This removed some functionality that didn't belong in there anyway.
-
-### Telnet
-- Added `telnet:writable,id` allows a telnet session to request the writable of another session. Instead
-  of the id, * is valid for the first session that isn't the current one.
-- Added ` >alt` suffix for commands issued through telnet, this will use the writable of the other
-  session in the datagram so the result is shown there instead.
-
-### Streammanager
-- Now gives an error when trying to connect to an ip:port or serial port already in use.
-
-### RealtimeValues
-- Fixed, rv,iv etc weren't added to commandable anymore...
-- Fixed, `*v:id,update,value` wasn't looking at * but to id instead
-
-### Math
-
-- Fixed parsing of *- and the likes
-- Fixed parsing of negative exponents, parsing was fine but bigdecimals don't like it.
-
-## 3.0.0 (31/03/25)
-
-Besides rewriting the taskmanager, this has mainly QoL fixes/changes and the cleanup based on Codacy feedback.
-Result is a diff of "146 files changed, 12283 insertions(+), 14179 deletions(-)"
-Major version bump because a lot has changed under the hood and major bump was overdue anyway.
+- Rewritten TaskManager and PathForward to move to a factory making small functional parts that link together.
+- Rewritten RealtimeValues, to make them leaner by splitting of 'extras' and implement the new logic parser.
+- Added rawworker for bulk processing of data using multithreading and staged processing.
+- Math and logic parsing was all over the codebase, centralized in evalcore and streamlined the layout. Logic got a
+  major rewrite
+  to allow for 'lazy evaluation ' (aka shortcircuiting).
+- A lot of QoL fixes/changes and the cleanup based on Codacy feedback.
+- Result is a diff of "146 files changed, 12283 insertions(+), 14179 deletions(-)"
+- Major version bump because a lot has changed under the hood and major bump was overdue anyway.
 
 ### General
 
@@ -157,6 +62,7 @@ Major version bump because a lot has changed under the hood and major bump was o
 - TCP server port was in an address node instead of port
 - Fixed, The time since last data received wasn't determined for serial with empty eol
 - Fixed `ss:id,eol,` for clearing eol.
+- Now gives an error when trying to connect to an ip:port or serial port already in use.
 
 ### Telnet
 
@@ -165,6 +71,10 @@ Major version bump because a lot has changed under the hood and major bump was o
 - Changed color of `>>es` to cyan so the output doesn't look like ts/ds (which is in orange).
 - `>>?` àdded for a list and info on the available commands.
 - Added `>>prefixid` does the same as `>>prefix` does/did but made more sense to show it prefixed the id.
+- Added `telnet:writable,id` allows a telnet session to request the writable of another session. Instead
+  of the id, * is valid for the first session that isn't the current one.
+- Added ` >alt` suffix for commands issued through telnet, this will use the writable of the other
+  session in the datagram so the result is shown there instead.
 
 ### Store
 - Breaking, Changed the order of the add command so that group is no longer optional.
@@ -174,9 +84,18 @@ Major version bump because a lot has changed under the hood and major bump was o
 - Fixed, Store that use map can now also use calculated values.
 
 ### RealtimeValues
-- Fixed, Min/max/avg etc. is shown again for the `rtvals` command.
-- Fixed, if order wasn't specified it was on top instead of bottom
+
+- Rewrote it to make it leaner and more flexible.
+  - Vals only hold the minimum: group, name, value, defValue, unit and newly added a Function.
+  - All optional stuff was removed in favor of that function
+  - TriggeredCmds is replaced with 'tinytask' which uses the new logic parser
+- The function is called in the update method to determine what needs to be done with the new value. Default is just
+  updating. But stuff like max,min,offset etc become just a setting.
+- Added Aggregator variants of the vals replacing the previous 'history' option. Those extend their baseval
+  But allow a window of values to be stored and a function applied to the whole window instead. Think average,sum,stdev
+  and so on. Default is average.
 - Fixed, `ss:id,reloadstore` didn't properly reload if a map was used.
+- Fixed, `*v:id,update,value` wasn't looking at * but to id instead
 
 ### GIS
 - No longer possible to use duplicate id's for waypoints or geoquads.
@@ -189,6 +108,8 @@ Major version bump because a lot has changed under the hood and major bump was o
 - Rewrote how reloading of the database works, now the instance is retained instead of a 'clean slate'
 
 ### Paths
+
+- Rewrote PathForward to be similar in logic as taskmanager.
 - Targets are stored between reloads, so updates are 'live'.
 - Editor, indexreplace used an inmutable list so didn't work...
 - Editor, added some alternives to the types to maybe make it more straightforward rex -> regex and so on.
@@ -198,6 +119,75 @@ Major version bump because a lot has changed under the hood and major bump was o
 - Added `pf:pathid,switchsrc,newsrc` to switch the src for a path at runtime, can be used to implement redundancy.
   This won't alter the xml.
 - Reloading a path now triggers a check if the db tables that have missing rtvals now can find them.
+- Filter now allows the use of 'or' and 'and' and ,like the editor, it's now possible to
+  use the tag name instead of the type attr.
+
+```xml
+
+<filter>
+  <rule type="contains">1000</rule>
+  <or/> <!-- or and, if none is mentioned, defaults to 'and' -->
+  <contains>-6</contains>
+  <contains>1000 OR -6</contains> <!-- Does the same as the three lines above -->
+</filter>
+```
+
+```xml
+<if contains="1001 OR -4"> <!-- Is also possible now -->
+</if>
+```
+
+- Added the `return` node, mainly useful in combination with the `if`
+  - For now only one behavior will add others in the future
+  - Turns two consecutive if's into an if/else if
+
+```xml
+
+<path>
+  <if contains="1001">
+    <!-- do stuff -->
+    <return/> <!-- After arriving here, leave the path early -->
+  </if>
+  <if contains="-4"> <!-- Is also possible now -->
+    <!-- Do other stuff -->
+  </if>
+</path>
+``` 
+
+### Evalcore (package containing Logic and Math parser)
+
+- Moved all code related to both logic and math parser to their own package.
+- Rewrote the layout of both parsers, now the code is no longer split over modules according to requirements
+  but one single central one.
+- Each has a 'fab', LogicFab and MathFab that fabricate evaluators MathEvaluator and LogicEvaluator.
+- Now the chaining of Math expressions is part of the class instead of needing a separate one. But it's not like an
+  Evaluator contain multiple expressions (for now).
+- Logic parser was rewritten to allow more complicated expressions (brackets and negation) and the parsing
+  now attempts 'lazy evaluation' or 'shortcircuit' while before it just evaluated everything. No nesting of brackets
+  (yet) though.
+
+### Raw worker
+
+- Added worker to reprocess raw log file if it doesn't require realtime data  (except in store)
+- How it works:
+  - Reads data from a single day
+  - Each line gets a counter prefix for sorting it later
+  - Starts stage 1 processing (these are things that can be multithreaded)
+  - Data is sorted to match the original sequence
+  - Stage two is done with the sorted data (this is the store to DB step)
+  - Read the next day
+
+````xml
+
+<rawworker filepath="todo">
+  <stage1>
+    <!-- Path forwards except store -->
+  </stage1>
+  <stage2>
+    <!-- Path forwards including store -->
+  </stage2>
+</rawworker>
+````
 
 ## 2.13.0 (20/02/2025)
 ### Updated dependencies
