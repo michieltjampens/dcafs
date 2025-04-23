@@ -3,13 +3,14 @@
     <settings>
         <mode>normal</mode>
         <!-- Settings related to the telnet server -->
-        <telnet port="2323" title="dcafs"/>
+        <telnet port="23" title="dcafs"/>
         <!-- The telnet server is available on port 2323 and the title presented is dcafs -->
     </settings>
     <rtvals>
         <group id="test">
             <flag def="true" name="flag"/>
             <real def="0" name="real"/>
+            <real def="0" name="bad"/>
             <real def="0" name="result"/>
         </group>
     </rtvals>
@@ -63,9 +64,15 @@
                 <op>i2=i2%3</op> <!-- 20%3=2 -->
                 <op>i3=i3^3.5</op> <!-- 12^3 = 1728 -->
                 <op>i4=i4/3+0.0000001</op>
-                <!-- 2465.0000,10.10,2.00,1728.000000,10-->
+                <!-- 2465.0000,10.10,2.00,1728.000000,3.333333433-->
             </math>
         </path>
-
+        <path id="mathdivzero" delimiter="," src="path:easy">
+            <math>
+                <!-- Input: 5,10,20,12,10 -->
+                <op>{test_bad}=(25+(i1/0))*(i3+5)</op> <!--(25+(10*12))*(12+5) = (25+120)*(17)=145*17 = 2465 -->
+                <!-- 2465.0000,10.10,2.00,1728.000000,3.333333433-->
+            </math>
+        </path>
     </paths>
 </dcafs>
