@@ -3,19 +3,24 @@ package util.data.vals;
 import org.tinylog.Logger;
 import util.xml.XMLdigger;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ValFab {
     public record ValBase(String group, String name, String unit) {
     }
 
-
     public static Map<String, RealVal> digRealVals(XMLdigger dig, String groupName) {
-        return dig.peekOut("real").stream()
+        var d = dig.peekOut("real");
+        var d2 = dig.peekOut("double");
+
+        return Stream.of(d, d2)
+                .flatMap(Collection::stream)
                 .map(rtval -> buildRealVal(XMLdigger.goIn(rtval), groupName).orElse(null))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(RealVal::id, Function.identity()));
@@ -36,12 +41,15 @@ public class ValFab {
 
 
     public static Map<String, IntegerVal> digIntegerVals(XMLdigger dig, String groupName) {
-        return dig.peekOut("integer").stream()
+        var i = dig.peekOut("int");
+        var i2 = dig.peekOut("integer");
+
+        return Stream.of(i, i2)
+                .flatMap(Collection::stream)
                 .map(rtval -> buildIntegerVal(XMLdigger.goIn(rtval), groupName).orElse(null))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(IntegerVal::id, Function.identity()));
     }
-
     public static Optional<IntegerVal> buildIntegerVal(XMLdigger dig, String altGroup) {
         var base = readBasics(dig, altGroup);
         if (base == null)
@@ -56,7 +64,7 @@ public class ValFab {
 
 
     public static Map<String, FlagVal> digFlagVals(XMLdigger dig, String groupName) {
-        return dig.peekOut("real").stream()
+        return dig.peekOut("flag").stream()
                 .map(rtval -> buildFlagVal(XMLdigger.goIn(rtval), groupName).orElse(null))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(FlagVal::id, Function.identity()));
@@ -75,7 +83,7 @@ public class ValFab {
     }
 
     public static Map<String, TextVal> digTextVals(XMLdigger dig, String groupName) {
-        return dig.peekOut("real").stream()
+        return dig.peekOut("text").stream()
                 .map(rtval -> buildTextVal(XMLdigger.goIn(rtval), groupName).orElse(null))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(TextVal::id, Function.identity()));
@@ -85,11 +93,19 @@ public class ValFab {
         var base = readBasics(dig, altGroup);
         if (base == null)
             return Optional.empty();
-
-        var tv = new TextVal(base.group, base.name, base.unit);
-        return Optional.of(tv);
+        return Optional.of(new TextVal(base.group, base.name, base.unit));
     }
 
+    public static BaseVal buildVal(XMLdigger rtval, String group) {
+        var valOpt = switch (rtval.tagName("")) {
+            case "double", "real" -> buildRealVal(rtval, group);
+            case "integer", "int" -> buildIntegerVal(rtval, group);
+            case "flag" -> buildFlagVal(rtval, group);
+            case "text" -> buildTextVal(rtval, group);
+            default -> Optional.empty();
+        };
+        return (BaseVal) valOpt.orElse(null);
+    }
 
     public static ValBase readBasics(XMLdigger dig, String altGroup) {
         // Get the name

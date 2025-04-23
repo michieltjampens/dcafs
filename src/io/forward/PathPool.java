@@ -8,7 +8,7 @@ import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -19,10 +19,10 @@ import java.util.StringJoiner;
 public class PathPool implements Commandable {
 
     private final HashMap<String, PathForward> paths = new HashMap<>();
-    private final RealtimeValues rtvals;
+    private final Rtvals rtvals;
     private final EventLoopGroup nettyGroup;
 
-    public PathPool(RealtimeValues rtvals, EventLoopGroup group) {
+    public PathPool(Rtvals rtvals, EventLoopGroup group) {
         this.rtvals=rtvals;
 
         nettyGroup=group;

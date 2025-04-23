@@ -2,9 +2,9 @@ package util.evalcore;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.data.NumericVal;
-import util.data.RealtimeValues;
 import util.data.procs.DoubleArrayToDouble;
+import util.data.vals.NumericVal;
+import util.data.vals.Rtvals;
 import util.math.MathUtils;
 
 import java.math.BigDecimal;
@@ -181,7 +181,7 @@ public class ParseTools {
         return keyValuePairs;
     }
 
-    public static String replaceRealtimeValues(String expression, ArrayList<NumericVal> refs, RealtimeValues rtvals, ArrayList<Integer> refLookup) {
+    public static String replaceRealtimeValues(String expression, ArrayList<NumericVal> refs, Rtvals rtvals, ArrayList<Integer> refLookup) {
         if (rtvals == null) {
             Logger.warn("Couldn't replace rtvals refs because rtvals is null when parsing: " + expression);
             return expression;
@@ -206,7 +206,7 @@ public class ParseTools {
                     }
                 }
             }*/
-            var result = rtvals.getAbstractVal(val);
+            var result = rtvals.getBaseVal(val);
             if (result.isEmpty()) {
                 Logger.error("No such rtval yet: " + val);
                 return "";

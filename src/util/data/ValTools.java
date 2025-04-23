@@ -2,6 +2,7 @@ package util.data;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.data.vals.*;
 import util.evalcore.ParseTools;
 import util.math.MathUtils;
 import util.tools.TimeTools;
@@ -26,7 +27,7 @@ public class ValTools {
      * @param offset The index offset to apply
      * @return The altered expression
      */
-    public static String buildNumericalMem(RealtimeValues rtvals, String exp, ArrayList<NumericVal> nums, int offset){
+    public static String buildNumericalMem(Rtvals rtvals, String exp, ArrayList<NumericVal> nums, int offset) {
         if( nums==null)
             nums = new ArrayList<>();
 
@@ -72,7 +73,8 @@ public class ValTools {
         nums.trimToSize();
         return exp;
     }
-    private static int findOrAddValue( String id, String type, RealtimeValues rtvals, ArrayList<NumericVal> nums, int offset) {
+
+    private static int findOrAddValue(String id, String type, Rtvals rtvals, ArrayList<NumericVal> nums, int offset) {
         int index;
 
         var value = switch (type) {
@@ -102,7 +104,7 @@ public class ValTools {
      * @param rv The realtimevalues store
      * @return The result or NaN if failed
      */
-    public static double processExpression( String expr, RealtimeValues rv  ){
+    public static double processExpression(String expr, Rtvals rv) {
         double result=Double.NaN;
 
         expr = ValTools.parseRTline(expr,"",rv);
@@ -141,7 +143,7 @@ public class ValTools {
      * @param error Value to put if the reference isn't found
      * @return The (possibly) altered line
      */
-    public static String parseRTline( String line, String error, RealtimeValues rtvals ){
+    public static String parseRTline(String line, String error, Rtvals rtvals) {
 
         if( !line.contains("{"))
             return line;
@@ -159,7 +161,7 @@ public class ValTools {
                         line = line.replace("{" + p[0] + ":" + p[1] + "}", Double.isNaN(d) ? error : String.valueOf(d));
                 }
                 case "i", "int", "integer" -> {
-                    var i = rtvals.getIntegerVal(p[1]).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE);
+                    var i = rtvals.getIntegerVal(p[1]).map(IntegerVal::asInteger).orElse(Integer.MAX_VALUE);
                     if (i != Integer.MAX_VALUE)
                         line = line.replace("{" + p[0] + ":" + p[1] + "}", String.valueOf(i));
                 }
@@ -183,16 +185,17 @@ public class ValTools {
         }
         return line;
     }
-    private static String replaceTime( String ref, String line, RealtimeValues rtvals){
+
+    private static String replaceTime(String ref, String line, Rtvals rtvals) {
         return switch(ref){
             case "ref" -> line.replace("{utc}", TimeTools.formatLongUTCNow());
             case "utclong" -> line.replace("{utclong}", TimeTools.formatLongUTCNow());
             case "utcshort"-> line.replace("{utcshort}", TimeTools.formatShortUTCNow());
             default ->
             {
-                var val = rtvals.getAbstractVal(ref);
+                var val = rtvals.getBaseVal(ref);
                 if( val.isPresent())
-                    yield line.replace( "{"+ref+"}",val.get().stringValue());
+                    yield line.replace("{" + ref + "}", val.get().id());
                 yield line;
             }
         };
@@ -205,7 +208,7 @@ public class ValTools {
      * @param error The line to return on an error or 'ignore' if errors should be ignored
      * @return The (possibly) altered line
      */
-    public static String simpleParseRT( String line,String error, RealtimeValues rv ){
+    public static String simpleParseRT(String line, String error, Rtvals rv) {
 
         var found = words.matcher(line).results().map(MatchResult::group).toList();
         for( var word : found ){
@@ -221,7 +224,7 @@ public class ValTools {
         return line;
     }
 
-    private static String findReplacement(RealtimeValues rv, String word, String line, String error) {
+    private static String findReplacement(Rtvals rv, String word, String line, String error) {
         var id = word.split(":")[1];
         return switch (word.charAt(0)) {
             case 'd', 'r' -> {
@@ -238,7 +241,7 @@ public class ValTools {
                     if (!error.equalsIgnoreCase("ignore")) // if errors should be ignored
                         yield error;
                 }
-                yield String.valueOf(rv.getIntegerVal(id).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
+                yield String.valueOf(rv.getIntegerVal(id).map(IntegerVal::asInteger).orElse(Integer.MAX_VALUE));
             }
             case 'f' -> {
                 if (!rv.hasFlag(id)) {
@@ -269,13 +272,13 @@ public class ValTools {
         };
     }
 
-    private static String checkRealtimeValues(RealtimeValues rv, String word, String line, String error) {
+    private static String checkRealtimeValues(Rtvals rv, String word, String line, String error) {
         if (rv.hasReal(word))  //first check for real
             return String.valueOf(rv.getReal(word, Double.NaN));
 
         // if not
         if (rv.hasInteger(word)) {
-            return String.valueOf(rv.getIntegerVal(word).map(IntegerVal::asIntegerValue).orElse(Integer.MAX_VALUE));
+            return String.valueOf(rv.getIntegerVal(word).map(IntegerVal::asInteger).orElse(Integer.MAX_VALUE));
         }
         if (rv.hasText(word)) { //next, try text
             return rv.getTextVal(word).map(TextVal::value).orElse("");

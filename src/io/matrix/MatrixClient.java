@@ -11,7 +11,7 @@ import org.json.JSONTokener;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.math.MathUtils;
 import util.tools.FileTools;
 import util.tools.Tools;
@@ -88,7 +88,7 @@ public class MatrixClient implements Writable, Commandable {
     private static final String ROOM_ID_REGEX = "^[!][a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
     private static final String EVENT_ID_REGEX = "^\\$[a-zA-Z0-9_-]+:[a-zA-Z0-9.-]+$";
 
-    public MatrixClient(RealtimeValues rtvals ){
+    public MatrixClient(Rtvals rtvals) {
         math = StepFab.buildMathStep(null, ",", rtvals).orElse(null);
         readFromXML();
     }

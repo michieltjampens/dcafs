@@ -6,8 +6,8 @@ import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealVal;
-import util.data.RealtimeValues;
+import util.data.vals.RealVal;
+import util.data.vals.Rtvals;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -38,7 +38,7 @@ public class Waypoints implements Commandable {
     private long lastTravelTaskCheck = 0L;
 
     /* *************************** C O N S T R U C T O R *********************************/
-    public Waypoints(ScheduledExecutorService scheduler, RealtimeValues rtvals){
+    public Waypoints(ScheduledExecutorService scheduler, Rtvals rtvals) {
         this.scheduler=scheduler;
 
         readFromXML(rtvals);
@@ -79,7 +79,7 @@ public class Waypoints implements Commandable {
         quads.put(quad.id(),quad);
     }
     /* ****************************** X M L  *************************************** */
-    private boolean readFromXML( RealtimeValues rtvals ){
+    private boolean readFromXML(Rtvals rtvals) {
 
         if( Paths.settings() == null){
             Logger.warn("(wpts) -> Reading Waypoints failed because invalid XML.");
@@ -215,7 +215,7 @@ public class Waypoints implements Commandable {
             return "No waypoints yet.";
         for( Waypoint wp : wps.values() ){
             b.add( wp.getInfo(newline) );
-            b.add( wp.toString(false, true, sog.asDoubleValue()) ).add("");
+            b.add(wp.toString(false, true, sog.asDouble())).add("");
         }
         var age = "Not yet";
         if (lastTravelCheck != 0L)
@@ -254,7 +254,7 @@ public class Waypoints implements Commandable {
       * @return The id found
      */
     public String getNearestWaypoint( ){
-        return getClosestWaypoint( latitude.asDoubleValue(),longitude.asDoubleValue());
+        return getClosestWaypoint(latitude.asDouble(), longitude.asDouble());
     }
     /**
      * Get the distance to a certain waypoint in meters
@@ -265,7 +265,7 @@ public class Waypoints implements Commandable {
         var wp = wps.get(id);
         if( wp == null || longitude==null || latitude==null)
             return -1;
-        return wp.distanceTo(latitude.asDoubleValue(), longitude.asDoubleValue());
+        return wp.distanceTo(latitude.asDouble(), longitude.asDouble());
     }
     /* ********************************* T H R E A D ***************************************** */
     private void scheduleTravelCheck(boolean hasTravel) {
@@ -294,12 +294,12 @@ public class Waypoints implements Commandable {
         lastTravelCheck = Instant.now().getEpochSecond();
         try {
             wps.values().forEach(wp -> {
-                wp.checkIt( latitude.asDoubleValue(), longitude.asDoubleValue()).ifPresent(
+                wp.checkIt(latitude.asDouble(), longitude.asDouble()).ifPresent(
                         travel -> travel.getCmds().forEach(cmd -> Core.addToQueue(Datagram.system(cmd)))
                 );
             });
             quads.values().forEach( gq -> {
-                gq.checkIt(latitude.asDoubleValue(), longitude.asDoubleValue())
+                gq.checkIt(latitude.asDouble(), longitude.asDouble())
                         .forEach( cmd -> Core.addToQueue(Datagram.system(cmd)));
             });
         } catch (Throwable trow) {
@@ -337,7 +337,7 @@ public class Waypoints implements Commandable {
             case "nearest" -> "The nearest waypoint is " + getNearestWaypoint();
             case "states" -> sog == null
                                   ? "! Can't determine state, no sog defined"
-                                  : getCurrentStates(false, sog.asDoubleValue());
+                    : getCurrentStates(false, sog.asDouble());
             case "store" -> storeInXML()
                                 ? "Storing waypoints successful"
                                 : "! Storing waypoints failed";

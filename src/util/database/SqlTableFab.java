@@ -2,7 +2,11 @@ package util.database;
 
 import das.Paths;
 import org.tinylog.Logger;
-import util.data.*;
+import util.data.ValStore;
+import util.data.vals.IntegerVal;
+import util.data.vals.RealVal;
+import util.data.vals.Rtvals;
+import util.data.vals.TextVal;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
@@ -44,7 +48,7 @@ public class SqlTableFab {
         return Optional.empty();
     }
 
-    public static void buildTableStore(SqlTable table, RealtimeValues rtvals) {
+    public static void buildTableStore(SqlTable table, Rtvals rtvals) {
         table.getStores().values().forEach(store -> store.removeRealtimeValues(rtvals));
         table.getStores().clear();
 
@@ -114,7 +118,7 @@ public class SqlTableFab {
         return new SqlColumn(columnName, tableName, rtval, type);
     }
 
-    private static ValStore buildStore(RealtimeValues rtvals, String tableName, ArrayList<SqlColumn> columns, PrepStatement prep) {
+    private static ValStore buildStore(Rtvals rtvals, String tableName, ArrayList<SqlColumn> columns, PrepStatement prep) {
         //SqlTableFab.PrepStatement prep = preps.get("");
         if (prep == null) {
             Logger.error(tableName + " -> No such prep: " + tableName);
@@ -158,7 +162,7 @@ public class SqlTableFab {
         return store;
     }
 
-    private static boolean doReal(RealtimeValues rtvals, String ref, ValStore store, SqlColumn col, String tableName) {
+    private static boolean doReal(Rtvals rtvals, String ref, ValStore store, SqlColumn col, String tableName) {
         var v = rtvals.getRealVal(ref);
         if (v.isPresent()) {
             store.addAbstractVal(v.get());
@@ -178,7 +182,7 @@ public class SqlTableFab {
         return true;
     }
 
-    private static boolean doInteger(RealtimeValues rtvals, String ref, ValStore store, SqlColumn col, String tableName) {
+    private static boolean doInteger(Rtvals rtvals, String ref, ValStore store, SqlColumn col, String tableName) {
         var v = rtvals.getIntegerVal(ref);
         if (v.isPresent()) {
             store.addAbstractVal(v.get());
@@ -199,7 +203,7 @@ public class SqlTableFab {
         return true;
     }
 
-    private static void doLocaldtNow(RealtimeValues rtvals, ValStore store) {
+    private static void doLocaldtNow(Rtvals rtvals, ValStore store) {
         var v = rtvals.getTextVal("dcafs_localdt");
         if (v.isPresent()) {
             store.addAbstractVal(v.get());
@@ -210,7 +214,7 @@ public class SqlTableFab {
         }
     }
 
-    private static void doUtcdtNow(RealtimeValues rtvals, ValStore store) {
+    private static void doUtcdtNow(Rtvals rtvals, ValStore store) {
         var v = rtvals.getTextVal("dcafs_utcdt");
         if (v.isPresent()) {
             store.addAbstractVal(v.get());

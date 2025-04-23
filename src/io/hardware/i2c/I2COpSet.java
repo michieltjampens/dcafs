@@ -4,9 +4,9 @@ import io.forward.steps.MathStep;
 import io.forward.steps.StoreStep;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.data.ValStoreFab;
+import util.data.vals.Rtvals;
 import util.evalcore.MathEvaluator;
 import util.evalcore.MathFab;
 import util.xml.XMLdigger;
@@ -27,7 +27,7 @@ public class I2COpSet {
     private OUTPUT_TYPE outType = OUTPUT_TYPE.NONE;
     boolean valid = true;
 
-    public I2COpSet(XMLdigger dig, RealtimeValues rtvals, String deviceId){
+    public I2COpSet(XMLdigger dig, Rtvals rtvals, String deviceId) {
         readFromXml(dig,rtvals,deviceId);
     }
 
@@ -35,7 +35,7 @@ public class I2COpSet {
         return !valid;
     }
 
-    public void readFromXml(XMLdigger digger, RealtimeValues rtvals, String deviceId){
+    public void readFromXml(XMLdigger digger, Rtvals rtvals, String deviceId) {
 
         id = digger.attr("id","");
         info = digger.attr("info","");  // Info abo
@@ -203,7 +203,8 @@ public class I2COpSet {
         ops.forEach( op -> join.add(prefix+op.toString()));
         return join.toString();
     }
-    public void removeRtvals( RealtimeValues rtvals){
+
+    public void removeRtvals(Rtvals rtvals) {
         for( var op : ops ){
             if (op instanceof MathStep ms) {
                 var store = ms.getStore();

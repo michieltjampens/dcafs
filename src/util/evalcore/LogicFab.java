@@ -1,8 +1,8 @@
 package util.evalcore;
 
 import org.tinylog.Logger;
-import util.data.NumericVal;
-import util.data.RealtimeValues;
+import util.data.vals.NumericVal;
+import util.data.vals.Rtvals;
 
 import java.util.*;
 import java.util.function.Function;
@@ -49,7 +49,8 @@ public class LogicFab {
         logicReplacements.put("--", "-=1");
         logicReplacements.put("diff", "~");// diff?
     }
-    public static Optional<LogicEvaluator> parseComparison(String exp, RealtimeValues rtvals, List<NumericVal> oldRefs){
+
+    public static Optional<LogicEvaluator> parseComparison(String exp, Rtvals rtvals, List<NumericVal> oldRefs) {
         var ori = exp;
 
         exp=logicTextToSymbols(exp);

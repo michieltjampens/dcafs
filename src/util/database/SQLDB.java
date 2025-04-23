@@ -3,7 +3,7 @@ package util.database;
 import das.Paths;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -539,7 +539,8 @@ public class SQLDB extends Database implements TableInsert{
         this.doInserts = doInserts;
         Logger.info(id() + "(dbm) -> Allowing inserts? " + doInserts);
     }
-    public void buildStores( RealtimeValues rtvals ){
+
+    public void buildStores(Rtvals rtvals) {
         tables.values().stream()
                 .filter(table -> table.noValidStore(""))
                 .forEach(table -> SqlTableFab.buildTableStore(table, rtvals));

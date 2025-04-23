@@ -1,8 +1,8 @@
 package util.tasks.blocks;
 
 import org.tinylog.Logger;
-import util.data.NumericVal;
-import util.data.RealtimeValues;
+import util.data.vals.NumericVal;
+import util.data.vals.Rtvals;
 import util.evalcore.LogicEvaluator;
 
 import java.util.ArrayList;
@@ -16,7 +16,8 @@ public class ConditionBlock extends AbstractBlock {
     ConditionBlock(LogicEvaluator logEval) {
         this.logEval=logEval;
     }
-    public static Optional<ConditionBlock> build(String condition, RealtimeValues rtvals, ArrayList<NumericVal> sharedMem){
+
+    public static Optional<ConditionBlock> build(String condition, Rtvals rtvals, ArrayList<NumericVal> sharedMem) {
         var logEvalOpt = util.evalcore.LogicFab.parseComparison(condition,rtvals,sharedMem);
         return logEvalOpt.map(ConditionBlock::new);
     }

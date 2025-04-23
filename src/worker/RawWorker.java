@@ -4,7 +4,7 @@ import das.Paths;
 import io.forward.steps.AbstractStep;
 import io.forward.LinkedStepsFab;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.tools.TimeTools;
 
 import java.io.BufferedReader;
@@ -44,7 +44,7 @@ public class RawWorker {
     private long readingTime = 0;
     private long waitingTime = 0;
 
-    public RawWorker(RealtimeValues rtvals) {
+    public RawWorker(Rtvals rtvals) {
         var dig = Paths.digInSettings("rawworker");
 
         if (dig.isInvalid()) {
@@ -117,7 +117,7 @@ public class RawWorker {
         totalLines += lineNumber;
     }
 
-    private AbstractStep[] getStageInstances(RealtimeValues rtvals, int stage) {
+    private AbstractStep[] getStageInstances(Rtvals rtvals, int stage) {
         var instances = new AbstractStep[WORKERS];
         for (int a = 0; a < WORKERS; a++) {
             var dig = Paths.digInSettings("rawworker");

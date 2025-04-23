@@ -1,15 +1,15 @@
 package io.forward;
 
 import io.forward.steps.*;
-import util.data.RealtimeValues;
 import util.data.ValStoreFab;
+import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 
 import java.util.ArrayList;
 
 public class LinkedStepsFab {
 
-    public static AbstractStep[] buildLink(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
+    public static AbstractStep[] buildLink(XMLdigger dig, Rtvals rtvals, String delimiter) {
         var ft = new FabTools(rtvals, delimiter);
 
         ft.id = dig.attr("id", "");
@@ -113,13 +113,13 @@ public class LinkedStepsFab {
     }
 
     private static class FabTools {
-        RealtimeValues rtvals;
+        Rtvals rtvals;
         String delimiter;
         String id;
         FilterStep lastIf = null;      // Temp holder for the last occurance of an 'if' to set the fail branch
         ArrayList<AbstractStep> steps = new ArrayList<>();
 
-        public FabTools(RealtimeValues rtvals, String delimiter) {
+        public FabTools(Rtvals rtvals, String delimiter) {
             this.rtvals = rtvals;
             this.delimiter = delimiter;
         }

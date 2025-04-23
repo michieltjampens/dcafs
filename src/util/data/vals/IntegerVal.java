@@ -2,6 +2,8 @@ package util.data.vals;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.evalcore.Evaluator;
+import util.evalcore.LogEvaluatorDummy;
 
 import java.math.BigDecimal;
 import java.util.function.IntBinaryOperator;
@@ -9,12 +11,24 @@ import java.util.function.IntBinaryOperator;
 public class IntegerVal extends BaseVal implements NumericVal {
     int value, defValue;
     IntBinaryOperator updater = (oldV, newV) -> newV;
+    Evaluator logEval = new LogEvaluatorDummy();
 
     public IntegerVal(String group, String name, String unit) {
         super(group, name, unit);
         defValue = -1;
     }
 
+    public static IntegerVal newVal(String group, String name) {
+        return new IntegerVal(group, name, "");
+    }
+
+    public int value() {
+        return value;
+    }
+
+    public void update(double value) {
+        this.value = (int) value;
+    }
     @Override
     public void resetValue() {
         value = defValue;

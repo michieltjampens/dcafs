@@ -1,7 +1,7 @@
 package util.evalcore;
 
 import org.tinylog.Logger;
-import util.data.NumericVal;
+import util.data.vals.NumericVal;
 
 public class BaseEvaluator {
     // Info for debugging

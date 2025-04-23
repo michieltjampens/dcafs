@@ -7,8 +7,8 @@ import io.forward.steps.MathStep;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
-import util.data.RealtimeValues;
 import util.data.ValTools;
+import util.data.vals.Rtvals;
 import util.database.SQLiteDB;
 import util.tools.FileTools;
 import util.tools.TimeTools;
@@ -40,7 +40,7 @@ public class PathForward implements Writable {
     enum SRCTYPE {REG,PLAIN,RTVALS,CMD,FILE,SQLITE,INVALID} // Possible custom sources
 
     /* Both */
-    RealtimeValues rtvals; // Reference to the realtimevalues
+    Rtvals rtvals; // Reference to the realtimevalues
     EventLoopGroup nettyGroup; // Threaded processing is done with this
 
     private AbstractStep[] stepsForward = new AbstractStep[0]; // The steps to take in the path
@@ -52,7 +52,7 @@ public class PathForward implements Writable {
     boolean active = false;
     private String delimiter = ",";
 
-    public PathForward(RealtimeValues rtvals, EventLoopGroup nettyGroup) {
+    public PathForward(Rtvals rtvals, EventLoopGroup nettyGroup) {
         this.rtvals = rtvals;
         this.nettyGroup=nettyGroup;
     }

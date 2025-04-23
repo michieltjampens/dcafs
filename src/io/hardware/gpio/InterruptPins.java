@@ -8,9 +8,9 @@ import das.Core;
 import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
-import util.data.IntegerVal;
-import util.data.RealVal;
-import util.data.RealtimeValues;
+import util.data.vals.IntegerVal;
+import util.data.vals.RealVal;
+import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
@@ -22,9 +22,9 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
     private final HashMap<String,DigitalInputDevice> inputs = new HashMap<>();
     private final HashMap<Integer,ArrayList<IsrAction>> isrs = new HashMap<>();
     private final CustomBoard board;
-    private final RealtimeValues rtvals;
+    private final Rtvals rtvals;
 
-    public InterruptPins(RealtimeValues rtvals){
+    public InterruptPins(Rtvals rtvals) {
         this.rtvals=rtvals;
         board = new CustomBoard(LocalSystemInfo.getInstance(), Paths.settings());
 
@@ -228,8 +228,8 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             this.counter=counter;
         }
         public void trigger( DigitalInputEvent event ){
-            counter.increment();
-            Logger.info( "Pulses counted: "+counter.asValueString() );
+            counter.update(counter.value() + 1);
+            Logger.info("Pulses counted: " + counter.asString());
         }
     }
     private static class IsrFrequency implements IsrAction {
@@ -253,7 +253,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
                 counter ++; // Increment counter that determines update rate of the realval
                 if( counter == updateRate ) { // If the counter matches the requested rate, actually calculate frequency
                     var res = (double)1000000000/((double) (event.getNanoTime() - stamps.remove(0)) /(samples-1));
-                    frequency.updateValue( res );
+                    frequency.update(res);
                     Logger.debug("Frequency: " + frequency.asValueString());
                     counter=0;
                 }else{// If not, just remove old sample
@@ -276,7 +276,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
                 last=event.getNanoTime();
             }else if(last!=0){
                 int us = Math.toIntExact((event.getNanoTime()-last)/1000);
-                period.updateValue(us);
+                period.update(us);
                 Logger.info("Duration of pulse: " + us+"us");
             }
         }

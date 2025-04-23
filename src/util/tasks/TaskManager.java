@@ -4,8 +4,8 @@ import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.NumericVal;
-import util.data.RealtimeValues;
+import util.data.vals.NumericVal;
+import util.data.vals.Rtvals;
 import util.tasks.blocks.AbstractBlock;
 import util.tasks.blocks.OriginBlock;
 import util.tools.TimeTools;
@@ -19,17 +19,18 @@ public class TaskManager implements Writable {
     HashMap<String, AbstractBlock> starters = new HashMap<>();
     ArrayList<AbstractBlock> startup = new ArrayList<>();
     EventLoopGroup eventLoop;
-    RealtimeValues rtvals;
+    Rtvals rtvals;
     Path scriptPath;
     String id;
     ArrayList<NumericVal> sharedMem = new ArrayList<>();
 
-    public TaskManager(String id, EventLoopGroup eventLoop, RealtimeValues rtvals) {
+    public TaskManager(String id, EventLoopGroup eventLoop, Rtvals rtvals) {
         this.eventLoop = eventLoop;
         this.rtvals = rtvals;
         this.id = id;
     }
-    public RealtimeValues rtvals(){
+
+    public Rtvals rtvals() {
         return rtvals;
     }
     public EventLoopGroup eventLoopGroup(){

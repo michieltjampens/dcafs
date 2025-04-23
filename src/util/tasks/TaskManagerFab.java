@@ -3,7 +3,7 @@ package util.tasks;
 import io.email.Email;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.tasks.blocks.*;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -19,7 +19,8 @@ public class TaskManagerFab {
         startDigging(dig,tm);
         return true;
     }
-    public static Optional<TaskManager> buildTaskManager(String id, Path script, EventLoopGroup eventLoop, RealtimeValues rtvals) {
+
+    public static Optional<TaskManager> buildTaskManager(String id, Path script, EventLoopGroup eventLoop, Rtvals rtvals) {
         var tm = new TaskManager(id,eventLoop,rtvals);
         tm.setScriptPath(script);
 

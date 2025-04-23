@@ -2,7 +2,7 @@ package util.evalcore;
 
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
-import util.data.NumericVal;
+import util.data.vals.NumericVal;
 import util.tools.TimeTools;
 
 import java.math.BigDecimal;
@@ -146,7 +146,7 @@ public class MathEvaluator extends BaseEvaluator {
             if (r < 100 && r < inputs.length) { // second check redundant because highestI earlier?
                 val = inputs[r];
             } else if (refs != null && r - 100 < refs.length ) {
-                val = refs[r - 100].toBigDecimal();
+                val = refs[r - 100].asBigDecimal();
             } else {
                 Logger.error(id + " (me) -> Scratchpad couldn't be filled for index " + a + " from r" + r + " due to out of bounds");
                 return false;
@@ -198,7 +198,7 @@ public class MathEvaluator extends BaseEvaluator {
             bds[resultIndex] = result;
         } else if (resultIndex % 100 < refs.length) { // Or a val ref, either permanent (1xx) or temp (2xx)
             var index = resultIndex % 100;
-            refs[index].updateValue(result.doubleValue());
+            refs[index].update(result.doubleValue());
         } else {
             return null;
         }

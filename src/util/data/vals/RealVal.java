@@ -20,6 +20,9 @@ public class RealVal extends BaseVal implements NumericVal {
         super(group, name, unit);
     }
 
+    public static RealVal newVal(String group, String name) {
+        return new RealVal(group, name, "");
+    }
     public void update(double value) {
         var result = logEval.eval(this.value, value);
         if (result.isEmpty()) {

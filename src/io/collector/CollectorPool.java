@@ -8,7 +8,7 @@ import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -24,9 +24,9 @@ public class CollectorPool implements Commandable, CollectorFuture {
 
     private final Map<String, FileCollector> fileCollectors = new HashMap<>();
     private final EventLoopGroup nettyGroup;
-    private final RealtimeValues rtvals;
+    private final Rtvals rtvals;
 
-    public CollectorPool(EventLoopGroup nettyGroup, RealtimeValues rtvals ){
+    public CollectorPool(EventLoopGroup nettyGroup, Rtvals rtvals) {
 
         this.nettyGroup=nettyGroup;
         this.rtvals=rtvals;

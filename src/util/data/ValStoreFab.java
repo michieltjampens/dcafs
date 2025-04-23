@@ -2,6 +2,9 @@ package util.data;
 
 import das.Core;
 import org.tinylog.Logger;
+import util.data.vals.BaseVal;
+import util.data.vals.Rtvals;
+import util.data.vals.ValFab;
 import util.xml.XMLdigger;
 import worker.Datagram;
 
@@ -9,7 +12,7 @@ import java.util.ArrayList;
 
 public class ValStoreFab {
 
-    public static ValStore buildValStore(XMLdigger dig, String id, RealtimeValues rtvals) {
+    public static ValStore buildValStore(XMLdigger dig, String id, Rtvals rtvals) {
 
         var failStore = new ValStore("");
         failStore.invalidate();
@@ -35,7 +38,7 @@ public class ValStoreFab {
         return failStore;
     }
 
-    private static boolean reload(ValStore store, XMLdigger dig, String id, RealtimeValues rtvals) {
+    private static boolean reload(ValStore store, XMLdigger dig, String id, Rtvals rtvals) {
 
         var groupID = dig.attr("group", id);
 
@@ -96,7 +99,7 @@ public class ValStoreFab {
 
     private static boolean digMapBased(XMLdigger dig, String groupID, ValStore store) {
 
-        ArrayList<AbstractVal> calVal = new ArrayList<>();
+        ArrayList<BaseVal> calVal = new ArrayList<>();
 
         var vals = dig.currentSubs();
         for (var val : dig.digOut("*")) {
@@ -105,13 +108,13 @@ public class ValStoreFab {
 
             var key = val.attr("key", "");
             switch (val.tagName("")) {
-                case "real" -> RealVal.build(val.currentTrusted(), groupID)
+                case "real" -> ValFab.buildRealVal(val, groupID)
                         .ifPresent(v -> store.putAbstractVal(key, v));
-                case "int" -> IntegerVal.build(val.currentTrusted(), groupID)
+                case "int" -> ValFab.buildIntegerVal(val, groupID)
                         .ifPresent(v -> store.putAbstractVal(key, v));
-                case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID)
+                case "flag", "bool" -> ValFab.buildFlagVal(val, groupID)
                         .ifPresent(v -> store.putAbstractVal(key, v));
-                case "text" -> TextVal.build(val.currentTrusted(), groupID)
+                case "text" -> ValFab.buildTextVal(val, groupID)
                         .ifPresent(v -> store.putAbstractVal(key, v));
                 default -> {
                 }
@@ -124,7 +127,7 @@ public class ValStoreFab {
         return true;
     }
 
-    private static ArrayList<AbstractVal> checkForCalVal(XMLdigger dig, ArrayList<AbstractVal> calVal, String groupID, ValStore store) {
+    private static ArrayList<BaseVal> checkForCalVal(XMLdigger dig, ArrayList<BaseVal> calVal, String groupID, ValStore store) {
 
         ArrayList<String> calOps = new ArrayList<>();
 
@@ -132,8 +135,8 @@ public class ValStoreFab {
         if (!o.isEmpty()) { // Skip o's
             calOps.add(o);
             switch (dig.tagName("")) {
-                case "real" -> RealVal.build(dig.currentTrusted(), groupID).ifPresent(calVal::add);
-                case "int", "integer" -> IntegerVal.build(dig.currentTrusted(), groupID).ifPresent(calVal::add);
+                case "real" -> ValFab.buildRealVal(dig, groupID).ifPresent(calVal::add);
+                case "int", "integer" -> ValFab.buildIntegerVal(dig, groupID).ifPresent(calVal::add);
                 default -> {
                     Logger.error("Can't do calculation on any other than real and int for now");
                     return null;
@@ -146,7 +149,7 @@ public class ValStoreFab {
     }
 
     private static boolean digIndexBased(XMLdigger dig, String groupID, ValStore store) {
-        ArrayList<AbstractVal> rtvals = new ArrayList<>();
+        ArrayList<BaseVal> rtvals = new ArrayList<>();
         for (var val : dig.digOut("*")) {
             if (checkForCalVal(val, new ArrayList<>(), groupID, store) != null)
                 continue;
@@ -166,12 +169,11 @@ public class ValStoreFab {
                 Logger.warn(store.id() + "(store) -> Already using index " + i + " overwriting previous content!");
             }
             switch (val.tagName("")) {
-                case "real" -> RealVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "int", "integer" ->
-                        IntegerVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "flag", "bool" -> FlagVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "real" -> ValFab.buildRealVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "int", "integer" -> ValFab.buildIntegerVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "flag", "bool" -> ValFab.buildFlagVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
                 case "ignore" -> rtvals.add(null);
-                case "text" -> TextVal.build(val.currentTrusted(), groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "text" -> ValFab.buildTextVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
                 case "macro" -> {
                     Logger.warn("Val of type macro ignored");
                     rtvals.add(null);

@@ -1,6 +1,7 @@
 package util.data;
 
 import org.tinylog.Logger;
+import util.data.vals.*;
 import util.database.TableInsert;
 import util.math.MathUtils;
 
@@ -8,8 +9,8 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class ValStore {
-    private final ArrayList<AbstractVal> localValRefs = new ArrayList<>();
-    private ArrayList<AbstractVal> calVal = new ArrayList<>();
+    private final ArrayList<BaseVal> localValRefs = new ArrayList<>();
+    private ArrayList<BaseVal> calVal = new ArrayList<>();
     private ArrayList<String> calOps = new ArrayList<>();
     private ArrayList<String[]> dbInsert = new ArrayList<>();
     private final ArrayList<TableInsert> tis = new ArrayList<>();
@@ -19,7 +20,7 @@ public class ValStore {
 
     /* * MAPPED * */
     private boolean map=false;
-    private final HashMap<String,AbstractVal> valMap = new HashMap<>();
+    private final HashMap<String, BaseVal> valMap = new HashMap<>();
     private boolean idleReset=false;
     private boolean valid=true;
     private String lastKey=""; // Last key trigger db store
@@ -55,7 +56,7 @@ public class ValStore {
         this.id=id;
     }
 
-    public void addVals( ArrayList<AbstractVal> rtvals){
+    public void addVals(ArrayList<BaseVal> rtvals) {
         this.localValRefs.addAll(rtvals);
     }
     public void setIdleReset( boolean state){
@@ -70,7 +71,7 @@ public class ValStore {
         this.dbInsert = dbInsert;
     }
 
-    public void setCalval(ArrayList<AbstractVal> calVal, ArrayList<String> calOps) {
+    public void setCalval(ArrayList<BaseVal> calVal, ArrayList<String> calOps) {
         this.calVal = calVal;
         this.calOps = calOps;
     }
@@ -82,12 +83,14 @@ public class ValStore {
     public void invalidate() {
         valid = false;
     }
-    public void shareRealtimeValues(RealtimeValues rtv){
+
+    public void shareRealtimeValues(Rtvals rtv) {
         localValRefs.replaceAll(rtv::AddIfNewAndRetrieve);
         valMap.replaceAll((k, v) -> rtv.AddIfNewAndRetrieve(v));
         calVal.replaceAll(rtv::AddIfNewAndRetrieve);
     }
-    public void removeRealtimeValues( RealtimeValues rtv){
+
+    public void removeRealtimeValues(Rtvals rtv) {
         localValRefs.forEach(rtv::removeVal);
         valMap.values().forEach(rtv::removeVal);
         calVal.forEach(rtv::removeVal);
@@ -99,7 +102,8 @@ public class ValStore {
     public void addEmptyVal(){
         localValRefs.add(null);
     }
-    public void addAbstractVal( AbstractVal val){
+
+    public void addAbstractVal(BaseVal val) {
         localValRefs.add(val);
     }
 
@@ -110,14 +114,15 @@ public class ValStore {
     public ArrayList<String> getCurrentValues() {
         var values = new ArrayList<String>(localValRefs.size() + 1);
         for (var val : localValRefs)
-            values.add(val == null ? null : val.stringValue());
+            values.add(val == null ? null : val.asString());
         return values;
     }
     /* ****************************** M A P P E D **************************************************** */
     public boolean mapped(){
         return map;
     }
-    public void putAbstractVal(String key, AbstractVal val){
+
+    public void putAbstractVal(String key, BaseVal val) {
         lastKey=key;
         valMap.put(key, val);
     }
@@ -185,9 +190,9 @@ public class ValStore {
             for (int a = 0; a < localValRefs.size(); a++) {
                 if (localValRefs.get(a) != null) {
                     if (localValRefs.get(a) instanceof IntegerVal iv) {
-                        iv.value(vals.get(a).intValue());
+                        iv.update(vals.get(a).intValue());
                     } else if (localValRefs.get(a) instanceof RealVal rv) {
-                        rv.value(vals.get(a));
+                        rv.update(vals.get(a));
                     }else{
                         Logger.error(id+" (store) -> Tried to apply an integer to a flag or text");
                         return false;
@@ -203,22 +208,22 @@ public class ValStore {
         for( int op=0;op<calOps.size();op++ ){
             var form = calOps.get(op);
 
-            for (AbstractVal val : Stream.of(localValRefs, valMap.values()).flatMap(Collection::stream).filter(Objects::nonNull).toList()) {
-                form = form.replace(val.id(), val.stringValue()); // Replace the id with the value
+            for (BaseVal val : Stream.of(localValRefs, valMap.values()).flatMap(Collection::stream).filter(Objects::nonNull).toList()) {
+                form = form.replace(val.id(), val.asString()); // Replace the id with the value
                 if (!form.contains("_"))// Means all id's were replaced, so stop looking
                     break;
             }
-            for (AbstractVal val : valMap.values()) {
+            for (BaseVal val : valMap.values()) {
                 if (val == null)
                     continue;
-                form = form.replace(val.id(), val.stringValue()); // Replace the id with the value
+                form = form.replace(val.id(), val.asString()); // Replace the id with the value
                 if (!form.contains("_"))// Means all id's were replaced, so stop looking
                     break;
             }
             var result = MathUtils.noRefCalculation(form, Double.NaN, false);
             if( !Double.isNaN(result)){
                 if (calVal.get(op) instanceof NumericVal nv) {
-                    nv.updateValue(result);
+                    nv.update(result);
                 } else {
                     calVal.get(op).parseValue(String.valueOf(result));
                 }
@@ -228,9 +233,9 @@ public class ValStore {
         }
     }
     public void resetValues(){
-        localValRefs.forEach(AbstractVal::resetValue);
-        valMap.values().forEach(AbstractVal::resetValue);
-        calVal.forEach(AbstractVal::resetValue);
+        localValRefs.forEach(BaseVal::resetValue);
+        valMap.values().forEach(BaseVal::resetValue);
+        calVal.forEach(BaseVal::resetValue);
     }
     public void doIdle(){
         if( idleReset )

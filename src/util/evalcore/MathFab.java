@@ -2,9 +2,9 @@ package util.evalcore;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.data.NumericVal;
-import util.data.RealVal;
-import util.data.RealtimeValues;
+import util.data.vals.NumericVal;
+import util.data.vals.RealVal;
+import util.data.vals.Rtvals;
 import util.math.MathUtils;
 
 import java.util.ArrayList;
@@ -13,11 +13,11 @@ import java.util.StringJoiner;
 
 public class MathFab {
 
-    public static Optional<MathEvaluator> parseExpression(String expression, RealtimeValues rtvals, NumericVal[] valRefs) {
+    public static Optional<MathEvaluator> parseExpression(String expression, Rtvals rtvals, NumericVal[] valRefs) {
         return build(expression, rtvals, valRefs);
     }
 
-    public static Optional<MathEvaluator> parseExpression(String expression, RealtimeValues rtvals) {
+    public static Optional<MathEvaluator> parseExpression(String expression, Rtvals rtvals) {
         return build(expression, rtvals, null);
     }
 
@@ -27,7 +27,7 @@ public class MathFab {
      * @param expression The mathematical expression to parse
      * @return This object or null if failed
      */
-    private static Optional<MathEvaluator> build(String expression, RealtimeValues rtvals, NumericVal[] oldRefs) {
+    private static Optional<MathEvaluator> build(String expression, Rtvals rtvals, NumericVal[] oldRefs) {
 
         var mathEval = new MathEvaluator(expression);
 
@@ -161,7 +161,7 @@ public class MathFab {
      * @param refs     The subset of the realtimevalues already used
      * @return The index or -1 if the expression is empty or something wrong with it
      */
-    private static int determineResultIndex(String equation, RealtimeValues rtvals, ArrayList<NumericVal> refs) {
+    private static int determineResultIndex(String equation, Rtvals rtvals, ArrayList<NumericVal> refs) {
         if (equation.isEmpty()) // Nothing to work with
             return -1;
 
@@ -172,7 +172,7 @@ public class MathFab {
         // References to rtvals
         if (equation.contains("{")) {
             equation = equation.substring(1, equation.length() - 1);
-            var valOpt = rtvals.getAbstractVal(equation);
+            var valOpt = rtvals.getBaseVal(equation);
             if (valOpt.isEmpty()) {
                 Logger.error("No such val yet: " + equation);
                 return -1;

@@ -3,7 +3,7 @@ package io.forward;
 import io.forward.steps.CmdStep;
 import io.forward.steps.MathStep;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.evalcore.MathEvaluator;
 import util.evalcore.MathFab;
 import util.evalcore.ParseTools;
@@ -14,11 +14,11 @@ import java.util.Optional;
 
 public class StepFab {
 
-    public static Optional<MathStep> buildMathStep(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
+    public static Optional<MathStep> buildMathStep(XMLdigger dig, String delimiter, Rtvals rtvals) {
         return digMathNode(dig, rtvals, delimiter);
     }
 
-    public static Optional<CmdStep> buildCmdStep(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
+    public static Optional<CmdStep> buildCmdStep(XMLdigger dig, String delimiter, Rtvals rtvals) {
         return digCmdNode(dig, rtvals, delimiter);
     }
     /* ***************************************** M A T H  ************************************************************ */
@@ -30,7 +30,7 @@ public class StepFab {
      * @return True if this was successful
      */
 
-    public static Optional<MathStep> digMathNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
+    public static Optional<MathStep> digMathNode(XMLdigger dig, Rtvals rtvals, String delimiter) {
         if (dig == null)
             return Optional.empty();
 
@@ -104,7 +104,7 @@ public class StepFab {
     }
 
     /* ************************************** C M D **************************************************************** */
-    public static Optional<CmdStep> digCmdNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
+    public static Optional<CmdStep> digCmdNode(XMLdigger dig, Rtvals rtvals, String delimiter) {
         // First read the basics (things common to all forwards)
         delimiter = dig.attr("delimiter", delimiter);
         var step = new CmdStep(dig.attr("id", ""), delimiter);
@@ -116,13 +116,13 @@ public class StepFab {
         return Optional.of(step);
     }
 
-    private static void processCmd(CmdStep step, RealtimeValues rtvals, String cmd) {
+    private static void processCmd(CmdStep step, Rtvals rtvals, String cmd) {
         var ori = cmd;
 
         var refs = ParseTools.extractCurlyContent(cmd, true);
         if (!refs.isEmpty()) {
             for (int a = 0; a < refs.size(); a++) {
-                var val = rtvals.getAbstractVal(refs.get(a));
+                var val = rtvals.getBaseVal(refs.get(a));
                 if (val.isEmpty()) {
                     Logger.error("Didn't find a match for " + refs.get(a) + " as part of " + cmd);
                 } else {

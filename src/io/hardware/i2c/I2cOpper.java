@@ -4,7 +4,7 @@ import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 
 import java.util.ArrayList;
@@ -44,7 +44,8 @@ public class I2cOpper extends I2cDevice{
 	public int opsetCount( ){
 		return ops.size();
 	}
-	public void clearOpSets(RealtimeValues rtvals ){
+
+	public void clearOpSets(Rtvals rtvals) {
 		// Make sure the rtvals are also removed from the central repo
 		ops.values().forEach( set -> set.removeRtvals(rtvals));
 		ops.clear();

@@ -1,10 +1,13 @@
 package util.data.vals;
 
 import das.Commandable;
+import das.Core;
 import das.Paths;
 import io.Writable;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
+import util.LookAndFeel;
+import util.data.ValTools;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import worker.Datagram;
@@ -418,9 +421,258 @@ public class Rtvals implements Commandable {
                 .toList();
     }
 
+    /* ************************** C O M M A N D A B L E ***************************************** */
     @Override
     public String replyToCommand(Datagram d) {
-        return "";
+        var html = d.asHtml();
+        var args = d.args();
+
+        // Switch between either empty string or the telnetcode because of htm not understanding telnet
+        String green = html ? "" : TelnetCodes.TEXT_GREEN;
+        String reg = html ? "" : TelnetCodes.TEXT_DEFAULT;
+        String ora = html ? "" : TelnetCodes.TEXT_ORANGE;
+
+        var result = switch (d.cmd()) {
+            case "rv", "reals", "iv", "integers" -> replyToNumericalCmd(d.cmd(), args);
+            case "texts", "tv" -> replyToTextsCmd(args);
+            case "flags", "fv" -> replyToFlagsCmd(args, html);
+            case "rtvals", "rvs" -> replyToRtvalsCmd(args, html);
+            case "rtval", "real", "int", "integer", "text", "flag" -> {
+                int s = addRequest(d.getWritable(), d.cmd(), args);
+                yield s != 0 ? "Request added to " + args : "Request failed";
+            }
+            case "" -> {
+                removeWritable(d.getWritable());
+                yield "";
+            }
+            default -> "! No such subcommand in rtvals: " + args;
+        };
+        if (result.startsWith("!"))
+            return ora + result + reg;
+        return green + result + reg;
+    }
+
+    public String replyToNumericalCmd(String cmd, String args) {
+
+        var cmds = args.split(",");
+
+        if (cmds.length == 1) {
+            if (args.equalsIgnoreCase("?")) {
+                if (args.startsWith("i"))
+                    return "iv:update,id,value -> Update an existing int, do nothing if not found";
+                return "rv:update,id,value -> Update an existing real, do nothing if not found";
+            }
+            return "! Not enough arguments";
+        }
+
+        return switch (cmds[1]) {
+            case "update", "def" -> doUpdateNumCmd(cmd, cmds);
+            case "new" -> doNewNumCmd(cmd, cmds);
+            default -> "! No such subcommand in " + cmd + ": " + cmds[0];
+        };
+    }
+
+    private String doUpdateNumCmd(String cmd, String[] args) {
+        if (args.length < 3)
+            return "! Not enough arguments, " + cmd + ":id," + args[1] + ",expression";
+        NumericVal val;
+
+        if (cmd.startsWith("r")) { // so real, rv
+            var rOpt = getRealVal(args[0]);
+            if (rOpt.isEmpty())
+                return "! No such real yet";
+            val = rOpt.get();
+        } else { // so int,iv
+            var iOpt = getIntegerVal(args[0]);
+            if (iOpt.isEmpty())
+                return "! No such int yet";
+            val = iOpt.get();
+        }
+        var result = ValTools.processExpression(args[2], this);
+        if (Double.isNaN(result))
+            return "! Unknown id(s) in the expression " + args[2];
+        val.update(result);
+        return val.id() + " updated to " + result;
+    }
+
+    private String doNewNumCmd(String cmd, String[] cmds) {
+
+        // Split in group & name
+        String group, name;
+        if (cmds.length == 3) {
+            group = cmds[2];
+            name = cmds[0];
+        } else if (cmds.length == 2) {
+            if (!cmds[0].contains("_"))
+                return "! No underscore in the id, can't split between group and name";
+            group = cmds[0].substring(0, cmds[0].indexOf("_"));
+            name = cmds[0].substring(group.length() + 1); //skip the group and underscore
+        } else {
+            return "! Not enough arguments, " + cmd + ":id,new or " + cmd + ":name,new,group";
+        }
+
+        if (hasBaseVal(group + "_" + name)) {
+            return "! Already an rtval with that id";
+        }
+
+        // Build the node
+        var fab = Paths.fabInSettings("rtvals")
+                .selectOrAddChildAsParent("group", "id", group);
+        if (cmd.startsWith("r")) { // So real
+            fab.addChild("real").attr("name", name);
+            addRealVal(RealVal.newVal(group, name));
+        } else if (cmd.startsWith("i")) {
+            fab.addChild("int").attr("name", name);
+            addIntegerVal(IntegerVal.newVal(group, name));
+        }
+        fab.build();
+        return "Val added.";
+    }
+
+    public String replyToFlagsCmd(String cmd, boolean html) {
+
+        if (cmd.equals("?"))
+            return doFlagHelpCmd(html);
+
+        FlagVal flag;
+        var args = cmd.split(",");
+        if (args.length < 2)
+            return "! Not enough arguments, at least: fv:id,cmd";
+
+        var flagOpt = getFlagVal(args[0]);
+        if (flagOpt.isEmpty()) {
+            Logger.error("No such flag: " + args[0]);
+            return "! No such flag yet";
+        }
+
+        flag = flagOpt.get();
+        if (args.length == 2) {
+            switch (args[1]) {
+                case "raise", "set" -> {
+                    flag.value(true);
+                    return "Flag raised";
+                }
+                case "lower", "clear" -> {
+                    flag.value(false);
+                    return "Flag lowered";
+                }
+                case "toggle" -> {
+                    flag.toggleState();
+                    return "Flag toggled";
+                }
+            }
+        } else if (args.length == 3) {
+            switch (args[1]) {
+                case "update" -> {
+                    return flag.parseValue(args[2]) ? "Flag updated" : "! Failed to parse state: " + args[2];
+                }
+                case "match" -> {
+                    if (!hasFlag(args[2]))
+                        return "! No such flag: " + args[2];
+                    getFlagVal(args[2]).ifPresent(to -> flag.value(to.isUp()));
+                    return "Flag matched accordingly";
+                }
+                case "negated" -> {
+                    if (!hasFlag(args[2]))
+                        return "! No such flag: " + args[2];
+                    getFlagVal(args[2]).ifPresent(to -> flag.value(!to.isUp()));
+                    return "Flag negated accordingly";
+                }
+            }
+        }
+        return "! No such subcommand in fv: " + args[1] + " or incorrect number of arguments.";
+    }
+
+    private static String doFlagHelpCmd(boolean html) {
+
+        var join = new StringJoiner("\r\n");
+        join.add("Commands that interact with the collection of flags.");
+        join.add("Note: both fv and flags are valid starters")
+                .add("Update")
+                .add("fv:id,raise/set -> Raises the flag/Sets the bit, created if new")
+                .add("fv:id,lower/clear -> Lowers the flag/Clears the bit, created if new")
+                .add("fv:id,toggle -> Toggles the flag/bit, not created if new")
+                .add("fv:id,update,state -> Update  the state of the flag")
+                .add("fv:id,match,refid -> The state of the flag becomes the same as the ref flag")
+                .add("fv:id,negated,refid  -> The state of the flag becomes the opposite of the ref flag");
+        return LookAndFeel.formatHelpCmd(join.toString(), html);
+    }
+
+    public String replyToTextsCmd(String args) {
+
+        var cmds = args.split(",");
+
+        // Get the TextVal if it exists
+        TextVal txt;
+        if (cmds.length < 2)
+            return "! Not enough arguments, at least: tv:id,cmd";
+
+        var txtOpt = getTextVal(cmds[0]);
+        if (txtOpt.isEmpty())
+            return "! No such text yet";
+
+        txt = txtOpt.get();
+
+        // Execute the commands
+        if (cmds[1].equals("update")) {
+            if (cmds.length < 3)
+                return "! Not enough arguments: tv:id,update,value";
+            int start = args.indexOf(",update") + 8; // value can contain , so get position of start
+            txt.value(args.substring(start));
+            return "TextVal updated";
+        }
+        return "! No such subcommand in tv: " + cmds[1];
+    }
+
+    public String replyToRtvalsCmd(String args, boolean html) {
+
+        if (args.isEmpty())
+            return getRtvalsList(html);
+
+        String[] cmds = args.split(",");
+
+        if (cmds.length == 1) {
+            switch (cmds[0]) {
+                case "?" -> {
+                    var join = new StringJoiner("\r\n");
+                    join.add("Interact with XML")
+                            .add("rtvals:reload -> Reload all rtvals from XML")
+                            .add("Get info")
+                            .add("rtvals -> Get a listing of all rtvals")
+                            .add("rtvals:groups -> Get a listing of all the available groups")
+                            .add("rtvals:group,groupid -> Get a listing of all rtvals belonging to the group")
+                            .add("rtvals:resetgroup,groupid -> Reset the values in the group to the defaults");
+                    return LookAndFeel.formatHelpCmd(join.toString(), html);
+                }
+                case "reload" -> {
+                    readFromXML(XMLdigger.goIn(Paths.settings(), "dcafs", "rtvals"));
+                    Core.addToQueue(Datagram.system("pf", "reload"));
+                    Core.addToQueue(Datagram.system("dbm", "reload"));
+                    return "Reloaded rtvals and paths, databases (because might be affected).";
+                }
+                case "groups" -> {
+                    String groups = String.join(html ? "<br>" : "\r\n", getGroups());
+                    return groups.isEmpty() ? "! No groups yet" : groups;
+                }
+
+            }
+        } else if (cmds.length == 2) {
+            return switch (cmds[0]) {
+                case "group" -> getRTValsGroupList(cmds[1], html);
+                case "resetgroup" -> {
+                    var vals = getGroupVals(cmds[1]);
+                    if (vals.isEmpty()) {
+                        Logger.error("No vals found in group " + cmds[1]);
+                        yield "! No vals with that group";
+                    }
+                    getGroupVals(cmds[1]).forEach(BaseVal::resetValue);
+                    yield "Values reset";
+                }
+                case "name" -> getNameVals(cmds[1]);
+                default -> "! No such subcommand in rtvals: " + args;
+            };
+        }
+        return "! No such subcommand in rtvals: " + args;
     }
 
     @Override

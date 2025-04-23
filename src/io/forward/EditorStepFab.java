@@ -4,8 +4,8 @@ import io.forward.steps.EditorStep;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
 import util.data.ValTools;
+import util.data.vals.Rtvals;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -24,12 +24,12 @@ import java.util.regex.Pattern;
 
 public class EditorStepFab {
 
-    public static Optional<EditorStep> buildEditorStep(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
+    public static Optional<EditorStep> buildEditorStep(XMLdigger dig, String delimiter, Rtvals rtvals) {
         return digEditorNode(dig, rtvals, delimiter);
     }
 
     @SuppressWarnings("unchecked")
-    private static Optional<EditorStep> digEditorNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
+    private static Optional<EditorStep> digEditorNode(XMLdigger dig, Rtvals rtvals, String delimiter) {
         ArrayList<Function<String, String>> edits = new ArrayList<>();
 
         var deli = dig.attr("delimiter", delimiter);
@@ -58,7 +58,7 @@ public class EditorStepFab {
         return Optional.of(new EditorStep(id, edits.toArray(Function[]::new)));
     }
 
-    private static Function<String, String> processNode(XMLdigger dig, String delimiter, RealtimeValues rtvals, StringJoiner info) {
+    private static Function<String, String> processNode(XMLdigger dig, String delimiter, Rtvals rtvals, StringJoiner info) {
         String deli = dig.attr("delimiter",delimiter,true);
         deli = Tools.fromEscapedStringToBytes(deli);
         String content = dig.value("");
@@ -378,7 +378,7 @@ public class EditorStepFab {
      * @param delimiter The string to split the data with
      * @param resplit The format of the new string, using i0 etc to get original values
      */
-    private static Function<String, String> addResplit(String delimiter, String resplit, String error, boolean append, RealtimeValues rtvals) {
+    private static Function<String, String> addResplit(String delimiter, String resplit, String error, boolean append, Rtvals rtvals) {
 
         var is = Pattern.compile("i[0-9]{1,3}")
                 .matcher(resplit)
@@ -425,7 +425,7 @@ public class EditorStepFab {
         };
     }
 
-    private static Function<String, String> addIndexReplace(int index, String delimiter, String value, RealtimeValues rtvals) {
+    private static Function<String, String> addIndexReplace(int index, String delimiter, String value, Rtvals rtvals) {
         if( index==-1) {
             Logger.error("(ef) -> Invalid index given for indexreplace/removeindex");
             return null;

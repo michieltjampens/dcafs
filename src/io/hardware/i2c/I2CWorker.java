@@ -13,7 +13,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.tools.TimeTools;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
@@ -32,10 +32,10 @@ public class I2CWorker implements Commandable {
     private final HashMap<String, I2cDevice> devices = new HashMap<>();
     private final Path scriptsPath = Paths.storage().resolve("i2cscripts"); // Path to the scripts
     private final EventLoopGroup eventloop; // Executor to run the opsets
-    private final RealtimeValues rtvals;
+    private final Rtvals rtvals;
     private final ArrayList<I2cBus> busses = new ArrayList<>();
 
-    public I2CWorker( EventLoopGroup eventloop, RealtimeValues rtvals) {
+    public I2CWorker(EventLoopGroup eventloop, Rtvals rtvals) {
         this.rtvals=rtvals;
         this.eventloop=eventloop;
         readFromXML();

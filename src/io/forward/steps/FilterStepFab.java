@@ -4,7 +4,7 @@ import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.evalcore.LogicFab;
 import util.math.MathUtils;
 import util.tools.Tools;
@@ -16,7 +16,7 @@ import java.util.function.Predicate;
 
 public class FilterStepFab {
 
-    public static Optional<FilterStep> buildFilterStep(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
+    public static Optional<FilterStep> buildFilterStep(XMLdigger dig, String delimiter, Rtvals rtvals) {
         return digFilterNode(dig, rtvals, delimiter);
     }
 
@@ -26,7 +26,7 @@ public class FilterStepFab {
      * @param dig The element containing the setup
      * @return True if all went fine
      */
-    private static Optional<FilterStep> digFilterNode(XMLdigger dig, RealtimeValues rtvals, String delimiter) {
+    private static Optional<FilterStep> digFilterNode(XMLdigger dig, Rtvals rtvals, String delimiter) {
 
         Predicate<String> rules = null;
         var id = dig.attr("id", "");
@@ -54,7 +54,7 @@ public class FilterStepFab {
         return Optional.of(new FilterStep(id, rules));
     }
 
-    private static Predicate<String> processTagTypes(XMLdigger dig, String delimiter, RealtimeValues rtvals) {
+    private static Predicate<String> processTagTypes(XMLdigger dig, String delimiter, Rtvals rtvals) {
         var typeDigs = dig.digOut("*");
         boolean prevOr = false, prevAnd = false;
         Predicate<String> rules = null;
@@ -94,7 +94,7 @@ public class FilterStepFab {
         return rules;
     }
 
-    private static Predicate<String> concatValues(String value, String type, String delimiter, RealtimeValues rtvals) {
+    private static Predicate<String> concatValues(String value, String type, String delimiter, Rtvals rtvals) {
         Predicate<String> pred = null;
         String operator = value.contains(" AND ") ? "AND" : "OR";
         String[] parts = value.split(" " + operator + " ");
@@ -116,7 +116,7 @@ public class FilterStepFab {
      * @param value The value for the type e.g. start:$GPGGA to start with $GPGGA
      * @return -1 -> unknown type, 1 if ok
      */
-    private static Predicate<String> addRule(String type, String value, String delimiter, RealtimeValues rtvals) {
+    private static Predicate<String> addRule(String type, String value, String delimiter, Rtvals rtvals) {
         String[] values = value.split(",");
 
         value = Tools.fromEscapedStringToBytes(value);
@@ -234,7 +234,7 @@ public class FilterStepFab {
      * @param rtvals The global real-time values collection to get references from
      * @return A predicate that evaluates the logic expression, or null if the evaluator couldn't be created.
      */
-    private static Predicate<String> createLogicEvaluator(String delimiter, String expression, RealtimeValues rtvals) {
+    private static Predicate<String> createLogicEvaluator(String delimiter, String expression, Rtvals rtvals) {
         // Create logic evaluator
         var logEval = LogicFab.parseComparison(expression, rtvals, null);
         if (logEval.isEmpty()) {

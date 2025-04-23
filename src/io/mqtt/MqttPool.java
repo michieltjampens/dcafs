@@ -5,8 +5,8 @@ import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.AbstractVal;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
+import util.data.vals.ValFab;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -21,9 +21,9 @@ import java.util.StringJoiner;
 public class MqttPool implements Commandable {
 
     Map<String, MqttWorker> mqttWorkers = new HashMap<>();
-    RealtimeValues rtvals;
+    Rtvals rtvals;
 
-    public MqttPool( RealtimeValues rtvals ){
+    public MqttPool(Rtvals rtvals) {
         this.rtvals=rtvals;
 
         if (!readFromXML())
@@ -114,18 +114,18 @@ public class MqttPool implements Commandable {
             Logger.error(worker.id() + "(mqtt) -> No valid topic");
             return;
         }
-        var groupName = AbstractVal.readGroupAndName(rtval.currentTrusted(), worker.id());
+        var groupName = ValFab.readBasics(rtval, worker.id());
         if( groupName == null )
             return;
 
-        var gn = groupName[0]+"_"+groupName[1];
-        if(rtvals.hasAbstractVal(gn) ) {// doesn't exist yet, add it
-            var val = rtvals.getAbstractVal( gn);
-            val.ifPresent(abstractVal -> worker.addSubscription(topic, abstractVal));
+        var gn = groupName.group() + "_" + groupName.name();
+        if (rtvals.hasBaseVal(gn)) {// doesn't exist yet, add it
+            var val = rtvals.getBaseVal(gn);
+            val.ifPresent(baseVal -> worker.addSubscription(topic, baseVal));
         }else {
-            var valOpt = rtvals.processRtvalElement(rtval.currentTrusted(), groupName[0]);
-            if ( valOpt.isPresent()) {
-                if (worker.addSubscription(topic, valOpt.get()) == 0) {
+            var val = ValFab.buildVal(rtval, groupName.group());
+            if (val != null) {
+                if (worker.addSubscription(topic, val) == 0) {
                     Logger.error(worker.id() + " (mqtt) -> Failed to add subscription to " + topic);
                 }
             } else {
@@ -277,7 +277,7 @@ public class MqttPool implements Commandable {
     private String doProvideCmd( String[] args, XMLfab fab ){
         if (args.length < 3)
             return "! Wrong amount of arguments -> mqtt:id,provide,rtval<,topic>";
-        var val = rtvals.getAbstractVal(args[2]);
+        var val = rtvals.getBaseVal(args[2]);
         if( val.isEmpty() )
             return "! No such rtval: "+args[2];
         var topic = args.length==4?args[3]:"";

@@ -1,9 +1,9 @@
 package io.collector;
 
 import org.tinylog.Logger;
-import util.data.RealtimeValues;
 import util.data.ValStore;
 import util.data.ValStoreFab;
+import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 
 import java.util.ArrayList;
@@ -15,7 +15,7 @@ import java.util.Optional;
 public class StoreCollector extends AbstractCollector {
     private ValStore store;
 
-    public StoreCollector(XMLdigger dig, RealtimeValues rtvals) {
+    public StoreCollector(XMLdigger dig, Rtvals rtvals) {
         super(dig.attr("id", ""));
         valid = readFromXML(dig, rtvals);
         if( valid ) {
@@ -23,7 +23,7 @@ public class StoreCollector extends AbstractCollector {
         }
     }
 
-    public boolean readFromXML(XMLdigger dig, RealtimeValues rtvals) {
+    public boolean readFromXML(XMLdigger dig, Rtvals rtvals) {
         id = dig.attr("id", ""); // Will need an id for the store
         store = ValStoreFab.buildValStore(dig, id, rtvals); // Get the store
         return !store.isInvalid();
@@ -34,7 +34,7 @@ public class StoreCollector extends AbstractCollector {
      * @param rtvals The RealtimeValues shared by all objects
      * @return True if reading went fine, false if not
      */
-    public boolean reload(XMLdigger dig, RealtimeValues rtvals) {
+    public boolean reload(XMLdigger dig, Rtvals rtvals) {
         if( store != null )
             store.removeRealtimeValues(rtvals);
         if (readFromXML(dig, rtvals)) {

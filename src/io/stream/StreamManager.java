@@ -21,7 +21,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.tinylog.Logger;
 import org.w3c.dom.Element;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.tools.TimeTools;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -59,14 +59,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // scheduler for the connection attempts
 
-	private final RealtimeValues rtvals;
+	private final Rtvals rtvals;
 
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
 	static String[] NEWSTREAM = {"addserial", "addmodbus", "addtcp", "addudpclient", "addudp", "addlocal", "addudpserver", "addtcpserver"};
 
 	private final ArrayList<StoreCollector> stores = new ArrayList<>();
 
-	public StreamManager(EventLoopGroup nettyGroup, RealtimeValues rtvals ) {
+	public StreamManager(EventLoopGroup nettyGroup, Rtvals rtvals) {
 		this.eventLoopGroup = nettyGroup;
 		this.rtvals=rtvals;
 	}

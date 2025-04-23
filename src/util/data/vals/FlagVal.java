@@ -12,8 +12,23 @@ public class FlagVal extends BaseVal implements NumericVal {
         super(group, name, unit);
     }
 
+    public void value(boolean state) {
+        value = state;
+    }
+
+    public void update(boolean state) {
+        this.value = state;
+    }
+
+    public void toggleState() {
+        value = !value;
+    }
     public boolean isUp() {
         return value;
+    }
+
+    public void update(double val) {
+        value = Double.compare(val, 0.0) > 0;
     }
 
     @Override

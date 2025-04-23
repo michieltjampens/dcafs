@@ -7,7 +7,7 @@ import io.Writable;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;
@@ -24,11 +24,11 @@ import java.util.StringJoiner;
 public class TaskManagerPool implements Commandable {
 
     HashMap<String, TaskManager> tasklists = new HashMap<>();
-    RealtimeValues rtvals;
+    Rtvals rtvals;
     final Path scriptPath = Paths.storage().resolve("tmscripts");
     EventLoopGroup eventLoop;
 
-    public TaskManagerPool(RealtimeValues rtvals, EventLoopGroup eventLoop) {
+    public TaskManagerPool(Rtvals rtvals, EventLoopGroup eventLoop) {
         this.rtvals = rtvals;
         this.eventLoop = eventLoop;
         readFromXML();

@@ -20,7 +20,7 @@ import org.apache.commons.lang3.SystemUtils;
 import org.tinylog.Logger;
 import org.tinylog.provider.ProviderRegistry;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
+import util.data.vals.Rtvals;
 import util.database.DatabaseManager;
 import util.evalcore.LogicFab;
 import util.gis.Waypoints;
@@ -66,7 +66,7 @@ public class DAS implements Commandable{
     private TcpServer trans; // TCP server that takes requests
     private TelnetServer telnet; // Telnet server for the user CLI
 
-    private RealtimeValues rtvals; // Pool of all the vals (realval,flagval,textval,intval) that hold realtime data
+    private Rtvals rtvals; // Pool of all the vals (realval,flagval,textval,intval) that hold realtime data
     private TaskManagerPool taskManagerPool;
     /* Managers & Pools */
     private DatabaseManager dbManager; // Manager for the database interaction
@@ -205,7 +205,7 @@ public class DAS implements Commandable{
         }
     }
     private void addRtvals(){
-        rtvals = new RealtimeValues();
+        rtvals = new Rtvals();
         addCommandable(rtvals,"flags;fv;reals;real;rv;texts;tv;int;integer;text;flag");
         addCommandable(rtvals,"rtval","rtvals");
         addCommandable(rtvals,"stop");

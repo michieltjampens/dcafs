@@ -7,7 +7,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.tinylog.Logger;
-import util.data.*;
+import util.data.vals.*;
 import util.tools.TimeTools;
 import worker.Datagram;
 
@@ -46,18 +46,18 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // Scheduler for the publish and
 																						// connect class
-	private final Map<String, AbstractVal> valReceived = new HashMap<>(); // Map containing all the subscriptions
+																						private final Map<String, BaseVal> valReceived = new HashMap<>(); // Map containing all the subscriptions
 	private final ArrayList<String> subscriptions = new ArrayList<>();
 	private final ArrayList<Long> subsRecStamp = new ArrayList<>();
 	private final Map<String, String> provide = new HashMap<>();
 	private final ArrayList<Writable> targets = new ArrayList<>();
 
-	private final RealtimeValues rtvals;
+	private final Rtvals rtvals;
 	private String storeTopic="";
 	private long ttl=-1L;
 	private boolean debug=false;
 
-	public MqttWorker(String id, String address, String clientId, RealtimeValues rtvals) {
+	public MqttWorker(String id, String address, String clientId, Rtvals rtvals) {
 		this.id=id;
 		setBrokerAddress(address);
 		this.clientId=clientId;
@@ -166,7 +166,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 * @param val The rtval the data will be stored in.
 	 * @return 0 if failed to add, 1 if ok, 2 if added but not send to broker
 	 */
-	public int addSubscription( String topic, AbstractVal val ){
+	public int addSubscription(String topic, BaseVal val) {
 		if( topic==null){
 			Logger.error(id+"(mqtt) -> Invalid topic");
 			return 0;
@@ -380,7 +380,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
         var group = split[split.length - 2];
         var name = split[split.length - 1];
 
-        var val = rtvals.getAbstractVal(group + "_" + name);
+		var val = rtvals.getBaseVal(group + "_" + name);
         if (val.isPresent()) {
             valReceived.put(topic, val.get());
             return;
@@ -457,7 +457,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 * Clear all data from the worker to be able to reload it.
 	 * @param rtvals RealtimeValues that hold the ones used by this worker.
 	 */
-	public void clear( RealtimeValues rtvals ){
+	public void clear(Rtvals rtvals) {
 		subscriptions.forEach(this::unsubscribe);
 		valReceived.values().forEach(rtvals::removeVal);
 		targets.clear();

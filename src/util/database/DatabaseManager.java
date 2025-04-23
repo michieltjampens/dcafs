@@ -5,8 +5,8 @@ import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.RealtimeValues;
 import util.data.ValStore;
+import util.data.vals.Rtvals;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.tools.Tools;
@@ -32,13 +32,13 @@ public class DatabaseManager implements QueryWriting, Commandable {
     private final Map<String, SQLDB> sqls = new HashMap<>();            // Store the SQL databases
     private static final int CHECK_INTERVAL=5;                          // How often to check the state
     private final ScheduledExecutorService scheduler;                   // Scheduler for the request data action
-    private final RealtimeValues rtvals;                                 // Reference to the realtime data
+    private final Rtvals rtvals;                                 // Reference to the realtime data
     private static final String[] DBTYPES = {"mssql","mysql","mariadb","sqlite","postgresql"};
 
     /**
      * Create a manager that uses its own scheduler
      */
-    public DatabaseManager( RealtimeValues rtvals) {
+    public DatabaseManager(Rtvals rtvals) {
 
         this.rtvals=rtvals;
         scheduler = Executors.newScheduledThreadPool(1); // create a scheduler with a single thread
@@ -185,7 +185,8 @@ public class DatabaseManager implements QueryWriting, Commandable {
         }
         return false;
     }
-    public void buildStores(RealtimeValues rtvals){
+
+    public void buildStores(Rtvals rtvals) {
         sqls.values().forEach( x -> x.buildStores(rtvals));
         lites.values().forEach( x -> x.buildStores(rtvals));
     }
