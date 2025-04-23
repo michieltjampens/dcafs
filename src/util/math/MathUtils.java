@@ -10,6 +10,7 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.DoubleStream;
 
 public class MathUtils {
 
@@ -378,6 +379,11 @@ public class MathUtils {
         return MathUtils.roundDouble(Math.sqrt(sum2 / set.size()), decimals);
     }
 
+    public static double calcVariance(double[] window) {
+        var sum = DoubleStream.of(window).sum();
+        var avg = sum / window.length;
+        return DoubleStream.of(window).map(d -> (d - avg) * (d - avg)).sum();
+    }
     /**
      * Process a formula that can contain brackets but only contains numbers and no references
      *

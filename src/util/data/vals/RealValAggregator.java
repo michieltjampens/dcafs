@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.stream.DoubleStream;
 
-public class RealValAggregator extends BaseVal implements NumericVal {
+public class RealValAggregator extends RealVal {
     private final double[] window;
     private double defValue = 0.0;
     private final int windowSize;
@@ -84,7 +84,8 @@ public class RealValAggregator extends BaseVal implements NumericVal {
         return String.valueOf(value());
     }
 
-    public String asValueString() {
-        return value() + unit;
+    @Override
+    public String getExtraInfo() {
+        return "    [" + (filled ? windowSize : currentIndex + "/" + windowSize) + "]";
     }
 }

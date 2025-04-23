@@ -1,18 +1,18 @@
 package util.data.vals;
 
 import org.tinylog.Logger;
+import util.data.procs.DoubleArrayToDouble;
+import util.math.MathUtils;
 import util.xml.XMLdigger;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
 public class ValFab {
-    public record ValBase(String group, String name, String unit) {
+    public record Basics(String group, String name, String unit) {
     }
 
     public static Map<String, RealVal> digRealVals(XMLdigger dig, String groupName) {
@@ -31,14 +31,68 @@ public class ValFab {
         if (base == null)
             return Optional.empty();
 
-        var rv = new RealVal(base.group, base.name, base.unit);
+        RealVal rv;
+        // Difference between an aggregator or a normal RealVal
+        var window = dig.attr("window", -1);
+        var def = dig.attr("default", Double.NaN);
+        def = dig.attr("def", def);
 
-        var def = dig.attr("default", rv.defValue);
-        rv.defValue(dig.attr("def", def));
+        if (window < 1) {
+            rv = new RealVal(base.group, base.name, base.unit);
+            Logger.info("Building RealVal " + rv.id());
+        } else {
+            var reducer = getReducer(dig.attr("reducer", "avg"), def, window);
+            rv = new RealValAggregator(base.group, base.name, base.unit, reducer, window);
+            Logger.info("Building RealValAggregator " + rv.id());
+        }
+
+
+        rv.defValue(def);
 
         return Optional.of(rv);
     }
 
+    private static DoubleArrayToDouble getReducer(String reducer, double defValue, int windowsize) {
+        return switch (reducer.replace(" ", "").toLowerCase()) {
+            case "mean", "avg" -> {
+                if (windowsize % 2 == 0) {
+                    yield (window) -> {
+                        var sorted = DoubleStream.of(window).sorted().toArray();
+                        return sorted[sorted.length / 2];
+                    };
+                } else {
+                    yield (window) -> {
+                        var sorted = DoubleStream.of(window).sorted().toArray();
+                        return (sorted[sorted.length / 2] + sorted[sorted.length / 2 - 1]) / 2;
+                    };
+                }
+
+            }
+            case "variance" -> MathUtils::calcVariance;
+            case "samplevariance" -> (window) -> MathUtils.calcVariance(window) / (window.length - 1);
+            case "populationvariance" -> (window) -> MathUtils.calcVariance(window) / (window.length);
+            case "stdev", "standarddeviation" -> (window) -> Math.sqrt(MathUtils.calcVariance(window));
+            case "popstdev", "populationstandarddeviation" ->
+                    (window) -> Math.sqrt(MathUtils.calcVariance(window) / window.length);
+            case "mode" -> (window) -> {
+                int scale = 100; // Adjust for desired precision (e.g., 2 decimal places)
+                Map<Integer, Long> frequencyMap = Arrays.stream(window)
+                        .mapToInt(d -> (int) (d * scale))
+                        .boxed()
+                        .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
+
+                return frequencyMap.entrySet().stream()
+                        .max(Map.Entry.comparingByValue())
+                        .map(e -> e.getKey() / (double) scale)
+                        .orElse(defValue);
+            };
+            default -> {
+                Logger.warn("Unknown reducer type '{}'. Defaulting to 'avg'. Waiting on your pull request to get it implemented!", reducer);
+                yield (window) -> DoubleStream.of(window).average().orElse(defValue);
+            }
+
+        };
+    }
 
     public static Map<String, IntegerVal> digIntegerVals(XMLdigger dig, String groupName) {
         var i = dig.peekOut("int");
@@ -107,7 +161,7 @@ public class ValFab {
         return (BaseVal) valOpt.orElse(null);
     }
 
-    public static ValBase readBasics(XMLdigger dig, String altGroup) {
+    public static Basics readBasics(XMLdigger dig, String altGroup) {
         // Get the name
         var name = digForName(dig);
         if (name == null)
@@ -120,7 +174,7 @@ public class ValFab {
         var unit = dig.attr("unit", "");
 
         // Get the group and return found things
-        return new ValBase(group, name, unit);
+        return new Basics(group, name, unit);
     }
 
     private static String digForName(XMLdigger dig) {
@@ -144,12 +198,14 @@ public class ValFab {
     private static String digForGroup(XMLdigger dig, String altGroup) {
         var group = dig.attr("group", "");
         if (group.isEmpty()) { // If none defined, check the parent node
+            dig.savePoint();
             dig.goUp();
             if (dig.tagName("").equalsIgnoreCase("group")) {
                 group = dig.attr("id", "");
             } else {
                 group = dig.attr("group", "");
             }
+            dig.loadPoint();
         }
         if (group.isEmpty()) { // If neither of the three options, this failed
             if (altGroup.isEmpty()) {
