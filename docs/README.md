@@ -17,3 +17,4 @@
 ## Logic explained
 
 * [Math parser](MathParser.md) explains how parsing and then solving mathematical equations is done in dcafs
+* [symbiote](logic/symbiote.md) Explains the concept of the symbiote class (the name just stuck)

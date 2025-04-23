@@ -14,9 +14,10 @@ is done in dcafs.
 For the sake of this document, let's assume the equation is:  
 `i0=((i1-3)*(i3+5*2))/({group_name}+10*(i1-3))`  
 This contains:
+
 - References to the **array** containing the received data: i0,i1 and so on.
     - On the left side of `=`, the **target** of the solution. Thus, in this case, `i0` will be assigned the solution.
-      - On the right side of `=`, the **expression**. Here references are instead replaced with the current value.
+        - On the right side of `=`, the **expression**. Here references are instead replaced with the current value.
 - References to **realtimevalues** aka rtvals: {group_name}.  
   (This could also be the target.)
 
@@ -47,17 +48,17 @@ The `i` will be retained to reflect it's inserted.
     * Use regex to collect them. In this case, it finds `[i1,i3]`
     * Sort the results. (e.g. `[i1,i3]` remains the same).
     * Add the numeric part to `references`. (e.g. `[1,3]`)
-   * Alters the expression to reflect the indexes in `references`. (e.g. change `i1` to `r0`)
-   * The maximum value found in `references` is stored in `highestI`, this will be used to check if the received
-     data (potentially after splitting) actually has enough items.
+    * Alters the expression to reflect the indexes in `references`. (e.g. change `i1` to `r0`)
+    * The maximum value found in `references` is stored in `highestI`, this will be used to check if the received
+      data (potentially after splitting) actually has enough items.
 
 2. **Replace rtval references**
     * Follow the same process, but with an offset of 100 to differentiate `valRefs` from the old `i` references.
     * Ensure `group_name` exists in the global rtvals collection. If not, abort.
     * Add the rtval to the local `valRefs` and add its index + 100 to `references`.
-   * Replace `{group_name}` with `r2` (since we used index 2 in `references`).
+    * Replace `{group_name}` with `r2` (since we used index 2 in `references`).
     * Now `references` holds `[1,3,100]`
-   * This is repeated for every `rtval` in the expression.
+    * This is repeated for every `rtval` in the expression.
 
 After this, the expression becomes: `((r0-3)*(r1+5*2))/(r2+10*(r0-3))`
 
