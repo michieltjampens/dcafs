@@ -60,7 +60,7 @@ public class TextVal extends BaseVal {
         return value;
     }
 
-    public String asValueString() {
+    public String formatValueWithUnit() {
         return value + unit;
     }
 }

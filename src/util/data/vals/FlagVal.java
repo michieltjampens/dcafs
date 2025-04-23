@@ -65,8 +65,4 @@ public class FlagVal extends BaseVal implements NumericVal {
     public String asString() {
         return String.valueOf(value);
     }
-
-    public String asValueString() {
-        return value + unit;
-    }
 }

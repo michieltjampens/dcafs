@@ -10,11 +10,10 @@ public abstract class BaseVal {
         this.unit = unit;
     }
 
-    public BaseVal(ValFab.ValBase base) {
+    public BaseVal(ValFab.Basics base) {
         this.group = base.group();
         this.unit = base.unit();
         this.name = base.name();
-
     }
 
     /* ******** Using first generic ****************************************** */
@@ -57,4 +56,5 @@ public abstract class BaseVal {
     public abstract boolean parseValue(String value);
 
     public abstract String asString();
+
 }

@@ -14,4 +14,8 @@ public interface NumericVal {
     int asInteger(); // Get the value as an integer
     String asString();
     BigDecimal asBigDecimal();
+
+    default String getExtraInfo() {
+        return "";
+    }
 }

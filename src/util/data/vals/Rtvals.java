@@ -356,7 +356,7 @@ public class Rtvals implements Commandable {
 
     public String applyUnit(NumericVal nv) {
         if (units.isEmpty() || nv instanceof FlagVal)
-            return nv.asString() + nv.unit();
+            return nv.asString() + nv.unit() + nv.getExtraInfo();
 
         DynamicUnit unit = null;
         for (var set : units.entrySet()) {
@@ -366,15 +366,14 @@ public class Rtvals implements Commandable {
             }
         }
         if (unit == null || unit.noSubs())
-            return nv.asString();
+            return nv.asString() + nv.unit() + nv.getExtraInfo();
 
-        if (nv.getClass() == RealVal.class) {
-            var rv = (RealVal) nv;
+        if (nv instanceof RealVal rv) {
             if (Double.isNaN(rv.asDouble()))
                 return "NaN";
-            return unit.apply(rv.value(), rv.unit());
+            return unit.apply(rv.value(), rv.unit()) + rv.getExtraInfo();
         }
-        return unit.apply(nv.asDouble(), nv.unit());
+        return unit.apply(nv.asInteger(), nv.unit()) + nv.getExtraInfo();
     }
 
     /**
