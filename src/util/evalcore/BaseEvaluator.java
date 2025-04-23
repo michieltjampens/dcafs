@@ -1,5 +1,6 @@
 package util.evalcore;
 
+import org.tinylog.Logger;
 import util.data.NumericVal;
 
 public class BaseEvaluator {
@@ -32,5 +33,13 @@ public class BaseEvaluator {
 
     public String getInfo(String id) {
         return "";
+    }
+
+    protected boolean badInputCount(int length, String data) {
+        if (length < highestI) {
+            Logger.error(id + " (eval) -> Not enough elements in input data, need " + (1 + highestI) + " got " + length + ": " + data);
+            return true;
+        }
+        return false;
     }
 }

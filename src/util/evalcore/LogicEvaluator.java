@@ -1,20 +1,21 @@
 package util.evalcore;
 
 import org.tinylog.Logger;
+import util.data.procs.DoubleArrayToDouble;
 
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 
 public class LogicEvaluator extends BaseEvaluator implements Evaluator {
 
-    private record LogicOperation(Function<Double[], Double> func, double logic) {
+    private record LogicOperation(DoubleArrayToDouble func, double logic) {
     }
 
     LogicOperation[] logicOps;
-    Double[] scratchpad;
+    double[] scratchpad;
 
     LogicEvaluator( String ori, String normalized, String parseResult, int ops ){
         logicOps = new LogicOperation[ops];
@@ -23,12 +24,12 @@ public class LogicEvaluator extends BaseEvaluator implements Evaluator {
         this.parseResult=parseResult;
     }
     /* ***************************** Set up the class ************************************************* */
-    void addOp( int index, Function<Double[],Double> func, double logic){
+    void addOp(int index, DoubleArrayToDouble func, double logic) {
         logicOps[index] = new LogicOperation(func,logic);
     }
     void setRefLookup( Integer[] refLookup ){
         this.refLookup=refLookup;
-        scratchpad = new Double[refLookup.length];
+        scratchpad = new double[refLookup.length];
     }
 
     /* *********************************** Do evaluation ************************************************ */
@@ -39,11 +40,9 @@ public class LogicEvaluator extends BaseEvaluator implements Evaluator {
      * @return True if the scratchpad was successfully filled, false otherwise.
      */
     private boolean buildScratchpad(double[] inputs){
-        if( highestI>=inputs.length ) {
-            var ins = Arrays.stream(inputs).mapToObj(String::valueOf).collect(Collectors.joining(","));
-            Logger.error("Not enough data in inputs (need "+(highestI+1)+"), aborting. -> "+ ins);
+        if (badInputCount(inputs.length, DoubleStream.of(inputs).mapToObj(String::valueOf).collect(Collectors.joining(","))))
             return false;
-        }
+
         for( int a=0;a<refLookup.length;a++ ){
             var r = refLookup[a];
 

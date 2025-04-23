@@ -4,6 +4,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.NumericVal;
 import util.data.RealtimeValues;
+import util.data.procs.DoubleArrayToDouble;
 import util.math.MathUtils;
 
 import java.math.BigDecimal;
@@ -501,13 +502,13 @@ public class ParseTools {
      * @param offset The offset for the index in the array
      * @return The function resulting from the above parameters
      */
-    public static Function<Double[],Double> decodeDoublesOp(String first, String second, String op, int offset ){
+    public static DoubleArrayToDouble decodeDoublesOp(String first, String second, String op, int offset) {
 
-        final Double db1;
+        final double db1;
         final int i1;
-        final Double db2 ;
+        final double db2;
         final int i2;
-        Function<Double[],Double> proc=null;
+
         boolean reverse = first.startsWith("!");
 
         if( reverse ) {
@@ -524,7 +525,7 @@ public class ParseTools {
                 db1 = NumberUtils.createDouble(first);
                 i1=-1;
             }else{
-                db1=null;
+                db1 = Double.NaN;
                 int index = NumberUtils.createInteger( first.substring(1));
                 i1 = first.startsWith("o")?index:index+offset;
             }
@@ -539,7 +540,7 @@ public class ParseTools {
                 db2 = NumberUtils.createDouble(second);
                 i2=-1;
             }else{
-                db2=null;
+                db2 = Double.NaN;
                 int index = NumberUtils.createInteger( second.substring(1));
                 i2 = second.startsWith("o")?index:index+offset;
             }
@@ -552,19 +553,19 @@ public class ParseTools {
         }
 
 
+        final boolean numberNumber = !Double.isNaN(db1) && !Double.isNaN(db2);
+        final boolean indexNumber = Double.isNaN(db1) && !Double.isNaN(db2);
         switch (op) {
-            case "!" -> proc = x -> Double.compare(x[i1], 1) >= 0 ? 0.0 : 1.0;
+            //case "!" -> x -> (Double.compare( x[i1], 1) >= 0 ? 0.0 : 1.0);
             case "+" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> db1 + db2;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1] + db2;
-                    } else if (db1 != null) { // meaning first is a number and second an index
-                        proc = x -> db1 + x[i2];
-                    } else { // meaning both indexes
-                        proc = x -> x[i1] + x[i2];
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> db1 + db2;
+                    if (indexNumber)  // meaning first is an index and second a number
+                        return x -> x[i1] + db2;
+                    if (!Double.isNaN(db1))  // meaning first is a number and second an index
+                        return x -> db1 + x[i2];
+                    return x -> x[i1] + x[i2];// meaning both indexes
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -572,15 +573,14 @@ public class ParseTools {
             }
             case "-" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> db1 - db2;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1] - db2;
-                    } else if (db1 != null) { // meaning first is a number and second an index
-                        proc = x -> db1 - x[i2];
-                    } else { // meaning both indexes
-                        proc = x -> x[i1] - x[i2];
-                    }
+                    if (numberNumber)  // meaning both numbers
+                        return x -> db1 - db2;
+                    if (indexNumber)  // meaning first is an index and second a number
+                        return x -> x[i1] - db2;
+                    if (!Double.isNaN(db1))  // meaning first is a number and second an index
+                        return x -> db1 - x[i2];
+                    // meaning both indexes
+                    return x -> x[i1] - x[i2];
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -588,15 +588,14 @@ public class ParseTools {
             }
             case "*" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> db1 * db2;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1] * db2;
-                    } else if (db1 != null) { // meaning first is a number and second an index
-                        proc = x -> db1 * x[i2];
-                    } else { // meaning both indexes
-                        proc = x -> x[i1] * x[i2];
-                    }
+                    if (numberNumber)  // meaning both numbers
+                        return x -> db1 * db2;
+                    if (indexNumber)  // meaning first is an index and second a number
+                        return x -> x[i1] * db2;
+                    if (!Double.isNaN(db1))  // meaning first is a number and second an index
+                        return x -> db1 * x[i2];
+                    // meaning both indexes
+                    return x -> x[i1] * x[i2];
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -604,14 +603,14 @@ public class ParseTools {
             }
             case "/" -> { // i0/25
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> db1 / db2;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1] / db2;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> db1 / x[i2];
-                    } else { // meaning both indexes
-                        proc = x -> x[i1] / x[i2];
+                    if (numberNumber) // meaning both numbers
+                        return x -> db1 / db2;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> x[i1] / db2;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> db1 / x[i2];
+                    { // meaning both indexes
+                        return x -> x[i1] / x[i2];
                     }
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
@@ -620,14 +619,14 @@ public class ParseTools {
             }
             case "%" -> { // i0%25
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> db1 % db2;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> x[i1] % db2;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> db1 % x[i2];
-                    } else { // meaning both indexes
-                        proc = x -> x[i1] % x[i2];
+                    if (numberNumber) // meaning both numbers
+                        return x -> db1 % db2;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> x[i1] % db2;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> db1 % x[i2];
+                    { // meaning both indexes
+                        return x -> x[i1] % x[i2];
                     }
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
@@ -636,20 +635,18 @@ public class ParseTools {
             }
             case "^" -> { // i0^2
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Math.pow(db1, db2);
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        if (db2.compareTo(0.5) == 0) { // root
-                            proc = x -> Math.sqrt(x[i1]);
+                    if (numberNumber) // meaning both numbers
+                        return x -> Math.pow(db1, db2);
+                    if (indexNumber) // meaning first is an index and second a number
+                        if (Double.compare(db2, 0.5) == 0) { // root
+                            return x -> Math.sqrt(x[i1]);
                         } else {
-                            proc = x -> Math.pow(x[i1], db2);
+                            return x -> Math.pow(x[i1], db2);
                         }
-
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Math.pow(db1, x[i2]);
-                    } else { // meaning both indexes
-                        proc = x -> Math.pow(x[i1], x[i2]);
-                    }
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Math.pow(db1, x[i2]);
+                    // meaning both indexes
+                    return x -> Math.pow(x[i1], x[i2]);
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -657,15 +654,14 @@ public class ParseTools {
             }
             case "scale" -> { // i0/25
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> MathUtils.roundDouble(db1, db2.intValue());
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> MathUtils.roundDouble(x[i1], db2.intValue());
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> MathUtils.roundDouble(db1, x[i2].intValue());
-                    } else { // meaning both indexes
-                        proc = x -> MathUtils.roundDouble(x[i1], x[i2].intValue());
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> MathUtils.roundDouble(db1, (int) db2);
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> MathUtils.roundDouble(x[i1], (int) db2);
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> MathUtils.roundDouble(db1, (int) x[i2]);
+                    // meaning both indexes
+                    return x -> MathUtils.roundDouble(x[i1], (int) x[i2]);
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -673,14 +669,14 @@ public class ParseTools {
             }
             case "diff", "~" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Math.abs(db1 - db2);
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Math.abs(x[i1] - db2);
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Math.abs(db1 - x[i2]);
-                    } else { // meaning both indexes
-                        proc = x -> Math.abs(x[i1] - x[i2]);
+                    if (numberNumber) // meaning both numbers
+                        return x -> Math.abs(db1 - db2);
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Math.abs(x[i1] - db2);
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Math.abs(db1 - x[i2]);
+                    { // meaning both indexes
+                        return x -> Math.abs(x[i1] - x[i2]);
                     }
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
@@ -689,16 +685,15 @@ public class ParseTools {
             }
             case "ln" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        Logger.error("Todo - ln bd,bd");
-                        proc = x -> Math.log(db2);
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Math.log(db2);
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Math.log(x[i2]);
-                    } else { // meaning both indexes
-                        proc = x -> Math.log(x[i2]);
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> Math.log(db2); // Todo - ln bd,bd
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Math.log(db2);
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Math.log(x[i2]);
+                    // meaning both indexes
+                    return x -> Math.log(x[i2]);
+
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -706,15 +701,14 @@ public class ParseTools {
             }
             case "<" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Double.compare(db1, db2) < 0 ? 1.0 : 0.0;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1], db2) < 0 ? 1.0 : 0.0;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1, x[i2]) < 0 ? 1.0 : 0.0;
-                    } else { // meaning both indexes
-                        proc = x -> Double.compare(x[i1], x[i2]) < 0 ? 1.0 : 0.0;
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> Double.compare(db1, db2) < 0 ? 1.0 : 0.0;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Double.compare(x[i1], db2) < 0 ? 1.0 : 0.0;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Double.compare(db1, x[i2]) < 0 ? 1.0 : 0.0;
+                    // meaning both indexes
+                    return x -> Double.compare(x[i1], x[i2]) < 0 ? 1.0 : 0.0;
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -722,15 +716,14 @@ public class ParseTools {
             }
             case ">" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Double.compare(db1, db2) > 0 ? 1.0 : 0.0;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1], db2) > 0 ? 1.0 : 0.0;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1, x[i2]) > 0 ? 1.0 : 0.0;
-                    } else { // meaning both indexes
-                        proc = x -> Double.compare(x[i1], x[i2]) > 0 ? 1.0 : 0.0;
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> Double.compare(db1, db2) > 0 ? 1.0 : 0.0;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Double.compare(x[i1], db2) > 0 ? 1.0 : 0.0;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Double.compare(db1, x[i2]) > 0 ? 1.0 : 0.0;
+                    // meaning both indexes
+                    return x -> Double.compare(x[i1], x[i2]) > 0 ? 1.0 : 0.0;
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -738,15 +731,14 @@ public class ParseTools {
             }
             case "<=" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Double.compare(db1, db2) <= 0 ? 1.0 : 0.0;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1], db2) <= 0 ? 1.0 : 0.0;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1, x[i2]) <= 0 ? 1.0 : 0.0;
-                    } else { // meaning both indexes
-                        proc = x -> Double.compare(x[i1], x[i2]) <= 0 ? 1.0 : 0.0;
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> Double.compare(db1, db2) <= 0 ? 1.0 : 0.0;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Double.compare(x[i1], db2) <= 0 ? 1.0 : 0.0;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Double.compare(db1, x[i2]) <= 0 ? 1.0 : 0.0;
+                    // meaning both indexes
+                    return x -> Double.compare(x[i1], x[i2]) <= 0 ? 1.0 : 0.0;
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -754,15 +746,14 @@ public class ParseTools {
             }
             case ">=" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Double.compare(db1, db2) >= 0 ? 1.0 : 0.0;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1], db2) >= 0 ? 1.0 : 0.0;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1, x[i2]) >= 0 ? 1.0 : 0.0;
-                    } else { // meaning both indexes
-                        proc = x -> Double.compare(x[i1], x[i2]) >= 0 ? 1.0 : 0.0;
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> Double.compare(db1, db2) >= 0 ? 1.0 : 0.0;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Double.compare(x[i1], db2) >= 0 ? 1.0 : 0.0;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Double.compare(db1, x[i2]) >= 0 ? 1.0 : 0.0;
+                    // meaning both indexes
+                    return x -> Double.compare(x[i1], x[i2]) >= 0 ? 1.0 : 0.0;
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -770,15 +761,14 @@ public class ParseTools {
             }
             case "==" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Double.compare(db1, db2) == 0 ? 1.0 : 0.0;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1], db2) == 0 ? 1.0 : 0.0;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1, x[i2]) == 0 ? 1.0 : 0.0;
-                    } else { // meaning both indexes
-                        proc = x -> Double.compare(x[i1], x[i2]) == 0 ? 1.0 : 0.0;
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> Double.compare(db1, db2) == 0 ? 1.0 : 0.0;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Double.compare(x[i1], db2) == 0 ? 1.0 : 0.0;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Double.compare(db1, x[i2]) == 0 ? 1.0 : 0.0;
+                    // meaning both indexes
+                    return x -> Double.compare(x[i1], x[i2]) == 0 ? 1.0 : 0.0;
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -786,15 +776,14 @@ public class ParseTools {
             }
             case "!=" -> {
                 try {
-                    if (db1 != null && db2 != null) { // meaning both numbers
-                        proc = x -> Double.compare(db1, db2) != 0 ? 1.0 : 0.0;
-                    } else if (db1 == null && db2 != null) { // meaning first is an index and second a number
-                        proc = x -> Double.compare(x[i1], db2) != 0 ? 1.0 : 0.0;
-                    } else if (db1 != null) { //  meaning first is a number and second an index
-                        proc = x -> Double.compare(db1, x[i2]) != 0 ? 1.0 : 0.0;
-                    } else { // meaning both indexes
-                        proc = x -> Double.compare(x[i1], x[i2]) != 0 ? 1.0 : 0.0;
-                    }
+                    if (numberNumber) // meaning both numbers
+                        return x -> Double.compare(db1, db2) != 0 ? 1.0 : 0.0;
+                    if (indexNumber) // meaning first is an index and second a number
+                        return x -> Double.compare(x[i1], db2) != 0 ? 1.0 : 0.0;
+                    if (!Double.isNaN(db1)) //  meaning first is a number and second an index
+                        return x -> Double.compare(db1, x[i2]) != 0 ? 1.0 : 0.0;
+                    // meaning both indexes
+                    return x -> Double.compare(x[i1], x[i2]) != 0 ? 1.0 : 0.0;
                 } catch (IndexOutOfBoundsException | NullPointerException e) {
                     Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
                     Logger.error(e);
@@ -802,6 +791,6 @@ public class ParseTools {
             }
             default -> Logger.error("Unknown operand: " + op);
         }
-        return proc;
+        return null;
     }
 }

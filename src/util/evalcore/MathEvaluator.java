@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class MathEvaluator extends BaseEvaluator {
 
@@ -174,7 +175,7 @@ public class MathEvaluator extends BaseEvaluator {
     }
 
     public Optional<BigDecimal> eval(BigDecimal... bds) {
-        if (badInputCount(bds.length) )
+        if (badInputCount(bds.length, ""))
             return Optional.empty();
 
         if (!buildScratchpad(bds))
@@ -213,7 +214,7 @@ public class MathEvaluator extends BaseEvaluator {
      * @return The result if successful or NaN if something went wrong
      */
     public boolean eval(ArrayList<Double> inputs) {
-        if (badInputCount(inputs.size() ) )
+        if (badInputCount(inputs.size(), Stream.of(inputs).map(String::valueOf).collect(Collectors.joining(","))))
             return false;
 
         var bds = new BigDecimal[inputs.size()];
@@ -237,7 +238,7 @@ public class MathEvaluator extends BaseEvaluator {
     public BigDecimal[] prepareBdArray(BigDecimal[] bds, String data, String delimiter) {
         var inputs = data.split(delimiter);
 
-        if (badInputCount(inputs.length ) )
+        if (badInputCount(inputs.length, data))
             return new BigDecimal[0];
 
         // Insert the inputs that are actually used
@@ -270,13 +271,5 @@ public class MathEvaluator extends BaseEvaluator {
         }
         if (next != null)
             next.prepareBdArray(bds, inputs);
-    }
-
-    private boolean badInputCount(int length) {
-        if (length < highestI) {
-            Logger.error(id + " (me) -> Not enough elements in input data, need " + (1 + highestI) + " got " + length);
-            return true;
-        }
-        return false;
     }
 }

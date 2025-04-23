@@ -2,8 +2,8 @@ package util.data;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.math.MathUtils;
 import util.evalcore.ParseTools;
+import util.math.MathUtils;
 import util.tools.TimeTools;
 
 import java.util.ArrayList;
@@ -118,7 +118,7 @@ public class ValTools {
         if( parts.size()==1 ){
             result = NumberUtils.createDouble(expr);
         }else if (parts.size()==3){
-            result = Objects.requireNonNull(ParseTools.decodeDoublesOp(parts.get(0), parts.get(2), parts.get(1), 0)).apply(new Double[]{});
+            result = Objects.requireNonNull(ParseTools.decodeDoublesOp(parts.get(0), parts.get(2), parts.get(1), 0)).apply(new double[]{});
         }else{
             try {
                 result = MathUtils.noRefCalculation(expr, Double.NaN, false);
