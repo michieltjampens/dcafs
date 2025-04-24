@@ -12,7 +12,7 @@ import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.cmds.AdminCmds;
 import util.cmds.HistoryCmds;
-import util.data.StoreCmds;
+import util.data.store.StoreCmds;
 import util.gis.GisTools;
 import util.tools.TimeTools;
 import util.tools.Tools;

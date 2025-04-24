@@ -2,7 +2,7 @@ package util.database;
 
 import das.Paths;
 import org.tinylog.Logger;
-import util.data.ValStore;
+import util.data.store.ValStore;
 import util.data.vals.IntegerVal;
 import util.data.vals.RealVal;
 import util.data.vals.Rtvals;

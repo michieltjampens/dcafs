@@ -16,6 +16,8 @@ public abstract class BaseVal {
         this.name = base.name();
     }
 
+    BaseVal() {
+    }
     /* ******** Using first generic ****************************************** */
     public void name(String name) {
         this.name = name;

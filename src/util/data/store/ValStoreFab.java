@@ -1,4 +1,4 @@
-package util.data;
+package util.data.store;
 
 import das.Core;
 import org.tinylog.Logger;

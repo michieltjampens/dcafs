@@ -1,7 +1,7 @@
 package io.forward;
 
 import io.forward.steps.*;
-import util.data.ValStoreFab;
+import util.data.store.ValStoreFab;
 import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 

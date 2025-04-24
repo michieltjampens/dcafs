@@ -5,7 +5,7 @@ import das.Paths;
 import io.Writable;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.ValStore;
+import util.data.store.ValStore;
 import util.data.vals.Rtvals;
 import util.tools.FileTools;
 import util.tools.TimeTools;

@@ -2,7 +2,7 @@ package util.database;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.data.ValStore;
+import util.data.store.ValStore;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.xml.XMLfab;

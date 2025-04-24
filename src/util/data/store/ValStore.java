@@ -1,4 +1,4 @@
-package util.data;
+package util.data.store;
 
 import org.tinylog.Logger;
 import util.data.vals.*;

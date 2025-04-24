@@ -1,8 +1,8 @@
 package io.collector;
 
 import org.tinylog.Logger;
-import util.data.ValStore;
-import util.data.ValStoreFab;
+import util.data.store.ValStore;
+import util.data.store.ValStoreFab;
 import util.data.vals.Rtvals;
 import util.xml.XMLdigger;
 

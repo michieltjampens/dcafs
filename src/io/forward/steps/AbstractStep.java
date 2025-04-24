@@ -2,7 +2,7 @@ package io.forward.steps;
 
 import io.Writable;
 import org.tinylog.Logger;
-import util.data.ValStore;
+import util.data.store.ValStore;
 
 import java.math.BigDecimal;
 import java.util.concurrent.ThreadPoolExecutor;

@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 public interface NumericVal {
 
-    void update(double value);
+    boolean update(double value);
 
     String name();
     String id(); //get the id

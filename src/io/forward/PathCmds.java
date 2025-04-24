@@ -4,7 +4,7 @@ import das.Paths;
 import org.apache.commons.lang3.ArrayUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
-import util.data.StoreCmds;
+import util.data.store.StoreCmds;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 import worker.Datagram;

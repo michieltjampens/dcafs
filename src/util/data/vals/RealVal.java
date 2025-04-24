@@ -20,14 +20,18 @@ public class RealVal extends BaseVal implements NumericVal {
         super(group, name, unit);
     }
 
+    public RealVal() {
+    }
+
     public static RealVal newVal(String group, String name) {
         return new RealVal(group, name, "");
     }
-    public void update(double value) {
+
+    public boolean update(double value) {
         var result = logEval.eval(this.value, value);
         if (result.isEmpty()) {
             // logic eval failed
-            return;
+            return false;
         }
 
         if (result.get()) {
@@ -35,6 +39,7 @@ public class RealVal extends BaseVal implements NumericVal {
         } else {
             this.value = updaterFail.applyAsDouble(this.value, value);
         }
+        return true;
     }
 
     public double value() {
@@ -51,8 +56,7 @@ public class RealVal extends BaseVal implements NumericVal {
         var v = NumberUtils.createDouble(value);
         if (v == null)
             return false;
-        this.value = v;
-        return true;
+        return update(v);
     }
 
     public void defValue(double defValue) {

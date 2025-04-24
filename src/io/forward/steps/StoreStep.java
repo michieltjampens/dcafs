@@ -1,6 +1,6 @@
 package io.forward.steps;
 
-import util.data.ValStore;
+import util.data.store.ValStore;
 
 import java.math.BigDecimal;
 

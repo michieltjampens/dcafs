@@ -26,8 +26,9 @@ public class IntegerVal extends BaseVal implements NumericVal {
         return value;
     }
 
-    public void update(double value) {
+    public boolean update(double value) {
         this.value = (int) value;
+        return false;
     }
     @Override
     public void resetValue() {

@@ -28,12 +28,13 @@ public class RealValAggregator extends RealVal {
         Arrays.fill(window, defValue);
     }
 
-    public void update(double value) {
+    public boolean update(double value) {
         window[currentIndex] = value;
         currentIndex = (currentIndex + 1) % windowSize;
         Logger.info("Added val to aggregator");
         if (currentIndex == 0)
             filled = true;
+        return false;
     }
 
     public double value() {

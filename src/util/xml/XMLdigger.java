@@ -315,11 +315,31 @@ public class XMLdigger {
             root=parent;
     }
 
+    /**
+     * Attempts to move up to the first parent with the given tag.
+     * Restores the original position if that parent isn't found.
+     * If successful, caller is responsible for restoring the original position via restorePoint().
+     *
+     * @return true if the move was successful, false if restored due to failure
+     */
+    public boolean saveAndUpRestoreOnFail(String tag) {
+        if (valid) {
+            savePoint();
+            goUp(tag);
+            if (!valid) {
+                restorePoint();
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
     public void savePoint() {
         savePoint = last;
     }
 
-    public void loadPoint() {
+    public void restorePoint() {
+        valid=true;
         last = savePoint;
         peeked = false;
     }
@@ -581,6 +601,18 @@ public class XMLdigger {
         return def;
     }
 
+    /**
+     * Read the value of the given tag, return the def string if not found
+     *
+     * @param tag The tag to look for
+     * @param def The string to return if not found
+     * @return The value of the tag or def if not found
+     */
+    public String parentAttr(String tag, String def) {
+        if (root.hasAttribute("tag"))
+            return root.getAttribute("tag");
+        return def;
+    }
     /**
      * Check if the given attribute is present
      * @param tag The attribute to look for

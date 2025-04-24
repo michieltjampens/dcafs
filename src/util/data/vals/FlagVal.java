@@ -27,8 +27,9 @@ public class FlagVal extends BaseVal implements NumericVal {
         return value;
     }
 
-    public void update(double val) {
+    public boolean update(double val) {
         value = Double.compare(val, 0.0) > 0;
+        return false;
     }
 
     @Override

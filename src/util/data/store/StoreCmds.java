@@ -1,4 +1,4 @@
-package util.data;
+package util.data.store;
 
 import das.Paths;
 import org.apache.commons.lang3.math.NumberUtils;
