@@ -6,9 +6,11 @@ public class RealValSymbiote extends RealVal {
 
     RealVal[] underlings;
     boolean passOriginal = true;
+    int level = 0;
 
-    public RealValSymbiote(RealVal... underlings) {
+    public RealValSymbiote(int level, RealVal... underlings) {
         this.underlings = underlings;
+        this.level = level;
 
         // Mimic the main
         this.name = underlings[0].name;
@@ -31,6 +33,9 @@ public class RealValSymbiote extends RealVal {
         return underlings[0].value();
     }
 
+    public int level() {
+        return level;
+    }
     @Override
     public void resetValue() {
         underlings[0].defValue(defValue);
@@ -42,4 +47,11 @@ public class RealValSymbiote extends RealVal {
         this.defValue = defValue;
     }
 
+    public RealVal[] getUnderlings() {
+        return underlings;
+    }
+
+    public RealVal[] getDerived() {
+        return Arrays.copyOfRange(underlings, 1, underlings.length);
+    }
 }

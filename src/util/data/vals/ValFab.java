@@ -30,12 +30,12 @@ public class ValFab {
 
         Stream.of(d, d2)
                 .flatMap(Collection::stream)
-                .map(valEle -> digForSymbiotes(XMLdigger.goIn(valEle), groupName, realVals))
+                .map(valEle -> digForSymbiotes(XMLdigger.goIn(valEle), groupName, realVals, 0))
                 .filter(Objects::nonNull)
                 .forEach(it -> realVals.put(it.id(), it));
     }
 
-    public static RealVal digForSymbiotes(XMLdigger dig, String groupName, Map<String, RealVal> rvs) {
+    public static RealVal digForSymbiotes(XMLdigger dig, String groupName, Map<String, RealVal> rvs, int level) {
         var realOpt = buildRealVal(dig, groupName); // Get the main?
         if (realOpt.isEmpty())
             return null;
@@ -58,15 +58,13 @@ public class ValFab {
                     return null;
                 }
                 // If it gets here, the name is fine
-                var derived = digForSymbiotes(derive, groupName, rvs);
+                var derived = digForSymbiotes(derive, groupName, rvs, level + 1);
                 if (derived == null)
                     return null;
-                if (derived.unit().isEmpty()) // Derived share the same unit if none was set yet
-                    derived.unit(real.unit());
                 list.add(derived);
             }
             list.forEach(rv -> rvs.put(rv.id(), rv));
-            return new RealValSymbiote(list.toArray(RealVal[]::new));
+            return new RealValSymbiote(level, list.toArray(RealVal[]::new));
         } else {
             rvs.put(real.id(), real);
         }
@@ -74,6 +72,8 @@ public class ValFab {
     }
 
     private static String fixDerivedName(XMLdigger derive, BaseVal main) {
+        if (!derive.hasAttr("unit"))
+            derive.currentTrusted().setAttribute("unit", main.unit());
         if (derive.hasAttr("name")) // Already defined, no need to change anything
             return main.group() + "_" + derive.attr("name", "");  // but return it for the present check
 

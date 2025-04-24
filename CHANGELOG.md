@@ -89,6 +89,27 @@ Note: Version numbering: x.y.z
   - Vals only hold the minimum: group, name, value, defValue, unit and newly added a Function.
   - All optional stuff was removed in favor of that function
   - TriggeredCmds is replaced with 'tinytask' which uses the new logic parser
+  - Added 'derived' and 'aggregate' variables. Both share the base class of all vals. Both can be linked to another '
+    main'
+    val to receive the data from. Both have predefined options but can be customized. Those are called 'reducer' for the
+    aggregate and math for the derived.
+  ```xml
+         <group id="test">
+            <flag def="true" name="flag"/>
+            <real def="0" name="pressure" unit="bar">
+                <!-- pressure is 'main' and variance is derived from it and so on -->
+                <derived reducer="variance" window="50" def="0" suffix="variance">
+                    <derived math="stdev"  def="0" realsuffix="deviation"/> <!-- pressure_deviation or pressure_variance_deviation -->
+                    <derived math="popstdev"  def="0"/>
+                </derived>
+                <derived reducer="variance" window="50" def="0" suffix="another">
+                    <derived math="stdev"  def="0" realsuffix="here"/> <!-- pressure_deviation or pressure_variance_deviation -->
+                    <derived math="popstdev"  def="0"/>
+                </derived>
+            </real>
+            <real def="0" name="result"/>
+        </group>
+  ```
 - The function is called in the update method to determine what needs to be done with the new value. Default is just
   updating. But stuff like max,min,offset etc become just a setting.
 - Added Aggregator variants of the vals replacing the previous 'history' option. Those extend their baseval

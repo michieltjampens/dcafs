@@ -1,6 +1,9 @@
 package util;
 
 import io.telnet.TelnetCodes;
+import util.data.vals.RealValSymbiote;
+
+import java.util.StringJoiner;
 
 public class LookAndFeel {
     final static String ERROR_COLOR = TelnetCodes.TEXT_RED;
@@ -131,5 +134,36 @@ public class LookAndFeel {
         // The count is divided by this power, showing the message only on exact multiples.
         int divisor = (int)Math.pow(10, (int)Math.log10(count));
         return count % divisor == 0;
+    }
+
+    public static String prettyPrintSymbiote(RealValSymbiote symbiote, String prefix, String cut) {
+        var join = new StringJoiner("\r\n");
+        var underlings = symbiote.getUnderlings();
+
+        if (prefix.isEmpty()) {
+            join.add(underlings[0].name() + " : " + underlings[0].asString() + underlings[0].unit());
+            cut = underlings[0].name() + "_";
+        }
+        // First pass for the width
+        var temp = new String[underlings.length - 1];
+        int maxLeftLen = 0;
+        for (int a = 1; a < underlings.length; a++) {
+            // Clean name?
+            var trimmed = underlings[a].name();
+            for (var c : cut.split("_")) {
+                trimmed = trimmed.replace(c + "_", "");
+            }
+            temp[a - 1] = trimmed;
+            maxLeftLen = Math.max(trimmed.length(), maxLeftLen);
+        }
+        for (int a = 1; a < underlings.length; a++) {
+            // spaced name?
+            var print = String.format("%-" + maxLeftLen + "s : %s", temp[a - 1], underlings[a].asString() + underlings[a].unit());
+            join.add(prefix + (a == underlings.length - 1 ? "└── " : "├── ") + print);
+            if (underlings[a] instanceof RealValSymbiote sym) {
+                join.add(prettyPrintSymbiote(sym, a == underlings.length - 1 ? "    " : "│   ", sym.name() + "_"));
+            }
+        }
+        return join.toString();
     }
 }

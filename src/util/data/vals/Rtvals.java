@@ -314,47 +314,55 @@ public class Rtvals implements Commandable {
                 .collect(Collectors.toCollection(ArrayList::new)); // Collect the results into a List
     }
 
-    /**
-     * Get a listing of all stored variables that belong to a certain group
-     *
-     * @param group The group they should belong to
-     * @param html  Use html formatting or telnet
-     * @return The listing
-     */
     public String getRTValsGroupList(String group, boolean html) {
+
+        var tempList = Stream.of(realVals, integerVals, flagVals, textVals)
+                .flatMap(bv -> bv.values().stream())
+                .filter(bv -> bv.group().equalsIgnoreCase(group))
+                .sorted(Comparator.comparing(BaseVal::name))
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        var syms = Stream.of(realVals)
+                .flatMap(bv -> bv.values().stream())
+                .filter(bv -> bv.group().equalsIgnoreCase(group))
+                .filter(bv -> bv instanceof RealValSymbiote)
+                .map(rv -> (RealValSymbiote) rv)
+                .toList();
+
+        for (var sym : syms) {
+            for (var derived : sym.getDerived())
+                tempList.remove(derived);
+        }
 
         String title;
         if (group.isEmpty()) {
-            title = html ? "<b>Ungrouped</b>" : TelnetCodes.TEXT_CYAN + "Ungrouped" + TelnetCodes.TEXT_YELLOW;
+            title = html ? "<b>Ungrouped</b>" : TelnetCodes.TEXT_CYAN + "Ungrouped" + TelnetCodes.TEXT_DEFAULT;
         } else {
-            title = html ? "<b>Group: " + group + "</b>" : TelnetCodes.TEXT_CYAN + "Group: " + group + TelnetCodes.TEXT_YELLOW;
+            title = html ? "<b>Group: " + group + "</b>" : TelnetCodes.TEXT_CYAN + "Group: " + group + TelnetCodes.TEXT_DEFAULT;
         }
 
         String eol = html ? "<br>" : "\r\n";
         StringJoiner join = new StringJoiner(eol, title + eol, "");
         join.setEmptyValue("None yet");
 
-        var list = Stream.of(realVals, integerVals, flagVals, textVals)
-                .flatMap(bv -> bv.values().stream())
-                .filter(bv -> bv.group().equalsIgnoreCase(group))
-                .map(bv -> {
-                    if (bv instanceof NumericVal nv)
-                        return nv.id() + " : " + applyUnit(nv);
-                    return bv.id() + " : " + bv.asString() + bv.unit();
-                }).toList();
+        int maxLength = tempList.stream().mapToInt(bv -> bv.name().length()).max().orElse(0);  // Get the max value
 
-        boolean toggle = false;
-        for (var line : list) {
-            if (!line.contains("Group:")) {
-                line = (toggle ? TelnetCodes.TEXT_DEFAULT : TelnetCodes.TEXT_YELLOW) + line;
-                toggle = !toggle;
+        for (var val : tempList) {
+            if (val instanceof RealValSymbiote sym) {
+                join.add(LookAndFeel.prettyPrintSymbiote(sym, "", ""));
+            } else {
+                join.add(String.format("%-" + maxLength + "s : %s", val.name(), applyUnit(val)));
             }
-            join.add(line);
         }
-        return join.toString();
+        var total = join.toString();
+        return total.replace("NaN", TelnetCodes.TEXT_ORANGE + "NaN" + TelnetCodes.TEXT_DEFAULT);
     }
 
-    public String applyUnit(NumericVal nv) {
+    public String applyUnit(BaseVal bv) {
+
+        if (!(bv instanceof NumericVal nv)) {
+            return bv.name() + " : " + bv.asString() + bv.unit();
+        }
         if (units.isEmpty() || nv instanceof FlagVal)
             return nv.asString() + nv.unit() + nv.getExtraInfo();
 
