@@ -1,14 +1,12 @@
 package util.data.vals;
 
 import org.tinylog.Logger;
-import util.data.procs.DoubleArrayToDouble;
-import util.math.MathUtils;
+import util.data.procs.Reducer;
 import util.xml.XMLdigger;
 
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
 public class ValFab {
@@ -26,6 +24,88 @@ public class ValFab {
                 .collect(Collectors.toMap(RealVal::id, Function.identity()));
     }
 
+    public static void digRealVals(XMLdigger dig, String groupName, Map<String, RealVal> realVals) {
+        var d = dig.peekOut("real");
+        var d2 = dig.peekOut("double");
+
+        Stream.of(d, d2)
+                .flatMap(Collection::stream)
+                .map(valEle -> digForSymbiotes(XMLdigger.goIn(valEle), groupName, realVals))
+                .filter(Objects::nonNull)
+                .forEach(it -> realVals.put(it.id(), it));
+    }
+
+    public static RealVal digForSymbiotes(XMLdigger dig, String groupName, Map<String, RealVal> rvs) {
+        var realOpt = buildRealVal(dig, groupName); // Get the main?
+        if (realOpt.isEmpty())
+            return null;
+
+        var real = realOpt.get();
+        if (dig.tagName("").equals("derived")) {
+            Logger.info("Found a derived :" + real.id());
+        } else {
+            Logger.info("Found a RealVal :" + real.id());
+        }
+        if (dig.hasPeek("derived")) {
+            var list = new ArrayList<RealVal>();
+            list.add(real);
+            Logger.info(real.id() + " -> Processing derived of " + real.id());
+            for (var derive : dig.digOut("derived")) {
+                // Make sure the derived node adheres to the regular node rules for naming
+                var deriveId = fixDerivedName(derive, real);
+                if (rvs.get(deriveId) != null) {
+                    Logger.error("A realval already exists with the ID " + deriveId);
+                    return null;
+                }
+                // If it gets here, the name is fine
+                var derived = digForSymbiotes(derive, groupName, rvs);
+                if (derived == null)
+                    return null;
+                if (derived.unit().isEmpty()) // Derived share the same unit if none was set yet
+                    derived.unit(real.unit());
+                list.add(derived);
+            }
+            list.forEach(rv -> rvs.put(rv.id(), rv));
+            return new RealValSymbiote(list.toArray(RealVal[]::new));
+        } else {
+            rvs.put(real.id(), real);
+        }
+        return real;
+    }
+
+    private static String fixDerivedName(XMLdigger derive, BaseVal main) {
+        if (derive.hasAttr("name")) // Already defined, no need to change anything
+            return main.group() + "_" + derive.attr("name", "");  // but return it for the present check
+
+        var suffix = derive.attr("suffix", ""); // Suffix the parent name
+        if (suffix.isEmpty()) {
+            // Check if they want to append to name of higher one ...
+            var tag = getTagName(main);
+            var fromOri = derive.attr(tag + "suffix", ""); // Handle both possible vals using this method
+            if (!fromOri.isEmpty()) {
+                if (derive.saveAndUpRestoreOnFail(tag)) {
+                    var name = derive.attr("name", "");
+                    derive.restorePoint();
+                    derive.currentTrusted().setAttribute("name", name + "_" + fromOri);
+                    return main.group() + "_" + derive.attr("name", ""); // Full overwrite
+                }
+                Logger.error("Failed to get the name of the parent node"); // This should be possible ...
+            }
+            // Auto generate based on function
+            suffix = derive.attr("reducer", "");
+            suffix = derive.attr("math", suffix);
+        }
+        derive.currentTrusted().setAttribute("name", main.name() + "_" + suffix);
+        return main.group() + "_" + derive.attr("name", ""); // Full overwrite
+    }
+
+    private static String getTagName(BaseVal main) {
+        if (main instanceof RealVal rv)
+            return "real";
+        if (main instanceof IntegerVal iv)
+            return "integer";
+        return "";
+    }
     public static Optional<RealVal> buildRealVal(XMLdigger dig, String altGroup) {
         var base = readBasics(dig, altGroup);
         if (base == null)
@@ -41,58 +121,16 @@ public class ValFab {
             rv = new RealVal(base.group, base.name, base.unit);
             Logger.info("Building RealVal " + rv.id());
         } else {
-            var reducer = getReducer(dig.attr("reducer", "avg"), def, window);
+            var reducer = Reducer.getDoubleReducer(dig.attr("reducer", "avg"), def, window);
             rv = new RealValAggregator(base.group, base.name, base.unit, reducer, window);
             Logger.info("Building RealValAggregator " + rv.id());
         }
-
-
         rv.defValue(def);
 
         return Optional.of(rv);
     }
 
-    private static DoubleArrayToDouble getReducer(String reducer, double defValue, int windowsize) {
-        return switch (reducer.replace(" ", "").toLowerCase()) {
-            case "mean", "avg" -> {
-                if (windowsize % 2 == 0) {
-                    yield (window) -> {
-                        var sorted = DoubleStream.of(window).sorted().toArray();
-                        return sorted[sorted.length / 2];
-                    };
-                } else {
-                    yield (window) -> {
-                        var sorted = DoubleStream.of(window).sorted().toArray();
-                        return (sorted[sorted.length / 2] + sorted[sorted.length / 2 - 1]) / 2;
-                    };
-                }
 
-            }
-            case "variance" -> MathUtils::calcVariance;
-            case "samplevariance" -> (window) -> MathUtils.calcVariance(window) / (window.length - 1);
-            case "populationvariance" -> (window) -> MathUtils.calcVariance(window) / (window.length);
-            case "stdev", "standarddeviation" -> (window) -> Math.sqrt(MathUtils.calcVariance(window));
-            case "popstdev", "populationstandarddeviation" ->
-                    (window) -> Math.sqrt(MathUtils.calcVariance(window) / window.length);
-            case "mode" -> (window) -> {
-                int scale = 100; // Adjust for desired precision (e.g., 2 decimal places)
-                Map<Integer, Long> frequencyMap = Arrays.stream(window)
-                        .mapToInt(d -> (int) (d * scale))
-                        .boxed()
-                        .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
-
-                return frequencyMap.entrySet().stream()
-                        .max(Map.Entry.comparingByValue())
-                        .map(e -> e.getKey() / (double) scale)
-                        .orElse(defValue);
-            };
-            default -> {
-                Logger.warn("Unknown reducer type '{}'. Defaulting to 'avg'. Waiting on your pull request to get it implemented!", reducer);
-                yield (window) -> DoubleStream.of(window).average().orElse(defValue);
-            }
-
-        };
-    }
 
     public static Map<String, IntegerVal> digIntegerVals(XMLdigger dig, String groupName) {
         var i = dig.peekOut("int");
@@ -205,7 +243,7 @@ public class ValFab {
             } else {
                 group = dig.attr("group", "");
             }
-            dig.loadPoint();
+            dig.restorePoint();
         }
         if (group.isEmpty()) { // If neither of the three options, this failed
             if (altGroup.isEmpty()) {
