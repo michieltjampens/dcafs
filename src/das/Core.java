@@ -12,6 +12,9 @@ public class Core {
         dQueue.add(d);
     }
 
+    public static void queueSystemCmd(String cmd) {
+        dQueue.add(Datagram.system(cmd));
+    }
     public static Datagram retrieve() throws InterruptedException {
         return dQueue.take();
     }

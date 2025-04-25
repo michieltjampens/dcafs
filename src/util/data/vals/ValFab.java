@@ -1,7 +1,9 @@
 package util.data.vals;
 
 import org.tinylog.Logger;
+import util.data.procs.Builtin;
 import util.data.procs.Reducer;
+import util.evalcore.MathFab;
 import util.xml.XMLdigger;
 
 import java.util.*;
@@ -11,6 +13,9 @@ import java.util.stream.Stream;
 
 public class ValFab {
     public record Basics(String group, String name, String unit) {
+    }
+
+    public record RefVal(String ref, BaseVal bs) {
     }
 
     public static Map<String, RealVal> digRealVals(XMLdigger dig, String groupName) {
@@ -93,7 +98,7 @@ public class ValFab {
             }
             // Auto generate based on function
             suffix = derive.attr("reducer", "");
-            suffix = derive.attr("math", suffix);
+            suffix = derive.attr("builtin", suffix);
         }
         derive.currentTrusted().setAttribute("name", main.name() + "_" + suffix);
         return main.group() + "_" + derive.attr("name", ""); // Full overwrite
@@ -120,6 +125,17 @@ public class ValFab {
         if (window < 1) {
             rv = new RealVal(base.group, base.name, base.unit);
             Logger.info("Building RealVal " + rv.id());
+
+            if (dig.hasAttr("math")) {
+                var math = dig.attr("math", "");
+                var mathEval = MathFab.parseExpression(math, null);
+                if (mathEval.isInValid())
+                    return Optional.empty();
+
+                rv.setMath(MathFab.stripForValIfPossible(mathEval));
+            } else if (dig.hasAttr("builtin")) {
+                rv.setMath(Builtin.getFunction(dig.attr("builtin", "")));
+            }
         } else {
             var reducer = Reducer.getDoubleReducer(dig.attr("reducer", "avg"), def, window);
             rv = new RealValAggregator(base.group, base.name, base.unit, reducer, window);
@@ -151,18 +167,31 @@ public class ValFab {
         var def = dig.attr("default", iv.defValue);
         iv.defValue(dig.attr("def", def));
 
+        iv = new IntegerVal(base.group, base.name, base.unit);
+        Logger.info("Building IntegerVal " + iv.id());
+
+        if (dig.hasAttr("math")) {
+            var math = dig.attr("math", "");
+            var mathEval = MathFab.parseExpression(math, null);
+            if (mathEval.isInValid())
+                return Optional.empty();
+
+            iv.setMath(MathFab.stripForValIfPossible(mathEval));
+        } else if (dig.hasAttr("builtin")) {
+            iv.setMath(Builtin.getFunction(dig.attr("builtin", "")));
+        }
         return Optional.of(iv);
     }
 
 
-    public static Map<String, FlagVal> digFlagVals(XMLdigger dig, String groupName) {
+    public static Map<String, FlagVal> digFlagVals(XMLdigger dig, String groupName, Rtvals rtvals) {
         return dig.peekOut("flag").stream()
-                .map(rtval -> buildFlagVal(XMLdigger.goIn(rtval), groupName).orElse(null))
+                .map(rtval -> buildFlagVal(XMLdigger.goIn(rtval), groupName, rtvals).orElse(null))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(FlagVal::id, Function.identity()));
     }
 
-    public static Optional<FlagVal> buildFlagVal(XMLdigger dig, String altGroup) {
+    public static Optional<FlagVal> buildFlagVal(XMLdigger dig, String altGroup, Rtvals rtvals) {
         var base = readBasics(dig, altGroup);
         if (base == null)
             return Optional.empty();
@@ -171,6 +200,34 @@ public class ValFab {
         var def = dig.attr("default", fv.defValue);
         fv.defValue(dig.attr("def", def));
 
+        if (!dig.hasPeek("cmd"))
+            return Optional.of(fv);
+
+        // Add the cmds if any
+        var list = new ArrayList<String[]>();
+        for (var cmd : dig.digOut("cmd")) {
+            var state = cmd.attr("state", "raise");
+            var c = cmd.value("");
+            list.add(new String[]{state, c});
+        }
+        fv.setCmds(list);
+        dig.goUp(); // return
+
+        if (rtvals != null) {
+            var refs = new ArrayList<RefVal>();
+            for (var cmd : dig.digOut("rtval")) {
+                var state = cmd.attr("state", "raise");
+                var id = cmd.value("");
+                var opt = rtvals.getBaseVal(id);
+                if (opt.isEmpty()) {
+                    Logger.error("Can't find " + id);
+                    continue;
+                }
+                refs.add(new RefVal(state, opt.get()));
+            }
+            dig.goUp();
+            fv.setCmds(list);
+        }
         return Optional.of(fv);
     }
 
@@ -188,11 +245,11 @@ public class ValFab {
         return Optional.of(new TextVal(base.group, base.name, base.unit));
     }
 
-    public static BaseVal buildVal(XMLdigger rtval, String group) {
+    public static BaseVal buildVal(XMLdigger rtval, String group, Rtvals rtvals) {
         var valOpt = switch (rtval.tagName("")) {
             case "double", "real" -> buildRealVal(rtval, group);
             case "integer", "int" -> buildIntegerVal(rtval, group);
-            case "flag" -> buildFlagVal(rtval, group);
+            case "flag" -> buildFlagVal(rtval, group, rtvals);
             case "text" -> buildTextVal(rtval, group);
             default -> Optional.empty();
         };

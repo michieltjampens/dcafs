@@ -59,4 +59,5 @@ public abstract class BaseVal {
 
     public abstract String asString();
 
+    public abstract void triggerUpdate();
 }

@@ -56,18 +56,18 @@ public class StepFab {
             for (var define : defines.entrySet())
                 expression = expression.replace(define.getKey(), define.getValue());
 
-            Optional<MathEvaluator> meOpt;
+            MathEvaluator mathEval;
             if (eval == null) {
-                meOpt = MathFab.parseExpression(expression, rtvals);
+                mathEval = MathFab.parseExpression(expression, rtvals);
             } else {
                 var oldRefs = eval.getLastRefs();
-                meOpt = MathFab.parseExpression(expression, rtvals, oldRefs);
+                mathEval = MathFab.parseExpression(expression, rtvals, oldRefs);
             }
-            if (meOpt.isEmpty()) {
+            if (mathEval.isInValid()) {
                 Logger.error("(mf) -> Failed to parse " + op.value(""));
                 return Optional.empty();
             }
-            var mathEval = meOpt.get();
+
             mathEval.setId(id);
             if (mathEval.updatesRtval()) //meaning an rtval is updated because of it
                 doUpdate = true;

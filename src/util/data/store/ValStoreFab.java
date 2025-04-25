@@ -112,7 +112,7 @@ public class ValStoreFab {
                         .ifPresent(v -> store.putAbstractVal(key, v));
                 case "int" -> ValFab.buildIntegerVal(val, groupID)
                         .ifPresent(v -> store.putAbstractVal(key, v));
-                case "flag", "bool" -> ValFab.buildFlagVal(val, groupID)
+                case "flag", "bool" -> ValFab.buildFlagVal(val, groupID, null)
                         .ifPresent(v -> store.putAbstractVal(key, v));
                 case "text" -> ValFab.buildTextVal(val, groupID)
                         .ifPresent(v -> store.putAbstractVal(key, v));
@@ -171,7 +171,7 @@ public class ValStoreFab {
             switch (val.tagName("")) {
                 case "real" -> ValFab.buildRealVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
                 case "int", "integer" -> ValFab.buildIntegerVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "flag", "bool" -> ValFab.buildFlagVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "flag", "bool" -> ValFab.buildFlagVal(val, groupID, null).ifPresent(x -> rtvals.set(pos, x));
                 case "ignore" -> rtvals.add(null);
                 case "text" -> ValFab.buildTextVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
                 case "macro" -> {

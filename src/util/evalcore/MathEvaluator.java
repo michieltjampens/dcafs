@@ -2,6 +2,7 @@ package util.evalcore;
 
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
+import util.data.procs.MathEvalForVal;
 import util.data.vals.NumericVal;
 import util.tools.TimeTools;
 
@@ -15,12 +16,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class MathEvaluator extends BaseEvaluator {
+public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
 
-    private record MathOperation(Function<BigDecimal[], BigDecimal> func, BigDecimal last) {
-    }
 
-    MathOperation[] ops;
+    Function<BigDecimal[], BigDecimal>[] ops;
     BigDecimal[] scratchpad;
     int resultIndex = -1;
     int scale = -1;
@@ -50,15 +49,17 @@ public class MathEvaluator extends BaseEvaluator {
         this.refLookup = refLookup;
     }
 
+    @SuppressWarnings("unchecked")
     void setIntermediateSteps(int steps) {
-        ops = new MathOperation[steps];
-        scratchpad = new BigDecimal[ops.length + refLookup.length];
+        ops = new Function[steps];
+        scratchpad = new BigDecimal[steps + refLookup.length];
     }
 
     void addOp(int index, Function<BigDecimal[], BigDecimal> func) {
-        ops[index] = new MathOperation(func, BigDecimal.ZERO);
+        ops[index] = func;
     }
 
+    public
     void setResultIndex(int resultIndex) {
         this.resultIndex = resultIndex;
     }
@@ -76,6 +77,10 @@ public class MathEvaluator extends BaseEvaluator {
         return next.getLastRefs();
     }
 
+    public MathEvaluator makeValid() {
+        valid = true;
+        return this;
+    }
     /* *********************************** Debug information ************************************************ */
     @Override
     public String getInfo(String id) {
@@ -164,7 +169,7 @@ public class MathEvaluator extends BaseEvaluator {
 
         try {
             for (int a = 0; a < ops.length; a++)
-                scratchpad[a + refLookup.length] = ops[a].func().apply(scratchpad);
+                scratchpad[a + refLookup.length] = ops[a].apply(scratchpad);
             return Optional.of(scratchpad[scratchpad.length - 1]);
         } catch (NullPointerException np) {
             Logger.error(id + " (me) -> Nullpointer while evaluating: " + originalExpression, np);
@@ -235,6 +240,21 @@ public class MathEvaluator extends BaseEvaluator {
         return !Double.isNaN(res);
     }
 
+    /**
+     * Applies an array of doubles as the input for the expression and returns the result.
+     *
+     * @return The result if successful or NaN if something went wrong
+     */
+    public double eval(double d0, double d1, double d2) {
+        if (highestI > 1)
+            return Double.NaN;
+
+        var bds = new BigDecimal[3];
+        bds[0] = BigDecimal.valueOf(d0);
+        bds[1] = BigDecimal.valueOf(d1);
+        bds[2] = BigDecimal.valueOf(d2);
+        return eval(bds).map(BigDecimal::doubleValue).orElse(Double.NaN);
+    }
     public BigDecimal[] prepareBdArray(BigDecimal[] bds, String data, String delimiter) {
         var inputs = data.split(delimiter);
 

@@ -2,22 +2,23 @@ package util.data.vals;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.evalcore.Evaluator;
-import util.evalcore.LogEvaluatorDummy;
+import util.data.procs.MathEvalForVal;
+import util.evalcore.LogicEvalTrigger;
+import util.evalcore.MathEvaluatorDummy;
 
 import java.math.BigDecimal;
-import java.util.function.DoubleBinaryOperator;
 
 public class RealVal extends BaseVal implements NumericVal {
     double value = Double.NaN, defValue = Double.NaN;
 
-    // DoubleBinaryOperator to apply a logic to update the value
-    DoubleBinaryOperator updaterPass = (oldV, newV) -> newV; // Replace with more logic if needed
-    DoubleBinaryOperator updaterFail = (oldV, newV) -> newV; // Replace with more logic if needed
-    Evaluator logEval = new LogEvaluatorDummy();
+    LogicEvalTrigger preCheck = new LogicEvalTrigger();
+    LogicEvalTrigger postCheck = new LogicEvalTrigger();
+    MathEvalForVal math = new MathEvaluatorDummy();
 
     public RealVal(String group, String name, String unit) {
         super(group, name, unit);
+        preCheck.setId(id() + "_PRE");
+        postCheck.setId(id() + "_POST");
     }
 
     public RealVal() {
@@ -28,20 +29,22 @@ public class RealVal extends BaseVal implements NumericVal {
     }
 
     public boolean update(double value) {
-        var result = logEval.eval(this.value, value);
-        if (result.isEmpty()) {
-            // logic eval failed
-            return false;
-        }
-
-        if (result.get()) {
-            this.value = updaterPass.applyAsDouble(this.value, value);
-        } else {
-            this.value = updaterFail.applyAsDouble(this.value, value);
+        if (preCheck.eval(this.value, value, 0.0)) {
+            var res = math.eval(this.value, value, 0.0);
+            if (postCheck.eval(res, this.value, value))
+                this.value = res;
         }
         return true;
     }
 
+    @Override
+    public void triggerUpdate() {
+        update(0.0);
+    }
+
+    public void setMath(MathEvalForVal bin) {
+        math = bin;
+    }
     public double value() {
         return value;
     }

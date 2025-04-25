@@ -2,16 +2,18 @@ package util.data.vals;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
-import util.evalcore.Evaluator;
-import util.evalcore.LogEvaluatorDummy;
+import util.data.procs.MathEvalForVal;
+import util.evalcore.LogicEvalTrigger;
+import util.evalcore.MathEvaluatorDummy;
 
 import java.math.BigDecimal;
-import java.util.function.IntBinaryOperator;
 
 public class IntegerVal extends BaseVal implements NumericVal {
     int value, defValue;
-    IntBinaryOperator updater = (oldV, newV) -> newV;
-    Evaluator logEval = new LogEvaluatorDummy();
+
+    LogicEvalTrigger preCheck = new LogicEvalTrigger();
+    LogicEvalTrigger postCheck = new LogicEvalTrigger();
+    MathEvalForVal math = new MathEvaluatorDummy();
 
     public IntegerVal(String group, String name, String unit) {
         super(group, name, unit);
@@ -22,23 +24,39 @@ public class IntegerVal extends BaseVal implements NumericVal {
         return new IntegerVal(group, name, "");
     }
 
+    public void setMath(MathEvalForVal bin) {
+        math = bin;
+    }
+
     public int value() {
         return value;
     }
 
+    @Override
+    public void triggerUpdate() {
+        update(0);
+    }
+
     public boolean update(double value) {
-        this.value = (int) value;
+        update((int) value);
         return false;
     }
+
+    public boolean update(int value) {
+        if (preCheck.eval(this.value, value, 0.0)) {
+            var res = (int) Math.round(math.eval(this.value, value, 0.0));
+            if (postCheck.eval(res, this.value, value)) {
+                this.value = res;
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void resetValue() {
         value = defValue;
     }
-
-    public void update(int value) {
-        this.value = updater.applyAsInt(this.value, value);
-    }
-
     public void defValue(int defValue) {
         this.defValue = defValue;
     }

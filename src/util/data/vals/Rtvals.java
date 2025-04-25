@@ -43,7 +43,7 @@ public class Rtvals implements Commandable {
             var groupName = d.attr("id", "");
             ValFab.digRealVals(d, groupName, realVals);
             integerVals.putAll(ValFab.digIntegerVals(d, groupName));
-            flagVals.putAll(ValFab.digFlagVals(d, groupName));
+            flagVals.putAll(ValFab.digFlagVals(d, groupName, this));
             textVals.putAll(ValFab.digTextVals(d, groupName));
         });
 

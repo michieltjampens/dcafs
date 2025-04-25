@@ -13,6 +13,7 @@ public class BaseEvaluator {
     protected NumericVal[] refs;
     protected int highestI=-1;
     protected Integer[] refLookup;
+    protected boolean valid = false;
 
     String id = "";
 
@@ -41,5 +42,9 @@ public class BaseEvaluator {
             return true;
         }
         return false;
+    }
+
+    public boolean isInValid() {
+        return !valid;
     }
 }

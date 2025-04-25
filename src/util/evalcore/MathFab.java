@@ -2,23 +2,38 @@ package util.evalcore;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.data.procs.MathEvalForVal;
 import util.data.vals.NumericVal;
 import util.data.vals.RealVal;
 import util.data.vals.Rtvals;
 import util.math.MathUtils;
 
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.StringJoiner;
 
 public class MathFab {
 
-    public static Optional<MathEvaluator> parseExpression(String expression, Rtvals rtvals, NumericVal[] valRefs) {
+    public static MathEvaluator parseExpression(String expression, Rtvals rtvals, NumericVal[] valRefs) {
         return build(expression, rtvals, valRefs);
     }
 
-    public static Optional<MathEvaluator> parseExpression(String expression, Rtvals rtvals) {
+    public static MathEvaluator parseExpression(String expression, Rtvals rtvals) {
         return build(expression, rtvals, null);
+    }
+
+    public static String[] checkIfSimpleAndValid(String expression) {
+        // Check if valid
+        var split = normalizeAndCheckBrackets(expression);
+        if (split.length == 0)
+            return new String[0];
+
+        // Check if simple
+        var res = ParseTools.replaceRealtimeValues(expression, null, null, null);
+        var rtvOk = split[1].equals("(" + res + ")");
+        if (!rtvOk)
+            return new String[0];
+        var parts = processBrackets(split[1]);
+        return parts.size() == 1 ? parts.get(0) : new String[0];
     }
 
     /**
@@ -27,24 +42,16 @@ public class MathFab {
      * @param expression The mathematical expression to parse
      * @return This object or null if failed
      */
-    private static Optional<MathEvaluator> build(String expression, Rtvals rtvals, NumericVal[] oldRefs) {
+    private static MathEvaluator build(String expression, Rtvals rtvals, NumericVal[] oldRefs) {
 
         var mathEval = new MathEvaluator(expression);
 
-        // Fix stuff like i0++, i0*=3, remove spaces ,sin/cos/tan to placeholders
-        expression = normalizeExpression(expression);
+        var split = normalizeAndCheckBrackets(expression);
+        if (split.length == 0)
+            return mathEval;
 
-        // Split the left and right part of the equation
-        var resultTarget = "";
-        if (expression.contains("=")) {
-            var split = expression.split("=");
-            resultTarget = split[0];
-            expression = split[1];
-        }
-
-        expression = ParseTools.checkBrackets(expression, '(', ')', true);
-        if (expression.isEmpty())
-            return Optional.empty();
+        var resultTarget = split[0];
+        expression = split[1];
 
         // Extract all the 'i*' from the expression and replace to reflect position in refLookup
         var refLookup = new ArrayList<Integer>();
@@ -63,7 +70,7 @@ public class MathFab {
         mathEval.setResultIndex(determineResultIndex(resultTarget, rtvals, refs)); // returns -1 if resultTarget is empty
         expression = ParseTools.replaceRealtimeValues(expression, refs, rtvals, refLookup);
         if (expression.isEmpty()) // Errors are logged in the method, so can just quit.
-            return Optional.empty();
+            return mathEval;
 
         // At this point the expression should be ready for actual parsing and refs are final
         mathEval.setNormalized(expression);
@@ -73,7 +80,7 @@ public class MathFab {
         // Next go through the brackets from left to right (inner)
         var subExpressions = processBrackets(expression);
         if (subExpressions.isEmpty())
-            return Optional.empty();
+            return mathEval;
         mathEval.setIntermediateSteps(subExpressions.size()); // The amount of ops is known, so use it to size arrays
 
         // Purely for debugging purposes
@@ -89,14 +96,33 @@ public class MathFab {
             var sub = subExpressions.get(a);
             var op = ParseTools.decodeBigDecimalsOp(sub[0], sub[1], sub[2], refLookup.size());
             if (op == null)
-                return Optional.empty();
+                return mathEval;
             mathEval.addOp(a, op);
         }
 
-        return Optional.of(mathEval);
+        return mathEval.makeValid();
     }
 
-    private static String normalizeExpression(String expression) {
+    private static String[] normalizeAndCheckBrackets(String expression) {
+        // Fix stuff like i0++, i0*=3, remove spaces ,sin/cos/tan to placeholders
+        expression = normalizeExpression(expression);
+
+        // Split the left and right part of the equation
+        var resultTarget = "";
+        if (expression.contains("=")) {
+            var split = expression.split("=");
+            resultTarget = split[0];
+            expression = split[1];
+        }
+
+        expression = ParseTools.checkBrackets(expression, '(', ')', true);
+        if (expression.isEmpty())
+            return new String[0];
+
+        return new String[]{resultTarget, expression};
+    }
+
+    public static String normalizeExpression(String expression) {
         expression = normalizeDualOperand(expression); // Replace stuff like i0++ with i0=i0+1
         // words like sin,cos etc messes up the processing, replace with references
         expression = replaceGeometricTerms(expression);
@@ -252,5 +278,15 @@ public class MathFab {
             }
         }
         return refs;
+    }
+
+    public static MathEvalForVal stripForValIfPossible(MathEvaluator math) {
+        // No refs allowed in lite
+        if (math.getRefs() != null)
+            return math;
+        // Max lookup of two, and only i0 and i1
+        if (math.highestI > 1)
+            return math;
+        return new MathEvaluatorLite(math.id, math.getOriginalExpression(), math.ops);
     }
 }

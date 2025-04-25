@@ -182,30 +182,23 @@ public class ParseTools {
     }
 
     public static String replaceRealtimeValues(String expression, ArrayList<NumericVal> refs, Rtvals rtvals, ArrayList<Integer> refLookup) {
-        if (rtvals == null) {
-            Logger.warn("Couldn't replace rtvals refs because rtvals is null when parsing: " + expression);
-            return expression;
-        }
+
         // Do processing as normal
         var bracketVals = ParseTools.extractCurlyContent(expression, true);
         if (bracketVals == null) {
             Logger.error("Failed to extract curly brackets from " + expression);
             return "";
         }
-        // int hasOld = refs.size();
+        if (bracketVals.isEmpty()) {
+            Logger.info("No curly brackets found in " + expression);
+            return expression;
+        }
+        if (rtvals == null) {
+            Logger.warn("Couldn't replace rtvals refs because rtvals is null when parsing: " + expression);
+            return "";
+        }
 
-        iteratevals:
         for (var val : bracketVals) {
-            /*if (hasOld != 0) {
-                for (int a = 0; a < hasOld; a++) { // No use looking beyond old elements
-                    if (refs.get(a).id().equals(val)) {
-                        Logger.info("Using old val:" + val);
-                        expression = expression.replace("{" + val + "}", "r" + inputs.size() );
-                        inputs.add(100 + a);
-                        continue iteratevals;
-                    }
-                }
-            }*/
             var result = rtvals.getBaseVal(val);
             if (result.isEmpty()) {
                 Logger.error("No such rtval yet: " + val);
