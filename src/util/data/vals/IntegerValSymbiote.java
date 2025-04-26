@@ -2,22 +2,24 @@ package util.data.vals;
 
 import java.util.Arrays;
 
-public class RealValSymbiote extends RealVal {
+public class IntegerValSymbiote extends IntegerVal {
 
-    RealVal[] underlings;
+    NumericVal[] underlings;
     boolean passOriginal = true;
     int level = 0;
+    IntegerVal host;
 
-    public RealValSymbiote(int level, RealVal... underlings) {
-        super(underlings[0].group(), underlings[0].name(), underlings[0].unit());
+    public IntegerValSymbiote(int level, IntegerVal host, NumericVal... underlings) {
+        super(host.group(), host.name(), host.unit());
 
         this.underlings = underlings;
         this.level = level;
+        this.host = host;
     }
 
     public boolean update(double val) {
-        var result = underlings[0].update(val);
-        this.value = underlings[0].value();
+        var result = host.update(val);
+        this.value = host.value();
 
         var forwardedValue = passOriginal ? val : value;
         if (result || passOriginal)
@@ -26,29 +28,30 @@ public class RealValSymbiote extends RealVal {
         return result;
     }
 
-    public double value() {
-        return underlings[0].value();
+    public int value() {
+        return host.value();
     }
 
     public int level() {
         return level;
     }
+
     @Override
     public void resetValue() {
-        underlings[0].defValue(defValue);
-        value = underlings[0].value();
+        host.defValue(defValue);
+        value = host.value();
     }
 
-    public void defValue(double defValue) {
-        underlings[0].defValue(defValue);
+    public void defValue(int defValue) {
+        host.defValue(defValue);
         this.defValue = defValue;
     }
 
-    public RealVal[] getUnderlings() {
+    public NumericVal[] getUnderlings() {
         return underlings;
     }
 
-    public RealVal[] getDerived() {
+    public NumericVal[] getDerived() {
         return Arrays.copyOfRange(underlings, 1, underlings.length);
     }
 }

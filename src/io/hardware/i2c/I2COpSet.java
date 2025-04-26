@@ -79,11 +79,11 @@ public class I2COpSet {
                 case "alter"-> ops.add( new I2CAlter(altDig));
                 case "math" -> altDig.current().ifPresent( x -> {
                     var me = MathFab.parseExpression(x.getTextContent(), rtvals, null);
-                    if (me.isPresent()) {
-                        ops.add(me.get());
-                    }else{
+                    if (me.isInValid()) {
                         Logger.info(id + "(i2cop) -> Failed to read math node.");
                         valid=false;
+                    } else {
+                        ops.add(me);
                     }
                 });
                 case "store" -> {

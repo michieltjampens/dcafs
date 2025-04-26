@@ -123,7 +123,7 @@ public class MqttPool implements Commandable {
             var val = rtvals.getBaseVal(gn);
             val.ifPresent(baseVal -> worker.addSubscription(topic, baseVal));
         }else {
-            var val = ValFab.buildVal(rtval, groupName.group());
+            var val = ValFab.buildVal(rtval, groupName.group(), rtvals);
             if (val != null) {
                 if (worker.addSubscription(topic, val) == 0) {
                     Logger.error(worker.id() + " (mqtt) -> Failed to add subscription to " + topic);

@@ -41,8 +41,9 @@ public class Rtvals implements Commandable {
         Logger.info("Reading rtvals");
         dig.digOut("group").forEach(d -> {
             var groupName = d.attr("id", "");
-            ValFab.digRealVals(d, groupName, realVals);
-            integerVals.putAll(ValFab.digIntegerVals(d, groupName));
+            ValFab.digRealVals(d, groupName, realVals, this);
+            ValFab.digIntegerVals(d, groupName, integerVals, this);
+
             flagVals.putAll(ValFab.digFlagVals(d, groupName, this));
             textVals.putAll(ValFab.digTextVals(d, groupName));
         });

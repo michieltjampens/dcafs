@@ -60,6 +60,11 @@ public class TextVal extends BaseVal {
         return value;
     }
 
+    @Override
+    public void triggerUpdate() {
+
+    }
+
     public String formatValueWithUnit() {
         return value + unit;
     }

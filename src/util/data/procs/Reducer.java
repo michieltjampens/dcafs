@@ -12,7 +12,8 @@ public class Reducer {
 
     public static DoubleArrayToDouble getDoubleReducer(String reducer, double defValue, int windowsize) {
         return switch (reducer.replace(" ", "").toLowerCase()) {
-            case "mean", "avg" -> {
+            case "mean", "avg" -> (window) -> Arrays.stream(window).average().orElse(defValue);
+            case "median" -> {
                 if (windowsize % 2 == 0) {
                     yield (window) -> {
                         var sorted = DoubleStream.of(window).sorted().toArray();
@@ -49,6 +50,38 @@ public class Reducer {
                 yield (window) -> DoubleStream.of(window).average().orElse(defValue);
             }
 
+        };
+    }
+
+    public static IntegerArrayToInteger getIntegerReducer(String reducer, int defValue, int windowsize) {
+        return switch (reducer.replace(" ", "").toLowerCase()) {
+            case "max" -> (window) -> {
+                var max = Integer.MIN_VALUE;
+                for (var a : window)
+                    max = Math.max(max, a);
+                return max;
+            };
+            case "min" -> (window) -> {
+                var min = Integer.MAX_VALUE;
+                for (var a : window)
+                    min = Math.min(min, a);
+                return min;
+            };
+            case "sum" -> sumInts();
+            default -> {
+                Logger.warn("Unknown reducer type '{}'. Defaulting to 'sum'. Waiting on your pull request to get it implemented!", reducer);
+                yield sumInts();
+            }
+
+        };
+    }
+
+    private static IntegerArrayToInteger sumInts() {
+        return (window) -> {
+            var sum = 0;
+            for (var a : window)
+                sum += a;
+            return sum;
         };
     }
 }

@@ -21,9 +21,6 @@ public class RealVal extends BaseVal implements NumericVal {
         postCheck.setId(id() + "_POST");
     }
 
-    public RealVal() {
-    }
-
     public static RealVal newVal(String group, String name) {
         return new RealVal(group, name, "");
     }
@@ -37,6 +34,9 @@ public class RealVal extends BaseVal implements NumericVal {
         return true;
     }
 
+    public boolean update(int value) {
+        return update((double) value);
+    }
     @Override
     public void triggerUpdate() {
         update(0.0);
@@ -68,18 +68,18 @@ public class RealVal extends BaseVal implements NumericVal {
 
     @Override
     public double asDouble() {
-        return value;
+        return value();
     }
 
     @Override
     public int asInteger() {
-        return (int) Math.round(value);
+        return (int) Math.round(value());
     }
 
     @Override
     public BigDecimal asBigDecimal() {
         try {
-            return BigDecimal.valueOf(value);
+            return BigDecimal.valueOf(value());
         } catch (NumberFormatException e) {
             Logger.warn(id() + " hasn't got a valid value yet to convert to BigDecimal");
             return null;
@@ -87,6 +87,6 @@ public class RealVal extends BaseVal implements NumericVal {
     }
 
     public String asString() {
-        return String.valueOf(value);
+        return String.valueOf(value());
     }
 }

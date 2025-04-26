@@ -44,7 +44,7 @@ public class IntegerVal extends BaseVal implements NumericVal {
 
     public boolean update(int value) {
         if (preCheck.eval(this.value, value, 0.0)) {
-            var res = (int) Math.round(math.eval(this.value, value, 0.0));
+            var res = math.eval(this.value, value, 0);
             if (postCheck.eval(res, this.value, value)) {
                 this.value = res;
                 return true;
@@ -72,18 +72,18 @@ public class IntegerVal extends BaseVal implements NumericVal {
             Logger.error(id() + "-> Failed to parse " + stringValue);
             return false;
         }
-        this.value = v;
+        update(v);
         return true;
     }
 
     @Override
     public double asDouble() {
-        return value;
+        return value();
     }
 
     @Override
     public int asInteger() {
-        return value;
+        return value();
     }
 
     @Override

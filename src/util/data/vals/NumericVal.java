@@ -6,6 +6,8 @@ public interface NumericVal {
 
     boolean update(double value);
 
+    boolean update(int value);
+
     String name();
     String id(); //get the id
     String unit();
