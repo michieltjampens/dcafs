@@ -37,6 +37,14 @@ public class MathEvaluatorLite implements MathEvalForVal {
         return solve().map(BigDecimal::doubleValue).orElse(Double.NaN);
     }
 
+    @Override
+    public int eval(int i0, int i1, int i2) {
+        scratchpad[0] = BigDecimal.valueOf(i0);
+        scratchpad[1] = BigDecimal.valueOf(i1);
+        scratchpad[2] = BigDecimal.valueOf(i2);
+        return solve().map(BigDecimal::intValue).orElse(Integer.MAX_VALUE);
+    }
+
     private Optional<BigDecimal> solve() {
         try {
             for (int a = 0; a < ops.length; a++)

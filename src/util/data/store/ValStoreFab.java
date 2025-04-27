@@ -108,9 +108,9 @@ public class ValStoreFab {
 
             var key = val.attr("key", "");
             switch (val.tagName("")) {
-                case "real" -> ValFab.buildRealVal(val, groupID)
+                case "real" -> ValFab.buildRealVal(val, groupID, null)
                         .ifPresent(v -> store.putAbstractVal(key, v));
-                case "int" -> ValFab.buildIntegerVal(val, groupID)
+                case "int" -> ValFab.buildIntegerVal(val, groupID, null)
                         .ifPresent(v -> store.putAbstractVal(key, v));
                 case "flag", "bool" -> ValFab.buildFlagVal(val, groupID, null)
                         .ifPresent(v -> store.putAbstractVal(key, v));
@@ -135,8 +135,8 @@ public class ValStoreFab {
         if (!o.isEmpty()) { // Skip o's
             calOps.add(o);
             switch (dig.tagName("")) {
-                case "real" -> ValFab.buildRealVal(dig, groupID).ifPresent(calVal::add);
-                case "int", "integer" -> ValFab.buildIntegerVal(dig, groupID).ifPresent(calVal::add);
+                case "real" -> ValFab.buildRealVal(dig, groupID, null).ifPresent(calVal::add);
+                case "int", "integer" -> ValFab.buildIntegerVal(dig, groupID, null).ifPresent(calVal::add);
                 default -> {
                     Logger.error("Can't do calculation on any other than real and int for now");
                     return null;
@@ -169,8 +169,8 @@ public class ValStoreFab {
                 Logger.warn(store.id() + "(store) -> Already using index " + i + " overwriting previous content!");
             }
             switch (val.tagName("")) {
-                case "real" -> ValFab.buildRealVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
-                case "int", "integer" -> ValFab.buildIntegerVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));
+                case "real" -> ValFab.buildRealVal(val, groupID, null).ifPresent(x -> rtvals.set(pos, x));
+                case "int", "integer" -> ValFab.buildIntegerVal(val, groupID, null).ifPresent(x -> rtvals.set(pos, x));
                 case "flag", "bool" -> ValFab.buildFlagVal(val, groupID, null).ifPresent(x -> rtvals.set(pos, x));
                 case "ignore" -> rtvals.add(null);
                 case "text" -> ValFab.buildTextVal(val, groupID).ifPresent(x -> rtvals.set(pos, x));

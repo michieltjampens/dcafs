@@ -1,7 +1,7 @@
 package util.data.vals;
 
-import org.tinylog.Logger;
 import util.data.procs.DoubleArrayToDouble;
+import util.math.MathUtils;
 
 import java.util.Arrays;
 import java.util.stream.DoubleStream;
@@ -12,7 +12,7 @@ public class RealValAggregator extends RealVal {
     private final int windowSize;
     private int currentIndex = 0;
     private boolean filled = false;
-
+    private int scale = -1;
     // DoubleBinaryOperator to apply a logic to update the value, default is average
     DoubleArrayToDouble reducer = (window) -> DoubleStream.of(window).average().orElse(defValue);
     // Replace with more logic if needed
@@ -26,17 +26,23 @@ public class RealValAggregator extends RealVal {
         Arrays.fill(window, defValue);
     }
 
+    public void setScale(int scale) {
+        this.scale = scale;
+    }
     public boolean update(double value) {
         window[currentIndex] = value;
         currentIndex = (currentIndex + 1) % windowSize;
-        Logger.info("Added val to: " + id());
+
         if (currentIndex == 0)
             filled = true;
         return false;
     }
 
     public double value() {
-        return reducer.apply(filled ? window : Arrays.copyOf(window, currentIndex));
+        var res = reducer.apply(filled ? window : Arrays.copyOf(window, currentIndex));
+        if (scale == -1)
+            return res;
+        return MathUtils.roundDouble(res, scale);
     }
 
     @Override
@@ -48,6 +54,6 @@ public class RealValAggregator extends RealVal {
 
     @Override
     public String getExtraInfo() {
-        return "    [" + (filled ? windowSize : currentIndex + "/" + windowSize) + "]";
+        return "  [" + (filled ? windowSize : currentIndex + "/" + windowSize) + "]";
     }
 }

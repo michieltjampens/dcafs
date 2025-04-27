@@ -626,6 +626,10 @@ public class XMLdigger {
         return last.hasAttribute(tag);
     }
 
+    public boolean noAttr(String tag) {
+        return !hasAttr(tag);
+    }
+
     /**
      * Look for the first match of the list of attributes
      * @param attr One or more attributes to look for

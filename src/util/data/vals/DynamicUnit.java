@@ -7,6 +7,7 @@ import util.xml.XMLdigger;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /* ******************************** D Y N A M I C  U N I T **************************************************** */
 public class DynamicUnit {
@@ -39,9 +40,9 @@ public class DynamicUnit {
                 var div = lvl.attr("div", defDiv); // the multiplier to go to next step
                 var max = lvl.attr("till", lvl.attr("max", 0.0)); // From which value the nex unit should be used
                 var scale = lvl.attr("scale", -1);
+                var trailing = lvl.attr("trailing", true);
                 scale = lvl.attr("digits", scale == -1 ? defScale : scale);
-
-                unit.addLevel(val, div, max, scale);
+                unit.addLevel(val, div, max, scale, trailing);
             }
         } else if (dig.hasPeek("step")) {
             for (var step : dig.digOut("step")) { // Go through the steps
@@ -52,6 +53,8 @@ public class DynamicUnit {
         } else {
             Logger.warn("No valid subnodes in the unit node for " + base);
         }
+        if (base.isEmpty())
+            base = unit.subs.stream().map(sub -> sub.unit).distinct().collect(Collectors.joining(","));
         return new AbstractMap.SimpleEntry<>(base, unit);
     }
 
@@ -73,10 +76,10 @@ public class DynamicUnit {
 
     public void addStep(String unit, int cnt) {
         type = TYPE.STEP;
-        subs.add(new SubUnit(unit, cnt, 0, 0, 0));
+        subs.add(new SubUnit(unit, cnt, 0, 0, 0, true));
     }
 
-    public void addLevel(String unit, int mul, double max, int scale) {
+    public void addLevel(String unit, int mul, double max, int scale, boolean trailing) {
         type = TYPE.LEVEL;
         double min = Double.NEGATIVE_INFINITY;
         if (!subs.isEmpty()) {
@@ -88,7 +91,7 @@ public class DynamicUnit {
             }
         }
 
-        subs.add(new SubUnit(unit, mul, min, max, scale));
+        subs.add(new SubUnit(unit, mul, min, max, scale, trailing));
     }
 
     public String apply(double total, String curUnit) {
@@ -146,7 +149,10 @@ public class DynamicUnit {
         }
         if (subs.get(index).scale != -1) // -1 scale is ignored by round double, but cleaner this way?
             total = MathUtils.roundDouble(total, subs.get(index).scale);
-        return total + subs.get(index).unit;
+        if (subs.get(index).trailing)
+            return total + subs.get(index).unit;
+        var crop = String.valueOf(total).replace(".0", "");
+        return crop + subs.get(index).unit;
     }
 
     public static class SubUnit {
@@ -154,13 +160,16 @@ public class DynamicUnit {
         int div;
         double min, max;
         int scale;
+        boolean trailing = true;
 
-        public SubUnit(String unit, int mul, double min, double max, int scale) {
+        public SubUnit(String unit, int mul, double min, double max, int scale, boolean trailing) {
             this.unit = unit;
             this.div = mul;
             this.min = min;
             this.max = max;
             this.scale = scale;
+            this.trailing = trailing;
         }
+
     }
 }

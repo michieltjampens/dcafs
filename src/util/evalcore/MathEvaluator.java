@@ -249,12 +249,27 @@ public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
         if (highestI > 1)
             return Double.NaN;
 
-        var bds = new BigDecimal[3];
-        bds[0] = BigDecimal.valueOf(d0);
-        bds[1] = BigDecimal.valueOf(d1);
-        bds[2] = BigDecimal.valueOf(d2);
-        return eval(bds).map(BigDecimal::doubleValue).orElse(Double.NaN);
+        var bd0 = Double.isNaN(d0) ? null : BigDecimal.valueOf(d0);
+        var bd1 = Double.isNaN(d1) ? null : BigDecimal.valueOf(d1);
+        var bd2 = Double.isNaN(d2) ? null : BigDecimal.valueOf(d2);
+
+        var bds = new BigDecimal[]{bd0, bd1, bd2};
+        return eval(bds).map(bd -> {
+            if (scale != -1)
+                bd = bd.setScale(scale, RoundingMode.HALF_UP);
+            return bd.doubleValue();
+        }).orElse(Double.NaN);
     }
+
+    @Override
+    public int eval(int i0, int i1, int i2) {
+        if (highestI > 1)
+            return Integer.MAX_VALUE;
+
+        var bds = new BigDecimal[]{BigDecimal.valueOf(i0), BigDecimal.valueOf(i1), BigDecimal.valueOf(i2)};
+        return eval(bds).map(BigDecimal::intValue).orElse(Integer.MAX_VALUE);
+    }
+
     public BigDecimal[] prepareBdArray(BigDecimal[] bds, String data, String delimiter) {
         var inputs = data.split(delimiter);
 

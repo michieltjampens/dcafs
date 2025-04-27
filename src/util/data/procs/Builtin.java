@@ -7,10 +7,18 @@ import java.util.function.IntBinaryOperator;
 
 public class Builtin {
 
-    public static BuiltinDoubleProc getDoubleFunction(String ref) {
+    public static BuiltinDoubleProc getDoubleFunction(String ref, int scale) {
         DoubleBinaryOperator proc = switch (ref.toLowerCase()) {
-            case "max" -> Math::max;                                // Calculate the max between new and old
-            case "min" -> Math::min;                                // Calculate the min between new and old
+            case "max" -> (x, y) -> { // Calculate the max between new and old
+                x = Double.isNaN(x) ? Double.MIN_VALUE : x;
+                y = Double.isNaN(y) ? Double.MIN_VALUE : y;
+                return Math.max(x, y);
+            };
+            case "min" -> (x, y) -> { // Calculate the min between new and old
+                x = Double.isNaN(x) ? Double.MAX_VALUE : x;
+                y = Double.isNaN(y) ? Double.MAX_VALUE : y;
+                return Math.min(x, y);
+            };
             case "abs" -> (i0, i1) -> Math.abs(i0);      // Calculate the absolute value of new
             case "sqrt" -> (i0, i1) -> Math.sqrt(i0);  // Calculate the square root of new
             default -> {
@@ -18,7 +26,7 @@ public class Builtin {
                 yield (i0, i1) -> i0;
             }
         };
-        return new BuiltinDoubleProc(proc);
+        return new BuiltinDoubleProc(proc, scale);
     }
 
     public static BuiltinIntProc getIntFunction(String ref) {

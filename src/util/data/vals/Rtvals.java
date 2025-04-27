@@ -39,15 +39,17 @@ public class Rtvals implements Commandable {
             return;
         }
         Logger.info("Reading rtvals");
-        dig.digOut("group").forEach(d -> {
-            var groupName = d.attr("id", "");
-            ValFab.digRealVals(d, groupName, realVals, this);
-            ValFab.digIntegerVals(d, groupName, integerVals, this);
+        if (dig.hasPeek("group")) {
+            dig.digOut("group").forEach(d -> {
+                var groupName = d.attr("id", "");
+                ValFab.digRealVals(d, groupName, realVals, this);
+                ValFab.digIntegerVals(d, groupName, integerVals, this);
 
-            flagVals.putAll(ValFab.digFlagVals(d, groupName, this));
-            textVals.putAll(ValFab.digTextVals(d, groupName));
-        });
-
+                flagVals.putAll(ValFab.digFlagVals(d, groupName, this));
+                textVals.putAll(ValFab.digTextVals(d, groupName));
+            });
+            dig.goUp();
+        }
         Logger.info("Reading Dynamic Units");
         dig.digOut("unit").forEach(node -> {
             var pair = DynamicUnit.processUnitElement(node);
@@ -315,7 +317,7 @@ public class Rtvals implements Commandable {
                 .collect(Collectors.toCollection(ArrayList::new)); // Collect the results into a List
     }
 
-    public String getRTValsGroupList(String group, boolean html) {
+    public String getRTValsGroupList(String group, boolean html, boolean crop) {
 
         var tempList = Stream.of(realVals, integerVals, flagVals, textVals)
                 .flatMap(bv -> bv.values().stream())
@@ -350,7 +352,14 @@ public class Rtvals implements Commandable {
 
         for (var val : tempList) {
             if (val instanceof RealValSymbiote sym) {
-                join.add(LookAndFeel.prettyPrintSymbiote(sym, "", ""));
+                DynamicUnit du = null;
+                for (var entry : units.entrySet()) {
+                    if (entry.getKey().contains(sym.unit())) {
+                        du = entry.getValue();
+                        break;
+                    }
+                }
+                join.add(LookAndFeel.prettyPrintSymbiote(sym, "", "", crop, du));
             } else {
                 join.add(String.format("%-" + maxLength + "s : %s", val.name(), applyUnit(val)));
             }
@@ -391,18 +400,18 @@ public class Rtvals implements Commandable {
      * @param html If true will use html newline etc
      * @return The listing
      */
-    public String getRtvalsList(boolean html) {
+    public String getRtvalsList(boolean html, boolean crop) {
         String eol = html ? "<br>" : "\r\n";
         StringJoiner join = new StringJoiner(eol, "Status at " + TimeTools.formatShortUTCNow() + eol + eol, "");
         join.setEmptyValue("None yet");
 
         // Find & add the groups
         for (var group : getGroups()) {
-            var res = getRTValsGroupList(group, html);
+            var res = getRTValsGroupList(group, html, crop);
             if (!res.isEmpty() && !res.equalsIgnoreCase("none yet"))
                 join.add(res).add("");
         }
-        var res = getRTValsGroupList("", html);
+        var res = getRTValsGroupList("", html, crop);
         if (!res.isEmpty() && !res.equalsIgnoreCase("none yet"))
             join.add(res).add("");
 
@@ -635,7 +644,7 @@ public class Rtvals implements Commandable {
     public String replyToRtvalsCmd(String args, boolean html) {
 
         if (args.isEmpty())
-            return getRtvalsList(html);
+            return getRtvalsList(html, true);
 
         String[] cmds = args.split(",");
 
@@ -648,6 +657,7 @@ public class Rtvals implements Commandable {
                             .add("Get info")
                             .add("rtvals -> Get a listing of all rtvals")
                             .add("rtvals:groups -> Get a listing of all the available groups")
+                            .add("rtvals:full -> Same as rtvals, but names aren't cropped in the tree views")
                             .add("rtvals:group,groupid -> Get a listing of all rtvals belonging to the group")
                             .add("rtvals:resetgroup,groupid -> Reset the values in the group to the defaults");
                     return LookAndFeel.formatHelpCmd(join.toString(), html);
@@ -662,11 +672,13 @@ public class Rtvals implements Commandable {
                     String groups = String.join(html ? "<br>" : "\r\n", getGroups());
                     return groups.isEmpty() ? "! No groups yet" : groups;
                 }
-
+                case "full" -> {
+                    return getRtvalsList(html, false);
+                }
             }
         } else if (cmds.length == 2) {
             return switch (cmds[0]) {
-                case "group" -> getRTValsGroupList(cmds[1], html);
+                case "group" -> getRTValsGroupList(cmds[1], html, false);
                 case "resetgroup" -> {
                     var vals = getGroupVals(cmds[1]);
                     if (vals.isEmpty()) {
@@ -680,7 +692,7 @@ public class Rtvals implements Commandable {
                 default -> "! No such subcommand in rtvals: " + args;
             };
         }
-        return "! No such subcommand in rtvals: " + args;
+        return "! No such subcommand in rtvals: " + args + " (Use rtvals:?, to check the options) ";
     }
 
     @Override

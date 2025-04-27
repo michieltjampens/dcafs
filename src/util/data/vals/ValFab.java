@@ -85,18 +85,20 @@ public class ValFab {
                 var mathEval = MathFab.parseExpression(math, rtvals);
                 if (mathEval.isInValid())
                     return Optional.empty();
-
+                var scale = dig.attr("scale", -1);
+                mathEval.setScale(scale);
                 rv.setMath(MathFab.stripForValIfPossible(mathEval));
             } else if (dig.hasAttr("builtin")) {
-                rv.setMath(Builtin.getDoubleFunction(dig.attr("builtin", "")));
+                rv.setMath(Builtin.getDoubleFunction(dig.attr("builtin", ""), dig.attr("scale", -1)));
             }
         } else {
             var reducer = Reducer.getDoubleReducer(dig.attr("reducer", "avg"), def, window);
-            rv = new RealValAggregator(base.group, base.name, base.unit, reducer, window);
-            Logger.info("Building RealValAggregator " + rv.id());
+            var ra = new RealValAggregator(base.group, base.name, base.unit, reducer, window);
+            ra.setScale(dig.attr("scale", -1));
+            Logger.info("Building RealValAggregator " + ra.id());
+            rv = ra;
         }
         rv.defValue(def);
-
         return Optional.of(rv);
     }
 
@@ -312,22 +314,26 @@ public class ValFab {
     private static String fixDerivedName(XMLdigger derive, BaseVal main) {
         if (!derive.hasAttr("unit"))
             derive.currentTrusted().setAttribute("unit", main.unit());
+
         if (derive.hasAttr("name")) // Already defined, no need to change anything
             return main.group() + "_" + derive.attr("name", "");  // but return it for the present check
+
+        String oriName = "?";
+        if (derive.saveAndUpRestoreOnFail(getTagName(main))) {
+            oriName = derive.attr("name", "");
+            var scale = derive.attr("scale", -1);
+            derive.restorePoint();
+            if (derive.noAttr("scale"))
+                derive.currentTrusted().setAttribute("scale", "" + scale);
+        }
 
         var suffix = derive.attr("suffix", ""); // Suffix the parent name
         if (suffix.isEmpty()) {
             // Check if they want to append to name of higher one ...
-            var tag = getTagName(main);
-            var fromOri = derive.attr(tag + "suffix", ""); // Handle both possible vals using this method
+            var fromOri = derive.attr("mainsuffix", ""); // Handle both possible vals using this method
             if (!fromOri.isEmpty()) {
-                if (derive.saveAndUpRestoreOnFail(tag)) {
-                    var name = derive.attr("name", "");
-                    derive.restorePoint();
-                    derive.currentTrusted().setAttribute("name", name + "_" + fromOri);
-                    return main.group() + "_" + derive.attr("name", ""); // Full overwrite
-                }
-                Logger.error("Failed to get the name of the parent node"); // This should be possible ...
+                derive.currentTrusted().setAttribute("name", oriName + "_" + fromOri);
+                return main.group() + "_" + derive.attr("name", ""); // Full overwrite
             }
             // Auto generate based on function
             suffix = derive.attr("reducer", "");

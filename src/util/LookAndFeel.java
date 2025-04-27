@@ -1,6 +1,7 @@
 package util;
 
 import io.telnet.TelnetCodes;
+import util.data.vals.DynamicUnit;
 import util.data.vals.RealValSymbiote;
 
 import java.util.StringJoiner;
@@ -136,32 +137,54 @@ public class LookAndFeel {
         return count % divisor == 0;
     }
 
-    public static String prettyPrintSymbiote(RealValSymbiote symbiote, String prefix, String cut) {
+    public static String prettyPrintSymbiote(RealValSymbiote symbiote, String prefix, String cut, boolean crop, DynamicUnit du) {
         var join = new StringJoiner("\r\n");
         var underlings = symbiote.getUnderlings();
 
         if (prefix.isEmpty()) {
-            join.add(underlings[0].name() + " : " + underlings[0].asString() + underlings[0].unit());
+            var host = underlings[0];
+            String right;
+            if (du == null) {
+                right = host.asString() + host.unit() + host.getExtraInfo();
+            } else {
+                right = du.apply(host.value(), host.unit()) + host.getExtraInfo();
+            }
+            join.add(underlings[0].name() + " : " + right);
             cut = underlings[0].name() + "_";
         }
         // First pass for the width
         var temp = new String[underlings.length - 1];
-        int maxLeftLen = 0;
-        for (int a = 1; a < underlings.length; a++) {
-            // Clean name?
-            var trimmed = underlings[a].name();
-            for (var c : cut.split("_")) {
-                trimmed = trimmed.replace(c + "_", "");
+        int maxLeftLen = 1;
+        if (crop) {
+            for (int a = 1; a < underlings.length; a++) {
+                // Clean name?
+                var trimmed = underlings[a].name();
+                for (var c : cut.split("_")) {
+                    trimmed = trimmed.replace(c + "_", "");
+                }
+                temp[a - 1] = trimmed;
+                maxLeftLen = Math.max(trimmed.length(), maxLeftLen);
             }
-            temp[a - 1] = trimmed;
-            maxLeftLen = Math.max(trimmed.length(), maxLeftLen);
         }
         for (int a = 1; a < underlings.length; a++) {
+            var ling = underlings[a];
             // spaced name?
-            var print = String.format("%-" + maxLeftLen + "s : %s", temp[a - 1], underlings[a].asString() + underlings[a].unit());
+            String right = "";
+            if (du != null) {
+                right = du.apply(ling.value(), ling.unit());
+            } else {
+                right = ling.asString() + ling.unit();
+            }
+            right += ling.getExtraInfo();
+            String print;
+            if (crop) {
+                print = String.format("%-" + maxLeftLen + "s : %s", temp[a - 1], right);
+            } else {
+                print = underlings[a].name() + " : " + right;
+            }
             join.add(prefix + (a == underlings.length - 1 ? "└── " : "├── ") + print);
             if (underlings[a] instanceof RealValSymbiote sym) {
-                join.add(prettyPrintSymbiote(sym, a == underlings.length - 1 ? "    " : "│   ", sym.name() + "_"));
+                join.add(prettyPrintSymbiote(sym, a == underlings.length - 1 ? "    " : "│   ", sym.name() + "_", crop, du));
             }
         }
         return join.toString();

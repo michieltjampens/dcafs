@@ -43,9 +43,9 @@ public class IntegerVal extends BaseVal implements NumericVal {
     }
 
     public boolean update(int value) {
-        if (preCheck.eval(this.value, value, 0.0)) {
-            var res = math.eval(this.value, value, 0);
-            if (postCheck.eval(res, this.value, value)) {
+        if (preCheck.eval(value, this.value, 0.0)) {
+            var res = math.eval(value, this.value, 0);
+            if (postCheck.eval(res, value, this.value)) {
                 this.value = res;
                 return true;
             }

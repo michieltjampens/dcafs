@@ -51,4 +51,8 @@ public class RealValSymbiote extends RealVal {
     public RealVal[] getDerived() {
         return Arrays.copyOfRange(underlings, 1, underlings.length);
     }
+
+    public String getExtraInfo() {
+        return underlings[0].getExtraInfo();
+    }
 }
