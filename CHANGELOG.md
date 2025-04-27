@@ -14,7 +14,7 @@ Note: Version numbering: x.y.z
 - Added rawworker for bulk processing of data using multithreading and staged processing.
 - Math and logic parsing was all over the codebase, centralized in evalcore and streamlined the layout. Logic got a
   major rewrite
-  to allow for 'lazy evaluation ' (aka shortcircuiting).
+  to allow for 'lazy evaluation ' (aka shortcircuit'ing).
 - A lot of QoL fixes/changes and the cleanup based on Codacy feedback.
 - Result is a diff of "146 files changed, 12283 insertions(+), 14179 deletions(-)"
 - Major version bump because a lot has changed under the hood and major bump was overdue anyway.
@@ -85,36 +85,66 @@ Note: Version numbering: x.y.z
 
 ### RealtimeValues
 
-- Rewrote it to make it leaner and more flexible.
-  - Vals only hold the minimum: group, name, value, defValue, unit and newly added a Function.
-  - All optional stuff was removed in favor of that function
-  - TriggeredCmds is replaced with 'tinytask' which uses the new logic parser
-  - Added 'derived' and 'aggregate' variables. Both share the base class of all vals. Both can be linked to another '
-    main'
-    val to receive the data from. Both have predefined options but can be customized. Those are called 'reducer' for the
-    aggregate and math for the derived.
+- Rewrote it to with the intention to make it leaner and more flexible.  
+  I thought that the various val's had become to 'bloated', especially RealVal and IntegerVal. They all had
+  the code to do a lot of things that weren't used in 99% of the cases. So I set out to make
+  them 'simpler', not sure if I failed or not... On the surface they probably are
+  (as in, the code is a lot shorter), but they now are much more a reactive component
+  within dcafs and thus have outgrown their rule of 'short term memory'.
+
+  * RealVal, IntegerVal (aka real and integer container)
+    * Optional pipeline in update method (where new value replaces old)
+      * Precheck the incoming data
+        * Allow both simple logic or using references to other ones
+        * Set `cmds` to execute on pass or fail, those can reference both new and old value
+        * Propagate the result or always allow the next step
+      * Math expression(s) applied
+        * Alter received data before it's applied
+        * Receives both old and new value
+        * Refer to other vals if needed both is input and output (as in directly trigger update of another)
+        * Not needed to actually use incoming data
+        * Allowed to overwrite either memory slot, new value slot will be applied.
+      * Post Check of the calculated data
+        * Same as pre check but now it can additionally respond to calculated values. This means math could calculate
+          offset between new and old and this can be checked.
+    * No need to use the full pipeline, can just 'activate' the bits needed.
+    * Aggregator variant of both classes that acts as a collection, 'update' insert in the collection and requesting the
+      value returns the results of a builtin reducer function. (think average, variance and so on)
+
+* FlagVal (aka boolean container)
+  * Can have both `cmd` as response as triggering update of other val.
+  * Four distinct trigger options:
+    * Raising edge (false->true)
+    * Falling edge (true->false)
+    * Stay high (true->true)
+    * Stay low (false->false)
+  * Meaning these can trigger an update of an IntegerVal that is set to 'counter' mode. (that just means it ignores the
+    input and adds one to the current value);
+  * No logic(besides discerning triggers) or math involved in this because didn't seem useful.
+* TextVal (ake String container )
+  * Nothing really changed to this, remains a simple container.
+
   ```xml
-         <group id="test">
-            <flag def="true" name="flag"/>
-            <real def="0" name="pressure" unit="bar">
-                <!-- pressure is 'main' and variance is derived from it and so on -->
-                <derived reducer="variance" window="50" def="0" suffix="variance">
-                    <derived math="stdev"  def="0" realsuffix="deviation"/> <!-- pressure_deviation or pressure_variance_deviation -->
-                    <derived math="popstdev"  def="0"/>
-                </derived>
-                <derived reducer="variance" window="50" def="0" suffix="another">
-                    <derived math="stdev"  def="0" realsuffix="here"/> <!-- pressure_deviation or pressure_variance_deviation -->
-                    <derived math="popstdev"  def="0"/>
-                </derived>
-            </real>
-            <real def="0" name="result"/>
-        </group>
+   <group id="test">
+      <flag def="true" name="flag"/>
+      <real def="0" scale="3" name="pressure" unit="Bar">
+        <derived def="0" reducer="variance" suffix="variance" window="50">
+          <!-- i0 refers to the received value and i1 would be the 'old' one -->
+          <derived def="0" math="i0/(50-1)" suffix="sample"/>
+          <!-- final name: pressure_variance_sample -->
+          <derived def="0" mainsuffix="population_variance" math="i0/50"/>
+          <!-- final name: pressure_population_variance -->
+          <derived builtin="sqrt" def="0" mainsuffix="stdev"/>
+          <!-- final name: pressure_stdev -->
+        </derived>
+        <derived builtin="max" def="0" suffix="max"/>
+        <!-- final name: pressure_max -->
+        <derived builtin="min" def="0"/>
+        <!-- final name: pressure_min because no suffix or name defined -->
+      </real>
+  </group>
   ```
-- The function is called in the update method to determine what needs to be done with the new value. Default is just
-  updating. But stuff like max,min,offset etc become just a setting.
-- Added Aggregator variants of the vals replacing the previous 'history' option. Those extend their baseval
-  But allow a window of values to be stored and a function applied to the whole window instead. Think average,sum,stdev
-  and so on. Default is average.
+
 - Fixed, `ss:id,reloadstore` didn't properly reload if a map was used.
 - Fixed, `*v:id,update,value` wasn't looking at * but to id instead
 

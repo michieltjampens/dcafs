@@ -8,7 +8,8 @@ import java.util.function.IntBinaryOperator;
 public class Builtin {
 
     public static BuiltinDoubleProc getDoubleFunction(String ref, int scale) {
-        DoubleBinaryOperator proc = switch (ref.toLowerCase()) {
+        ref = ref.toLowerCase();
+        DoubleBinaryOperator proc = switch (ref) {
             case "max" -> (x, y) -> { // Calculate the max between new and old
                 x = Double.isNaN(x) ? Double.MIN_VALUE : x;
                 y = Double.isNaN(y) ? Double.MIN_VALUE : y;
@@ -26,19 +27,20 @@ public class Builtin {
                 yield (i0, i1) -> i0;
             }
         };
-        return new BuiltinDoubleProc(proc, scale);
+        ref = ref + (ref.startsWith("m") ? "(i0,old_" + ref + ")" : "(i0)");
+        return new BuiltinDoubleProc(proc, scale, ref);
     }
 
     public static BuiltinIntProc getIntFunction(String ref) {
         IntBinaryOperator proc = switch (ref.toLowerCase()) {
             case "max" -> Math::max;                                // Calculate the max between new and old
             case "min" -> Math::min;                                // Calculate the min between new and old
-            case "abs" -> (i0, i1) -> Math.abs(i0);      // Calculate the absolute value of new
+            case "abs" -> (i0, i1) -> Math.abs(i0);          // Calculate the absolute value of new
             default -> {
-                Logger.error("No such builtin: " + ref);              // Just return the new value without any change
+                Logger.error("No such builtin: " + ref);            // Just return the new value without any change
                 yield (i0, i1) -> i0;
             }
         };
-        return new BuiltinIntProc(proc);
+        return new BuiltinIntProc(proc, ref.toLowerCase());
     }
 }

@@ -4,9 +4,11 @@ import java.util.function.IntBinaryOperator;
 
 public class BuiltinIntProc implements MathEvalForVal {
     IntBinaryOperator bin;
+    String ori;
 
-    public BuiltinIntProc(IntBinaryOperator bin) {
+    public BuiltinIntProc(IntBinaryOperator bin, String ori) {
         this.bin = bin;
+        this.ori = ori;
     }
 
     @Override
@@ -17,5 +19,10 @@ public class BuiltinIntProc implements MathEvalForVal {
     @Override
     public int eval(int d0, int d1, int d2) {
         return bin.applyAsInt(d0, d1);
+    }
+
+    @Override
+    public String getOriExpr() {
+        return ori;
     }
 }

@@ -89,4 +89,8 @@ public class RealVal extends BaseVal implements NumericVal {
     public String asString() {
         return String.valueOf(value());
     }
+
+    public MathEvalForVal getMath() {
+        return math;
+    }
 }

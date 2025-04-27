@@ -180,7 +180,12 @@ public class LookAndFeel {
             if (crop) {
                 print = String.format("%-" + maxLeftLen + "s : %s", temp[a - 1], right);
             } else {
-                print = underlings[a].name() + " : " + right;
+                var math = ling.getMath() != null ? ling.getMath().getOriExpr() : "";
+
+                if (!math.isEmpty()) {
+                    math = "  [" + math.replace("i0", "{" + symbiote.name() + "}") + "]";
+                }
+                print = underlings[a].name() + " : " + right + math;
             }
             join.add(prefix + (a == underlings.length - 1 ? "└── " : "├── ") + print);
             if (underlings[a] instanceof RealValSymbiote sym) {

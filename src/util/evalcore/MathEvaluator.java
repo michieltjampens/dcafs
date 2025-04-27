@@ -166,7 +166,6 @@ public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
     }
 
     private Optional<BigDecimal> solve() {
-
         try {
             for (int a = 0; a < ops.length; a++)
                 scratchpad[a + refLookup.length] = ops[a].apply(scratchpad);
@@ -306,5 +305,10 @@ public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
         }
         if (next != null)
             next.prepareBdArray(bds, inputs);
+    }
+
+    @Override
+    public String getOriExpr() {
+        return super.getOriginalExpression();
     }
 }

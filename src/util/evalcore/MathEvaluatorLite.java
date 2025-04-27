@@ -59,6 +59,9 @@ public class MathEvaluatorLite implements MathEvalForVal {
     }
 
     /* ************************* Alternative variants of eval for specific use cases ****************************** */
-
+    @Override
+    public String getOriExpr() {
+        return originalExpression;
+    }
 
 }

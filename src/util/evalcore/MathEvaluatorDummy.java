@@ -12,4 +12,9 @@ public class MathEvaluatorDummy implements MathEvalForVal {
     public int eval(int d0, int d1, int d2) {
         return d0;
     }
+
+    @Override
+    public String getOriExpr() {
+        return "";
+    }
 }
