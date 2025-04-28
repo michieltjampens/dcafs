@@ -23,6 +23,7 @@ public class TaskManager implements Writable {
     Path scriptPath;
     String id;
     ArrayList<NumericVal> sharedMem = new ArrayList<>();
+    long lastModifiedTime = 0;
 
     public TaskManager(String id, EventLoopGroup eventLoop, Rtvals rtvals) {
         this.eventLoop = eventLoop;
@@ -41,8 +42,16 @@ public class TaskManager implements Writable {
     }
     public void setScriptPath(Path scriptPath) {
         this.scriptPath = scriptPath;
+        lastModifiedTime = scriptPath.toFile().lastModified();
     }
 
+    public boolean isModified() {
+        var mod = lastModifiedTime != scriptPath.toFile().lastModified();
+        Logger.info("Modified :" + (lastModifiedTime - scriptPath.toFile().lastModified()));
+        if (mod)
+            lastModifiedTime = scriptPath.toFile().lastModified();
+        return mod;
+    }
     public Path getScriptPath() {
         return scriptPath;
     }

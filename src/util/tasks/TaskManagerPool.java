@@ -14,12 +14,14 @@ import worker.Datagram;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class TaskManagerPool implements Commandable {
 
@@ -27,11 +29,20 @@ public class TaskManagerPool implements Commandable {
     Rtvals rtvals;
     final Path scriptPath = Paths.storage().resolve("tmscripts");
     EventLoopGroup eventLoop;
+    ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
     public TaskManagerPool(Rtvals rtvals, EventLoopGroup eventLoop) {
         this.rtvals = rtvals;
         this.eventLoop = eventLoop;
         readFromXML();
+
+        executorService.submit(() -> {
+            try {
+                watchDirectory(Path.of("tmscripts"));
+            } catch (IOException | InterruptedException e) {
+                Logger.error(e);
+            }
+        });
     }
 
     public void readFromXML() {
@@ -85,6 +96,7 @@ public class TaskManagerPool implements Commandable {
     public void reloadAll() {
         for (TaskManager tl : tasklists.values()) {
             TaskManagerFab.reloadTaskManager(tl);
+            tl.start();
         }
     }
 
@@ -299,5 +311,48 @@ public class TaskManagerPool implements Commandable {
     @Override
     public boolean removeWritable(Writable wr) {
         return false;
+    }
+
+    private void watchDirectory(Path dir) throws IOException, InterruptedException {
+        // Create a WatchService instance
+        try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
+            // Register the directory with the WatchService for specific events
+            dir.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY,
+                    StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE);
+
+            // Loop to listen for events
+            while (true) {
+                // Wait for a watch key to be available
+                WatchKey key = watchService.take();
+
+                // Process events
+                for (WatchEvent<?> event : key.pollEvents()) {
+                    WatchEvent.Kind<?> kind = event.kind();
+                    Path filePath = (Path) event.context();
+                    // Handle the event if needed
+                    if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
+                        // Example: File modified
+                        Logger.info(" Modified: " + filePath.toString());
+                        for (var tm : tasklists.values()) {
+                            Logger.info(tm.getScriptPath().getFileName());
+                            if (tm.getScriptPath().getFileName().equals(filePath)) {
+                                if (tm.isModified()) {
+                                    tm.reset();
+                                    eventLoop.schedule(tm::reloadTasks, 2, TimeUnit.SECONDS);
+                                }
+                            }
+                        }
+                    } else if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
+                        Logger.info(" Created: " + filePath.toString());
+                    }
+                }
+
+                // Reset the key to continue watching
+                boolean valid = key.reset();
+                if (!valid) {
+                    break;
+                }
+            }
+        }
     }
 }
