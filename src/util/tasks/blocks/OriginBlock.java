@@ -6,6 +6,7 @@ import org.tinylog.Logger;
 public class OriginBlock extends AbstractBlock {
     String info = "";
     int runs = 0;
+    boolean autostart = false;
 
     public OriginBlock(String id) {
         this.id = id;
@@ -37,6 +38,13 @@ public class OriginBlock extends AbstractBlock {
         return true;
     }
 
+    public boolean hasAutostart() {
+        return autostart;
+    }
+
+    public void setAutostart(boolean start) {
+        this.autostart = start;
+    }
     @Override
     public String telnetId() {
         return TelnetCodes.TEXT_MAGENTA + id() + TelnetCodes.TEXT_DEFAULT;

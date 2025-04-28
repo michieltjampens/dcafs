@@ -54,6 +54,11 @@ public class TaskManager implements Writable {
     public void start() {
         Logger.info(id + " -> Starting startups");
         startup.forEach(AbstractBlock::start);
+        starters.values().forEach(ori -> {
+            if (ori instanceof OriginBlock ob)
+                if (ob.hasAutostart())
+                    ob.start();
+        });
     }
     public void addStarter(AbstractBlock start) {
         if (start == null)
@@ -83,8 +88,7 @@ public class TaskManager implements Writable {
 
     public boolean reloadTasks() {
         TaskManagerFab.reloadTaskManager(this);
-        if( !startup.isEmpty())
-            startup.forEach(AbstractBlock::start);
+        start();
         return true;
     }
 

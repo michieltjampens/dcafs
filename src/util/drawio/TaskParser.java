@@ -66,6 +66,10 @@ public class TaskParser {
     private static OriginBlock doOriginBlock(Drawio.DrawioCell cell, Tools tools) {
         var origin = new OriginBlock(cell.dasId);
         tools.origins.add(origin);
+        var auto = cell.getParam("autostart", "no");
+        ;
+        origin.setAutostart(util.tools.Tools.parseBool(auto, false));
+
         addNext(cell, origin, tools, "next");
         return origin;
     }
