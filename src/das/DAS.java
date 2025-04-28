@@ -22,7 +22,6 @@ import org.tinylog.provider.ProviderRegistry;
 import util.LookAndFeel;
 import util.data.vals.Rtvals;
 import util.database.DatabaseManager;
-import util.evalcore.LogicFab;
 import util.gis.Waypoints;
 import util.math.MathUtils;
 import util.tasks.TaskManagerPool;
@@ -539,11 +538,11 @@ public class DAS implements Commandable{
         // TaskManager
         if (taskManagerPool != null) {
             Logger.info( "Parsing TaskManager scripts");
-            String errors = taskManagerPool.reloadAll();
+            taskManagerPool.reloadAll();
             taskManagerPool.getTasKManagerIds().forEach(id -> addCommandable(taskManagerPool, id));
 
-            if( !errors.isEmpty())
-                telnet.addMessage("Errors during TaskManager parsing:\r\n"+errors);
+            //  if( !errors.isEmpty())
+            //     telnet.addMessage("Errors during TaskManager parsing:\r\n"+errors);
         }
         // Matrix
         if( matrixClient != null ){
@@ -558,7 +557,6 @@ public class DAS implements Commandable{
             rawWorker.start(true);
 
         Logger.info("Finished startAll");
-        LogicFab.parseComparison("i0 between 10 and 30 or i0 below 56",rtvals,null);
     }
     /* **************************** * S T A T U S S T U F F *********************************************************/
     /**

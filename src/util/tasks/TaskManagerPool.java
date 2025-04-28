@@ -82,14 +82,10 @@ public class TaskManagerPool implements Commandable {
     /**
      * Reload all the taskmanagers
      */
-    public String reloadAll() {
-        StringJoiner errors = new StringJoiner("\r\n");
+    public void reloadAll() {
         for (TaskManager tl : tasklists.values()) {
             TaskManagerFab.reloadTaskManager(tl);
-            if (!tl.reloadTasks())
-                errors.add(tl.id() + " -> " + tl.getLastError());
         }
-        return errors.toString();
     }
 
     public Set<String> getTasKManagerIds() {

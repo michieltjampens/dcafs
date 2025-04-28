@@ -18,10 +18,10 @@ public class TaskManagerFab {
 
     public static void reloadTaskManager(TaskManager tm) {
         tm.reset();
-        if (tm.getScriptPath().endsWith(".xml")) {
+        if (tm.getScriptPath().toString().endsWith(".xml")) {
             var dig = XMLdigger.goIn(tm.getScriptPath(), "dcafs", "tasklist");
             startDigging(dig, tm);
-        } else if (tm.getScriptPath().endsWith(".drawio")) {
+        } else if (tm.getScriptPath().toString().endsWith(".drawio")) {
             Logger.info("Reading a taskmanager tasks from a drawio file!");
             var origins = TaskParser.parseDrawIoTaskFile(tm.getScriptPath(), tm.eventLoopGroup(), tm.rtvals());
             origins.forEach(tm::addStarter);
@@ -31,7 +31,8 @@ public class TaskManagerFab {
     public static Optional<TaskManager> buildTaskManager(String id, Path script, EventLoopGroup eventLoop, Rtvals rtvals) {
         var tm = new TaskManager(id,eventLoop,rtvals);
         tm.setScriptPath(script);
-
+        return Optional.of(tm);
+        /*
         if (script.toString().endsWith(".xml")) {
             var dig = XMLdigger.goIn(script, "dcafs", "tasklist");
             if (startDigging(dig, tm))
@@ -40,8 +41,9 @@ public class TaskManagerFab {
             Logger.info("Reading a taskmanager tasks from a drawio file!");
             var origins = TaskParser.parseDrawIoTaskFile(script, eventLoop, rtvals);
             origins.forEach(tm::addStarter);
-        }
-        return Optional.empty();
+            return Optional.of(tm);
+        }*/
+        //return Optional.empty();
     }
     private static boolean startDigging( XMLdigger dig, TaskManager tm){
         if (dig.hasPeek("tasksets")) {
