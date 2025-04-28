@@ -37,7 +37,7 @@ public class WritableBlock extends AbstractBlock implements Writable {
                 Logger.info(id + " -> Failed to send to " + dest);
                 doFailure();
             } else {
-                Logger.info(id + " -> Send data to " + dest);
+                //Logger.info(id + " -> Send data to " + dest);
                 doNext();
             }
         } else {

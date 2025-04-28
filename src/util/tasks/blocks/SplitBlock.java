@@ -84,7 +84,7 @@ public class SplitBlock extends AbstractBlock implements Writable {
 
     @Override
     public boolean writeLine(String origin, String data) {
-        Logger.info("Callback? -> " + data);
+        //Logger.info("Callback? -> " + data);
         if (data.toLowerCase().contains("failure")) {
             Logger.info("Failure occurred, not executing remainder");
             var isnull = startNext == null;

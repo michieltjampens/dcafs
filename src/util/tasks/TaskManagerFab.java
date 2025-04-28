@@ -32,18 +32,6 @@ public class TaskManagerFab {
         var tm = new TaskManager(id,eventLoop,rtvals);
         tm.setScriptPath(script);
         return Optional.of(tm);
-        /*
-        if (script.toString().endsWith(".xml")) {
-            var dig = XMLdigger.goIn(script, "dcafs", "tasklist");
-            if (startDigging(dig, tm))
-                return Optional.of(tm);
-        } else if (script.toString().endsWith(".drawio")) {
-            Logger.info("Reading a taskmanager tasks from a drawio file!");
-            var origins = TaskParser.parseDrawIoTaskFile(script, eventLoop, rtvals);
-            origins.forEach(tm::addStarter);
-            return Optional.of(tm);
-        }*/
-        //return Optional.empty();
     }
     private static boolean startDigging( XMLdigger dig, TaskManager tm){
         if (dig.hasPeek("tasksets")) {

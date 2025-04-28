@@ -111,9 +111,10 @@ public class DelayBlock extends AbstractBlock {
     public void reset() {
         reps = repeats; // Reset reps
         clean = true;  // Restore clean
-        if (future != null && !future.isDone() && !future.isCancelled()) // Cancel any waiting task
+        if (future != null && !future.isDone() && !future.isCancelled()) { // Cancel any waiting task
             future.cancel(true);
-
+            Logger.info("Tried to cancel the future");
+        }
         // Propagate the reset to the next steps
         if (next != null)
             next.reset();
