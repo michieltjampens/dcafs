@@ -43,8 +43,9 @@ public abstract class AbstractBlock {
         return this;
     }
 
-    public void setFailureBlock(AbstractBlock failure) {
+    public AbstractBlock setFailureBlock(AbstractBlock failure) {
         this.failure = failure;
+        return this;
     }
 
     protected void doFailure() {

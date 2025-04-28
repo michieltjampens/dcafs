@@ -49,7 +49,7 @@ public class LogicEvaluator extends BaseEvaluator implements Evaluator {
             double val;
             if( r<100 && r < inputs.length-1 ) {
                 val = inputs[r];
-            }else if( refs!=null && r-100 < refs.length-1 ){
+            } else if (refs != null && r - 100 < refs.length) {
                 val = refs[r - 100].asDouble();
             }else{
                 Logger.error("Scratchpad couldn't be filled for index "+a+" from r"+r+" due to out of bounds");

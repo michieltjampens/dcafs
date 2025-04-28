@@ -23,9 +23,15 @@ public class OriginBlock extends AbstractBlock {
         next.resetId();
         next.buildId(id);
     }
+
+    public boolean restart() {
+        reset();
+        return start();
+    }
     @Override
     public boolean start() {
         runs++;
+        clean = false;
         doNext();
         Logger.info(id + " -> Starting...");
         return true;

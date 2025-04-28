@@ -15,7 +15,6 @@ public class DelayBlock extends AbstractBlock {
 
     enum TYPE {DELAY, INTERVAL, CLOCK}
 
-    ;
     TYPE type = TYPE.DELAY;
     EventLoopGroup eventLoop;
     long initialDelay = 0;
@@ -31,26 +30,37 @@ public class DelayBlock extends AbstractBlock {
         this.eventLoop = eventLoop;
     }
 
-    public void useInterval(String initialDelay, String interval, int repeats) {
+    public static DelayBlock useInterval(EventLoopGroup eventLoop, String initialDelay, String interval, int repeats) {
+        var db = new DelayBlock(eventLoop);
+        return db.useInterval(initialDelay, interval, repeats);
+    }
+
+    public DelayBlock useInterval(String initialDelay, String interval, int repeats) {
         this.interval = TimeTools.parsePeriodStringToSeconds(interval);
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(initialDelay);
         this.repeats = repeats;
         reps = repeats;
         type = TYPE.INTERVAL;
+        return this;
     }
 
+    public static DelayBlock useDelay(String delay, EventLoopGroup eventLoop) {
+        var db = new DelayBlock(eventLoop);
+        return db.useDelay(delay);
+    }
     public DelayBlock useDelay(String delay) {
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(delay);
         type = TYPE.DELAY;
         return this;
     }
 
-    public void useClock(String time, boolean local) {
+    public DelayBlock useClock(String time, boolean local) {
         type = TYPE.CLOCK;
         localTime = local;
         var split = Tools.splitList(time, 2, "");
         this.time = split[0];
         taskDays = TimeTools.convertDAY(split[1]);
+        return this;
     }
     @Override
     public boolean start() {
@@ -112,8 +122,14 @@ public class DelayBlock extends AbstractBlock {
     }
 
     @Override
-    public void setFailureBlock(AbstractBlock failure) {
-        Logger.warn(id + " -> Trying to set a failure block in a DelayBlock");
+    public DelayBlock setFailureBlock(AbstractBlock failure) {
+        if (repeats == -1) {
+            Logger.warn(id + " -> Trying to set a failure block in a DelayBlock");
+            return this;
+        }
+        if (failure != null)
+            this.failure = failure;
+        return this;
     }
     public String toString() {
         var nextRun = "?";

@@ -4,6 +4,7 @@ import io.email.Email;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.data.vals.Rtvals;
+import util.drawio.TaskParser;
 import util.tasks.blocks.*;
 import util.tools.Tools;
 import util.xml.XMLdigger;
@@ -14,19 +15,32 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 public class TaskManagerFab {
-    public static boolean reloadTaskManager( TaskManager tm ){
-        var dig = XMLdigger.goIn(tm.getScriptPath(),"dcafs","tasklist");
-        startDigging(dig,tm);
-        return true;
+
+    public static void reloadTaskManager(TaskManager tm) {
+        tm.reset();
+        if (tm.getScriptPath().endsWith(".xml")) {
+            var dig = XMLdigger.goIn(tm.getScriptPath(), "dcafs", "tasklist");
+            startDigging(dig, tm);
+        } else if (tm.getScriptPath().endsWith(".drawio")) {
+            Logger.info("Reading a taskmanager tasks from a drawio file!");
+            var origins = TaskParser.parseDrawIoTaskFile(tm.getScriptPath(), tm.eventLoopGroup(), tm.rtvals());
+            origins.forEach(tm::addStarter);
+        }
     }
 
     public static Optional<TaskManager> buildTaskManager(String id, Path script, EventLoopGroup eventLoop, Rtvals rtvals) {
         var tm = new TaskManager(id,eventLoop,rtvals);
         tm.setScriptPath(script);
 
-        var dig = XMLdigger.goIn(script,"dcafs","tasklist");
-        if( startDigging(dig,tm) )
-            return Optional.of(tm);
+        if (script.toString().endsWith(".xml")) {
+            var dig = XMLdigger.goIn(script, "dcafs", "tasklist");
+            if (startDigging(dig, tm))
+                return Optional.of(tm);
+        } else if (script.toString().endsWith(".drawio")) {
+            Logger.info("Reading a taskmanager tasks from a drawio file!");
+            var origins = TaskParser.parseDrawIoTaskFile(script, eventLoop, rtvals);
+            origins.forEach(tm::addStarter);
+        }
         return Optional.empty();
     }
     private static boolean startDigging( XMLdigger dig, TaskManager tm){
@@ -53,7 +67,6 @@ public class TaskManagerFab {
     
     private static boolean parseSet(XMLdigger taskset, AbstractBlock onFailure, TaskManager tm) {
         var eventLoop = tm.eventLoopGroup();
-        var rtvals = tm.rtvals();
 
         var id = taskset.attr("id", "");
         var type = taskset.attr("type", "oneshot").split(":", 2);
@@ -162,6 +175,7 @@ public class TaskManagerFab {
         var interval = task.attr("interval", "");
         var timeAttr = task.matchAttr("time", "localtime");
         var time = task.attr(timeAttr, "");
+
         var delayBlock = new DelayBlock(eventLoop);
 
         if (!delay.equals("-1s")) {
@@ -195,13 +209,13 @@ public class TaskManagerFab {
         return switch (target[0]) {
             case "system", "cmd" -> new CmdBlock(Datagram.system(content));
             case "stream" -> handleStreamTarget(task, target, content, eventLoop);
-            case "file" -> new WritableBlock().setMessage(target[0] + ":" + target[1], content);
+            case "file" -> new WritableBlock(target[0] + ":" + target[1], content);
             case "email" -> {
                 var subs = content.split(";", 2);
                 var attachment = task.attr("attachment", "");
                 yield new EmailBlock(Email.to(target[1]).subject(subs[0]).content(subs[1]).attachment(attachment));
             }
-            case "manager" -> new ControlBlock(tm).setMessage(content);
+            case "manager" -> new ControlBlock(eventLoop, null, null);
             case "telnet" -> new CmdBlock(Datagram.system("telnet", "broadcast," + target[1] + "," + content));
             default -> {
                 Logger.error(" (tm) -> Unknown target " + target[0]);
@@ -216,7 +230,7 @@ public class TaskManagerFab {
         if (task.attr("interval", "").isEmpty()) { // If not an interval, not many repeats so don't use writable
             block = new CmdBlock(Datagram.system(target[1], content));
         } else {
-            block = new WritableBlock().setMessage(target[0] + ":" + target[1], content);
+            block = new WritableBlock(target[0] + ":" + target[1], content);
         }
         var reply = task.attr("reply", "");
         if (!reply.isEmpty()) {
@@ -350,7 +364,7 @@ public class TaskManagerFab {
             case "req" -> ConditionBlock.build(content, rtvals, sharedMem).orElse(null);
             case "stream" -> {
                 var id = node.attr("to", "");
-                yield new WritableBlock().setMessage(id, content);
+                yield new WritableBlock(id, content);
             }
             case "email" -> {
                 var to = node.attr("to", "");

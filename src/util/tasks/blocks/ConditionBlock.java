@@ -30,7 +30,8 @@ public class ConditionBlock extends AbstractBlock {
         }
         var res = logEval.eval();
         if( res.isEmpty() ){
-            Logger.error("Failed to execute evaluation, chain aborted.");
+            Logger.error("Failed to execute evaluation, fail route.");
+            doFailure();
             return false;
         }
         var pass = res.get();

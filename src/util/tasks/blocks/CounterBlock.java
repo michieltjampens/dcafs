@@ -6,6 +6,8 @@ public class CounterBlock extends AbstractBlock {
     int count = -1;
     int tempCount = -1;
     public CounterBlock(int cnt) {
+        if (cnt == 0)
+            Logger.warn("Counter made with 0 counts, so straight to fail block");
         tempCount = cnt;
         count = cnt;
     }
@@ -15,8 +17,9 @@ public class CounterBlock extends AbstractBlock {
         clean = false;
         if (tempCount == 0) {
             Logger.info(id + " -> Count ran out, executing failure (if any).");
+            tempCount = -1;
             doFailure();
-        } else {
+        } else if (tempCount > 0) {
             tempCount--;
             doNext();
         }

@@ -236,10 +236,10 @@ Below is a full example with explanation.
     </unit>
   <!-- Level based -->
   <!-- This is applied the moment the value passes the set max -->
-  <!-- So 1001uA will become 1.001mA but scale is set to two, so 1mA -->
+  <!-- So 1001uA will become 1.001mA but scale is set to two, so 1.0mA -->
   <unit div="1000"> <!-- From one level to the next the division is 1000 -->
     <level max="1000">uA</level> <!-- Once max is passed, the next unit is used,max = div if not specified -->
-    <level max="1500" scale="2">mA</level>
+    <level max="1500" trailing="no" scale="2">mA</level> <!-- Crops .0 if trailing is set to 'no' -->
     <level>A</level> <!-- No max specified because the highest unit -->
   </unit>
 

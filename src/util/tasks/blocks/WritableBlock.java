@@ -11,9 +11,13 @@ public class WritableBlock extends AbstractBlock implements Writable {
     String dest;
     String cmd;
 
+    public WritableBlock(String dest, String data) {
+        setMessage(dest, data);
+    }
     public WritableBlock setMessage(String dest, String data) {
         this.data = data;
         this.dest = dest;
+
         var split = dest.split(":", 2);
         cmd = switch (split[0]) {
             case "stream", "raw" -> "ss:" + split[1] + ",reqwritable";

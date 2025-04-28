@@ -59,6 +59,7 @@ public class SplitBlock extends AbstractBlock implements Writable {
         }
     }
     public void reset() {
+        pos = 0;
         nexts.forEach(AbstractBlock::reset);
     }
 
@@ -72,6 +73,8 @@ public class SplitBlock extends AbstractBlock implements Writable {
             failure.resetId();
     }
     public AbstractBlock addNext(AbstractBlock block) {
+        if (block == null)
+            return this;
         block.id("Branch" + nexts.size());
         if (interval != 0)
             block.setCallbackWritable(this);
@@ -84,7 +87,12 @@ public class SplitBlock extends AbstractBlock implements Writable {
         Logger.info("Callback? -> " + data);
         if (data.toLowerCase().contains("failure")) {
             Logger.info("Failure occurred, not executing remainder");
-            if (startNext != null && !startNext.isCancelled() && !startNext.isDone())
+            var isnull = startNext == null;
+            if (isnull)
+                return true;
+            var iscan = startNext.isCancelled();
+            var isnex = startNext.isDone();
+            if (!iscan && !isnex)
                 startNext.cancel(true);
         }
         return true;

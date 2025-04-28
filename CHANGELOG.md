@@ -13,8 +13,7 @@ Note: Version numbering: x.y.z
 - Rewritten RealtimeValues, to make them leaner by splitting of 'extras' and implement the new logic parser.
 - Added rawworker for bulk processing of data using multithreading and staged processing.
 - Math and logic parsing was all over the codebase, centralized in evalcore and streamlined the layout. Logic got a
-  major rewrite
-  to allow for 'lazy evaluation ' (aka shortcircuit'ing).
+  major rewrite to allow for 'lazy evaluation ' (aka shortcircuit'ing).
 - A lot of QoL fixes/changes and the cleanup based on Codacy feedback.
 - Result is a diff of "146 files changed, 12283 insertions(+), 14179 deletions(-)"
 - Major version bump because a lot has changed under the hood and major bump was overdue anyway.

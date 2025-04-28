@@ -1,23 +1,27 @@
 package util.tasks.blocks;
 
-import io.Writable;
+import io.netty.channel.EventLoopGroup;
 
 public class ControlBlock extends AbstractBlock {
-    Writable manager;
+    EventLoopGroup eventLoop;
     String message;
 
-    public ControlBlock(Writable manager) {
-        this.manager = manager;
-    }
+    OriginBlock start;
+    OriginBlock end;
 
-    public ControlBlock setMessage(String message) {
-        this.message = message;
-        return this;
+    public ControlBlock(EventLoopGroup eventLoop, OriginBlock start, OriginBlock end) {
+        this.eventLoop = eventLoop;
+        this.start = start;
+        this.end = end;
     }
 
     @Override
     public boolean start() {
-        manager.writeLine(id(), message);
-        return false;
+        if (start != null)
+            eventLoop.submit(start::restart);
+        if (end != null)
+            eventLoop.submit(end::reset);
+        doNext();
+        return true;
     }
 }

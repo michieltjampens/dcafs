@@ -52,7 +52,7 @@ public class ReadingBlock extends AbstractBlock implements Writable {
     }
 
     public String toString() {
-        return telnetId() + " -> Waiting dor '" + data + "' from " + src + " for at most " + TimeTools.convertPeriodToString(timeout, TimeUnit.SECONDS);
+        return telnetId() + " -> Waiting for '" + data + "' from " + src + " for at most " + TimeTools.convertPeriodToString(timeout, TimeUnit.SECONDS);
     }
     @Override
     public synchronized boolean writeLine(String origin, String data) {

@@ -58,22 +58,22 @@ public class LogicFab {
             Logger.error("Something went wrong (fe. brackets) during normalizing of "+exp);
             return Optional.empty();
         }
-        // Rewrite the i's to reflect position in inputs
-        var inputs = new ArrayList<Integer>();
+        // Rewrite the i's to reflect position in refLookup
+        var refLookup = new ArrayList<Integer>();
         var is = ParseTools.extractIreferences(exp);
         var highestI = -1;
         if( is.length>0) {
             highestI = is[is.length - 1];
             for (var i : is) {
-                exp = exp.replace("i" + i, "r" + inputs.size());
-                inputs.add(i);
+                exp = exp.replace("i" + i, "r" + refLookup.size());
+                refLookup.add(i);
             }
         }
-        var referenced = inputs.toArray(Integer[]::new);
+
 
         // Replace rtvals references to rx instead
         var refs = new ArrayList<>( Objects.requireNonNullElse(oldRefs, new ArrayList<>()) );
-        exp = ParseTools.replaceRealtimeValues(exp, refs, rtvals, inputs);
+        exp = ParseTools.replaceRealtimeValues(exp, refs, rtvals, refLookup);
         if( exp.isEmpty() ) {
             Logger.error("Failed the step of extracting the rtvals from the expression");
             return Optional.empty();
@@ -94,7 +94,7 @@ public class LogicFab {
         var logicEval = new LogicEvaluator(ori, normalized, join.toString(), blocks.size()); // Set the amount of expected ops
         logicEval.setHighestI(highestI); // Highest encountered I reference
         logicEval.setRefs(refs.toArray(NumericVal[]::new)); // All encountered vals and temps
-        logicEval.setRefLookup(referenced);  // Array to link the r* to the actual values
+        logicEval.setRefLookup(refLookup.toArray(Integer[]::new));  // Array to link the r* to the actual values
 
         for( int a=0;a<blocks.size();a++) {
             var parts =blocks.get(a);
