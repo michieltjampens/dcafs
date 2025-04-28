@@ -57,7 +57,7 @@ public class TaskParser {
             case "controlblock" -> doControlBlock(cell, tools);
             case "readerblock" -> doReaderBlock(cell, tools);
             case "splitblock" -> doSplitBlock(cell, tools);
-            case "commandblock" -> doCmdBlock(cell, tools);
+            case "commandblock", "errorblock", "warnblock", "infoblock" -> doCmdBlock(cell, tools);
             case "conditionblock" -> doConditionBlock(cell, tools);
             default -> null;
         };
@@ -217,11 +217,18 @@ public class TaskParser {
     }
 
     private static CmdBlock doCmdBlock(Drawio.DrawioCell cell, Tools tools) {
-        if (!cell.hasParam("cmd")) {
-            Logger.error("Commandblock without a cmd specified");
+        if (!cell.hasParam("cmd") && !cell.hasParam("message")) {
+            Logger.error("Commandblock without a cmd/message specified");
             return null;
         }
-        var cb = new CmdBlock(Datagram.system(cell.getParam("cmd", "")));
+        var cmd = cell.getParam("cmd", cell.getParam("message", ""));
+        cmd = switch (cell.type) {
+            case "errorblock" -> "log:error," + cmd;
+            case "warnblock" -> "log:warn," + cmd;
+            case "infoblock" -> "log:info," + cmd;
+            default -> cmd;
+        };
+        var cb = new CmdBlock(Datagram.system(cmd));
         addNext(cell, cb, tools, "next", "pass");
         addFail("fail", cell, cb, tools);
         return cb;
@@ -265,7 +272,7 @@ public class TaskParser {
             block.setFailureBlock(createBlock(cell.getArrowTarget(label), tools));
             return true;
         }
-        Logger.warn("No fail connection found with label " + label);
+        //Logger.warn("No fail connection found with label " + label);
         return false;
     }
 }
