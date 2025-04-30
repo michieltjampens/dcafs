@@ -20,7 +20,9 @@
 *.tag           text
 *.tagx          text
 *.xml           text
-*_drawio.xml    binary  # Git messes up a drawio library file is this is set to text
+
+ # Git messes up a drawio library file is this is set to text
+*_drawio.xml    binary
 
 # These files are binary and should be left untouched
 # (binary is a macro for -text -diff)
