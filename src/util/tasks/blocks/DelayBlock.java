@@ -93,6 +93,10 @@ public class DelayBlock extends AbstractBlock {
     }
     @Override
     public void doNext() {
+        if (Thread.currentThread().isInterrupted()) {
+            Logger.info("Task was interrupted, exiting...");
+            return; // Early exit
+        }
         switch (reps) {
             case -1 -> super.doNext(); // -1 means endless
             case 0 -> { // Last rep done, signal failure
@@ -111,9 +115,11 @@ public class DelayBlock extends AbstractBlock {
     public void reset() {
         reps = repeats; // Reset reps
         clean = true;  // Restore clean
-        if (future != null && !future.isDone() && !future.isCancelled()) { // Cancel any waiting task
-            future.cancel(true);
-            Logger.info("Tried to cancel the future");
+        if (future != null && !future.isDone() && !future.isCancelled()) {
+            future.cancel(true);  // Try to cancel
+            Logger.info("Tried to cancel the future: " + future);
+        } else {
+            Logger.info("Future already completed or cancelled.");
         }
         // Propagate the reset to the next steps
         if (next != null)
