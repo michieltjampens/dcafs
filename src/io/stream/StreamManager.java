@@ -9,6 +9,8 @@ import io.collector.ConfirmCollector;
 import io.collector.StoreCollector;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import io.stream.serialport.ModbusStream;
 import io.stream.serialport.MultiStream;
 import io.stream.serialport.SerialStream;
@@ -32,7 +34,10 @@ import worker.Datagram;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -48,8 +53,6 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	private Bootstrap bootstrapTCP;        // Bootstrap for TCP connections
 	private Bootstrap bootstrapUDP;          // Bootstrap for UDP connections
 
-	private final EventLoopGroup eventLoopGroup;    // Event loop used by the netty stuff
-
 	private int retryDelayMax = 30;            // The minimum time between reconnection attempts
 	private int retryDelayIncrement = 5;    // How much the delay increases between attempts
 
@@ -57,17 +60,15 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 
 	private final LinkedHashMap<String,BaseStream> streams = new LinkedHashMap<>();
 
-	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // scheduler for the connection attempts
-
 	private final Rtvals rtvals;
 
 	static String[] WHEN={"open","close","idle","!idle","hello","wakeup","asleep"};
 	static String[] NEWSTREAM = {"addserial", "addmodbus", "addtcp", "addudpclient", "addudp", "addlocal", "addudpserver", "addtcpserver"};
 
 	private final ArrayList<StoreCollector> stores = new ArrayList<>();
+	final EventLoopGroup eventLoopGroup = new NioEventLoopGroup(3, new DefaultThreadFactory("StreamManager-group"));
 
-	public StreamManager(EventLoopGroup nettyGroup, Rtvals rtvals) {
-		this.eventLoopGroup = nettyGroup;
+	public StreamManager(Rtvals rtvals) {
 		this.rtvals=rtvals;
 	}
 
@@ -325,7 +326,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	private ConfirmCollector withoutConfirmCollector(String txt, BaseStream stream, String reply, String id) {
 		ConfirmCollector confirmCollector = null;
 		if (txt.contains(";") || !reply.isEmpty()) {
-			confirmCollector = new ConfirmCollector(id, 3, 3, (Writable) stream, scheduler);
+			confirmCollector = new ConfirmCollector(id, 3, 3, (Writable) stream, eventLoopGroup);
 			confirmCollector.addListener(this);
 			if (!reply.isEmpty()) // No need to get data if we won't use it
 				stream.addTarget(confirmCollector);
@@ -391,7 +392,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			addStore(streamDig.currentTrusted(), str);
 		}
 		if (!str.getType().contains("server"))
-			str.reconnectFuture = scheduler.schedule(new DoConnection(str), 0, TimeUnit.SECONDS);
+			eventLoopGroup.submit(() -> new DoConnection(str));
 		return "Reloaded and trying to reconnect";
 	}
 
@@ -523,7 +524,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		udp.setEventLoopGroup(eventLoopGroup);
 		udp.addListener(this);
 		bootstrapUDP = udp.setBootstrap(bootstrapUDP);
-		udp.reconnectFuture = scheduler.schedule(new DoConnection(udp), 0, TimeUnit.SECONDS);
+		eventLoopGroup.submit(() -> new DoConnection(udp));
 		return udp;
 	}
 
@@ -539,10 +540,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		MultiStream mStream = new MultiStream(stream);
 		mStream.setEventLoopGroup(eventLoopGroup);
 		if (mStream.readerIdleSeconds != -1) {
-			scheduler.schedule(new ReaderIdleTimeoutTask(mStream), mStream.readerIdleSeconds, TimeUnit.SECONDS);
+			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(mStream), mStream.readerIdleSeconds, TimeUnit.SECONDS);
 		}
 		mStream.addListener(this);
-		mStream.reconnectFuture = scheduler.schedule(new DoConnection(mStream), 0, TimeUnit.SECONDS);
+		eventLoopGroup.submit(() -> new DoConnection(mStream));
 		return mStream;
 	}
 
@@ -552,9 +553,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		tcp.addListener(this);
 		bootstrapTCP = tcp.setBootstrap(bootstrapTCP);
 		if (tcp.getReaderIdleTime() != -1) {
-			scheduler.schedule(new ReaderIdleTimeoutTask(tcp), tcp.getReaderIdleTime(), TimeUnit.SECONDS);
+			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(tcp), tcp.getReaderIdleTime(), TimeUnit.SECONDS);
 		}
-		tcp.reconnectFuture = scheduler.schedule(new DoConnection(tcp), 0, TimeUnit.SECONDS);
+		eventLoopGroup.submit(() -> new DoConnection(tcp));
 		return tcp;
 	}
 
@@ -564,13 +565,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			mbtcp.setEventLoopGroup(eventLoopGroup);
 			mbtcp.addListener(this);
 			bootstrapTCP = mbtcp.setBootstrap(bootstrapTCP);
-			mbtcp.reconnectFuture = scheduler.schedule(new DoConnection(mbtcp), 0, TimeUnit.SECONDS);
+			eventLoopGroup.submit(() -> new DoConnection(mbtcp));
 			return mbtcp;
 		} else {
 			ModbusStream modbus = new ModbusStream(stream);
 			modbus.setEventLoopGroup(eventLoopGroup);
 			modbus.addListener(this);
-			modbus.reconnectFuture = scheduler.schedule(new DoConnection(modbus), 0, TimeUnit.SECONDS);
+			eventLoopGroup.submit(() -> new DoConnection(modbus));
 			return modbus;
 		}
 	}
@@ -579,10 +580,10 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		SerialStream serial = new SerialStream(stream);
 		serial.setEventLoopGroup(eventLoopGroup);
 		if (serial.getReaderIdleTime() != -1) {
-			scheduler.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
+			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
 		}
 		serial.addListener(this);
-		serial.reconnectFuture = scheduler.schedule(new DoConnection(serial), 0, TimeUnit.SECONDS);
+		eventLoopGroup.submit(() -> new DoConnection(serial));
 		return serial;
 	}
 
@@ -591,9 +592,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		local.setEventLoopGroup(eventLoopGroup);
 		local.addListener(this);
 		if (local.readerIdleSeconds != -1) {
-			scheduler.schedule(new ReaderIdleTimeoutTask(local), local.readerIdleSeconds, TimeUnit.SECONDS);
+			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(local), local.readerIdleSeconds, TimeUnit.SECONDS);
 		}
-		local.reconnectFuture = scheduler.schedule(new DoConnection(local), 0, TimeUnit.SECONDS);
+		eventLoopGroup.submit(() -> new DoConnection(local));
 		return local;
 	}
 	/* ************************************************************************************************* **/
@@ -631,38 +632,14 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 				if (LookAndFeel.isNthAttempt(base.connectionAttempts))
 					Logger.error( "Failed to connect to "+base.id()+", scheduling retry in "+delay+"s. ("+base.connectionAttempts+" attempts)" );
 
-				base.reconnectFuture = scheduler.schedule( new DoConnection( base ), delay, TimeUnit.SECONDS );
+				base.reconnectFuture = eventLoopGroup.schedule(new DoConnection(base), delay, TimeUnit.SECONDS);
 			} catch (Exception ex) {
 				Logger.error( "Connection thread interrupting while trying to connect to "+base.id());
 				Logger.error( ex );
 			}
 		}
 	}
-	/* ************************** * C H E C K I N G   S T R E A M S  ************************************/
 
-	/**
-	 * Check if the stream is still ok/connected and maybe reconnect
-	 * @param id The stream to check
-	 * @param reconnect If true and not connected, a reconnect attempt will be made
-	 * @return True if ok
-	 */
-	public boolean isStreamOk( String id, boolean reconnect ){
-		if( streams.isEmpty()){
-			Logger.warn("No streams defined yet, so "+id+" doesn't exist");
-			return false;
-		}
-
-		BaseStream base = streams.get(id.toLowerCase());
-		if( base == null){
-			Logger.warn("Couldn't find stream: "+id+" in list of "+streams.size());
-			return false;
-		}
-		boolean alive = base.isConnectionValid();
-		if( !alive && reconnect )
-			reloadStream(id);
-		return alive;
-	}
-	/* ***************************************************************************************************** */
 	@Override
 	public String replyToCommand(Datagram d) {
 		var wr = d.getWritable();
@@ -941,7 +918,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			fab.removeChild("ttl");
 		}
 		fab.build();
-		scheduler.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
+		eventLoopGroup.schedule(new ReaderIdleTimeoutTask(stream), stream.getReaderIdleTime(), TimeUnit.SECONDS);
 		return "TTL altered";
 	}
 
@@ -950,7 +927,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			stream.disconnect();
 			if (stream.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0) {
 				Logger.info("Already scheduled to reconnect");
-				stream.reconnectFuture = scheduler.schedule(new DoConnection(stream), 5, TimeUnit.SECONDS);
+				stream.reconnectFuture = eventLoopGroup.schedule(new DoConnection(stream), 5, TimeUnit.SECONDS);
 			}
 			try {
 				stream.reconnectFuture.get(2, TimeUnit.SECONDS);
@@ -1164,7 +1141,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			if (nextDelay <= 0 ) {// If the next delay is less than longer ago than a previous idle
 				notifyIdle(stream);// Reader is idle notify the callback.
 			}else { // Don't schedule check when idle
-				scheduler.schedule(this, nextDelay, TimeUnit.MILLISECONDS);
+				eventLoopGroup.schedule(this, nextDelay, TimeUnit.MILLISECONDS);
 			}
 		}
 	}
@@ -1187,7 +1164,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 	public boolean notifyActive(String id ) {
 		getStream(id.toLowerCase()).ifPresent( s -> {
 			s.flagAsActive();
-			scheduler.schedule(new ReaderIdleTimeoutTask(s), s.getReaderIdleTime(), TimeUnit.SECONDS);
+			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(s), s.getReaderIdleTime(), TimeUnit.SECONDS);
 		});
 		return true;
 	}
@@ -1212,9 +1189,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			Logger.error("Bad id given for reconnection request: "+id);
 			return false;
 		}
-		if( bs.reconnectFuture==null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0 ){
+		if (bs.reconnectFuture == null) {
 			Logger.error("Requesting reconnect for "+bs.id());
-			bs.reconnectFuture = scheduler.schedule( new DoConnection( bs ), 5, TimeUnit.SECONDS );
+			eventLoopGroup.submit(() -> new DoConnection(bs));
 			return true;
 		}
 		return false;

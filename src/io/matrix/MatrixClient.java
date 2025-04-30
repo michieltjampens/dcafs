@@ -4,8 +4,9 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
-import io.forward.steps.MathStep;
 import io.forward.StepFab;
+import io.forward.steps.MathStep;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.tinylog.Logger;
@@ -65,7 +66,7 @@ public class MatrixClient implements Writable, Commandable {
     String pw;
     String server;
 
-    ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2);
+    ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new DefaultThreadFactory("matrix"));
     String accessToken = "";
     String deviceID = "";
     String userID;

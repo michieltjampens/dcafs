@@ -3,6 +3,8 @@ package io.mqtt;
 import das.Commandable;
 import das.Paths;
 import io.Writable;
+import io.netty.channel.EventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.vals.Rtvals;
@@ -17,14 +19,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 public class MqttPool implements Commandable {
 
     Map<String, MqttWorker> mqttWorkers = new HashMap<>();
     Rtvals rtvals;
+    final EventLoopGroup eventLoopGroup;
+    ScheduledExecutorService publishService = Executors.newSingleThreadScheduledExecutor(new DefaultThreadFactory("mqtt-publish"));
 
-    public MqttPool(Rtvals rtvals) {
+    public MqttPool(Rtvals rtvals, EventLoopGroup eventLoopGroup) {
         this.rtvals=rtvals;
+        this.eventLoopGroup = eventLoopGroup;
 
         if (!readFromXML())
             Logger.info("No MQTT settings in settings.xml");
@@ -72,7 +79,7 @@ public class MqttPool implements Commandable {
             var address = broker.peekAt("address").value("");
             var clientId = broker.peekAt("clientid").value("");
 
-            var worker = new MqttWorker(id, address, clientId, rtvals);
+            var worker = new MqttWorker(id, address, clientId, rtvals, eventLoopGroup, publishService);
             var ttl = TimeTools.parsePeriodStringToMillis( broker.attr("ttl",broker.peekAt("ttl").value("")));
             worker.setTTL(ttl);
 

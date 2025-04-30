@@ -4,6 +4,7 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
+import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.vals.RealVal;
@@ -17,7 +18,6 @@ import worker.Datagram;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.StringJoiner;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -30,7 +30,7 @@ public class Waypoints implements Commandable {
     private RealVal longitude;
     private RealVal sog;
 
-    private final ScheduledExecutorService scheduler;
+    private final EventLoopGroup scheduler;
     final static int CHECK_INTERVAL = 20;
     private ScheduledFuture<?> checkTravel;
     private ScheduledFuture<?> checkThread=null;
@@ -38,7 +38,7 @@ public class Waypoints implements Commandable {
     private long lastTravelTaskCheck = 0L;
 
     /* *************************** C O N S T R U C T O R *********************************/
-    public Waypoints(ScheduledExecutorService scheduler, Rtvals rtvals) {
+    public Waypoints(EventLoopGroup scheduler, Rtvals rtvals) {
         this.scheduler=scheduler;
 
         readFromXML(rtvals);

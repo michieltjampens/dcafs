@@ -334,7 +334,7 @@ public class Tools {
     public static byte[] fromHexStringToBytes(String line) {
         if (line == null || line.trim().isEmpty()) {
             Logger.error("Input line is null or empty.");
-            return null;
+            return new byte[0];
         }
         // Clean the line: lowercase and remove 'h'
         line = line.toLowerCase().replace("h", "");

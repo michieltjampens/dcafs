@@ -2,6 +2,7 @@ package io.mqtt;
 
 import das.Core;
 import io.Writable;
+import io.netty.channel.EventLoopGroup;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.eclipse.paho.client.mqttv3.*;
@@ -13,7 +14,10 @@ import worker.Datagram;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Non-blocking worker that handles the connection to a broker. How publish/subscribe works:
@@ -44,9 +48,9 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private boolean publishing = false; // Flag that shows if the worker is publishing data
 	private boolean connecting = false; // Flag that shows if the worker is trying to connect to the broker
 
-	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // Scheduler for the publish and
+	//private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(); // Scheduler for the publish and
 																						// connect class
-																						private final Map<String, BaseVal> valReceived = new HashMap<>(); // Map containing all the subscriptions
+	private final Map<String, BaseVal> valReceived = new HashMap<>(); // Map containing all the subscriptions
 	private final ArrayList<String> subscriptions = new ArrayList<>();
 	private final ArrayList<Long> subsRecStamp = new ArrayList<>();
 	private final Map<String, String> provide = new HashMap<>();
@@ -56,16 +60,28 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	private String storeTopic="";
 	private long ttl=-1L;
 	private boolean debug=false;
+	private final EventLoopGroup eventLoopGroup;
+	private final ScheduledExecutorService publishService;
 
-	public MqttWorker(String id, String address, String clientId, Rtvals rtvals) {
+	public MqttWorker(String id, String address, String clientId, Rtvals rtvals, EventLoopGroup eventLoopGroup, ScheduledExecutorService publishService) {
 		this.id=id;
 		setBrokerAddress(address);
 		this.clientId=clientId;
 		this.rtvals=rtvals;
+		this.eventLoopGroup = eventLoopGroup;
+		this.publishService = publishService;
+	}
+
+	private void submitConnector(int attempt) {
+		eventLoopGroup.submit(new Connector(attempt));
+	}
+
+	private void submitPublisher() {
+		publishService.submit(new Publisher()); // Works with a blocking queue
 	}
 	/**
 	 * Set the id of this worker
-	 * 
+	 *
 	 * @param id The id for this worker
 	 */
 	public void setID(String id) {
@@ -74,7 +90,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 
 	/**
 	 * Get the address of the broker
-	 * 
+	 *
 	 * @return the address of the broker
 	 */
 	public String getBrokerAddress() {
@@ -110,11 +126,11 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		if (!client.isConnected()) { // If not connected, try to connect
 			if (!connecting) {
 				connecting = true;
-				scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS);
+				submitConnector(0);
 			}
 		} else if (!publishing) { // If currently not publishing ( there's a 30s timeout) enable publishing
 			publishing = true;
-			scheduler.schedule( new Publisher(), 0, TimeUnit.SECONDS);
+			submitPublisher();
 		}
 	}
 	public void addWork(String topic, String value){
@@ -142,7 +158,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			client.setCallback(this);
 			if( !subscriptions.isEmpty() ){ // If we have subscriptions, connect.
 				connecting=true;
-				scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS );
+				submitConnector(0);
 			}
 		} catch (MqttException e) {
 			Logger.error(id+"(mqtt) -> "+e);
@@ -251,14 +267,14 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 * Private method used to subscribe to the given topic
 	 * @param topic The topic to subscribe to
 	 * @return 0 if failed to add, 1 if ok, 2 if added but not send to broker
-	 */	
+	 */
 	private int subscribe( String topic ){
 		if( client == null)
 			return 2;
 		if (!client.isConnected() ) { // If not connected, try to connect
 			if( !connecting ){
 				connecting=true;
-				scheduler.schedule( new Connector(0), 0, TimeUnit.SECONDS );
+				submitConnector(0);
 			}
 		} else{
 			try {
@@ -275,7 +291,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	 * Unsubscribe from the given topic
 	 * @param topic The topic to unsubscribe from
 	 * @return True if this was successful
-	 */	
+	 */
 	private boolean unsubscribe( String topic ){
 		try {
 			Logger.info( id+"(mqtt) -> Unsubscribing from "+ topic);
@@ -467,7 +483,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	public void connectionLost(Throwable cause) {
 		if (!mqttQueue.isEmpty() && !subscriptions.isEmpty()) {
 			Logger.info( id+"(mqtt) -> Connection lost but still work to do, reconnecting...");
-			scheduler.schedule(new Connector(0), 0, TimeUnit.SECONDS);
+			submitConnector(0);
 		}else{
 			connecting=false;
 			Logger.warn( id+"(mqtt) -> "+cause.getMessage() + "->" + cause);
@@ -479,7 +495,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			Logger.info( id+"(mqtt) -> Reconnecting." );
 		}else{
 			Logger.info( id+"(mqtt) -> First connection established" );
-		}		
+		}
 		connecting=false;
 		String subs="";
 		try {
@@ -495,7 +511,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			Logger.error( id+"(mqtt) -> Failed to subscribe to: "+ subs);
 		}
 		if( !mqttQueue.isEmpty() )
-			scheduler.schedule( new Publisher(),0,TimeUnit.SECONDS);
+			submitPublisher();
 	}
 	/**
 	 * Small class that handles connection to the broker, so it's not blocking.
@@ -521,7 +537,7 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
                 attempt++;
                 var time = Math.min(attempt * 25 + 25, 120);
                 Logger.warn(id + "(mqtt) -> Failed to connect,  trying again in " + time + "s. Cause: " + me.getMessage());
-                scheduler.schedule(new Connector(attempt), time, TimeUnit.SECONDS);
+				submitConnector(attempt);
 			}
 		}
 	}

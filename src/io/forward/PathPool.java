@@ -4,7 +4,9 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
+import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import io.telnet.TelnetCodes;
 import org.tinylog.Logger;
 import util.LookAndFeel;
@@ -20,12 +22,11 @@ public class PathPool implements Commandable {
 
     private final HashMap<String, PathForward> paths = new HashMap<>();
     private final Rtvals rtvals;
-    private final EventLoopGroup nettyGroup;
+    private final EventLoopGroup eventLoop = new DefaultEventLoopGroup(2, new DefaultThreadFactory("PathForward-group"));
 
-    public PathPool(Rtvals rtvals, EventLoopGroup group) {
+    public PathPool(Rtvals rtvals) {
         this.rtvals=rtvals;
 
-        nettyGroup=group;
         readPathsFromXML();
     }
     /* **************************************** G E N E R A L ************************************************** */
@@ -41,7 +42,7 @@ public class PathPool implements Commandable {
         // From the paths section
         XMLdigger.goIn(Paths.settings(), "dcafs", "paths").digOut("path").forEach(
                 pathDig -> {
-                    PathForward path = new PathForward(rtvals, nettyGroup);
+                    PathForward path = new PathForward(rtvals, eventLoop);
                     path.readFromXML(pathDig, Paths.storage());
 
                     var oldPath = paths.get(path.id());
@@ -208,7 +209,7 @@ public class PathPool implements Commandable {
                     return "! No such path: " + args[0] ;
                 dig.usePeek();
                 if (!paths.containsKey(args[0])) // Exists in xml but not in map
-                    paths.put(args[0], new PathForward(rtvals, nettyGroup));
+                    paths.put(args[0], new PathForward(rtvals, eventLoop));
                 var rep = paths.get(args[0]).readFromXML(dig, Paths.storage());
                 Core.addToQueue(Datagram.system("dbm","reloadstores"));
                 if (!rep.isEmpty() && !res.startsWith("Path ") && !res.startsWith("Set ")) // empty is good, starting means new so not full

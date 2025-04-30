@@ -4,7 +4,7 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
-import io.netty.channel.EventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.LookAndFeel;
@@ -19,16 +19,17 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 public class CollectorPool implements Commandable, CollectorFuture {
 
     private final Map<String, FileCollector> fileCollectors = new HashMap<>();
-    private final EventLoopGroup nettyGroup;
     private final Rtvals rtvals;
+    ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new DefaultThreadFactory("Collector-service"));
 
-    public CollectorPool(EventLoopGroup nettyGroup, Rtvals rtvals) {
+    public CollectorPool(Rtvals rtvals) {
 
-        this.nettyGroup=nettyGroup;
         this.rtvals=rtvals;
 
         // Load the collectors
@@ -64,7 +65,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
         FileCollector.createFromXml(
                         Paths.digInSettings("collectors")
                                 .digOut("file"),
-                        nettyGroup,
+                        executorService,
                         Paths.storage().toString() )
                 .forEach( this::addFileCollector );
     }
@@ -97,7 +98,7 @@ public class CollectorPool implements Commandable, CollectorFuture {
      * @return The created object
      */
     private FileCollector createFileCollector(String id ){
-        var fc = new FileCollector(id,"1m",nettyGroup);
+        var fc = new FileCollector(id, "1m", executorService);
         fileCollectors.put(id, fc);
         return fc;
     }

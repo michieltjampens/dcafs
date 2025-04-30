@@ -4,7 +4,9 @@ import das.Commandable;
 import das.Core;
 import das.Paths;
 import io.Writable;
+import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.vals.Rtvals;
@@ -28,12 +30,11 @@ public class TaskManagerPool implements Commandable {
     HashMap<String, TaskManager> tasklists = new HashMap<>();
     Rtvals rtvals;
     final Path scriptPath = Paths.storage().resolve("tmscripts");
-    EventLoopGroup eventLoop;
-    ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new DefaultThreadFactory("TaskManager-watcher"));
+    final EventLoopGroup eventLoop = new DefaultEventLoopGroup(2, new DefaultThreadFactory("TaskManager-group"));
 
-    public TaskManagerPool(Rtvals rtvals, EventLoopGroup eventLoop) {
+    public TaskManagerPool(Rtvals rtvals) {
         this.rtvals = rtvals;
-        this.eventLoop = eventLoop;
         readFromXML();
 
         executorService.submit(() -> {

@@ -6,6 +6,7 @@ import das.Paths;
 import io.Writable;
 import io.collector.BufferCollector;
 import io.collector.CollectorFuture;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import jakarta.activation.CommandMap;
 import jakarta.activation.DataHandler;
 import jakarta.activation.FileDataSource;
@@ -38,7 +39,7 @@ public class EmailWorker implements CollectorFuture, EmailSending, Commandable {
 
 	static double megaByte = 1024.0 * 1024.0;
 
-	ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+	ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new DefaultThreadFactory("emailworker"));
 
 	// Email sending settings
 	double doZipFromSizeMB = 0.5; // From which attachment size the attachment should be zipped (in MB)
