@@ -11,6 +11,7 @@ import io.matrix.MatrixClient;
 import io.mqtt.MqttPool;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import io.stream.StreamManager;
 import io.stream.tcp.TcpServer;
 import io.stream.udp.UdpServer;
@@ -89,7 +90,7 @@ public class DAS implements Commandable{
     private String statusMatrixRoom="";
 
     /* Threading */
-    private final EventLoopGroup nettyGroup = new NioEventLoopGroup(Math.min(12, Runtime.getRuntime().availableProcessors() * 2)); // Single group so telnet,trans and StreamManager can share it
+    private final EventLoopGroup nettyGroup = new NioEventLoopGroup(2, new DefaultThreadFactory("Global-group")); // Single group so telnet,trans and StreamManager can share it
 
     public DAS() {
 
@@ -210,7 +211,7 @@ public class DAS implements Commandable{
         addCommandable(rtvals,"stop");
     }
     private void prepareForwards(){
-        var pathPool = new PathPool(rtvals, nettyGroup);
+        var pathPool = new PathPool(rtvals);
         addCommandable(pathPool,"paths","path","pf");
         addCommandable(pathPool, ""); // empty cmd is used to stop data requests
     }
@@ -255,7 +256,7 @@ public class DAS implements Commandable{
      * Check the digger for the collector node and process if found
      */
     private void digForCollectors() {
-        collectorPool = new CollectorPool(nettyGroup, rtvals);
+        collectorPool = new CollectorPool(rtvals);
         addCommandable(collectorPool, "fc");
         addCommandable(collectorPool, "mc");
     }
@@ -334,7 +335,7 @@ public class DAS implements Commandable{
      * Create a TaskManager to handle tasklist scripts
      */
     private void addTaskManagerPool() {
-        taskManagerPool = new TaskManagerPool(rtvals, nettyGroup);
+        taskManagerPool = new TaskManagerPool(rtvals);
         addCommandable(taskManagerPool, "tm");
     }
     /* ******************************************  S T R E A M P O O L ***********************************************/
@@ -343,7 +344,7 @@ public class DAS implements Commandable{
      */
     private void addStreamManager() {
 
-        streamManager = new StreamManager(nettyGroup, rtvals);
+        streamManager = new StreamManager(rtvals);
         addCommandable(streamManager, "ss", "streams"); // general commands
         addCommandable(streamManager, "s_", "h_");      // sending data to a stream
         addCommandable(streamManager, "raw", "stream"); // getting data from a stream
@@ -374,7 +375,7 @@ public class DAS implements Commandable{
      * Add the pool that handles the mqtt connections
      */
     private void addMqttPool(){
-        mqttPool = new MqttPool(rtvals);
+        mqttPool = new MqttPool(rtvals, nettyGroup);
         addCommandable( mqttPool,"mqtt");
     }
     /* *****************************************  T R A N S S E R V E R ***************************************** */
