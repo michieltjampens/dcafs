@@ -17,6 +17,9 @@ public class TaskParser {
                         HashMap<String, AbstractBlock> blocks) {
     }
 
+    public record OriginCell(OriginBlock origin, Drawio.DrawioCell cell) {
+    }
+
     public static ArrayList<OriginBlock> parseDrawIoTaskFile(Path file, EventLoopGroup eventLoop, Rtvals rtvals) {
         if (!file.getFileName().toString().endsWith(".drawio")) {
             Logger.error("This is not a drawio file: " + file);
@@ -31,15 +34,20 @@ public class TaskParser {
         ArrayList<OriginBlock> origins = new ArrayList<>();
         var tools = new Tools(eventLoop, origins, rtvals, new HashMap<>());
 
+        // First create all the origins and then populate with the rest because controlblocks need a full list during set up
+        ArrayList<OriginCell> oricell = new ArrayList<>();
         for (var entry : cells.entrySet()) {
             var cell = entry.getValue();
             if (cell.type.equals("originblock")) { // Look for originblocks
-                var origin = (OriginBlock) createBlock(cell, tools);
-                if (origin != null) {
-                    Logger.info(origin.getInfo());
-                }
+                var origin = doOriginBlock(cell, tools);
+                origins.add(origin);
+                oricell.add(new OriginCell(origin, cell));
             }
         }
+        for (var oricel : oricell) {
+            addNext(oricel.cell(), oricel.origin(), tools, "next");
+        }
+        oricell.clear();
         return origins;
     }
 
@@ -57,7 +65,8 @@ public class TaskParser {
             case "controlblock" -> doControlBlock(cell, tools);
             case "readerblock" -> doReaderBlock(cell, tools);
             case "splitblock" -> doSplitBlock(cell, tools);
-            case "commandblock", "errorblock", "warnblock", "infoblock" -> doCmdBlock(cell, tools);
+            case "commandblock" -> doCmdBlock(cell, tools);
+            case "errorblock", "warnblock", "infoblock" -> doLogBlock(cell, tools);
             case "conditionblock" -> doConditionBlock(cell, tools);
             default -> null;
         };
@@ -65,12 +74,14 @@ public class TaskParser {
 
     private static OriginBlock doOriginBlock(Drawio.DrawioCell cell, Tools tools) {
         var origin = new OriginBlock(cell.dasId);
-        tools.origins.add(origin);
-        var auto = cell.getParam("autostart", "no");
-        ;
-        origin.setAutostart(util.tools.Tools.parseBool(auto, false));
 
-        addNext(cell, origin, tools, "next");
+        var auto = cell.getParam("autostart", "no");
+        var shut = cell.getParam("shutdownhook", "no");
+
+        origin.setAutostart(util.tools.Tools.parseBool(auto, false));
+        origin.setShutdownhook(util.tools.Tools.parseBool(shut, false));
+
+        //addNext(cell, origin, tools, "next");
         return origin;
     }
 
@@ -147,7 +158,11 @@ public class TaskParser {
             Logger.error("Counter block is missing a count property or it's still empty");
             return null;
         }
+        var onzero = cell.getParam("onzero", "alt_fail"); // Options alt_fail,alt_pass,stop
+        var altInfinite = !cell.getParam("altcount", "once").equals("once"); // once or infinite
         var counter = new CounterBlock(cell.getParam("count", 0));
+
+        counter.setOnZero(onzero, altInfinite);
         addNext(cell, counter, tools, "count>0", "next");
         addFail("count==0", cell, counter, tools);
         return counter;
@@ -216,6 +231,19 @@ public class TaskParser {
         return sb;
     }
 
+    private static LogBlock doLogBlock(Drawio.DrawioCell cell, Tools tools) {
+        if (!cell.hasParam("message")) {
+            Logger.error("Logblock without a message specified");
+            return null;
+        }
+        var message = cell.getParam("message", "");
+        return switch (cell.type) {
+            case "errorblock" -> LogBlock.error(message);
+            case "warnblock" -> LogBlock.warn(message);
+            case "infoblock" -> LogBlock.info(message);
+            default -> null;
+        };
+    }
     private static CmdBlock doCmdBlock(Drawio.DrawioCell cell, Tools tools) {
         if (!cell.hasParam("cmd") && !cell.hasParam("message")) {
             Logger.error("Commandblock without a cmd/message specified");
@@ -269,7 +297,7 @@ public class TaskParser {
     private static boolean addFail(String label, Drawio.DrawioCell cell, AbstractBlock block, Tools tools) {
         tools.blocks.put(cell.drawId, block);
         if (cell.hasArrow(label)) {
-            block.setFailureBlock(createBlock(cell.getArrowTarget(label), tools));
+            block.setAltRouteBlock(createBlock(cell.getArrowTarget(label), tools));
             return true;
         }
         //Logger.warn("No fail connection found with label " + label);
