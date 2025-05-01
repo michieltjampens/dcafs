@@ -7,6 +7,7 @@ public class OriginBlock extends AbstractBlock {
     String info = "";
     int runs = 0;
     boolean autostart = false;
+    boolean shutdownhook = false;
 
     public OriginBlock(String id) {
         this.id = id;
@@ -26,16 +27,22 @@ public class OriginBlock extends AbstractBlock {
     }
 
     public boolean restart() {
-        reset();
         return start();
     }
     @Override
     public boolean start() {
+        reset();
         runs++;
         clean = false;
-        doNext();
         Logger.info(id + " -> Starting...");
+        doNext();
         return true;
+    }
+
+    public void buildId() {
+        if (next != null) {
+            next.buildId(id());
+        }
     }
 
     public boolean hasAutostart() {
@@ -44,6 +51,17 @@ public class OriginBlock extends AbstractBlock {
 
     public void setAutostart(boolean start) {
         this.autostart = start;
+    }
+
+    public void setShutdownhook(boolean hooked) {
+        this.shutdownhook = hooked;
+    }
+
+    public boolean startIfshutdownhook() {
+        if (shutdownhook)
+            return start();
+        reset();
+        return false;
     }
     @Override
     public String telnetId() {

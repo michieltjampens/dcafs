@@ -83,14 +83,15 @@ public class TaskManagerPool implements Commandable {
         return addTaskManager(id, tm.get());
     }
 
-    public void startStartups() {
+    public void startShutdowns() {
+        startTask("shutdown");
         for (var tm : tasklists.values())
-            tm.start();
+            tm.startShutdowns();
+    }
+    public void startTask(String id) {
+        tasklists.values().forEach(tm -> eventLoop.submit(() -> tm.startTask(id)));
     }
 
-    public void startTask(String id) {
-        tasklists.values().forEach(tm -> tm.startTask(id));
-    }
     /**
      * Reload all the taskmanagers
      */

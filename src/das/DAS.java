@@ -446,7 +446,8 @@ public class DAS implements Commandable{
                     matrixClient.broadcast("Shutting down!");
 
                 // Run shutdown tasks
-                taskManagerPool.startTask("shutdown");
+                taskManagerPool.startShutdowns();
+                Core.addToQueue(Datagram.system("log:info,test").toggleSilent());
 
                 // SQLite & SQLDB
                 Logger.info("Flushing database buffers");
@@ -460,8 +461,8 @@ public class DAS implements Commandable{
                 sendShutdownEmails();
 
                 try {
-                    Logger.info("Giving things two seconds to finish up.");
-                    sleep(2000);
+                    Logger.info("Giving things three seconds to finish up.");
+                    sleep(3000);
                 } catch (InterruptedException e) {
                     Logger.error(e);
                     Thread.currentThread().interrupt();
