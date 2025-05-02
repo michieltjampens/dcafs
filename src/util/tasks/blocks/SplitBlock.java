@@ -47,7 +47,6 @@ public class SplitBlock extends AbstractBlock implements Writable {
             pos++;
         }
     }
-
     @Override
     public void buildId(String id) {
         super.buildId(id);
@@ -69,8 +68,8 @@ public class SplitBlock extends AbstractBlock implements Writable {
         id = "";
         for (var n : nexts)
             n.resetId();
-        if (failure != null)
-            failure.resetId();
+        if (altRoute != null)
+            altRoute.resetId();
     }
     public AbstractBlock addNext(AbstractBlock block) {
         if (block == null)

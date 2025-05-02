@@ -18,6 +18,7 @@ public class ReadingBlock extends AbstractBlock implements Writable {
     ScheduledFuture<?> cleanup;
     boolean writableAsked = false;
     boolean active = false;
+    boolean interrupted = false;
 
     public ReadingBlock(EventLoopGroup eventLoop) {
         this.eventLoop = eventLoop;
@@ -38,7 +39,7 @@ public class ReadingBlock extends AbstractBlock implements Writable {
             writableAsked = true;
         }
         if (timeout > 0) {
-            future = eventLoop.schedule(this::doFailure, timeout, TimeUnit.SECONDS);
+            future = eventLoop.schedule(() -> doAltRoute(true), timeout, TimeUnit.SECONDS);
             cancelCleanupFuture();
             cleanup = eventLoop.schedule(this::doCleanup, 5 * timeout, TimeUnit.SECONDS);
         }
@@ -57,7 +58,7 @@ public class ReadingBlock extends AbstractBlock implements Writable {
     @Override
     public synchronized boolean writeLine(String origin, String data) {
         if (!active)
-            return true;
+            return false;
 
         if (this.data.equalsIgnoreCase(data)) {
             active = false;
@@ -79,8 +80,8 @@ public class ReadingBlock extends AbstractBlock implements Writable {
 
         if (next != null)
             next.reset();
-        if (failure != null)
-            failure.reset();
+        if (altRoute != null)
+            altRoute.reset();
     }
 
     private void cancelFailureFuture() {
@@ -97,9 +98,9 @@ public class ReadingBlock extends AbstractBlock implements Writable {
         return writableAsked;
     }
 
-    protected void doFailure() {
+    protected void doAltRoute() {
         active = false;
-        if (failure != null)
-            failure.start();
+        if (altRoute != null)
+            altRoute.start();
     }
 }

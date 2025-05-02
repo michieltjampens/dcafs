@@ -25,7 +25,7 @@ public class CmdBlock extends AbstractBlock implements Writable {
     public boolean writeLine(String origin, String data) {
         Logger.info(id() + "-> " + d.getData() + " => Reply: " + data);
         if (data.startsWith("!")) {
-            doFailure();
+            doAltRoute(true);
         } else {
             doNext();
         }

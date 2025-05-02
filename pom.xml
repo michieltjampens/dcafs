@@ -100,33 +100,33 @@
 	  <dependency>
 		  <groupId>io.netty</groupId>
 		  <artifactId>netty-common</artifactId>
-		  <version>4.1.119.Final</version>
+          <version>4.2.0.Final</version>
 	  </dependency>
 	  <dependency>
 		  <groupId>io.netty</groupId>
 		  <artifactId>netty-buffer</artifactId>
-		  <version>4.1.119.Final</version>
+          <version>4.2.0.Final</version>
 	  </dependency>
 	  <dependency>
 		  <groupId>io.netty</groupId>
 		  <artifactId>netty-transport</artifactId>
-		  <version>4.1.119.Final</version>
+          <version>4.2.0.Final</version>
 	  </dependency>
 	  <dependency>
 		  <groupId>io.netty</groupId>
 		  <artifactId>netty-handler</artifactId>
-		  <version>4.1.119.Final</version>
+          <version>4.2.0.Final</version>
 	  </dependency>
 	  <dependency>
 		  <groupId>io.netty</groupId>
 		  <artifactId>netty-codec</artifactId>
-		  <version>4.1.119.Final</version>
+          <version>4.2.0.Final</version>
 	  </dependency>
 	  <!-- https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc -->
 	  <dependency>
 		  <groupId>com.microsoft.sqlserver</groupId>
 		  <artifactId>mssql-jdbc</artifactId>
-		  <version>12.8.1.jre11</version>
+          <version>12.10.0.jre11</version>
   	</dependency>
 	<!-- https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc -->
 	<dependency>

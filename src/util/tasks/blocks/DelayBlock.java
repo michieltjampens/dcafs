@@ -3,17 +3,13 @@ package util.tasks.blocks;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.tools.TimeTools;
-import util.tools.Tools;
 
-import java.time.DayOfWeek;
-import java.util.ArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class DelayBlock extends AbstractBlock {
 
-    enum TYPE {DELAY, INTERVAL, CLOCK}
+    enum TYPE {DELAY, INTERVAL}
 
     TYPE type = TYPE.DELAY;
     EventLoopGroup eventLoop;
@@ -21,10 +17,9 @@ public class DelayBlock extends AbstractBlock {
     long interval = 0;
     int repeats = -1;
     int reps = -1;
-    String time = "";
-    boolean localTime = false;
+
     ScheduledFuture<?> future;
-    ArrayList<DayOfWeek> taskDays;
+    boolean retrigger = false;
 
     public DelayBlock(EventLoopGroup eventLoop) {
         this.eventLoop = eventLoop;
@@ -54,22 +49,25 @@ public class DelayBlock extends AbstractBlock {
         return this;
     }
 
-    public DelayBlock useClock(String time, boolean local) {
-        type = TYPE.CLOCK;
-        localTime = local;
-        var split = Tools.splitList(time, 2, "");
-        this.time = split[0];
-        taskDays = TimeTools.convertDAY(split[1]);
-        return this;
-    }
+
     @Override
     public boolean start() {
         clean = false;
-        firstRun();
+        if (future == null || future.isCancelled() || future.isDone()) {
+            firstRun();
+        } else if (retrigger) {
+            future.cancel(true);
+            firstRun();
+        }
         return true;
     }
 
     private void firstRun() {
+        if (future != null && !future.isDone()) {
+            Logger.error(id() + " -> Old future still alive? Cancelling...");
+            future.cancel(true);  // Cancel the old future
+            future = null;        // Clear the reference to avoid future interference
+        }
         future = switch (type) {
             case DELAY -> eventLoop.schedule(this::doNext, initialDelay, TimeUnit.SECONDS);
             case INTERVAL -> {
@@ -79,30 +77,19 @@ public class DelayBlock extends AbstractBlock {
                     initialDelay = TimeTools.secondsDelayToCleanTime(interval * 1000) / 1000;
                 yield eventLoop.scheduleWithFixedDelay(this::doNext, initialDelay, interval, TimeUnit.SECONDS);
             }
-            case CLOCK -> {
-                var initialDelay = TimeTools.calcSecondsTo(time, localTime, taskDays); // Calculate seconds till requested time
-                yield eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
-            }
         };
     }
-    private void dailyRun() {
-        doNext();
-        Logger.info(id() + " -> Running daily task!");
-        var initialDelay = TimeTools.calcSecondsTo(time, localTime, taskDays);
-        future = eventLoop.schedule(this::dailyRun, initialDelay, TimeUnit.SECONDS);
-    }
+
     @Override
     public void doNext() {
-        if (Thread.currentThread().isInterrupted()) {
-            Logger.info("Task was interrupted, exiting...");
-            return; // Early exit
+        if (future == null || future.isCancelled()) {
+            Logger.info(id() + " -> Task is canceled or future is null, exiting...");
+            return;  // Exit early if the task is canceled or future is null
         }
         switch (reps) {
             case -1 -> super.doNext(); // -1 means endless
-            case 0 -> { // Last rep done, signal failure
-                doFailure(); // Do the failure step
-                sendCallback(id() + " -> FAILURE"); // Let it know up the chain
-                future.cancel(false); // Cancel waiting task
+            case 0 -> { // Last rep done, take the detour
+                doAltRoute(false); // Do the alternative route
             }
             default -> { // Reps not yet 0
                 super.doNext();
@@ -114,29 +101,22 @@ public class DelayBlock extends AbstractBlock {
     @Override
     public void reset() {
         reps = repeats; // Reset reps
-        clean = true;  // Restore clean
         if (future != null && !future.isDone() && !future.isCancelled()) {
-            future.cancel(true);  // Try to cancel
-            Logger.info("Tried to cancel the future: " + future);
-        } else {
-            Logger.info("Future already completed or cancelled.");
+            Logger.info(id() + " -> Cancelling future in reset...");
+            future.cancel(true);  // Cancel the ongoing future
+            future = null;        // Clear the reference
         }
-        // Propagate the reset to the next steps
-        if (next != null)
-            next.reset();
-        if (failure != null)
-            failure.reset();
+        super.reset(); // Resets clean
     }
 
     @Override
-    public DelayBlock setFailureBlock(AbstractBlock failure) {
+    public void setAltRouteBlock(AbstractBlock altRoute) {
         if (repeats == -1) {
             Logger.warn(id + " -> Trying to set a failure block in a DelayBlock");
-            return this;
+            return;
         }
-        if (failure != null)
-            this.failure = failure;
-        return this;
+        if (altRoute != null)
+            this.altRoute = altRoute;
     }
     public String toString() {
         var nextRun = "?";
@@ -148,11 +128,6 @@ public class DelayBlock extends AbstractBlock {
             case INTERVAL -> telnetId() + " -> After " + TimeTools.convertPeriodToString(initialDelay, TimeUnit.SECONDS)
                     + " execute next, then repeat every " + TimeTools.convertPeriodToString(interval, TimeUnit.SECONDS)
                     + (repeats == -1 ? " indefinitely" : " for at most " + repeats + " times") + " next one in " + nextRun;
-            case CLOCK -> {
-                var dayListing = taskDays.stream().map(dow -> dow.toString().substring(0, 2)).collect(Collectors.joining(""));
-                var days = taskDays.size() == 7 ? "" : " on " + dayListing;
-                yield telnetId() + " -> Runs at " + time + days + ", next one in " + nextRun;
-            }
         };
     }
 

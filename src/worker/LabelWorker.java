@@ -18,7 +18,7 @@ public class LabelWorker implements Runnable {
 	private boolean goOn=true;
 	protected CommandPool reqData;
 
-	ThreadPoolExecutor executor = new ThreadPoolExecutor(1,
+	ThreadPoolExecutor executor = new ThreadPoolExecutor(2,
 			Math.min(3, Runtime.getRuntime().availableProcessors()), // max allowed threads
 			30L, TimeUnit.SECONDS,
 			new LinkedBlockingQueue<>());
@@ -61,6 +61,7 @@ public class LabelWorker implements Runnable {
 		while (goOn) {
 			try {
 				Datagram d = Core.retrieve();
+				Logger.info("Rerieved: " + d.getData());
 				String label = d.getLabel();
 
 				if (label == null) {
@@ -77,10 +78,21 @@ public class LabelWorker implements Runnable {
 				} else {
 					switch (label) {
 						case "system", "cmd", "matrix" -> {
-							if (d.isSilent()) {
-								executor.execute(() -> reqData.quickCommand(d));
-							} else {
-								executor.execute(() -> reqData.executeCommand(d, false));
+							try {
+								if (d.isSilent()) {
+									executor.execute(() -> reqData.quickCommand(d));
+								} else {
+									//executor.execute(() -> reqData.executeCommand(d, false));
+									executor.execute(() -> {
+										try {
+											reqData.executeCommand(d, false);
+										} catch (Throwable e) {
+											Logger.error("Exception during command handover to executor", e);
+										}
+									});
+								}
+							} catch (Exception e) {
+								Logger.error("Cmd submission failed", e);
 							}
 						}
 						case "email" -> executor.execute(() -> reqData.emailResponse(d));

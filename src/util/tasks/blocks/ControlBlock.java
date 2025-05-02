@@ -4,8 +4,6 @@ import io.netty.channel.EventLoopGroup;
 
 public class ControlBlock extends AbstractBlock {
     EventLoopGroup eventLoop;
-    String message;
-
     OriginBlock start;
     OriginBlock end;
 

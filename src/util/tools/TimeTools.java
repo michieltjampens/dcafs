@@ -9,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -359,9 +360,9 @@ public class TimeTools {
         }
     }
 
-    public static long calcSecondsTo(String time, boolean localTime, ArrayList<DayOfWeek> validDays) {
+    public static long calcSecondsTo(String time, boolean localTime, DayOfWeek[] validDays) {
 
-        if (validDays.isEmpty())
+        if (validDays.length == 0)
             return -1;
 
         if (time.length() <= 5)
@@ -380,7 +381,8 @@ public class TimeTools {
         if (tillTime.isBefore(now.plusNanos(100000))) // If already happened today
             tillTime = tillTime.plusDays(1);
 
-        while (!validDays.contains(tillTime.getDayOfWeek()))
+        LocalDateTime finalTillTime = tillTime;
+        while (Arrays.stream(validDays).noneMatch(day -> day.equals(finalTillTime.getDayOfWeek())))
             tillTime = tillTime.plusDays(1);
 
         return (int) Duration.between(now, tillTime).getSeconds() + 1;
@@ -482,7 +484,7 @@ public class TimeTools {
      * Convert the string representation of the days for execution to objects
      * @param day The string representation of the days
      */
-    public static ArrayList<DayOfWeek> convertDAY( String day ){
+    public static DayOfWeek[] convertDAY(String day) {
         ArrayList<DayOfWeek> daysList = new ArrayList<>();
 
         if( day.isBlank() ) // default is all
@@ -500,17 +502,17 @@ public class TimeTools {
                 daysList.add(DayOfWeek.SATURDAY);
                 daysList.add(DayOfWeek.SUNDAY);
             }
-            return daysList;
+            return daysList.toArray(DayOfWeek[]::new);
         }
-        // Specific days are requested
+
         day = day.toUpperCase(); // Convert input to uppercase for consistency
+        var abbr = !day.contains("DAY");
         for (DayOfWeek dow : DayOfWeek.values()) {
-            var pref = dow.toString().substring(0, 2); // Get first two characters of each day
-            if (day.contains(pref)) {
+            var pref = abbr ? dow.toString().substring(0, 2) : dow.toString(); // Get first two characters of each day
+            if (day.contains(pref))
                 daysList.add(dow);
-            }
         }
-        return daysList;
+        return daysList.toArray(DayOfWeek[]::new);
     }
     public static long secondsSinceMidnight(){
         var now = LocalDateTime.now();

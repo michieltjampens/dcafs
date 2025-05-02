@@ -5,9 +5,16 @@ import org.tinylog.Logger;
 public class CounterBlock extends AbstractBlock {
     int count = -1;
     int tempCount = -1;
+    ONZERO onZero = ONZERO.ALT;
+
+    enum ONZERO {ALT, STOP, FAIL}
+
+    ;
+    boolean altInfinite = false;
+
     public CounterBlock(int cnt) {
         if (cnt == 0)
-            Logger.warn("Counter made with 0 counts, so straight to fail block");
+            Logger.warn("Counter made with 0 counts, so straight to alternative block");
         tempCount = cnt;
         count = cnt;
     }
@@ -16,9 +23,17 @@ public class CounterBlock extends AbstractBlock {
     public boolean start() {
         clean = false;
         if (tempCount == 0) {
-            Logger.info(id + " -> Count ran out, executing failure (if any).");
-            tempCount = -1;
-            doFailure();
+            Logger.info(id + " -> Count ran out, executing alternative (if any).");
+            switch (onZero) {
+                case ALT:
+                case FAIL:
+                    doAltRoute(onZero == ONZERO.FAIL);
+                    if (!altInfinite)
+                        tempCount--;
+                    break;
+                case STOP:
+                    tempCount = -1;
+            }
         } else if (tempCount > 0) {
             tempCount--;
             doNext();
@@ -32,9 +47,20 @@ public class CounterBlock extends AbstractBlock {
 
         if (next != null)
             next.reset();
-        if (failure != null)
-            failure.reset();
+        if (altRoute != null)
+            altRoute.reset();
     }
+
+    public void setOnZero(String action, boolean altInfinite) {
+        onZero = switch (action) {
+            case "alt_pass" -> ONZERO.ALT;
+            case "stop" -> ONZERO.STOP;
+            case "alt_fail" -> ONZERO.FAIL;
+            default -> ONZERO.FAIL;
+        };
+        this.altInfinite = altInfinite;
+    }
+
     public String toString() {
         var returning = id().startsWith(next.id());
         if (count == -1) {
@@ -43,7 +69,7 @@ public class CounterBlock extends AbstractBlock {
             return telnetId() + " -> Go to " + next.telnetId();
         }
 
-        var otherwise = failure == null ? "stop." : "go to " + failure.telnetId();
+        var otherwise = altRoute == null ? "stop." : "go to " + altRoute.telnetId();
         var result = telnetId() + " -> Count down from " + count + ". If not zero, go to " + next.telnetId() + ". Otherwise, " + otherwise;
         if (returning)
             return result.replace(" go ", " return ");

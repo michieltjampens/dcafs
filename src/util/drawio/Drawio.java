@@ -1,6 +1,5 @@
 package util.drawio;
 
-import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.xml.XMLdigger;
@@ -14,7 +13,7 @@ public class Drawio {
     public record Arrow(DrawioCell source, String label, DrawioCell target) {
     }
 
-    private static List<String> drawIoAttr = List.of("id", "label", "placeholders", "style");
+    private static final List<String> drawIoAttr = List.of("id", "label", "placeholders", "style");
     private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
     private static final Map<String, String> ENTITY_MAP = Map.of(
             "&gt;", ">",
@@ -24,18 +23,6 @@ public class Drawio {
             "&apos;", "'",
             "<div>", "#nl#"
     );
-
-
-    Path path;
-
-    public Drawio(Path path, EventLoopGroup eventLoop) {
-
-        this.path = path;
-        var cells = parseFile(path);
-
-
-        Logger.info("Result: " + cells.size());
-    }
 
     public static HashMap<String, DrawioCell> parseFile(Path path) {
         HashMap<String, DrawioCell> cells = new HashMap<>();
@@ -96,7 +83,6 @@ public class Drawio {
         Logger.info("Found " + arrows.size() + " without label.");
         // Now find the missing labels in the leftover
         for (XMLdigger mxcell : mxCells) {
-            var drawId = mxcell.attr("id", "");
             if (mxcell.attr("parent", -1) != -1)
                 continue;
             var parent = mxcell.attr("parent", "");

@@ -73,10 +73,12 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 	}
 
 	private void submitConnector(int attempt) {
+        connecting = true;
 		eventLoopGroup.submit(new Connector(attempt));
 	}
 
 	private void submitPublisher() {
+        publishing = true;
 		publishService.submit(new Publisher()); // Works with a blocking queue
 	}
 	/**
@@ -125,11 +127,9 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 		mqttQueue.add(work);
 		if (!client.isConnected()) { // If not connected, try to connect
 			if (!connecting) {
-				connecting = true;
 				submitConnector(0);
 			}
 		} else if (!publishing) { // If currently not publishing ( there's a 30s timeout) enable publishing
-			publishing = true;
 			submitPublisher();
 		}
 	}
@@ -157,7 +157,6 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			client.setTimeToWait(10000);
 			client.setCallback(this);
 			if( !subscriptions.isEmpty() ){ // If we have subscriptions, connect.
-				connecting=true;
 				submitConnector(0);
 			}
 		} catch (MqttException e) {
@@ -273,7 +272,6 @@ public class MqttWorker implements MqttCallbackExtended,Writable {
 			return 2;
 		if (!client.isConnected() ) { // If not connected, try to connect
 			if( !connecting ){
-				connecting=true;
 				submitConnector(0);
 			}
 		} else{

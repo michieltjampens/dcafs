@@ -14,7 +14,8 @@ public class WritableBlock extends AbstractBlock implements Writable {
     public WritableBlock(String dest, String data) {
         setMessage(dest, data);
     }
-    public WritableBlock setMessage(String dest, String data) {
+
+    public void setMessage(String dest, String data) {
         this.data = data;
         this.dest = dest;
 
@@ -27,7 +28,6 @@ public class WritableBlock extends AbstractBlock implements Writable {
         if (cmd.isEmpty()) {
             Logger.error(id + " -> No valid destination given, needs to be of format stream:id, raw:id or file:id");
         }
-        return this;
     }
 
     @Override
@@ -35,7 +35,7 @@ public class WritableBlock extends AbstractBlock implements Writable {
         if (target != null) {
             if (!target.writeLine(id, data)) {
                 Logger.info(id + " -> Failed to send to " + dest);
-                doFailure();
+                doAltRoute(true);
             } else {
                 //Logger.info(id + " -> Send data to " + dest);
                 doNext();
@@ -60,7 +60,7 @@ public class WritableBlock extends AbstractBlock implements Writable {
             if (target != null) {
                 Logger.info(id() + " -> Received writable from " + target.id());
                 if (!target.writeLine(id, data)) {
-                    doFailure();
+                    doAltRoute(true);
                 } else {
                     doNext();
                 }

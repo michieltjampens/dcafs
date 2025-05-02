@@ -524,7 +524,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		udp.setEventLoopGroup(eventLoopGroup);
 		udp.addListener(this);
 		bootstrapUDP = udp.setBootstrap(bootstrapUDP);
-		eventLoopGroup.submit(() -> new DoConnection(udp));
+		udp.reconnectFuture = eventLoopGroup.schedule(new DoConnection(udp), 0, TimeUnit.SECONDS);
 		return udp;
 	}
 
@@ -543,7 +543,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(mStream), mStream.readerIdleSeconds, TimeUnit.SECONDS);
 		}
 		mStream.addListener(this);
-		eventLoopGroup.submit(() -> new DoConnection(mStream));
+		mStream.reconnectFuture = eventLoopGroup.schedule(new DoConnection(mStream), 0, TimeUnit.SECONDS);
 		return mStream;
 	}
 
@@ -555,7 +555,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if (tcp.getReaderIdleTime() != -1) {
 			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(tcp), tcp.getReaderIdleTime(), TimeUnit.SECONDS);
 		}
-		eventLoopGroup.submit(() -> new DoConnection(tcp));
+		tcp.reconnectFuture = eventLoopGroup.schedule(new DoConnection(tcp), 0, TimeUnit.SECONDS);
 		return tcp;
 	}
 
@@ -565,13 +565,13 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			mbtcp.setEventLoopGroup(eventLoopGroup);
 			mbtcp.addListener(this);
 			bootstrapTCP = mbtcp.setBootstrap(bootstrapTCP);
-			eventLoopGroup.submit(() -> new DoConnection(mbtcp));
+			mbtcp.reconnectFuture = eventLoopGroup.schedule(new DoConnection(mbtcp), 0, TimeUnit.SECONDS);
 			return mbtcp;
 		} else {
 			ModbusStream modbus = new ModbusStream(stream);
 			modbus.setEventLoopGroup(eventLoopGroup);
 			modbus.addListener(this);
-			eventLoopGroup.submit(() -> new DoConnection(modbus));
+			modbus.reconnectFuture = eventLoopGroup.schedule(new DoConnection(modbus), 0, TimeUnit.SECONDS);
 			return modbus;
 		}
 	}
@@ -583,7 +583,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(serial), serial.getReaderIdleTime(), TimeUnit.SECONDS);
 		}
 		serial.addListener(this);
-		eventLoopGroup.submit(() -> new DoConnection(serial));
+		serial.reconnectFuture = eventLoopGroup.schedule(new DoConnection(serial), 0, TimeUnit.SECONDS);
 		return serial;
 	}
 
@@ -594,7 +594,7 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 		if (local.readerIdleSeconds != -1) {
 			eventLoopGroup.schedule(new ReaderIdleTimeoutTask(local), local.readerIdleSeconds, TimeUnit.SECONDS);
 		}
-		eventLoopGroup.submit(() -> new DoConnection(local));
+		local.reconnectFuture = eventLoopGroup.schedule(new DoConnection(local), 0, TimeUnit.SECONDS);
 		return local;
 	}
 	/* ************************************************************************************************* **/
@@ -1189,9 +1189,9 @@ public class StreamManager implements StreamListener, CollectorFuture, Commandab
 			Logger.error("Bad id given for reconnection request: "+id);
 			return false;
 		}
-		if (bs.reconnectFuture == null) {
+		if (bs.reconnectFuture == null || bs.reconnectFuture.getDelay(TimeUnit.SECONDS) < 0) {
 			Logger.error("Requesting reconnect for "+bs.id());
-			eventLoopGroup.submit(() -> new DoConnection(bs));
+			bs.reconnectFuture = eventLoopGroup.schedule(new DoConnection(bs), 5, TimeUnit.SECONDS);
 			return true;
 		}
 		return false;

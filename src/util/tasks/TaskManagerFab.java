@@ -81,7 +81,7 @@ public class TaskManagerFab {
                         if( first==null)
                             return false;
                         if (onFailure != null) {
-                            onFailure.setFailureBlock(first);
+                            onFailure.setAltRouteBlock(first);
                             onFailure = null;
                         }
                         if (type.length == 2)
@@ -171,7 +171,7 @@ public class TaskManagerFab {
         if (!delay.equals("-1s")) {
             delayBlock.useDelay(delay);
         } else if (!time.isEmpty()) {
-            delayBlock.useClock(time, timeAttr.contains("local"));
+            return ClockBlock.create(eventLoop, time, timeAttr.contains("local"));
         } else if (!interval.isEmpty()) {
             var periods = Tools.splitList(interval);
             var initial = periods.length == 2 ? periods[0] : "0s";
@@ -227,7 +227,7 @@ public class TaskManagerFab {
             reply = reply.replace("**", content); // ** means the data send
             var read = new ReadingBlock(eventLoop).setMessage("raw:" + target[1], reply, "2s");
             var count = new CounterBlock(3); // Default is 3 attempts
-            read.setFailureBlock(count); // If read fails, go to count
+            read.setAltRouteBlock(count); // If read fails, go to count
             count.addNext(block);  // If count isn't 0 go back to sender
             block.addNext(read); // After sending, wait for read
         }
@@ -263,7 +263,7 @@ public class TaskManagerFab {
 
             var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
 
-            cond.setFailureBlock(counter); // If condition fails, go to delay
+            cond.setAltRouteBlock(counter); // If condition fails, go to delay
             counter.addNext(delay).addNext(cond);  // After counter go to the delay and then back to condition
 
             prev.addNext(cond);          // Add these blocks to the chain
@@ -282,11 +282,11 @@ public class TaskManagerFab {
     private static AbstractBlock addToOrBecomeFirst(AbstractBlock first, AbstractBlock failure, AbstractBlock added) {
         if (first == null) {
             first = added;
-            first.setFailureBlock(failure);
+            first.setAltRouteBlock(failure);
             failure.setNext(first); // After the failure process, go to  the first block again
         } else {
             if (!(added instanceof WritableBlock))
-                added.setFailureBlock(failure);
+                added.setAltRouteBlock(failure);
             first.addNext(added);
         }
         return first;
@@ -306,7 +306,7 @@ public class TaskManagerFab {
         AbstractBlock first = null;
         var counter = new CounterBlock(task.attr("maxruns", -1));
         var dummy = new DummyBlock();
-        counter.setFailureBlock(dummy); // If out of maxruns go to dummy to reverse failure to ok
+        counter.setAltRouteBlock(dummy); // If out of maxruns go to dummy to reverse failure to ok
 
         if (task.hasChilds()) {
             // Do the internal ones
@@ -318,7 +318,7 @@ public class TaskManagerFab {
                     first.addNext(parseNode(node,tm));
                 }
                 if (first != null)
-                    first.getLastBlock().setFailureBlock(dummy);
+                    first.getLastBlock().setAltRouteBlock(dummy);
             }
             if (first == null)
                 return null;
@@ -334,7 +334,7 @@ public class TaskManagerFab {
                 return null;
             var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
 
-            cond.setNext(counter).setFailureBlock(dummy);  // If ok, go to counter, if not, dummy
+            cond.setNext(counter).setAltRouteBlock(dummy);  // If ok, go to counter, if not, dummy
             counter.setNext(delay);    // After counter go to delay
             delay.setNext(cond);       // After delay, try again
 

@@ -88,6 +88,12 @@ public class TaskManager implements Writable {
         return true;
     }
 
+    public void startShutdowns() {
+        for (var origin : starters.values()) {
+            if (origin instanceof OriginBlock ob)
+                eventLoop.submit(ob::startIfshutdownhook);
+        }
+    }
     public int stopAll() {
         starters.values().forEach(AbstractBlock::reset);
         startup.forEach(AbstractBlock::reset);
@@ -167,5 +173,6 @@ public class TaskManager implements Writable {
     public boolean isConnectionValid() {
         return true;
     }
+
 
 }

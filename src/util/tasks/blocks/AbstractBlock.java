@@ -7,11 +7,11 @@ import org.apache.commons.lang3.math.NumberUtils;
 import java.util.StringJoiner;
 
 public abstract class AbstractBlock {
-    Writable feedback, callback;
-    AbstractBlock next, failure;
-    String id = "";
-    int order = -1;
-    boolean clean = true;
+    protected Writable feedback, callback;
+    protected AbstractBlock next, altRoute;
+    protected String id = "";
+    protected int order = -1;
+    protected boolean clean = true;
 
     public abstract boolean start();
 
@@ -33,9 +33,6 @@ public abstract class AbstractBlock {
         if (block == null)
             return this;
         if (next == null) {
-            if (block.id().isEmpty()) {
-                block.id(id);
-            }
             next = block;
         } else {
             next.addNext(block);
@@ -43,15 +40,15 @@ public abstract class AbstractBlock {
         return this;
     }
 
-    public AbstractBlock setFailureBlock(AbstractBlock failure) {
-        this.failure = failure;
-        return this;
+    public void setAltRouteBlock(AbstractBlock altRoute) {
+        this.altRoute = altRoute;
     }
 
-    protected void doFailure() {
-        sendCallback(id() + " -> FAILURE");
-        if (failure != null)
-            failure.start();
+    protected void doAltRoute(boolean tagAsFailure) {
+        if (tagAsFailure)
+            sendCallback(id() + " -> FAILURE");
+        if (altRoute != null)
+            altRoute.start();
     }
 
     void setFeedbackWritable(Writable fb) {
@@ -74,21 +71,21 @@ public abstract class AbstractBlock {
     public String getInfo(StringJoiner info, String offset) {
 
         info.add(offset + this);
-        if (failure != null && failure.id().startsWith(id())) {
-            info.add("    " + failure);
-            addFailureInfo(failure, info);
+        if (altRoute != null && altRoute.id().startsWith(id())) {
+            info.add("    " + altRoute);
+            addAltRouteInfo(altRoute, info);
         }
         if (next != null)
             return next.getInfo(info, offset);
         return info.toString();
     }
 
-    // Recursive method to handle failure chain
-    private void addFailureInfo(AbstractBlock failure, StringJoiner info) {
-        if (failure != null && failure.next != null &&
-                failure.next.id().matches(".*\\|\\d+F\\d+$")) { // Check if the next failure matches the desired pattern
-            info.add("    " + failure.next);  // Add the next failure
-            addFailureInfo(failure.next, info);  // Recurse for next failure
+    // Recursive method to handle alternative chain
+    private void addAltRouteInfo(AbstractBlock alternative, StringJoiner info) {
+        if (alternative != null && alternative.next != null &&
+                alternative.next.id().matches(".*\\|\\d+F\\d+$")) { // Check if the next alternative matches the desired pattern
+            info.add("    " + alternative.next);  // Add the next alternative
+            addAltRouteInfo(alternative.next, info);  // Recurse for next alternative
         }
     }
     public void reset() {
@@ -96,8 +93,8 @@ public abstract class AbstractBlock {
             clean = true;
             if (next != null)
                 next.reset();
-            if (failure != null)
-                failure.reset();
+            if (altRoute != null)
+                altRoute.reset();
         }
     }
     public AbstractBlock getLastBlock() {
@@ -123,8 +120,8 @@ public abstract class AbstractBlock {
         id = "";
         if (next != null)
             next.resetId();
-        if (failure != null)
-            failure.resetId();
+        if (altRoute != null)
+            altRoute.resetId();
     }
     public void buildId(String id) {
         if (!this.id.isEmpty())
@@ -143,8 +140,8 @@ public abstract class AbstractBlock {
         } else {
             this.id = id + "|0";
         }
-        if (failure != null)
-            failure.buildId(this.id + "F0");
+        if (altRoute != null)
+            altRoute.buildId(this.id + "F0");
 
         if (next != null && next.id().isEmpty())
             next.buildId(this.id);

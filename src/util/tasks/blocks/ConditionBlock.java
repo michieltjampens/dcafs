@@ -31,20 +31,20 @@ public class ConditionBlock extends AbstractBlock {
         var res = logEval.eval();
         if( res.isEmpty() ){
             Logger.error("Failed to execute evaluation, fail route.");
-            doFailure();
+            doAltRoute(true);
             return false;
         }
         var pass = res.get();
         if (pass) {
             doNext();
         } else {
-            doFailure();
+            doAltRoute(true);
         }
         return pass;
     }
 
     public String toString() {
-        return telnetId() + " -> Check if " + logEval.getOriginalExpression() + (failure == null ? "." : ". If not, go to " + failure.telnetId());
+        return telnetId() + " -> Check if " + logEval.getOriginalExpression() + (altRoute == null ? "." : ". If not, go to " + altRoute.telnetId());
     }
     public String getEvalInfo(){
         if(logEval==null)
