@@ -2,6 +2,7 @@ package util.data.vals;
 
 import das.Core;
 import org.tinylog.Logger;
+import util.tasks.blocks.ConditionBlock;
 import util.tools.Tools;
 
 import java.math.BigDecimal;

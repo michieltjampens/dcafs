@@ -36,14 +36,6 @@ public class TaskManagerPool implements Commandable {
     public TaskManagerPool(Rtvals rtvals) {
         this.rtvals = rtvals;
         readFromXML();
-
-        executorService.submit(() -> {
-            try {
-                watchDirectory(Path.of("tmscripts"));
-            } catch (IOException | InterruptedException e) {
-                Logger.error(e);
-            }
-        });
     }
 
     public void readFromXML() {
@@ -83,6 +75,15 @@ public class TaskManagerPool implements Commandable {
         return addTaskManager(id, tm.get());
     }
 
+    public void enableWatcher() {
+        executorService.submit(() -> {
+            try {
+                watchDirectory(Path.of("tmscripts"));
+            } catch (IOException | InterruptedException e) {
+                Logger.error(e);
+            }
+        });
+    }
     public void startShutdowns() {
         startTask("shutdown");
         for (var tm : tasklists.values())

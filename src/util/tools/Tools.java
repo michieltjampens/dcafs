@@ -785,4 +785,14 @@ public class Tools {
             return true; // Return true if there's an error (no root access)
         }
     }
+
+    public static String[] endSplit(String ori, String splitter) {
+        // If the splitter is not found, return the original string and an empty string
+        if (!ori.contains(splitter))
+            return new String[]{ori, ""};
+        // Find the last occurrence of the splitter
+        int index = ori.lastIndexOf(splitter);
+        // Return the part before the splitter and the part after it
+        return new String[]{ori.substring(0, index), ori.substring(index + splitter.length())};
+    }
 }

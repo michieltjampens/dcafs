@@ -6,6 +6,7 @@ import org.tinylog.Logger;
 import util.tools.TimeTools;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.StringJoiner;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -74,13 +75,30 @@ public class SplitBlock extends AbstractBlock implements Writable {
     public AbstractBlock addNext(AbstractBlock block) {
         if (block == null)
             return this;
-        block.id("Branch" + nexts.size());
         if (interval != 0)
             block.setCallbackWritable(this);
         nexts.add(block);
         return this;
     }
 
+    @Override
+    protected AbstractBlock matchId(String id, HashSet<AbstractBlock> visited) {
+        if (!visited.add(this)) return null;
+
+        if (this.id.equals(id))
+            return this;
+
+        AbstractBlock match = null;
+
+        if (nexts != null && !nexts.isEmpty()) {
+            for (var next : nexts) {
+                match = next.matchId(id);
+                if (match != null)
+                    return match;
+            }
+        }
+        return match;
+    }
     @Override
     public boolean writeLine(String origin, String data) {
         //Logger.info("Callback? -> " + data);

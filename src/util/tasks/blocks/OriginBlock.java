@@ -26,6 +26,9 @@ public class OriginBlock extends AbstractBlock {
         next.buildId(id);
     }
 
+    public int runs() {
+        return runs;
+    }
     public boolean restart() {
         return start();
     }

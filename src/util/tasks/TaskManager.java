@@ -6,6 +6,8 @@ import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.vals.NumericVal;
 import util.data.vals.Rtvals;
+import util.drawio.Drawio;
+import util.drawio.DrawioEditor;
 import util.tasks.blocks.AbstractBlock;
 import util.tasks.blocks.OriginBlock;
 import util.tools.TimeTools;
@@ -14,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.StringJoiner;
+import java.util.concurrent.TimeUnit;
 
 public class TaskManager implements Writable {
     HashMap<String, AbstractBlock> starters = new HashMap<>();
@@ -45,6 +48,19 @@ public class TaskManager implements Writable {
         lastModifiedTime = scriptPath.toFile().lastModified();
     }
 
+    public void monitorRuns() {
+        eventLoop.scheduleWithFixedDelay(this::annodateRuns, 20, 20, TimeUnit.SECONDS);
+    }
+
+    public void annodateRuns() {
+        var list = new ArrayList<String[]>();
+        for (var origin : starters.values()) {
+            if (origin instanceof OriginBlock ori) {
+                list.add(new String[]{ori.id(), "runs", String.valueOf(ori.runs())});
+            }
+        }
+        Logger.info("Updated " + DrawioEditor.addAttributeBatch(scriptPath, list) + " attributes");
+    }
     public boolean isModified() {
         var mod = lastModifiedTime != scriptPath.toFile().lastModified();
         Logger.info("Modified :" + (lastModifiedTime - scriptPath.toFile().lastModified()));

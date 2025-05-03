@@ -289,7 +289,7 @@ public class XMLtools {
 		try{
 			return Optional.of((Element) parent.appendChild( xmlDoc.createElement(node) ));
 		}catch( DOMException e){
-			Logger.error(e);
+            Logger.error("Node:" + node, e);
 			return Optional.empty();
 		}
 	}
@@ -310,7 +310,8 @@ public class XMLtools {
 
 		try{			
 			Element ele = xmlDoc.createElement(node);
-			ele.appendChild( xmlDoc.createTextNode(content) );
+            if (!content.isEmpty())
+                ele.appendChild(xmlDoc.createTextNode(content));
 			parent.appendChild(ele);
 			return Optional.of(ele);
 		}catch( DOMException e){

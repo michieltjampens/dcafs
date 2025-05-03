@@ -4,6 +4,7 @@ import io.Writable;
 import io.telnet.TelnetCodes;
 import org.apache.commons.lang3.math.NumberUtils;
 
+import java.util.HashSet;
 import java.util.StringJoiner;
 
 public abstract class AbstractBlock {
@@ -122,6 +123,26 @@ public abstract class AbstractBlock {
             next.resetId();
         if (altRoute != null)
             altRoute.resetId();
+    }
+
+    public AbstractBlock matchId(String id) {
+        return matchId(id, new HashSet<>());
+    }
+
+    protected AbstractBlock matchId(String id, HashSet<AbstractBlock> visited) {
+        if (!visited.add(this)) return null;
+
+        if (this.id.equals(id))
+            return this;
+
+        AbstractBlock match = null;
+
+        if (next != null)
+            match = next.matchId(id, visited);
+
+        if (match == null && altRoute != null)
+            return altRoute.matchId(id, visited);
+        return match;
     }
     public void buildId(String id) {
         if (!this.id.isEmpty())

@@ -111,9 +111,6 @@ class XMLTest {
     }
 }
 ````
-
-
-
 ### Digging around
 
 Now that the basics are explained, next up is some actual practical examples.

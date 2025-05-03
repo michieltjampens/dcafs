@@ -3,5 +3,7 @@ package util.evalcore;
 import java.util.Optional;
 
 public interface Evaluator {
-    Optional<Boolean> eval(double... value);
+    boolean eval(double... value);
+
+    void setId(String id);
 }

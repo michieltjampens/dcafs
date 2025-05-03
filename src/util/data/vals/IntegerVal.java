@@ -3,16 +3,18 @@ package util.data.vals;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.procs.MathEvalForVal;
-import util.evalcore.LogicEvalTrigger;
 import util.evalcore.MathEvaluatorDummy;
+import util.tasks.blocks.ConditionBlock;
 
 import java.math.BigDecimal;
 
 public class IntegerVal extends BaseVal implements NumericVal {
     int value, defValue;
 
-    LogicEvalTrigger preCheck = new LogicEvalTrigger();
-    LogicEvalTrigger postCheck = new LogicEvalTrigger();
+    ConditionBlock preCheck;
+    boolean ignorePre = true;
+    ConditionBlock postCheck;
+    boolean ignorePost = true;
     MathEvalForVal math = new MathEvaluatorDummy();
 
     public IntegerVal(String group, String name, String unit) {
@@ -24,9 +26,7 @@ public class IntegerVal extends BaseVal implements NumericVal {
         return new IntegerVal(group, name, "");
     }
 
-    public void setMath(MathEvalForVal bin) {
-        math = bin;
-    }
+
 
     public int value() {
         return value;
@@ -43,14 +43,12 @@ public class IntegerVal extends BaseVal implements NumericVal {
     }
 
     public boolean update(int value) {
-        if (preCheck.eval(value, this.value, 0.0)) {
+        if (ignorePre || preCheck.start(value, this.value)) {
             var res = math.eval(value, this.value, 0);
-            if (postCheck.eval(res, value, this.value)) {
+            if (ignorePost || postCheck.start(value, this.value, res))
                 this.value = res;
-                return true;
-            }
         }
-        return false;
+        return true;
     }
 
     @Override
@@ -76,6 +74,17 @@ public class IntegerVal extends BaseVal implements NumericVal {
         return true;
     }
 
+    public void setPreCheck(ConditionBlock pre) {
+        preCheck = pre;
+    }
+
+    public void setPostCheck(ConditionBlock post) {
+        postCheck = post;
+    }
+
+    public void setMath(MathEvalForVal bin) {
+        math = bin;
+    }
     @Override
     public double asDouble() {
         return value();

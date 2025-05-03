@@ -68,6 +68,12 @@ public class XMLdigger {
     public static XMLdigger goIn( Element ele){
         return new XMLdigger(ele);
     }
+
+    public static XMLdigger goIn(Document xmlDoc, Element ele) {
+        var dig = new XMLdigger(ele);
+        dig.xmlDoc = xmlDoc;
+        return dig;
+    }
     public Document doc(){
         return xmlDoc;
     }
@@ -447,7 +453,7 @@ public class XMLdigger {
         if( !valid )
             return temp;
         digDown(tag);
-        siblings.forEach( x->temp.add(XMLdigger.goIn(x)));
+        siblings.forEach(x -> temp.add(XMLdigger.goIn(xmlDoc, x)));
         return temp;
     }
     /**
@@ -807,4 +813,9 @@ public class XMLdigger {
         }
         return Optional.empty();
     }
+
+    public XmlMiniFab useEditor() {
+        return new XmlMiniFab(xmlDoc, last);
+    }
+
 }

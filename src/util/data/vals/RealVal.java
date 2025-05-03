@@ -3,22 +3,22 @@ package util.data.vals;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.procs.MathEvalForVal;
-import util.evalcore.LogicEvalTrigger;
 import util.evalcore.MathEvaluatorDummy;
+import util.tasks.blocks.ConditionBlock;
 
 import java.math.BigDecimal;
 
 public class RealVal extends BaseVal implements NumericVal {
     double value = Double.NaN, defValue = Double.NaN;
 
-    LogicEvalTrigger preCheck = new LogicEvalTrigger();
-    LogicEvalTrigger postCheck = new LogicEvalTrigger();
+    ConditionBlock preCheck;
+    boolean ignorePre = true;
+    ConditionBlock postCheck;
+    boolean ignorePost = true;
     MathEvalForVal math = new MathEvaluatorDummy();
 
     public RealVal(String group, String name, String unit) {
         super(group, name, unit);
-        preCheck.setId(id() + "_PRE");
-        postCheck.setId(id() + "_POST");
     }
 
     public static RealVal newVal(String group, String name) {
@@ -26,14 +26,21 @@ public class RealVal extends BaseVal implements NumericVal {
     }
 
     public boolean update(double value) {
-        if (preCheck.eval(value, this.value, 0.0)) {
+        if (ignorePre || preCheck.start(value, this.value)) {
             var res = math.eval(value, this.value, 0.0);
-            if (postCheck.eval(res, value, this.value))
+            if (ignorePost || postCheck.start(value, this.value, res))
                 this.value = res;
         }
         return true;
     }
 
+    public void setPreCheck(ConditionBlock pre) {
+        preCheck = pre;
+    }
+
+    public void setPostCheck(ConditionBlock post) {
+        postCheck = post;
+    }
     public boolean update(int value) {
         return update((double) value);
     }

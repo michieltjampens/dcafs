@@ -23,18 +23,16 @@ public class ConditionBlock extends AbstractBlock {
     }
     @Override
     public boolean start() {
+        return start(0.0);
+    }
+
+    public boolean start(double... input) {
         // After
-        if( logEval==null ){
+        if (logEval == null) {
             Logger.error("This block probably wasn't constructed properly because no valid evaluator was found, chain aborted.");
             return false;
         }
-        var res = logEval.eval();
-        if( res.isEmpty() ){
-            Logger.error("Failed to execute evaluation, fail route.");
-            doAltRoute(true);
-            return false;
-        }
-        var pass = res.get();
+        var pass = logEval.eval(input);
         if (pass) {
             doNext();
         } else {
@@ -42,7 +40,6 @@ public class ConditionBlock extends AbstractBlock {
         }
         return pass;
     }
-
     public String toString() {
         return telnetId() + " -> Check if " + logEval.getOriginalExpression() + (altRoute == null ? "." : ". If not, go to " + altRoute.telnetId());
     }

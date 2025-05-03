@@ -1,5 +1,8 @@
 package util.data.vals;
 
+import util.data.procs.MathEvalForVal;
+import util.tasks.blocks.ConditionBlock;
+
 import java.math.BigDecimal;
 
 public interface NumericVal {
@@ -17,6 +20,14 @@ public interface NumericVal {
     String asString();
     BigDecimal asBigDecimal();
 
+    default void setPreCheck(ConditionBlock pre) {
+    }
+
+    default void setPostCheck(ConditionBlock post) {
+    }
+
+    default void setMath(MathEvalForVal math) {
+    }
     default String getExtraInfo() {
         return "";
     }

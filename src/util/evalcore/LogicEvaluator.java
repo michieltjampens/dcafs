@@ -63,16 +63,17 @@ public class LogicEvaluator extends BaseEvaluator implements Evaluator {
         }
         return true;
     }
-    public Optional<Boolean> eval(double... inputs ){
+
+    public boolean eval(double... inputs) {
         if( ! buildScratchpad(inputs) )
-            return Optional.empty();
+            return false;
 
         for( var op : logicOps ){
             var res = Double.compare( op.func().apply(scratchpad),1.0)==0;
             if( res || Double.isNaN(op.logic()))
-                return Optional.of(res);
+                return res;
         }
-        return Optional.empty();
+        return false;
     }
     public Optional<Boolean> eval( String data, String delimiter ){
         double[] inputs;
@@ -84,7 +85,7 @@ public class LogicEvaluator extends BaseEvaluator implements Evaluator {
             Logger.error("Failed to parse input data: " + data);
             return Optional.empty(); // or however you want to handle the failure
         }
-        return eval(inputs);
+        return Optional.of(eval(inputs));
     }
     /* ************************  Get Debug information ******************************************* */
 

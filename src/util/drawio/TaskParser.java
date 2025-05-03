@@ -5,16 +5,18 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.vals.Rtvals;
 import util.tasks.blocks.*;
+import util.tools.Tools;
 import worker.Datagram;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 public class TaskParser {
 
-    public record Tools(EventLoopGroup eventLoop, ArrayList<OriginBlock> origins, Rtvals rtvals,
-                        HashMap<String, AbstractBlock> blocks) {
+    public record TaskTools(EventLoopGroup eventLoop, ArrayList<OriginBlock> origins, Rtvals rtvals,
+                            HashMap<String, AbstractBlock> blocks, HashMap<String, String> idRef) {
     }
 
     public record OriginCell(OriginBlock origin, Drawio.DrawioCell cell) {
@@ -27,19 +29,20 @@ public class TaskParser {
         }
 
         var cells = Drawio.parseFile(file);
-        return parseTasks(cells, eventLoop, rtvals);
+        return parseTasks(file, cells, eventLoop, rtvals);
     }
 
-    private static ArrayList<OriginBlock> parseTasks(HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
+    private static ArrayList<OriginBlock> parseTasks(Path file, HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
+        HashMap<String, String> idRef = new HashMap<>();
         ArrayList<OriginBlock> origins = new ArrayList<>();
-        var tools = new Tools(eventLoop, origins, rtvals, new HashMap<>());
+        var tools = new TaskTools(eventLoop, origins, rtvals, new HashMap<>(), idRef);
 
         // First create all the origins and then populate with the rest because controlblocks need a full list during set up
         ArrayList<OriginCell> oricell = new ArrayList<>();
         for (var entry : cells.entrySet()) {
             var cell = entry.getValue();
             if (cell.type.equals("originblock")) { // Look for originblocks
-                var origin = doOriginBlock(cell, tools);
+                var origin = doOriginBlock(cell);
                 origins.add(origin);
                 oricell.add(new OriginCell(origin, cell));
             }
@@ -47,16 +50,36 @@ public class TaskParser {
         for (var oricel : oricell) {
             addNext(oricel.cell(), oricel.origin(), tools, "next");
         }
+        DrawioEditor.addIds(idRef, file);
         oricell.clear();
         return origins;
     }
 
-    private static AbstractBlock createBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static void lookup(HashMap<String, String> idRef, ArrayList<OriginBlock> origins) {
+        var list = new ArrayList<String>();
+        for (var entry : idRef.entrySet()) {
+            boolean found = false;
+            for (var ori : origins) {
+                var match = ori.matchId(entry.getKey());
+                if (match != null) {
+                    var clSplit = match.getClass().toString().split("\\.");
+                    list.add(entry.getKey() + " -> " + clSplit[clSplit.length - 1] + " -> " + entry.getValue());
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                list.add(entry.getKey() + " -> ??? -> " + entry.getValue());
+        }
+        Logger.info(list.stream().sorted().collect(Collectors.joining("\r\n")));
+    }
+
+    public static AbstractBlock createBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         if (cell == null)
             return null;
 
         return switch (cell.type) {
-            case "originblock" -> doOriginBlock(cell, tools);
+            case "originblock" -> doOriginBlock(cell);
             case "delayblock" -> doDelayBlock(cell, tools, id);
             case "intervalblock" -> doIntervalBlock(cell, tools, id);
             case "clockblock" -> doClockBlock(cell, tools, id);
@@ -72,21 +95,20 @@ public class TaskParser {
         };
     }
 
-    private static OriginBlock doOriginBlock(Drawio.DrawioCell cell, Tools tools) {
+    private static OriginBlock doOriginBlock(Drawio.DrawioCell cell) {
         var origin = new OriginBlock(cell.dasId);
 
         var auto = cell.getParam("autostart", "no");
         var shut = cell.getParam("shutdownhook", "no");
 
-        origin.setAutostart(util.tools.Tools.parseBool(auto, false));
-        origin.setShutdownhook(util.tools.Tools.parseBool(shut, false));
+        origin.setAutostart(Tools.parseBool(auto, false));
+        origin.setShutdownhook(Tools.parseBool(shut, false));
         return origin;
     }
 
-    private static DelayBlock doDelayBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static DelayBlock doDelayBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing delay block");
         if (cell.hasParam("delay")) {
-
             var eventLoop = tools.eventLoop();
             var db = DelayBlock.useDelay(cell.params.get("delay"), eventLoop);
             db.id(alterId(id));
@@ -98,13 +120,23 @@ public class TaskParser {
     }
 
     private static String alterId(String id) {
-        if (!id.contains("_"))
-            return id + "_0";
-        var split = id.split("_", 2);
-        return split[0] + "_" + (NumberUtils.toInt(split[1]) + 1);
+
+        return alterId(id, "", "");
     }
 
-    private static DelayBlock doIntervalBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static String alterId(String id, String prefix, String suffix) {
+        if (!id.contains("@"))
+            return id + "@" + prefix + "0" + suffix;
+
+        if (id.endsWith("|"))
+            return id + prefix + "0" + suffix;
+
+        var splitter = id.contains("|") ? "|" : "@";
+        var split = Tools.endSplit(id, splitter);
+        return split[0] + splitter + prefix + (NumberUtils.toInt(split[1]) + 1) + suffix;
+    }
+
+    private static DelayBlock doIntervalBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         var repeats = cell.getParam("repeats", -1);
         var interval = cell.getParam("interval", "");
 
@@ -123,13 +155,13 @@ public class TaskParser {
             // If repeats is not 0, can have a failure
 
             var db = DelayBlock.useInterval(eventLoop, init, interval, repeats);
-
-            addNext(cell, db, tools, "next");
-            addNext(cell, db, tools, "repeats>0");
             db.id(alterId(id));
 
+            addNext(cell, db, tools, "next", "repeats>0");
+            addFail(cell, db, tools, "repeat==0");
+
             if (repeats != -1) {
-                if (!addFail("repeats==0", cell, db, tools))
+                if (!addFail(cell, db, tools, "repeats==0"))
                     Logger.warn("Interval task with repeats but failure link not used.");
             }
             return db;
@@ -138,7 +170,7 @@ public class TaskParser {
         return null;
     }
 
-    private static ClockBlock doClockBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static ClockBlock doClockBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing time block");
 
         var days = cell.getParam("days", "always");
@@ -151,12 +183,12 @@ public class TaskParser {
             Logger.error("No time or localtime defined in Timeblock, or still empty.");
             return null;
         }
-        addNext(cell, clockBlock, tools, "next");
         clockBlock.id(alterId(id));
+        addNext(cell, clockBlock, tools, "next");
         return clockBlock;
     }
 
-    private static WritableBlock doWritableBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static WritableBlock doWritableBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing writer block");
         if (!cell.hasParam("message")) {
             Logger.error("Writable block is missing a message property or it's still empty");
@@ -169,11 +201,11 @@ public class TaskParser {
         var wr = new WritableBlock(cell.getParam("target", ""), cell.getParam("message", ""));
         wr.id(alterId(id));
         addNext(cell, wr, tools, "next");
-        addFail("timeout", cell, wr, tools);
+        addFail(cell, wr, tools, "timeout");
         return wr;
     }
 
-    private static CounterBlock doCounterBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static CounterBlock doCounterBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing counter block");
         if (!cell.hasParam("count")) {
             Logger.error("Counter block is missing a count property or it's still empty");
@@ -186,11 +218,11 @@ public class TaskParser {
         counter.setOnZero(onzero, altInfinite);
         counter.id(alterId(id));
         addNext(cell, counter, tools, "count>0", "next");
-        addFail("count==0", cell, counter, tools);
+        addFail(cell, counter, tools, "count==0");
         return counter;
     }
 
-    private static ControlBlock doControlBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static ControlBlock doControlBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing control block");
         if (!cell.hasArrow("trigger") && !cell.hasArrow("stop")) {
             Logger.error("Controlblock without a connection to trigger or stop.");
@@ -214,7 +246,7 @@ public class TaskParser {
         return cb;
     }
 
-    private static ReadingBlock doReaderBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static ReadingBlock doReaderBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
 
         if (!cell.hasArrow("source") && !cell.hasParam("source")) {
             Logger.error("Reading block without a source.");
@@ -233,28 +265,31 @@ public class TaskParser {
         var reader = new ReadingBlock(tools.eventLoop);
         reader.setMessage(src, cell.getParam("wants", ""), cell.getParam("timeout", ""));
         reader.id(alterId(id));
-        addNext(cell, reader, tools, "received");
-        addFail("timeout", cell, reader, tools);
+        addNext(cell, reader, tools, "received", "ok");
+        addFail(cell, reader, tools, "timeout");
         return reader;
     }
 
-    private static SplitBlock doSplitBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static SplitBlock doSplitBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         if (!cell.hasArrows()) {
             Logger.error("Splitblock without any next blocks specified");
             return null;
         }
         var sb = new SplitBlock(tools.eventLoop);
         sb.setInterval(cell.getParam("interval", ""));
-        sb.id(alterId(id));
+        sb.id(alterId(id, "[", "]"));
+        tools.idRef.put(sb.id(), cell.drawId);
+
         for (int a = 0; a < 50; a++) {
             var next = cell.getArrowTarget("next_" + a);
-            if (next != null)
-                sb.addNext(createBlock(next, tools, sb.id()));
+            if (next != null) {
+                sb.addNext(createBlock(next, tools, sb.id() + "[" + a + "]" + "|"));
+            }
         }
         return sb;
     }
 
-    private static LogBlock doLogBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static LogBlock doLogBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         if (!cell.hasParam("message")) {
             Logger.error("Logblock without a message specified");
             return null;
@@ -266,12 +301,14 @@ public class TaskParser {
             case "infoblock" -> LogBlock.info(message);
             default -> null;
         };
-        if (lb != null)
+        if (lb != null) {
             lb.id(alterId(id));
+            addNext(cell, lb, tools, "next", "pass");
+        }
         return lb;
     }
 
-    private static CmdBlock doCmdBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static CmdBlock doCmdBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         if (!cell.hasParam("cmd") && !cell.hasParam("message")) {
             Logger.error("Commandblock without a cmd/message specified");
             return null;
@@ -285,12 +322,12 @@ public class TaskParser {
         };
         var cb = new CmdBlock(Datagram.system(cmd));
         cb.id(alterId(id));
-        addNext(cell, cb, tools, "next", "pass");
-        addFail("fail", cell, cb, tools);
+        addNext(cell, cb, tools, "next", "pass", "ok");
+        addFail(cell, cb, tools, "fail");
         return cb;
     }
 
-    private static ConditionBlock doConditionBlock(Drawio.DrawioCell cell, Tools tools, String id) {
+    private static ConditionBlock doConditionBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         if (!cell.hasParam("expression")) {
             Logger.error("Conditionblock without an expression specified.");
             return null;
@@ -298,15 +335,18 @@ public class TaskParser {
         var cb = ConditionBlock.build(cell.getParam("expression", ""), tools.rtvals, null);
         cb.ifPresent(block -> {
             block.id(alterId(id));
-            addNext(cell, block, tools, "next", "pass");
-            addFail("fail", cell, block, tools);
+            addNext(cell, block, tools, "next", "pass", "yes", "ok");
+            addFail(cell, block, tools, "fail", "no");
         });
         return cb.orElse(null);
     }
 
-    private static void addNext(Drawio.DrawioCell cell, AbstractBlock block, Tools tools, String... nexts) {
+    private static void addNext(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... nexts) {
         boolean match = false;
         tools.blocks.put(cell.drawId, block);
+        if (block.id().isEmpty())
+            Logger.info("Id still empty?");
+        tools.idRef.put(block.id(), cell.drawId);
         for (var next : nexts) {
             if (cell.hasArrow(next)) {
                 var target = cell.getArrowTarget(next).drawId;
@@ -323,13 +363,17 @@ public class TaskParser {
             Logger.info("Final block in chain is " + block.getClass());
     }
 
-    private static boolean addFail(String label, Drawio.DrawioCell cell, AbstractBlock block, Tools tools) {
+    private static boolean addFail(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... labels) {
         tools.blocks.put(cell.drawId, block);
-        if (cell.hasArrow(label)) {
-            block.setAltRouteBlock(createBlock(cell.getArrowTarget(label), tools, block.id()));
-            return true;
+        for (var label : labels) {
+            if (cell.hasArrow(label)) {
+                var id = block.id();
+                id = id + "|";
+                tools.idRef.put(block.id(), cell.drawId);
+                block.setAltRouteBlock(createBlock(cell.getArrowTarget(label), tools, id));
+                return true;
+            }
         }
-        //Logger.warn("No fail connection found with label " + label);
         return false;
     }
 }
