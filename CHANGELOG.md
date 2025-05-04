@@ -15,15 +15,34 @@ Note: Version numbering: x.y.z
 - Math and logic parsing was all over the codebase, centralized in evalcore and streamlined the layout. Logic got a
   major rewrite to allow for 'lazy evaluation ' (aka shortcircuit'ing).
 - A lot of QoL fixes/changes and the cleanup based on Codacy feedback.
-- Result is a diff of "146 files changed, 12283 insertions(+), 14179 deletions(-)"
+- Result is a diff of "211 files changed, 20413 insertions(+), 20338 deletions(-)"
 - Major version bump because a lot has changed under the hood and major bump was overdue anyway.
 
 ### General
 
-- Fixed 205 issues found by [Codacy](https://app.codacy.com/gh/michieltjampens/dcafs/dashboard). (none actually
+- Fixed 210 issues found by [Codacy](https://app.codacy.com/gh/michieltjampens/dcafs/dashboard). (none actually
   critical)
 - Refactored a lot
 - Cleaned up the full code base.
+
+### Draw io integration
+
+- This is still in experimental phase, releasing as is so anyone could help test...
+- Parser converts shapes (object in xml) to Java Objects containing properties and links.
+- Parser traverses tabs but doesn't retain info on where it came from.
+- Added file watcher so it's possible to have dcafs auto reload (disabled for now).
+- Started making it possible to configure certain parts using drawio.
+  - Task manager blocks have a drawio equivalent, added some 'virtual' ones to simplify common
+    actions. Can create a taskmanager using a drawio,
+    - Origin blocks have two properties that determine auto start, both default to no.
+      - `autostart` starts the task on bootup or reload (yes/no,true/false)
+      - `shutdownhook` starts the task when the system is shutting down (useful for cleanup) (yes/no,true/false)
+  - Rtvals is work in progress, realval is mostly done. Can represent and generate. Not all
+    possible iterations tested (it's rather flexible). Math path exists in code not yet in parser.
+- Initial steps on annotating the drawio file. After parsing, the shapes get their dcafs id
+  added as a property. This makes annotating easier as it no longer requires a lookup table. This does
+  create infinite loop with autoreload so turned it off for now.
+  - Proof of concept involved having the origin block show the amount of runs, updated every 30s.
 
 ### Task Manager
 
