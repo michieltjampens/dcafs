@@ -369,6 +369,12 @@ public class TaskManagerFab {
                 var timeout = node.attr("timeout", "0s");
                 yield new ReadingBlock(eventLoop).setMessage(from, content, timeout);
             }
+            case "log" -> switch (node.attr("level", "info")) {
+                case "info" -> LogBlock.info(content);
+                case "warn" -> LogBlock.warn(content);
+                case "error" -> LogBlock.error(content);
+                default -> null;
+            };
             default -> {
                 Logger.error("Unknown tag:" + node.tagName(""));
                 yield null;
