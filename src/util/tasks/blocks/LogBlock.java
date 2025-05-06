@@ -5,7 +5,6 @@ import org.tinylog.Logger;
 public class LogBlock extends AbstractBlock {
     enum LEVEL {INFO, WARN, ERROR}
 
-    ;
     LEVEL level;
     String message;
 
@@ -33,6 +32,7 @@ public class LogBlock extends AbstractBlock {
             case WARN -> Logger.warn(message);
             case ERROR -> Logger.error(message);
         }
+        doNext();
         return true;
     }
 }

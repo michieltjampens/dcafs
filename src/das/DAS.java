@@ -23,7 +23,6 @@ import org.tinylog.provider.ProviderRegistry;
 import util.LookAndFeel;
 import util.data.vals.Rtvals;
 import util.database.DatabaseManager;
-import util.drawio.RtvalsParser;
 import util.gis.Waypoints;
 import util.math.MathUtils;
 import util.tasks.TaskManagerPool;
@@ -739,7 +738,5 @@ public class DAS implements Commandable{
         }
 
         das.startAll(); // Run all the processes that need to happen after initialization of the components
-        RtvalsParser.parseDrawIoRtvals(Paths.storage().resolve("tmscripts").resolve("vals.drawio"), das.nettyGroup, das.rtvals);
-        Logger.info("Dcafs "+version+" boot finished!");
     }
 }
