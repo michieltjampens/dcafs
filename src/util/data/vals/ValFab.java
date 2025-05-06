@@ -99,6 +99,7 @@ public class ValFab {
             rv = ra;
         }
         rv.defValue(def);
+        rv.update(def);
         return Optional.of(rv);
     }
 
@@ -178,6 +179,8 @@ public class ValFab {
             var reducer = Reducer.getIntegerReducer(dig.attr("reducer", "avg"), def, windowSize);
             iv = new IntegerValAggregator(base.group, base.name, base.unit, reducer, windowSize);
         }
+        iv.defValue(def);
+        iv.update(def);
         return Optional.of(iv);
     }
 
