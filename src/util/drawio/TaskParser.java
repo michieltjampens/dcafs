@@ -348,11 +348,13 @@ public class TaskParser {
         tools.idRef.put(block.id(), cell.drawId);
         for (var next : nexts) {
             if (cell.hasArrow(next)) {
-                var target = cell.getArrowTarget(next).drawId;
-                if (tools.blocks.get(target) == null) { // not created yet
-                    block.addNext(createBlock(cell.getArrowTarget(next), tools, block.id()));
+                var targetCell = cell.getArrowTarget(next);
+                var targetId = targetCell.drawId;
+                var existing = tools.blocks.get(targetId);
+                if (existing == null) { // not created yet
+                    block.addNext(createBlock(targetCell, tools, block.id()));
                 } else {
-                    block.addNext(tools.blocks.get(target));
+                    block.addNext(existing);
                 }
                 match = true;
                 break;
@@ -369,7 +371,15 @@ public class TaskParser {
                 var id = block.id();
                 id = id + "|";
                 tools.idRef.put(block.id(), cell.drawId);
-                block.setAltRouteBlock(createBlock(cell.getArrowTarget(label), tools, id));
+
+                var targetCell = cell.getArrowTarget(label);
+                var targetId = cell.getArrowTarget(label).drawId;
+                var existing = tools.blocks.get(targetId);
+                if (existing == null) {
+                    block.setAltRouteBlock(createBlock(targetCell, tools, id));
+                } else {
+                    block.setAltRouteBlock(existing);
+                }
                 return true;
             }
         }
