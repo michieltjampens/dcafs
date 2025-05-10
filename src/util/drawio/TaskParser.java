@@ -120,7 +120,6 @@ public class TaskParser {
     }
 
     private static String alterId(String id) {
-
         return alterId(id, "", "");
     }
 
@@ -158,10 +157,10 @@ public class TaskParser {
             db.id(alterId(id));
 
             addNext(cell, db, tools, "next", "repeats>0");
-            addFail(cell, db, tools, "repeat==0");
+            addAlt(cell, db, tools, "repeat==0");
 
             if (repeats != -1) {
-                if (!addFail(cell, db, tools, "repeats==0"))
+                if (!addAlt(cell, db, tools, "repeats==0"))
                     Logger.warn("Interval task with repeats but failure link not used.");
             }
             return db;
@@ -201,7 +200,7 @@ public class TaskParser {
         var wr = new WritableBlock(cell.getParam("target", ""), cell.getParam("message", ""));
         wr.id(alterId(id));
         addNext(cell, wr, tools, "next");
-        addFail(cell, wr, tools, "timeout");
+        addAlt(cell, wr, tools, "timeout");
         return wr;
     }
 
@@ -218,7 +217,7 @@ public class TaskParser {
         counter.setOnZero(onzero, altInfinite);
         counter.id(alterId(id));
         addNext(cell, counter, tools, "count>0", "next");
-        addFail(cell, counter, tools, "count==0");
+        addAlt(cell, counter, tools, "count==0");
         return counter;
     }
 
@@ -266,7 +265,7 @@ public class TaskParser {
         reader.setMessage(src, cell.getParam("wants", ""), cell.getParam("timeout", ""));
         reader.id(alterId(id));
         addNext(cell, reader, tools, "received", "ok");
-        addFail(cell, reader, tools, "timeout");
+        addAlt(cell, reader, tools, "timeout");
         return reader;
     }
 
@@ -323,20 +322,20 @@ public class TaskParser {
         var cb = new CmdBlock(Datagram.system(cmd));
         cb.id(alterId(id));
         addNext(cell, cb, tools, "next", "pass", "ok");
-        addFail(cell, cb, tools, "fail");
+        addAlt(cell, cb, tools, "fail");
         return cb;
     }
 
     private static ConditionBlock doConditionBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         if (!cell.hasParam("expression")) {
-            Logger.error("Conditionblock without an expression specified.");
+            Logger.error("ConditionBlock without an expression specified.");
             return null;
         }
         var cb = ConditionBlock.build(cell.getParam("expression", ""), tools.rtvals, null);
         cb.ifPresent(block -> {
             block.id(alterId(id));
             addNext(cell, block, tools, "next", "pass", "yes", "ok");
-            addFail(cell, block, tools, "fail", "no");
+            addAlt(cell, block, tools, "fail", "no");
         });
         return cb.orElse(null);
     }
@@ -360,10 +359,10 @@ public class TaskParser {
             }
         }
         if (!match)
-            Logger.info("Final block in chain is " + block.getClass());
+            Logger.info("Final block in sequence is " + block.getClass());
     }
 
-    private static boolean addFail(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... labels) {
+    private static boolean addAlt(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... labels) {
         tools.blocks.put(cell.drawId, block);
         for (var label : labels) {
             if (cell.hasArrow(label)) {
