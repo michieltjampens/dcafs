@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<dcafs>
+  <settings>
+    <!-- Settings related to the telnet server -->
+    <telnet port="23" title="DCAFS">
+      <textcolor>lightgray</textcolor>
+    </telnet>
+  </settings>
+  <streams>
+    <!-- Defining the various streams that need to be read -->
+  </streams>
+  <rawworker filepath="todo">
+      <!-- Get a valid timestamp -->
+      <stage1>
+          <if contains="GPS AND $GPZDA">
+            <editor>
+              <resplit leftover="remove">i3</resplit>
+              <!-- In: $GPZDA,204418.00,16,05,2021,,*6E -->
+              <retime delimiter="," from="HHmmss.SS" i="1">HH:mm:ss.SSS</retime>
+              <resplit delimiter="," leftover="remove">i4-i3-i2 i1</resplit>
+              <!-- Out:  2021-05-16 20:44:18.000 -->
+            </editor>
+            <return/>
+          </if>
+          <!-- Get the chla data -->
+          <if contains="FLRT">
+            <editor>
+                <resplit leftover="remove">i5,i7</resplit>
+            </editor>
+          </if>
+      </stage1>
+      <stage2>
+        <if starts="202">
+          <store group="chla" >
+            <text i="0">timestamp</text>
+          </store>
+          <return/>
+        </if>
+        <!-- Get the chla data -->
+        <store group="chla" delimiter="," db="chla:engdata,countdata"> <!--  -->
+          <real i="0">eng</real>
+          <int i="1">counts</int>
+        </store>
+      </stage2>
+  </rawworker>
+  <databases>
+    <sqlite id="chla" path="C:\Local_home\GIT\dcafs\db\chla.sqlite">
+      <flush age="30s" batchsize="10000"/>
+      <idleclose>-1</idleclose>
+	  <table name="engdata">
+        <text rtval="chla_timestamp">timestamp</text>
+        <int def="85">param</int>
+        <real rtval="chla_eng">value</real>
+      </table>
+	  <table name="countdata">
+        <text rtval="chla_timestamp">timestamp</text>
+        <int def="96">param</int>
+        <int rtval="chla_counts">value</int>
+      </table>
+    </sqlite>
+  </databases>
+</dcafs>

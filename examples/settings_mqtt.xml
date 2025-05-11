@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<dcafs>
+  <settings>
+    <!-- Settings related to the telnet server -->
+    <telnet port="23" title="DCAFS">
+      <textcolor>lightgray</textcolor>
+    </telnet>
+    <maxrawage>4h</maxrawage>
+    <!-- Max age of raw data to consider good -->
+    <statuscheck>
+      <interval>1h</interval>
+      <email>admin</email>
+      <matrix>playground</matrix>
+    </statuscheck>
+  </settings>
+  <rtvals>
+    <unit base="°C" nameregex="temp.*" scale="1"/>
+    <unit base="%" nameregex="hum.*" scale="1"/>
+  </rtvals>
+  <databases>
+    <sqlite id="data" path="db\data.sqlite">
+      <!-- This will be an absolute path instead -->
+      <flush age="30s" batchsize="30"/>
+      <idleclose>-1</idleclose>
+      <!-- Do note that this means the file remains locked till dcafs closes -->
+      <table name="workshop">
+        <localnow>timestamp</localnow>
+        <real>temperature</real>
+        <real>humidity</real>
+      </table>
+      <table name="kitchen">
+        <localnow>timestamp</localnow>
+        <real>temperature</real>
+        <real>humidity</real>
+      </table>
+    </sqlite>
+    <server id="remote" type="mariadb">
+      <db pass="rock" user="admin">sensordata</db>
+      <flush age="30s" batchsize="30"/>
+      <idleclose>-1</idleclose>
+      <address>192.168.50.197:3306</address>
+      <table name="workshop">
+        <localnow>timestamp</localnow>
+        <real>temperature</real>
+        <real>humidity</real>
+      </table>
+      <table name="kitchen">
+        <localnow>timestamp</localnow>
+        <real>temperature</real>
+        <real>humidity</real>
+      </table>
+    </server>
+  </databases>
+  <!--<matrix pass="29IKntxwPgxT" user="@esw1:matrix.org">
+    <server>matrix-client.matrix.org</server>
+    <room id="playground">
+      <url>!PKPNTPclVyZpsBdFon:matrix.org</url>
+      <entering>Hello!</entering>
+      <leaving>Bye :(</leaving>
+      <greet>Welcome</greet>
+    </room>
+  </matrix>-->
+  <mqtt>
+    <broker id="local" ttl="1m">
+      <address>192.168.88.10</address>
+      <store generate="sensors/#">
+        <group id="workshop">
+          <real name="temperature">
+            <topic>sensors/F0F5BDFDDB34/temp</topic>
+            <op>i=i/100</op>
+          </real>
+          <real name="humidity">
+            <topic>sensors/F0F5BDFDDB34/hum</topic>
+            <op>i=i/100</op>
+            <cmd when="always">dbm:data,store,workshop</cmd>
+          </real>
+          <int name="cnt">
+            <topic>sensors/F0F5BDFDDB34/cnt</topic>
+          </int>
+        </group>
+        <group id="kitchen">
+          <real name="temperature">
+            <topic>sensors/4831B704B870/temp</topic>
+            <op>i=i/100</op>
+          </real>
+          <real name="humidity">
+            <topic>sensors/4831B704B870/hum</topic>
+            <op>i=i/100</op>
+            <cmd when="always">dbm:data,store,kitchen</cmd>
+          </real>
+        </group>
+        <group id="4831B704B870">
+          <int name="cnt">
+            <topic>sensors/4831B704B870/cnt</topic>
+          </int>
+        </group>
+      </store>
+    </broker>
+  </mqtt>
+  <streams>
+    <stream id="short" type="tcp">
+      <eol>crlf</eol>
+      <address>localhost:4000</address>
+    </stream>
+    <stream id="muchlongertitle" type="tcp">
+      <eol>crlf</eol>
+      <address>localhost:4002</address>
+    </stream>
+  </streams>
+</dcafs>
