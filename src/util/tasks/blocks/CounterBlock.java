@@ -7,9 +7,8 @@ public class CounterBlock extends AbstractBlock {
     int tempCount = -1;
     ONZERO onZero = ONZERO.ALT;
 
-    enum ONZERO {ALT, STOP, FAIL}
+    enum ONZERO {ALT, STOP, FAIL, ALT_RESET}
 
-    ;
     boolean altInfinite = false;
 
     public CounterBlock(int cnt) {
@@ -33,6 +32,11 @@ public class CounterBlock extends AbstractBlock {
                     break;
                 case STOP:
                     tempCount = -1;
+                    break;
+                case ALT_RESET:
+                    doAltRoute(false);
+                    tempCount = count;
+                    break;
             }
         } else if (tempCount > 0) {
             tempCount--;
@@ -56,6 +60,7 @@ public class CounterBlock extends AbstractBlock {
             case "alt_pass" -> ONZERO.ALT;
             case "stop" -> ONZERO.STOP;
             case "alt_fail" -> ONZERO.FAIL;
+            case "alt_reset" -> ONZERO.ALT_RESET;
             default -> ONZERO.FAIL;
         };
         this.altInfinite = altInfinite;

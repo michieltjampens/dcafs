@@ -155,6 +155,7 @@
     - `onzero`: Defaults to `alt_pass`. Determines what happens on reaching zero, options:
         - `alt_pass`: Follow the alternative route without marking the task as failed.
         - `alt_fail`: Follow the alternative route but mark the task as failed.
+      - `alt_reset`: Follow the alternative route, don't mark as failed, reset counter.
         - `stop`: Don't continue.
     - `altcount`: Defaults to `once`. How often the alternative route is taken, options are `once` or `infinite`. Note
       that
