@@ -1,6 +1,6 @@
 dcafs - "Data Capture Alter Forward Store"
 =========
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/michieltjampens/dcafs)
 
 A tool that takes care of all the 'nitty-gritty' involved in getting sensor data into a database or plain text file.
 It also supports device interrogation/querying and control.
