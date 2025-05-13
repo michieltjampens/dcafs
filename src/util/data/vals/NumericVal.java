@@ -23,7 +23,7 @@ public interface NumericVal {
     default void setPreCheck(ConditionBlock pre) {
     }
 
-    default void setPostCheck(ConditionBlock post) {
+    default void setPostCheck(ConditionBlock post, boolean ignoreResult) {
     }
 
     default void setMath(MathEvalForVal math) {

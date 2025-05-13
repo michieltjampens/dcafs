@@ -2,10 +2,13 @@ package util.data.procs;
 
 import org.tinylog.Logger;
 
+import java.util.List;
 import java.util.function.DoubleBinaryOperator;
 import java.util.function.IntBinaryOperator;
 
 public class Builtin {
+    private static List<String> dProcs = List.of("max", "min", "abs", "sqrt");
+    private static List<String> iProcs = List.of("max", "min", "abs");
 
     public static BuiltinDoubleProc getDoubleFunction(String ref, int scale) {
         ref = ref.toLowerCase();
@@ -31,6 +34,13 @@ public class Builtin {
         return new BuiltinDoubleProc(proc, scale, ref);
     }
 
+    public static boolean isValidDoubleProc(String proc) {
+        return dProcs.contains(proc);
+    }
+
+    public static boolean isValidIntProc(String proc) {
+        return iProcs.contains(proc);
+    }
     public static BuiltinIntProc getIntFunction(String ref) {
         IntBinaryOperator proc = switch (ref.toLowerCase()) {
             case "max" -> Math::max;                                // Calculate the max between new and old

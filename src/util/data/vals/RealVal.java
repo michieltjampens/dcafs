@@ -35,10 +35,12 @@ public class RealVal extends BaseVal implements NumericVal {
     }
 
     public void setPreCheck(ConditionBlock pre) {
+        ignorePre = false;
         preCheck = pre;
     }
 
-    public void setPostCheck(ConditionBlock post) {
+    public void setPostCheck(ConditionBlock post, boolean ignorePost) {
+        this.ignorePost = ignorePost;
         postCheck = post;
     }
     public boolean update(int value) {
@@ -71,6 +73,8 @@ public class RealVal extends BaseVal implements NumericVal {
 
     public void defValue(double defValue) {
         this.defValue = defValue;
+        if (Double.isNaN(value))
+            value = defValue;
     }
 
     @Override

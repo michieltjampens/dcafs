@@ -75,10 +75,12 @@ public class IntegerVal extends BaseVal implements NumericVal {
     }
 
     public void setPreCheck(ConditionBlock pre) {
+        ignorePre = false;
         preCheck = pre;
     }
 
-    public void setPostCheck(ConditionBlock post) {
+    public void setPostCheck(ConditionBlock post, boolean ignore) {
+        ignorePost = ignore;
         postCheck = post;
     }
 
