@@ -12,8 +12,7 @@ Reset the settings.xml back to this and restart dcafs:
     <settings>
         <mode>normal</mode>
         <!-- Settings related to the telnet server -->
-        <telnet port="23"
-                title="dcafs"/> <!-- The telnet server is available on port 23 and the title presented is DAS-->
+        <telnet port="23" title="dcafs"/> <!-- The telnet server is available on port 23 and the title presented is DAS-->
     </settings>
     <streams>
         <!-- Defining the various streams that need to be read -->

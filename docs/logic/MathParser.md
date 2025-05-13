@@ -34,7 +34,7 @@ Before any parsing is done, some things are checked and altered.
 To hold all the data generated in this step, we'll use:
 
 - An `Arraylist<Integer>` called `references`
-- An `Arraylist<NummericVal>` for rtvals called `valRefs`
+- An `Arraylist<NumericVal>` for rtvals called `valRefs`
 - An `Integer` called `highestI`
 - An optional `Integer` called `resultIndex`
 
@@ -85,7 +85,7 @@ To hold all the data generated in this step, we'll use an `Arraylist<String[]>` 
    Once a closing bracket is found, move back to the left to find the matching opening bracket `(`.
 4. **Extract**
     * Extract the part of the expression between the matching brackets.
-    * Pass the extracted part to **3. Splitting sub expressions in functional parts**
+   * Pass the extracted part to **3. Splitting sub expressions into operand/value parts**
         * **If the result is a single array of the form `[solution][0][+]`**, replace the extracted part in the
           expression with the solution and go back to 2.
         * **If not**, add all received arrays to `subExpr` and replace the part in the expression with `o*`
@@ -98,7 +98,7 @@ To hold all the data generated in this step, we'll use an `Arraylist<String[]>` 
 At this point, `subExpr` contains the expression split in groups of the form `[value/ref][value/ref][operand]`.
 This is used by step **4. Convert groups to lambda's**.
 
-### 3. Splitting sub expressions in functional parts
+### 3. Splitting sub expressions into operand/value parts
 
 This steps goes through a sub expression.
 
@@ -134,7 +134,7 @@ Next up is going through each part again and splitting it further.
 
 The next step works with this `parts` collection.
 
-### 4. Splitting the functional parts in groups of three
+### 4. Splitting the operand/value parts in groups of three
 
 This step involves further dividing the `String` elements in groups of two values/refs and an operand.
 For this an `ArrayList<String[]>` called `results` is used to store the groups. The order of the elements is altered
@@ -213,7 +213,6 @@ With this the parsing is complete and all required info has been gathered to com
 - A `String` called `expression` holding the original expression for debug purposes.
 - An `Integer` called `resultIndex` holding the index to which the result of it all is written.
 - An `Integer` called `highestI`, holds the highest original `i*` index used.
--
 
 Based on this info, some extras are determined.
 

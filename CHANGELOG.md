@@ -9,6 +9,7 @@ Note: Version numbering: x.y.z
 
 ## 3.0.0 (wip)
 
+- Added support for reading draw.io files for configuration as alternative to xml.
 - Rewritten TaskManager and PathForward to move to a factory making small functional parts that link together.
 - Rewritten RealtimeValues, to make them leaner by splitting of 'extras' and implement the new logic parser.
 - Added rawworker for bulk processing of data using multithreading and staged processing.
@@ -22,12 +23,11 @@ Note: Version numbering: x.y.z
 
 - Fixed 210 issues found by [Codacy](https://app.codacy.com/gh/michieltjampens/dcafs/dashboard). (none actually
   critical)
-- Refactored a lot
+- Refactored **a lot**
 - Cleaned up the full code base.
 
 ### Draw io integration
 
-- This is still in experimental phase, releasing as is so anyone could help test...
 - Parser converts shapes (object in xml) to Java Objects containing properties and links.
 - Parser traverses tabs but doesn't retain info on where it came from.
 - Added file watcher so it's possible to have dcafs auto reload (disabled for now).
@@ -38,7 +38,7 @@ Note: Version numbering: x.y.z
       - `autostart` starts the task on bootup or reload (yes/no,true/false)
       - `shutdownhook` starts the task when the system is shutting down (useful for cleanup) (yes/no,true/false)
   - Rtvals is work in progress, realval is mostly done. Can represent and generate. Not all
-    possible iterations tested (it's rather flexible). Math path exists in code not yet in parser.
+    possible iterations tested (it's rather flexible).
 - Initial steps on annotating the drawio file. After parsing, the shapes get their dcafs id
   added as a property. This makes annotating easier as it no longer requires a lookup table. This does
   create infinite loop with autoreload so turned it off for now.
@@ -54,13 +54,14 @@ Note: Version numbering: x.y.z
   met (up to maxruns).
   Both have a short and long form.
 ```xml
-<retry retries="5" onfail="stop"> <!-- onfail can be continue, then the rest of the task is done -->
+
+<retry retries="5" onfail="stop"> <!-- onfail can be 'continue', then the rest of the task is done -->
   <stream to="Board">C2;C4</stream>
   <delay>20s</delay>
-  <req>{r:pump_warmup} equals 1</req> <!-- if this fails, the block is retried -->
+  <req>{pump_warmup} equals 1</req> <!-- if this fails, the block is retried -->
 </retry>
 
-<while interval="5s" maxruns="6">{i:gas_temp} above 20</while>
+<while interval="5s" maxruns="6">{gas_temp} above 20</while>
 ```
 
 ### Stream manager
@@ -126,22 +127,12 @@ Note: Version numbering: x.y.z
         * Same as pre check but now it can additionally respond to calculated values. This means math could calculate
           offset between new and old and this can be checked.
     * No need to use the full pipeline, can just 'activate' the bits needed.
-    * Aggregator variant of both classes that acts as a collection, 'update' insert in the collection and requesting the
+    * **Aggregator** variant of both classes that acts as a collection, 'update' insert in the collection and requesting
+      the
       value returns the results of a builtin reducer function. (think average, variance and so on)
-
-* FlagVal (aka boolean container)
-  * Can have both `cmd` as response as triggering update of other val.
-  * Four distinct trigger options:
-    * Raising edge (false->true)
-    * Falling edge (true->false)
-    * Stay high (true->true)
-    * Stay low (false->false)
-  * Meaning these can trigger an update of an IntegerVal that is set to 'counter' mode. (that just means it ignores the
-    input and adds one to the current value);
-  * No logic(besides discerning triggers) or math involved in this because didn't seem useful.
-* TextVal (ake String container )
-  * Nothing really changed to this, remains a simple container.
-
+    * **Symbiote** variant to hide the complexity of derived values, this 'takes over' a realval or integerval and
+      propagates
+      any update that would be done on it to a collection of vals that are derived from it. Think min,max and so on.
   ```xml
    <group id="test">
       <flag def="true" name="flag"/>
@@ -162,6 +153,20 @@ Note: Version numbering: x.y.z
       </real>
   </group>
   ```
+
+* FlagVal (aka boolean container)
+  * Can have both `cmd` as response as triggering update of other val.
+  * Four distinct trigger options:
+    * Raising edge (false->true)
+    * Falling edge (true->false)
+    * Stay high (true->true)
+    * Stay low (false->false)
+  * Meaning these can trigger an update of an IntegerVal that is set to 'counter' mode. (that just means it ignores the
+    input and adds one to the current value);
+  * No logic(besides discerning triggers) or math involved in this because didn't seem useful.
+* TextVal (ake String container )
+  * Nothing really changed to this, remains a simple container.
+
 
 - Fixed, `ss:id,reloadstore` didn't properly reload if a map was used.
 - Fixed, `*v:id,update,value` wasn't looking at * but to id instead
@@ -232,8 +237,9 @@ Note: Version numbering: x.y.z
 - Now the chaining of Math expressions is part of the class instead of needing a separate one. But it's not like an
   Evaluator contain multiple expressions (for now).
 - Logic parser was rewritten to allow more complicated expressions (brackets and negation) and the parsing
-  now attempts 'lazy evaluation' or 'shortcircuit' while before it just evaluated everything. No nesting of brackets
-  (yet) though.
+  now attempts 'lazy evaluation' or 'shortcircuit' when before it just evaluated everything. No nesting of brackets
+  (yet) though. That lazy bit is well lazy, it splits the expression on and/or (accounting for brackets) and evaluates
+  the one that might lead to a solution first. So e.g. (a<b && c>d)||e<=f ,it will do e<=f first.
 
 ### Raw worker
 

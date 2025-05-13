@@ -46,7 +46,7 @@ public class Drawio {
         // Start looking for arrows
         HashMap<String, Arrow> arrows = new HashMap<>();
         var mxCells = diagram.digOut("mxCell");
-        Iterator<XMLdigger> it = mxCells.iterator();
+        Iterator<XMLdigger> it = mxCells.iterator(); // Use iterator so we can remove used nodes
         while (it.hasNext()) {
             var mxcell = it.next();
             if (mxcell.attr("parent", -1) != 1)
@@ -92,7 +92,7 @@ public class Drawio {
             if (arrow != null) {
                 var label = mxcell.attr("value", "");
                 arrow.source.addArrow(label, arrow.target);
-                arrows.remove(parent);
+                arrows.remove(parent); // remove it from arrows because processed
             }
             if (arrows.isEmpty())
                 break;
@@ -157,7 +157,13 @@ public class Drawio {
             if (arrows.get(label) != null)
                 Logger.warn("Overwriting arrow with label " + label);
             label = clean(label);
-            arrows.put(label.split("\\|", 2)[0], target);
+            label = label.split("\\|", 2)[0];
+            if (label.equals("derive")) {
+                while (arrows.containsKey(label)) {
+                    label += "+";
+                }
+            }
+            arrows.put(label, target);
         }
 
         public String getParam(String param, String def) {
@@ -165,6 +171,10 @@ public class Drawio {
             return res != null ? res : def;
         }
 
+        public double getParam(String param, double def) {
+            var res = this.params.get(param);
+            return res != null ? NumberUtils.toDouble(res, def) : def;
+        }
         public int getParam(String param, int def) {
             var res = this.params.get(param);
             return res != null ? NumberUtils.toInt(res, def) : def;
