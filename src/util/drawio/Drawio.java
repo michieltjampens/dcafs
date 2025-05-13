@@ -131,7 +131,7 @@ public class Drawio {
         // Remove HTML tags
         input = TAG_PATTERN.matcher(input).replaceAll("");
 
-        return input.replace("#nl#", "\r\n").toLowerCase();
+        return input.replace("#nl#", "\r\n");
     }
 
     public static class DrawioCell {
@@ -149,14 +149,13 @@ public class Drawio {
         }
 
         public void addParam(String key, String value) {
-            value = clean(value);
-            params.put(key.toLowerCase(), value);
+            params.put(key.toLowerCase(), clean(value));
         }
 
         public void addArrow(String label, DrawioCell target) {
             if (arrows.get(label) != null)
                 Logger.warn("Overwriting arrow with label " + label);
-            label = clean(label);
+            label = clean(label).toLowerCase();
             label = label.split("\\|", 2)[0];
             if (label.equals("derive")) {
                 while (arrows.containsKey(label)) {
