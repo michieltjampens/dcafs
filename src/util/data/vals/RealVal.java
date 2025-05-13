@@ -28,10 +28,14 @@ public class RealVal extends BaseVal implements NumericVal {
     public boolean update(double value) {
         if (ignorePre || preCheck.start(value, this.value)) {
             var res = math.eval(value, this.value, 0.0);
-            if (ignorePost || postCheck.start(value, this.value, res))
+            if (ignorePost || postCheck.start(value, this.value, res)) {
+                if (ignorePost && postCheck != null)
+                    postCheck.start(value, this.value, res);
                 this.value = res;
+                return true;
+            }
         }
-        return true;
+        return false;
     }
 
     public void setPreCheck(ConditionBlock pre) {

@@ -5,7 +5,7 @@ import java.util.Arrays;
 public class RealValSymbiote extends RealVal {
 
     RealVal[] underlings;
-    boolean passOriginal = true;
+    boolean passOriginal = false;
     int level = 0;
 
     public RealValSymbiote(int level, RealVal... underlings) {

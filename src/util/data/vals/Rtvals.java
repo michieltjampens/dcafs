@@ -508,8 +508,9 @@ public class Rtvals implements Commandable {
         var result = ValTools.processExpression(args[2], this);
         if (Double.isNaN(result))
             return "! Unknown id(s) in the expression " + args[2];
-        val.update(result);
-        return val.id() + " updated to " + result;
+        if (val.update(result))
+            return val.id() + " updated to " + result;
+        return "! " + val.id() + " not updated, check failed.";
     }
 
     private String doNewNumCmd(String cmd, String[] cmds) {

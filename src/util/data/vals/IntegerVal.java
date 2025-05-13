@@ -38,17 +38,18 @@ public class IntegerVal extends BaseVal implements NumericVal {
     }
 
     public boolean update(double value) {
-        update((int) value);
-        return false;
+        return update((int) value);
     }
 
     public boolean update(int value) {
         if (ignorePre || preCheck.start(value, this.value)) {
             var res = math.eval(value, this.value, 0);
-            if (ignorePost || postCheck.start(value, this.value, res))
+            if (ignorePost || postCheck.start(value, this.value, res)) {
                 this.value = res;
+                return true;
+            }
         }
-        return true;
+        return false;
     }
 
     @Override
