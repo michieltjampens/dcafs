@@ -27,10 +27,20 @@ public class LogBlock extends AbstractBlock {
 
     @Override
     public boolean start() {
+        return start(Double.NaN);
+    }
+
+    public boolean start(double... input) {
+        var m = message;
+        if (!Double.isNaN(input[0]) && input.length == 3) {
+            m = m.replace("{new}", String.valueOf(input[0]));
+            m = m.replace("{old}", String.valueOf(input[1]));
+            m = m.replace("{math}", String.valueOf(input[2]));
+        }
         switch (level) {
-            case INFO -> Logger.info(message);
-            case WARN -> Logger.warn(message);
-            case ERROR -> Logger.error(message);
+            case INFO -> Logger.info(m);
+            case WARN -> Logger.warn(m);
+            case ERROR -> Logger.error(m);
         }
         doNext();
         return true;

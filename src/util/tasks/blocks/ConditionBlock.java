@@ -29,16 +29,29 @@ public class ConditionBlock extends AbstractBlock {
     public boolean start(double... input) {
         // After
         if (logEval == null) {
-            Logger.error("This block probably wasn't constructed properly because no valid evaluator was found, chain aborted.");
+            Logger.error(id() + " -> This block probably wasn't constructed properly because no valid evaluator was found, route aborted.");
             return false;
         }
         var pass = logEval.eval(input);
         if (pass) {
-            doNext();
+            doNext(input);
         } else {
             doAltRoute(true);
         }
         return pass;
+    }
+
+    void doNext(double... input) {
+        if (next != null) {
+            if (next instanceof ConditionBlock cb) {
+                cb.start(input);
+            } else if (next instanceof LogBlock lb) {
+                lb.start(input);
+            } else {
+                next.start();
+            }
+        }
+        sendCallback(id() + " -> OK");
     }
     public String toString() {
         return telnetId() + " -> Check if " + logEval.getOriginalExpression() + (altRoute == null ? "." : ". If not, go to " + altRoute.telnetId());
