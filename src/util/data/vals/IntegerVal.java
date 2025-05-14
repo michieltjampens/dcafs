@@ -60,6 +60,9 @@ public class IntegerVal extends BaseVal implements NumericVal {
         this.defValue = defValue;
     }
 
+    public int defValue() {
+        return defValue;
+    }
     public String asString() {
         return String.valueOf(value);
     }

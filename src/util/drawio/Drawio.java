@@ -14,7 +14,7 @@ public class Drawio {
     }
 
     private static final List<String> drawIoAttr = List.of("id", "label", "placeholders", "style");
-    private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
+    private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]{0,4}>");
     private static final Map<String, String> ENTITY_MAP = Map.of(
             "&gt;", ">",
             "&lt;", "<",
@@ -25,22 +25,25 @@ public class Drawio {
     );
 
     public static HashMap<String, DrawioCell> parseFile(Path path) {
+        Logger.info("Parsing " + path.getFileName() + " to DrawioCells");
         HashMap<String, DrawioCell> cells = new HashMap<>();
         var dig = XMLdigger.goIn(path, "mxfile");
         for (var diagram : dig.digOut("diagram")) {
+            var tabName = diagram.attr("name", "");
             diagram.digDown("mxGraphModel").digDown("root");
-            parseTab(diagram, cells);
+            parseTab(tabName, diagram, cells);
         }
         return cells;
     }
 
-    public static HashMap<String, DrawioCell> parseTab(XMLdigger diagram, HashMap<String, DrawioCell> cells) {
-
+    public static HashMap<String, DrawioCell> parseTab(String tabName, XMLdigger diagram, HashMap<String, DrawioCell> cells) {
+        int cellSize = cells.size();
         for (var obj : diagram.digOut("object")) {
             var drawId = obj.attr("id", "");
             parseObject(obj).ifPresent(ob -> cells.put(drawId, ob));
         }
-        Logger.info("Found " + cells.size() + " valid shapes.");
+        cellSize = cells.size() - cellSize;
+
         diagram.goUp();
 
         // Start looking for arrows
@@ -80,7 +83,7 @@ public class Drawio {
             }
             it.remove();
         }
-        Logger.info("Found " + arrows.size() + " without label.");
+        int arrowCount = arrows.size();
         // Now find the missing labels in the leftover
         for (XMLdigger mxcell : mxCells) {
             if (mxcell.attr("parent", -1) != -1)
@@ -97,8 +100,8 @@ public class Drawio {
             if (arrows.isEmpty())
                 break;
         }
-
-        Logger.info("Still " + arrows.size() + " left?");
+        Logger.info(tabName + " -> Found " + cellSize + " valid shapes, " + arrowCount
+                + " arrows of which " + arrows.size() + " are left after parsing (probably without label).");
         return cells;
     }
 
@@ -153,7 +156,7 @@ public class Drawio {
         }
 
         public void addArrow(String label, DrawioCell target) {
-            if (arrows.get(label) != null)
+            if (arrows.get(label) != null && !label.startsWith("derive"))
                 Logger.warn("Overwriting arrow with label " + label);
             label = clean(label).toLowerCase();
             label = label.split("\\|", 2)[0];

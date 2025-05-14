@@ -4,6 +4,7 @@ import io.email.Email;
 import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.data.vals.Rtvals;
+import util.drawio.Drawio;
 import util.drawio.RtvalsParser;
 import util.drawio.TaskParser;
 import util.tasks.blocks.*;
@@ -24,8 +25,9 @@ public class TaskManagerFab {
             startDigging(dig, tm);
         } else if (tm.getScriptPath().toString().endsWith(".drawio")) {
             Logger.info("Reading a taskmanager tasks from a drawio file!");
-            var origins = TaskParser.parseDrawIoTaskFile(tm.getScriptPath(), tm.eventLoopGroup(), tm.rtvals());
-            RtvalsParser.parseDrawIoRtvals(tm.getScriptPath(), tm.eventLoop, tm.rtvals());
+            var cells = Drawio.parseFile(tm.getScriptPath());
+            var origins = TaskParser.parseTasks(tm.getScriptPath(), cells, tm.eventLoopGroup(), tm.rtvals());
+            RtvalsParser.parseDrawIoRtvals(cells, tm.eventLoop, tm.rtvals());
             origins.forEach(tm::addStarter);
         }
     }

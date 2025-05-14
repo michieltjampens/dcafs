@@ -1,5 +1,7 @@
 package util.data.vals;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import java.util.Arrays;
 
 public class RealValSymbiote extends RealVal {
@@ -44,6 +46,9 @@ public class RealValSymbiote extends RealVal {
         this.defValue = defValue;
     }
 
+    public void addUnderling(RealVal underling) {
+        underlings = ArrayUtils.add(underlings, underling);
+    }
     public RealVal[] getUnderlings() {
         return underlings;
     }

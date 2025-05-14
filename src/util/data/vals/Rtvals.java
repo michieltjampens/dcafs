@@ -509,7 +509,7 @@ public class Rtvals implements Commandable {
         if (Double.isNaN(result))
             return "! Unknown id(s) in the expression " + args[2];
         if (val.update(result))
-            return val.id() + " updated to " + result;
+            return val.id() + " updated to " + result + val.unit();
         return "! " + val.id() + " not updated, check failed.";
     }
 

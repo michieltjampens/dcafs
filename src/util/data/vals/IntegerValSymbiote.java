@@ -1,5 +1,7 @@
 package util.data.vals;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import java.util.Arrays;
 
 public class IntegerValSymbiote extends IntegerVal {
@@ -51,6 +53,9 @@ public class IntegerValSymbiote extends IntegerVal {
         return underlings;
     }
 
+    public void addUnderling(NumericVal underling) {
+        underlings = ArrayUtils.add(underlings, underling);
+    }
     public NumericVal[] getDerived() {
         return Arrays.copyOfRange(underlings, 1, underlings.length);
     }

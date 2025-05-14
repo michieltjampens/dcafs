@@ -189,10 +189,9 @@ public class ParseTools {
             Logger.error("Failed to extract curly brackets from " + expression);
             return "";
         }
-        if (bracketVals.isEmpty()) {
-            Logger.info("No curly brackets found in " + expression);
+        if (bracketVals.isEmpty())
             return expression;
-        }
+
         if (rtvals == null) {
             Logger.warn("Couldn't replace rtvals refs because rtvals is null when parsing: " + expression);
             return "";

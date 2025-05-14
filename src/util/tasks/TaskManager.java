@@ -2,11 +2,11 @@ package util.tasks;
 
 import io.Writable;
 import io.netty.channel.EventLoopGroup;
+import io.netty.util.concurrent.Future;
 import org.tinylog.Logger;
 import util.LookAndFeel;
 import util.data.vals.NumericVal;
 import util.data.vals.Rtvals;
-import util.drawio.Drawio;
 import util.drawio.DrawioEditor;
 import util.tasks.blocks.AbstractBlock;
 import util.tasks.blocks.OriginBlock;
@@ -27,6 +27,8 @@ public class TaskManager implements Writable {
     String id;
     ArrayList<NumericVal> sharedMem = new ArrayList<>();
     long lastModifiedTime = 0;
+    Future<?> annodate;
+    boolean hideModified = false;
 
     public TaskManager(String id, EventLoopGroup eventLoop, Rtvals rtvals) {
         this.eventLoop = eventLoop;
@@ -49,7 +51,7 @@ public class TaskManager implements Writable {
     }
 
     public void monitorRuns() {
-        eventLoop.scheduleWithFixedDelay(this::annodateRuns, 20, 20, TimeUnit.SECONDS);
+        annodate = eventLoop.scheduleWithFixedDelay(this::annodateRuns, 20, 20, TimeUnit.SECONDS);
     }
 
     public void annodateRuns() {
@@ -62,8 +64,9 @@ public class TaskManager implements Writable {
         Logger.info("Updated " + DrawioEditor.addAttributeBatch(scriptPath, list) + " attributes");
     }
     public boolean isModified() {
+        if (hideModified)
+            return false;
         var mod = lastModifiedTime != scriptPath.toFile().lastModified();
-        Logger.info("Modified :" + (lastModifiedTime - scriptPath.toFile().lastModified()));
         if (mod)
             lastModifiedTime = scriptPath.toFile().lastModified();
         return mod;
@@ -118,9 +121,15 @@ public class TaskManager implements Writable {
     }
 
     public boolean reloadTasks() {
-        TaskManagerFab.reloadTaskManager(this);
-        start();
-        return true;
+        try {
+            hideModified = true;
+            TaskManagerFab.reloadTaskManager(this);
+            start();
+            return true;
+        } finally {
+            hideModified = false;
+            lastModifiedTime = scriptPath.toFile().lastModified();
+        }
     }
 
     public boolean hasTask(String id) {

@@ -32,7 +32,7 @@ public class TaskParser {
         return parseTasks(file, cells, eventLoop, rtvals);
     }
 
-    private static ArrayList<OriginBlock> parseTasks(Path file, HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
+    public static ArrayList<OriginBlock> parseTasks(Path file, HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
         HashMap<String, String> idRef = new HashMap<>();
         ArrayList<OriginBlock> origins = new ArrayList<>();
         var tools = new TaskTools(eventLoop, origins, rtvals, new HashMap<>(), idRef);
@@ -360,8 +360,6 @@ public class TaskParser {
                 break;
             }
         }
-        if (!match)
-            Logger.info("Final block in sequence is " + block.getClass());
     }
 
     private static boolean addAlt(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... labels) {

@@ -97,7 +97,13 @@ public class LogicFab {
         logicEval.setRefLookup(refLookup.toArray(Integer[]::new));  // Array to link the r* to the actual values
 
         for( int a=0;a<blocks.size();a++) {
-            var parts =blocks.get(a);
+            var parts = blocks.get(a);
+
+            if (parts.length < 3) {
+                Logger.error("Not enough parts in block " + a + " as part of " + ori + " -> Parts:" + String.join("/", parts));
+                return Optional.empty();
+            }
+
             var function = ParseTools.decodeDoublesOp(parts[0],parts[2],parts[1],0);
             var ss= Double.NaN;
             if( parts[3].equals("||"))
@@ -107,7 +113,7 @@ public class LogicFab {
             logicEval.addOp(a,function,ss);
         }
         if( blocks.size()==1 ){
-            Logger.info("Simple comparison.");
+            Logger.info("Simple comparison -> " + ori);
         }
         return Optional.of(logicEval);
     }
@@ -207,7 +213,7 @@ public class LogicFab {
     }
     private static String removeEnclosingBrackets(String exp ){
         if( ParseTools.hasTotalEnclosingBrackets(exp,'(',')') )
-            exp=exp.substring(1,exp.length()-2);
+            exp = exp.substring(1, exp.length() - 1);
         return exp;
     }
     private static String[] firstLogicBlock( String exp ){

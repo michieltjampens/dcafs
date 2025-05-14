@@ -335,11 +335,11 @@ public class TaskManagerPool implements Commandable {
                     // Handle the event if needed
                     if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
                         // Example: File modified
-                        Logger.info(" Modified: " + filePath.toString());
+
                         for (var tm : tasklists.values()) {
-                            Logger.info(tm.getScriptPath().getFileName());
                             if (tm.getScriptPath().getFileName().equals(filePath)) {
                                 if (tm.isModified()) {
+                                    Logger.info("Modified: " + filePath);
                                     tm.reset();
                                     eventLoop.schedule(tm::reloadTasks, 2, TimeUnit.SECONDS);
                                 }

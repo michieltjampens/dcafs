@@ -542,7 +542,7 @@ public class DAS implements Commandable{
             Logger.info( "Parsing TaskManager scripts");
             taskManagerPool.reloadAll();
             taskManagerPool.getTasKManagerIds().forEach(id -> addCommandable(taskManagerPool, id));
-
+            taskManagerPool.enableWatcher();
             //  if( !errors.isEmpty())
             //     telnet.addMessage("Errors during TaskManager parsing:\r\n"+errors);
         }

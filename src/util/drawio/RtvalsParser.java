@@ -4,6 +4,7 @@ import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.data.procs.Builtin;
 import util.data.procs.MathEvalForVal;
+import util.data.procs.Reducer;
 import util.data.vals.*;
 import util.evalcore.MathFab;
 import util.tasks.blocks.AbstractBlock;
@@ -22,17 +23,20 @@ public class RtvalsParser {
     public record ValCell(NumericVal val, Drawio.DrawioCell cell) {
     }
 
-    public static ArrayList<ConditionBlock> parseDrawIoRtvals(Path file, EventLoopGroup eventLoop, Rtvals rtvals) {
+    public static void parseDrawIoRtvals(Path file, EventLoopGroup eventLoop, Rtvals rtvals) {
         if (!file.getFileName().toString().endsWith(".drawio")) {
             Logger.error("This is not a drawio file: " + file);
-            return new ArrayList<>();
+            return;
         }
         var tools = new ParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>());
         var cells = Drawio.parseFile(file);
         parseRtvals(cells, tools);
-        return null;
     }
 
+    public static void parseDrawIoRtvals(HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
+        var tools = new ParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>());
+        parseRtvals(cells, tools);
+    }
     public static ConditionBlock parseRtvals(HashMap<String, Drawio.DrawioCell> cells, ParserTools tools) {
         // First create all the origins and then populate with the rest because controlblocks need a full list during set up
         ArrayList<Drawio.DrawioCell> starts = new ArrayList<>();
@@ -76,10 +80,21 @@ public class RtvalsParser {
         String group = idArray[0], name = idArray[1];
         if (tools.rtvals().hasReal(group + "_" + name))
             return tools.rtvals().getRealVal(group + "_" + name).get(); //get is fine because of earlier has
+        int window = cell.getParam("window", 0);
+        var unit = cell.getParam("unit", "");
 
-        var rv = RealVal.newVal(group, name);
-        rv.unit(cell.getParam("unit", ""));
-        rv.defValue(cell.getParam("def", Double.NaN));
+        RealVal rv;
+        if (window == 0) {
+            rv = RealVal.newVal(group, name);
+            rv.unit(unit);
+            rv.defValue(cell.getParam("def", rv.defValue()));
+        } else {
+            var reducer = Reducer.getDoubleReducer(cell.getParam("reducer", "avg"), cell.getParam("def", 0), window);
+            var ra = new RealValAggregator(group, name, unit, reducer, window);
+            ra.setScale(cell.getParam("scale", -1));
+            Logger.info("Building RealValAggregator " + ra.id());
+            rv = ra;
+        }
         return rv;
     }
 
@@ -92,10 +107,21 @@ public class RtvalsParser {
 
         if (tools.rtvals().hasInteger(group + "_" + name))
             return tools.rtvals().getIntegerVal(group + "_" + name).get(); //get is fine because of earlier has
+        int window = cell.getParam("window", 0);
+        var unit = cell.getParam("unit", "");
 
-        var iv = IntegerVal.newVal(group, name);
-        iv.unit(cell.getParam("unit", ""));
-        iv.defValue(cell.getParam("def", 0));
+        IntegerVal iv;
+        if (window == 0) {
+            iv = IntegerVal.newVal(group, name);
+            iv.unit(cell.getParam("unit", ""));
+            iv.defValue(cell.getParam("def", iv.defValue()));
+        } else {
+            var reducer = Reducer.getIntegerReducer(cell.getParam("reducer", "sum"), cell.getParam("def", 0), window);
+            var ri = new IntegerValAggregator(group, name, unit, reducer, window);
+
+            Logger.info("Building IntegerValAggregator " + ri.id());
+            iv = ri;
+        }
         return iv;
     }
 
@@ -185,6 +211,9 @@ public class RtvalsParser {
                             break;
                         }
                     }
+                    if (valcell == null) {
+                        Logger.error("Couldn't match shape with a val");
+                    }
                 }
                 case "conditionblock" -> {
                     var exp = target.getParam("expression", "");
@@ -197,9 +226,8 @@ public class RtvalsParser {
                     }
 
                     // that's precheck?
-                    if (target.hasArrow(label)) { // Goes to val
-                        target = target.getArrowTarget(label);
-                    } else {
+                    target = getNext(target, label, "ok", "next");
+                    if (target == null) {
                         Logger.error("Not found a block after the conditionblock with exp: " + exp);
                         return null;
                     }
@@ -217,6 +245,7 @@ public class RtvalsParser {
                         math = MathFab.parseExpression(normalizeExpression(mexp, label), tools.rtvals, null);
                         if (math == null) {
                             Logger.error("Failed to parse " + mexp);
+                            return null;
                         }
                     }
                     var t = target.getArrowTarget(label);
@@ -247,32 +276,55 @@ public class RtvalsParser {
         }
         // At this post the precondition should be taken care off... now it's the difficult stuff like symbiote etc
         if (valcell.cell().hasArrow("derive")) {
-            StringBuilder derive = new StringBuilder("derive");
-            target = valcell.cell().getArrowTarget(derive.toString());
-            var list = new ArrayList<NumericVal>();
-            list.add(valcell.val());
-            while (target != null) {
-                var result = buildValCel(target, label, tools, origins, idRef);
-                if (result == null) {
-                    Logger.error("Failed to parse derive ");
-                    return null;
-                }
-                list.add(result.val());
-                derive.append("+");
-                target = valcell.cell().getArrowTarget(derive.toString());
-            }
             // val becomes a symbiote...
             if (valcell.val() instanceof RealVal) {
-                var rvs = list.stream().map(x -> (RealVal) x).toArray(RealVal[]::new);
-                RealValSymbiote symb = new RealValSymbiote(0, rvs);
+                RealValSymbiote symb = new RealValSymbiote(0, (RealVal) valcell.val()); // First create the symbiote
+                tools.rtvals().addRealVal(symb); // And add it to the collection
+                try {
+                    processDerives(valcell, label, tools, origins, idRef).forEach(val -> symb.addUnderling((RealVal) val)); // Then process because it might be referred to
+                } catch (ClassCastException e) {
+                    Logger.error("Tried to add an integer to a realval symbiote...? Symbiote:" + symb.id());
+                }
                 valcell = new ValCell(symb, valcell.cell()); // Overwrite the cell?
             } else if (valcell.val() instanceof IntegerVal iv) {
-                list.remove(0); // host isn't added like this for integer
-                var ivs = list.stream().toArray(NumericVal[]::new);
-                IntegerValSymbiote symb = new IntegerValSymbiote(0, iv, ivs);
+                IntegerValSymbiote symb = new IntegerValSymbiote(0, iv, new NumericVal[1]);
+                tools.rtvals().addIntegerVal(symb);
+                processDerives(valcell, label, tools, origins, idRef).forEach(symb::addUnderling);
                 valcell = new ValCell(symb, valcell.cell());
             }
-        } // Just find the next block
+        } else { // Just find the next block
+            if (valcell.val() instanceof RealVal rv) {
+                tools.rtvals().addRealVal(rv);
+            } else if (valcell.val() instanceof IntegerVal iv) {
+                tools.rtvals().addIntegerVal(iv);
+            }
+        }
         return valcell;
+    }
+
+    private static ArrayList<NumericVal> processDerives(ValCell valcell, String label, ParserTools tools, ArrayList<OriginBlock> origins, HashMap<String, String> idRef) {
+        StringBuilder derive = new StringBuilder("derive");
+        var target = valcell.cell().getArrowTarget(derive.toString());
+        ArrayList<NumericVal> unders = new ArrayList<>();
+        while (target != null) {
+            var result = buildValCel(target, label, tools, origins, idRef);
+            if (result == null) {
+                Logger.error("Failed to parse derive of type " + valcell.cell().type);
+                return unders;
+            }
+            unders.add(result.val());
+            derive.append("+");
+            target = valcell.cell().getArrowTarget(derive.toString());
+        }
+        return unders;
+    }
+
+    private static Drawio.DrawioCell getNext(Drawio.DrawioCell current, String... labels) {
+        for (var label : labels) {
+            var res = current.getArrowTarget(label);
+            if (res != null)
+                return res;
+        }
+        return null;
     }
 }

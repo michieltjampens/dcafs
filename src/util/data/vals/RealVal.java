@@ -81,6 +81,10 @@ public class RealVal extends BaseVal implements NumericVal {
             value = defValue;
     }
 
+    public double defValue() {
+        return defValue;
+    }
+
     @Override
     public double asDouble() {
         return value();
