@@ -1,0 +1,64 @@
+<mxlibrary>[
+    {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object
+    label=\"&amp;lt;b&amp;gt;Update Real&amp;lt;/b&amp;gt;&amp;lt;div&amp;gt;%group%_%name%[%unit%]&amp;lt;/div&amp;gt;\"
+    placeholders=\"1\" dcafstype=\"realval\" unit=\"??\" group=\"??\" name=\"??\" def=\"0\" id=\"2\"&gt;&lt;mxCell
+    style=\"rounded=1;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry width=\"120\" height=\"60\"
+    as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;mxCell id=\"3\" value=\"derive\"
+    style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;\"
+    edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"70\"
+    y=\"130\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"190\" y=\"30\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 190,
+    "h": 60
+    },
+    {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object
+    label=\"&amp;lt;b&amp;gt;Update Integer&amp;lt;/b&amp;gt;&amp;lt;div&amp;gt;%group%_%name%[%unit%]&amp;lt;/div&amp;gt;\"
+    placeholders=\"1\" dcafstype=\"integerval\" unit=\"??\" group=\"??\" name=\"??\" def=\"0\" id=\"2\"&gt;&lt;mxCell
+    style=\"rounded=1;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry width=\"120\" height=\"60\"
+    as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;mxCell id=\"3\" value=\"derive\"
+    style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;\"
+    edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"70\"
+    y=\"130\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"190\" y=\"30\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 190,
+    "h": 60
+    },
+    {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object
+    label=\"&amp;lt;b&amp;gt;Aggregate Real&amp;lt;/b&amp;gt;&amp;lt;div&amp;gt;%group%_%name%[%unit%]&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;window:%window%&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;reducer:%reducer%&amp;lt;/div&amp;gt;\"
+    placeholders=\"1\" dcafstype=\"realval\" unit=\"??\" group=\"??\" name=\"??\" def=\"0\" window=\"60\"
+    reducer=\"avg\" id=\"2\"&gt;&lt;mxCell style=\"rounded=1;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry
+    width=\"145\" height=\"60\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;mxCell id=\"3\" value=\"derive\"
+    style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;\"
+    edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"125\"
+    y=\"-90\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"210\" y=\"30\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 210,
+    "h": 60
+    },
+    {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object
+    label=\"&amp;lt;b&amp;gt;Aggregate Integer&amp;lt;/b&amp;gt;&amp;lt;div&amp;gt;%group%_%name%[%unit%]&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;window:%window%&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;reducer:%reducer%&amp;lt;/div&amp;gt;\"
+    placeholders=\"1\" dcafstype=\"integerval\" unit=\"??\" group=\"??\" name=\"??\" def=\"0\" window=\"60\"
+    reducer=\"sum\" id=\"2\"&gt;&lt;mxCell style=\"rounded=1;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry
+    width=\"145\" height=\"60\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;mxCell id=\"3\" value=\"derive\"
+    style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;\"
+    edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"125\"
+    y=\"-90\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"210\" y=\"30\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 210,
+    "h": 60
+    },
+    {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object
+    label=\"&amp;lt;b&amp;gt;Math:expr&amp;lt;/b&amp;gt;&amp;lt;div&amp;gt;%expression%&amp;lt;br&amp;gt;&amp;lt;/div&amp;gt;\"
+    dcafstype=\"mathblock\" placeholders=\"1\" scale=\"2\" expression=\"??\" id=\"2\"&gt;&lt;mxCell
+    style=\"rounded=0;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry x=\"1.1368683772161603e-13\"
+    width=\"120\" height=\"60\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;mxCell id=\"3\" value=\"next\"
+    style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;\"
+    edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint
+    x=\"280.0000000000001\" y=\"-340\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"200.0000000000001\" y=\"30\"
+    as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 200,
+    "h": 59.99999999999999
+    }
+    ]
+</mxlibrary>
