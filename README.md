@@ -16,7 +16,7 @@ Once set up, viewing data is possible by:
 
 The 'Getting Started' guide is available [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
 
-## Experimental feature
+## Experimental feature: draw.io configuration
 
 From 3.0.0 onwards I'm starting to add support to read draw.io diagrams.
 
@@ -31,6 +31,10 @@ From 3.0.0 onwards I'm starting to add support to read draw.io diagrams.
 * Rtvals blocks is being worked on.
   * Possible to make reactive logic based on real or integer variables.
   * This logic can flow into taskmanager logic, creating active/reactive hybrid.
+
+They say a screenshot/picture speaks louder than words... (not a mockup).
+
+<img src="https://github.com/user-attachments/assets/9b7b42d5-9822-4cb1-87cb-9cbfa2a28ac8" width="500" height="300">
 
 ## Data Collection
 
