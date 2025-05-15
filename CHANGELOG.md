@@ -7,9 +7,11 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
-## 3.0.0 (wip)
+## 3.0.1 (wip)
 
-- Added support for reading draw.io files for configuration as alternative to xml.
+## 3.0.0 (15/05/2025)
+
+- Added EXPERIMENTAL support for reading draw.io files for configuration as alternative to xml.
 - Rewritten TaskManager and PathForward to move to a factory making small functional parts that link together.
 - Rewritten RealtimeValues, to make them leaner by splitting of 'extras' and implement the new logic parser.
 - Added rawworker for bulk processing of data using multithreading and staged processing.

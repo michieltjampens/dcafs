@@ -16,6 +16,22 @@ Once set up, viewing data is possible by:
 
 The 'Getting Started' guide is available [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
 
+## Experimental feature
+
+From 3.0.0 onwards I'm starting to add support to read draw.io diagrams.
+
+* The parser can handle multiple tabs.
+* The configuration is definated by shape properties and value/label of arrows. Meaning users can choose their own
+  visuals.
+* Some suggestions can be found in the [drawio folder](https://github.com/michieltjampens/dcafs/tree/main/drawio)
+* TaskManager blocks have shape
+  alternatives, [an md about this](https://github.com/michieltjampens/dcafs/blob/main/docs/drawio/taskblocks.md)
+  * Drawio config is reloaded on change. (full clean sweep for now)
+  * Allows complex flows that can return and branch.
+* Rtvals blocks is being worked on.
+  * Possible to make reactive logic based on real or integer variables.
+  * This logic can flow into taskmanager logic, creating active/reactive hybrid.
+
 ## Data Collection
 
 Dcafs supports data collection from a variety of sources:
