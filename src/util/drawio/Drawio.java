@@ -2,6 +2,7 @@ package util.drawio;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.tools.Tools;
 import util.xml.XMLdigger;
 
 import java.nio.file.Path;
@@ -182,6 +183,10 @@ public class Drawio {
             return res != null ? NumberUtils.toInt(res, def) : def;
         }
 
+        public boolean getParam(String param, boolean def) {
+            var res = this.params.get(param);
+            return res != null ? Tools.parseBool(res, def) : def;
+        }
         public boolean hasParam(String param) {
             return params.containsKey(param) && !params.get(param).isEmpty();
         }

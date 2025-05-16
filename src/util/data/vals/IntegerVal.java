@@ -5,15 +5,17 @@ import org.tinylog.Logger;
 import util.data.procs.MathEvalForVal;
 import util.evalcore.MathEvaluatorDummy;
 import util.tasks.blocks.ConditionBlock;
+import util.tasks.blocks.NoOpBlock;
 
 import java.math.BigDecimal;
 
 public class IntegerVal extends BaseVal implements NumericVal {
     int value, defValue;
 
-    ConditionBlock preCheck;
+    ConditionBlock preCheck = NoOpBlock.INSTANCE;
+    ;
     boolean ignorePre = true;
-    ConditionBlock postCheck;
+    ConditionBlock postCheck = NoOpBlock.INSTANCE;
     boolean ignorePost = true;
     MathEvalForVal math = new MathEvaluatorDummy();
 
@@ -25,8 +27,6 @@ public class IntegerVal extends BaseVal implements NumericVal {
     public static IntegerVal newVal(String group, String name) {
         return new IntegerVal(group, name, "");
     }
-
-
 
     public int value() {
         return value;
@@ -42,9 +42,11 @@ public class IntegerVal extends BaseVal implements NumericVal {
     }
 
     public boolean update(int value) {
-        if (ignorePre || preCheck.start(value, this.value)) {
+        var pre = preCheck.start(value, this.value);
+        if (ignorePre || pre) {
             var res = math.eval(value, this.value, 0);
-            if (ignorePost || postCheck.start(value, this.value, res)) {
+            var post = postCheck.start(value, this.value, res);
+            if (ignorePost || post) {
                 this.value = res;
                 return true;
             }

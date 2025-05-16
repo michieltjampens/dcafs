@@ -17,6 +17,9 @@ public class ConditionBlock extends AbstractBlock {
         this.logEval=logEval;
     }
 
+    ConditionBlock() {
+    }
+
     public static Optional<ConditionBlock> build(String condition, Rtvals rtvals, ArrayList<NumericVal> sharedMem) {
         var logEvalOpt = util.evalcore.LogicFab.parseComparison(condition,rtvals,sharedMem);
         return logEvalOpt.map(ConditionBlock::new);
