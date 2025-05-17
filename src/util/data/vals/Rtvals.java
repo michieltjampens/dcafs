@@ -567,11 +567,11 @@ public class Rtvals implements Commandable {
         if (args.length == 2) {
             switch (args[1]) {
                 case "raise", "set" -> {
-                    flag.value(true);
+                    flag.update(true);
                     return "Flag raised";
                 }
-                case "lower", "clear" -> {
-                    flag.value(false);
+                case "lower", "clear", "reset" -> {
+                    flag.update(false);
                     return "Flag lowered";
                 }
                 case "toggle" -> {
@@ -590,7 +590,7 @@ public class Rtvals implements Commandable {
                     getFlagVal(args[2]).ifPresent(to -> flag.value(to.isUp()));
                     return "Flag matched accordingly";
                 }
-                case "negated" -> {
+                case "negated", "negate" -> {
                     if (!hasFlag(args[2]))
                         return "! No such flag: " + args[2];
                     getFlagVal(args[2]).ifPresent(to -> flag.value(!to.isUp()));

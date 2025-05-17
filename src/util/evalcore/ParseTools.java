@@ -35,7 +35,7 @@ public class ParseTools {
             if (ops.indexOf(it) == -1 || build.isEmpty()) {
                 if( !list.isEmpty() && build.isEmpty() ){
                     var old = list.get(list.size() - 1); // Get previous stored
-                    if( "<>$|&!".contains(old) && "=|&".indexOf(it)!=-1 ){ // Check if it's an operand
+                    if ("<>=$|&!".contains(old) && "=|&".indexOf(it) != -1) { // Check if it's an operand
                         list.set(list.size()-1,old+it);
                         continue;
                     }

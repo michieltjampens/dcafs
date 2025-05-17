@@ -16,8 +16,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class RtvalsParser {
-    public record ParserTools(EventLoopGroup eventLoop, Rtvals rtvals,
-                              HashMap<String, AbstractBlock> blocks, ArrayList<ValCell> vals) {
+    public record ValParserTools(EventLoopGroup eventLoop, Rtvals rtvals,
+                                 HashMap<String, AbstractBlock> blocks, ArrayList<ValCell> vals, Path source) {
     }
 
     public record ValCell(NumericVal val, Drawio.DrawioCell cell) {
@@ -28,52 +28,48 @@ public class RtvalsParser {
             Logger.error("This is not a drawio file: " + file);
             return;
         }
-        var tools = new ParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>());
+        var tools = new ValParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>(), file);
         var cells = Drawio.parseFile(file);
-        parseRtvals(cells, tools);
+        parseRtvals(cells, tools, file);
     }
 
-    public static void parseDrawIoRtvals(HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
-        var tools = new ParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>());
-        parseRtvals(cells, tools);
+    public static void parseDrawIoRtvals(HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals, Path file) {
+        var tools = new ValParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>(), file);
+        parseRtvals(cells, tools, file);
     }
-    public static ConditionBlock parseRtvals(HashMap<String, Drawio.DrawioCell> cells, ParserTools tools) {
+
+    public static ConditionBlock parseRtvals(HashMap<String, Drawio.DrawioCell> cells, ValParserTools tools, Path file) {
         // First create all the origins and then populate with the rest because controlblocks need a full list during set up
         ArrayList<Drawio.DrawioCell> starts = new ArrayList<>();
+        var tls = new TaskParser.TaskTools(tools.eventLoop(), null, tools.rtvals, new HashMap<>(), new HashMap<>());
+
         for (var entry : cells.entrySet()) {
             var cell = entry.getValue();
             switch (cell.type) {
-                case "realval":
-                    var rv = doRealVal(cell, tools);
-                    if (rv != null && isNewId(rv.id(), tools.vals)) {
-                        tools.vals.add(new ValCell(rv, cell));
-                    }
-                    break;
-                case "integerval":
-                    var iv = doIntegerVal(cell, tools);
-                    if (iv != null && isNewId(iv.id(), tools.vals))
-                        tools.vals.add(new ValCell(iv, cell));
-                    break;
-                case "valupdater":
-                    starts.add(cell);
-                default:
-                    break;
+                case "realval" -> addToValsIfNew(doRealVal(cell, tools), cell, tools.vals());
+                case "integerval" -> addToValsIfNew(doIntegerVal(cell, tools), cell, tools.vals());
+                case "flagval" -> addToValsIfNew(doFlagVal(cell, tools, tls), cell, tools.vals());
+
+                case "valupdater" -> starts.add(cell);
+                //default -> Logger.error( "Unknown dcafstype used: "+cell.type );
             }
         }
+        DrawioEditor.addIds(tls.idRef(), file);
         parseTasks(starts, tools);
         return null;
     }
 
-    private static boolean isNewId(String id, ArrayList<ValCell> vcs) {
+    private static void addToValsIfNew(NumericVal nv, Drawio.DrawioCell cell, ArrayList<ValCell> vcs) {
         for (var vc : vcs) {
-            if (vc.val().id().equals(id)) {
-                Logger.error("Tried to use an existing id twice in the same diagram");
-                return false;
+            if (vc.val().id().equals(nv.id())) {
+                Logger.warn("Tried to use an existing id twice in the same diagram");
+                return;
             }
         }
-        return true;
+        vcs.add(new ValCell(nv, cell));
     }
-    public static RealVal doRealVal(Drawio.DrawioCell cell, ParserTools tools) {
+
+    public static RealVal doRealVal(Drawio.DrawioCell cell, ValParserTools tools) {
         var idArray = getId(cell);
         if (idArray.length == 0)
             return null;
@@ -98,7 +94,7 @@ public class RtvalsParser {
         return rv;
     }
 
-    public static IntegerVal doIntegerVal(Drawio.DrawioCell cell, ParserTools tools) {
+    public static IntegerVal doIntegerVal(Drawio.DrawioCell cell, ValParserTools tools) {
 
         var idArray = getId(cell);
         if (idArray.length == 0)
@@ -125,6 +121,37 @@ public class RtvalsParser {
         return iv;
     }
 
+    public static FlagVal doFlagVal(Drawio.DrawioCell cell, ValParserTools tools, TaskParser.TaskTools tls) {
+
+        var idArray = getId(cell);
+        if (idArray.length == 0)
+            return null;
+        String group = idArray[0], name = idArray[1];
+
+        if (tools.rtvals().hasFlag(group + "_" + name))
+            return tools.rtvals().getFlagVal(group + "_" + name).get(); //get is fine because of earlier has
+
+        var fv = FlagVal.newVal(group, name);
+        fv.unit(cell.getParam("unit", ""));
+        fv.defValue(cell.getParam("def", fv.defValue()));
+
+        // Connected blocks...
+        AbstractBlock raiseBlock = null, fallBlock = null, highBlock = null, lowBlock = null;
+
+        if (cell.hasArrow("raise"))
+            raiseBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_raise");
+        if (cell.hasArrow("fall"))
+            fallBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_fall");
+        if (cell.hasArrow("stayhigh"))
+            highBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_high");
+        if (cell.hasArrow("staylow"))
+            lowBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_low");
+
+        fv.setBlocks(highBlock, lowBlock, raiseBlock, fallBlock);
+        tools.rtvals().addFlagVal(fv);
+        DrawioEditor.addIds(tls.idRef(), tools.source());
+        return fv;
+    }
     private static String[] getId(Drawio.DrawioCell cell) {
         if (cell.hasParam("dcafsid")) {
             var id = cell.getParam("dcafsid", "");
@@ -137,7 +164,7 @@ public class RtvalsParser {
         }
     }
 
-    private static void parseTasks(ArrayList<Drawio.DrawioCell> starters, ParserTools tools) {
+    private static void parseTasks(ArrayList<Drawio.DrawioCell> starters, ValParserTools tools) {
         HashMap<String, String> idRef = new HashMap<>();
         ArrayList<OriginBlock> origins = new ArrayList<>();
 
@@ -165,7 +192,7 @@ public class RtvalsParser {
         return exp.replace("math", "i2"); // alter so it get i2 instead of math
     }
 
-    private static ValCell buildValCel(Drawio.DrawioCell target, String label, ParserTools tools, ArrayList<OriginBlock> origins, HashMap<String, String> idRef) {
+    private static ValCell buildValCel(Drawio.DrawioCell target, String label, ValParserTools tools, ArrayList<OriginBlock> origins, HashMap<String, String> idRef) {
 
         ValCell valcell = null;
         ConditionBlock pre = null;
@@ -302,7 +329,7 @@ public class RtvalsParser {
         return valcell;
     }
 
-    private static ArrayList<NumericVal> processDerives(ValCell valcell, String label, ParserTools tools, ArrayList<OriginBlock> origins, HashMap<String, String> idRef) {
+    private static ArrayList<NumericVal> processDerives(ValCell valcell, String label, ValParserTools tools, ArrayList<OriginBlock> origins, HashMap<String, String> idRef) {
         StringBuilder derive = new StringBuilder("derive");
         var target = valcell.cell().getArrowTarget(derive.toString());
         ArrayList<NumericVal> unders = new ArrayList<>();

@@ -1,84 +1,58 @@
 package util.data.vals;
 
-import das.Core;
 import org.tinylog.Logger;
-import util.tasks.blocks.ConditionBlock;
+import util.tasks.blocks.AbstractBlock;
+import util.tasks.blocks.NoOpBlock;
 import util.tools.Tools;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 
 public class FlagVal extends BaseVal implements NumericVal {
     boolean value, defValue;
 
-    String[] raiseCmd;
-    String[] fallCmd;
-    String[] lowCmd;
-    String[] highCmd;
-
-    BaseVal[] raiseVal;
-    BaseVal[] fallVal;
-    BaseVal[] lowVal;
-    BaseVal[] highVal;
-
-    boolean hasCmds = false;
-    boolean hasVals = false;
+    AbstractBlock raiseBlock = NoOpBlock.INSTANCE;
+    AbstractBlock fallBlock = NoOpBlock.INSTANCE;
+    AbstractBlock highBlock = NoOpBlock.INSTANCE;
+    AbstractBlock lowBlock = NoOpBlock.INSTANCE;
 
     public FlagVal(String group, String name, String unit) {
         super(group, name, unit);
     }
 
-    public void setCmds(ArrayList<String[]> cmds) {
-
-        raiseCmd = cmds.stream().filter(x -> x[0].equals("raise")).map(it -> it[1]).toArray(String[]::new);
-        fallCmd = cmds.stream().filter(x -> x[0].equals("fall")).map(it -> it[1]).toArray(String[]::new);
-        lowCmd = cmds.stream().filter(x -> x[0].equals("low")).map(it -> it[1]).toArray(String[]::new);
-        highCmd = cmds.stream().filter(x -> x[0].equals("high")).map(it -> it[1]).toArray(String[]::new);
-
-        hasCmds = true;
+    public static FlagVal newVal(String group, String name) {
+        return new FlagVal(group, name, "");
     }
 
-    public void setVals(ArrayList<ValFab.RefVal> cmds) {
-
-        raiseVal = cmds.stream().filter(x -> x.ref().equals("raise")).map(ValFab.RefVal::bs).toArray(BaseVal[]::new);
-        fallVal = cmds.stream().filter(x -> x.ref().equals("fall")).map(ValFab.RefVal::bs).toArray(BaseVal[]::new);
-        lowVal = cmds.stream().filter(x -> x.ref().equals("low")).map(ValFab.RefVal::bs).toArray(BaseVal[]::new);
-        highVal = cmds.stream().filter(x -> x.ref().equals("high")).map(ValFab.RefVal::bs).toArray(BaseVal[]::new);
-
-        hasVals = true;
+    public void setBlocks(AbstractBlock highBlock, AbstractBlock lowBlock, AbstractBlock raiseBlock, AbstractBlock fallBlock) {
+        this.raiseBlock = raiseBlock == null ? NoOpBlock.INSTANCE : raiseBlock;
+        this.fallBlock = fallBlock == null ? NoOpBlock.INSTANCE : fallBlock;
+        this.highBlock = highBlock == null ? NoOpBlock.INSTANCE : highBlock;
+        this.lowBlock = lowBlock == null ? NoOpBlock.INSTANCE : lowBlock;
     }
+
     public void value(boolean state) {
         value = state;
     }
 
     public void update(boolean state) {
-        if (!hasCmds && !hasVals) { // Now cmds, so no use checking
-            this.value = state;
-            return;
-        }
-        if (hasCmds) {
-            if (value == state) { // Either STAY_LOW or STAY_HIGH
-                for (var cmd : value ? highCmd : lowCmd)
-                    Core.queueSystemCmd(cmd);
-            } else { // Either RAISE or FALL
-                for (var cmd : value ? fallCmd : raiseCmd)
-                    Core.queueSystemCmd(cmd);
+        if (value == state) { // Either STAY_LOW or STAY_HIGH
+            if (value) { // stay high
+                highBlock.start();
+            } else { // stay low
+                lowBlock.start();
             }
-        }
-        if (hasVals) {
-            if (value == state) { // Either STAY_LOW or STAY_HIGH
-                for (var val : value ? highVal : lowVal)
-                    val.triggerUpdate();
-            } else { // Either RAISE or FALL
-                for (var val : value ? fallVal : raiseVal)
-                    val.triggerUpdate();
+        } else { // Either RAISE or FALL
+            if (value) { // fall
+                fallBlock.start();
+            } else { // set
+                raiseBlock.start();
             }
         }
         this.value = state;
     }
 
     public void toggleState() {
-        value = !value;
+        update(!value);
     }
     public boolean isUp() {
         return value;
@@ -91,7 +65,7 @@ public class FlagVal extends BaseVal implements NumericVal {
 
     @Override
     public boolean update(int value) {
-        update(Integer.compare(value, 0) > 0);
+        update(value > 0);
         return true;
     }
 
@@ -104,6 +78,9 @@ public class FlagVal extends BaseVal implements NumericVal {
         this.defValue = defValue;
     }
 
+    public boolean defValue() {
+        return defValue;
+    }
     @Override
     public boolean parseValue(String value) {
         var opt = Tools.parseBool(value);

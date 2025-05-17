@@ -201,35 +201,6 @@ public class ValFab {
         var def = dig.attr("default", fv.defValue);
         fv.defValue(dig.attr("def", def));
 
-        if (!dig.hasPeek("cmd"))
-            return Optional.of(fv);
-
-        // Add the cmds if any
-        var list = new ArrayList<String[]>();
-        for (var cmd : dig.digOut("cmd")) {
-            var state = cmd.attr("state", "raise");
-            var c = cmd.value("");
-            list.add(new String[]{state, c});
-        }
-        fv.setCmds(list);
-        dig.goUp(); // return
-
-        if (rtvals != null) {
-            var refs = new ArrayList<RefVal>();
-            for (var cmd : dig.digOut("rtval")) {
-                var state = cmd.attr("state", "raise");
-                var id = cmd.value("");
-                var opt = rtvals.getBaseVal(id);
-                if (opt.isEmpty()) {
-                    Logger.error("Can't find " + id);
-                    continue;
-                }
-                refs.add(new RefVal(state, opt.get()));
-            }
-            dig.goUp();
-            fv.setCmds(list);
-            fv.setVals(refs);
-        }
         return Optional.of(fv);
     }
 

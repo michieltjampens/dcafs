@@ -91,6 +91,7 @@ public class TaskParser {
             case "commandblock" -> doCmdBlock(cell, tools, id);
             case "errorblock", "warnblock", "infoblock" -> doLogBlock(cell, tools, id);
             case "conditionblock" -> doConditionBlock(cell, tools, id);
+            case "flagblock" -> doFlagBlock(cell, tools, id);
             default -> null;
         };
     }
@@ -103,6 +104,18 @@ public class TaskParser {
 
         origin.setAutostart(Tools.parseBool(auto, false));
         origin.setShutdownhook(Tools.parseBool(shut, false));
+
+        if (!cell.hasArrow("next")) {
+            if (cell.hasArrow("")) {
+                var next = cell.getArrowTarget("");
+                if (next.type.endsWith("block")) {
+                    cell.addArrow("next", next);
+                    Logger.info(origin.id() + " -> No next arrow defined, but an arrow with empty label found instead");
+                    return origin;
+                }
+            }
+            Logger.error("Origin block without next? origin:" + origin.id());
+        }
         return origin;
     }
 
@@ -334,14 +347,48 @@ public class TaskParser {
         var cb = ConditionBlock.build(cell.getParam("expression", ""), tools.rtvals, null);
         cb.ifPresent(block -> {
             block.id(alterId(id));
-            addNext(cell, block, tools, "next", "pass", "yes", "ok");
-            addAlt(cell, block, tools, "fail", "no");
+            addNext(cell, block, tools, "next", "pass", "yes", "ok", "true");
+            addAlt(cell, block, tools, "fail", "no", "false");
         });
         return cb.orElse(null);
     }
 
+    private static FlagBlock doFlagBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        if (!cell.hasParam("action")) {
+            Logger.error("Flagblock without action specified.");
+            return null;
+        }
+        if (!cell.hasParam("flag") && !cell.hasParam("flagval")) {
+            Logger.error("Flagblock without flagval id specified.");
+            return null;
+        }
+        var action = cell.getParam("action", "raise");
+        var flagId = cell.getParam("flagval", "");
+        if (flagId.isEmpty())
+            flagId = cell.getParam("flag", "");
+
+        var flagOpt = tools.rtvals().getFlagVal(flagId);
+        if (flagOpt.isEmpty()) {
+            Logger.error("No such flagVal yet: " + flagId);
+            return null;
+        }
+        FlagBlock fb = switch (action) {
+            case "raise", "set" -> FlagBlock.raises(flagOpt.get());
+            case "lower", "reset", "clear" -> FlagBlock.lowers(flagOpt.get());
+            case "toggle" -> FlagBlock.toggles(flagOpt.get());
+            default -> {
+                Logger.error("Unknown action picked for " + flagId + ": " + flagId);
+                yield null;
+            }
+        };
+        if (fb != null) {
+            fb.id(alterId(id));
+            addNext(cell, fb, tools, "next", "pass", "yes", "ok");
+        }
+        return fb;
+    }
     private static void addNext(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... nexts) {
-        boolean match = false;
+
         tools.blocks.put(cell.drawId, block);
         if (block.id().isEmpty())
             Logger.info("Id still empty?");
@@ -356,7 +403,6 @@ public class TaskParser {
                 } else {
                     block.addNext(existing);
                 }
-                match = true;
                 break;
             }
         }

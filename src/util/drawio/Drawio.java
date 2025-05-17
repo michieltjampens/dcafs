@@ -101,6 +101,15 @@ public class Drawio {
             if (arrows.isEmpty())
                 break;
         }
+
+        for (var arrow : arrows.values()) {
+            if (arrow.source != null && arrow.target != null) {
+                if (arrow.target.type.endsWith("block")) {
+                    arrow.source.addArrow("next", arrow.target);
+                    Logger.info("Adding blank arrow to " + arrow.source.type);
+                }
+            }
+        }
         Logger.info(tabName + " -> Found " + cellSize + " valid shapes, " + arrowCount
                 + " arrows of which " + arrows.size() + " are left after parsing (probably without label).");
         return cells;
