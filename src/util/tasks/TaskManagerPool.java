@@ -78,7 +78,9 @@ public class TaskManagerPool implements Commandable {
     public void enableWatcher() {
         executorService.submit(() -> {
             try {
-                watchDirectory(Path.of("tmscripts"));
+                var path = Paths.storage().resolve("tmscripts");
+                Logger.info("Watchservice for: " + path);
+                watchDirectory(path);
             } catch (IOException | InterruptedException e) {
                 Logger.error(e);
             }
