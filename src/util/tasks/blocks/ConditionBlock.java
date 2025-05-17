@@ -1,6 +1,7 @@
 package util.tasks.blocks;
 
 import org.tinylog.Logger;
+import util.data.vals.FlagVal;
 import util.data.vals.NumericVal;
 import util.data.vals.Rtvals;
 import util.evalcore.LogicEvaluator;
@@ -11,6 +12,7 @@ import java.util.Optional;
 public class ConditionBlock extends AbstractBlock {
 
     LogicEvaluator logEval;
+    FlagVal flag;
 
     // Only to be used by LogicFab during block construction
     ConditionBlock(LogicEvaluator logEval) {
@@ -24,6 +26,10 @@ public class ConditionBlock extends AbstractBlock {
         var logEvalOpt = util.evalcore.LogicFab.parseComparison(condition,rtvals,sharedMem);
         return logEvalOpt.map(ConditionBlock::new);
     }
+
+    public void setFlag(FlagVal flag) {
+        this.flag = flag;
+    }
     @Override
     public boolean start() {
         return start(0.0);
@@ -36,6 +42,8 @@ public class ConditionBlock extends AbstractBlock {
             return false;
         }
         var pass = logEval.eval(input);
+        if (flag != null)
+            flag.update(pass);
         if (pass) {
             doNext(input);
         } else {

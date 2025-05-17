@@ -138,20 +138,28 @@ public class RtvalsParser {
         // Connected blocks...
         AbstractBlock raiseBlock = null, fallBlock = null, highBlock = null, lowBlock = null;
 
-        if (cell.hasArrow("raise"))
-            raiseBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_raise");
-        if (cell.hasArrow("fall"))
-            fallBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_fall");
-        if (cell.hasArrow("stayhigh"))
-            highBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_high");
-        if (cell.hasArrow("staylow"))
-            lowBlock = TaskParser.createBlock(cell.getArrowTarget("raise"), tls, fv.id() + "_low");
+        var raised = cell.getArrowTarget("raise", "raised", "set", "raising");
+        if (raised != null)
+            raiseBlock = TaskParser.createBlock(raised, tls, fv.id() + "_raise");
+
+        var fall = cell.getArrowTarget("fall", "fell", "cleared", "falling");
+        if (fall != null)
+            fallBlock = TaskParser.createBlock(fall, tls, fv.id() + "_fall");
+
+        var high = cell.getArrowTarget("high", "stillhigh");
+        if (high != null)
+            highBlock = TaskParser.createBlock(high, tls, fv.id() + "_high");
+
+        var low = cell.getArrowTarget("low", "stilllow");
+        if (low != null)
+            lowBlock = TaskParser.createBlock(low, tls, fv.id() + "_low");
 
         fv.setBlocks(highBlock, lowBlock, raiseBlock, fallBlock);
         tools.rtvals().addFlagVal(fv);
         DrawioEditor.addIds(tls.idRef(), tools.source());
         return fv;
     }
+
     private static String[] getId(Drawio.DrawioCell cell) {
         if (cell.hasParam("dcafsid")) {
             var id = cell.getParam("dcafsid", "");

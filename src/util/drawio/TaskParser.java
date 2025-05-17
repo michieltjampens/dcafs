@@ -347,8 +347,32 @@ public class TaskParser {
         var cb = ConditionBlock.build(cell.getParam("expression", ""), tools.rtvals, null);
         cb.ifPresent(block -> {
             block.id(alterId(id));
-            addNext(cell, block, tools, "next", "pass", "yes", "ok", "true");
-            addAlt(cell, block, tools, "fail", "no", "false");
+            var target = cell.getArrowTarget("update");
+            if (target != null && target.type.equals("flagval")) {
+                var flagId = target.getParam("group", "") + "_" + target.getParam("name", "");
+                tools.rtvals().getFlagVal(flagId).ifPresent(block::setFlag);
+
+                // Grab the next of the flagval and make it the next of the condition
+                if (target.hasArrow("next")) {
+                    tools.blocks.put(cell.drawId, block);
+                    if (block.id().isEmpty())
+                        Logger.info("Id still empty?");
+                    tools.idRef.put(block.id(), cell.drawId);
+                    if (target.hasArrow("next")) {
+                        var targetCell = target.getArrowTarget("next");
+                        var targetId = targetCell.drawId;
+                        var existing = tools.blocks.get(targetId);
+                        if (existing == null) { // not created yet
+                            block.addNext(createBlock(targetCell, tools, block.id()));
+                        } else {
+                            block.addNext(existing);
+                        }
+                    }
+                }
+            } else {
+                addNext(cell, block, tools, "next", "pass", "yes", "ok", "true");
+                addAlt(cell, block, tools, "fail", "no", "false");
+            }
         });
         return cb.orElse(null);
     }

@@ -211,6 +211,15 @@ public class Drawio {
             return arrows.get(label);
         }
 
+        public DrawioCell getArrowTarget(String... labels) {
+            for (var label : labels) {
+                var arrow = arrows.get(label);
+                if (arrow != null)
+                    return arrow;
+            }
+            return null;
+        }
+
         public boolean hasArrows() {
             return !arrows.isEmpty();
         }
