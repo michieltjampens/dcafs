@@ -16,21 +16,23 @@ Once set up, viewing data is possible by:
 
 The 'Getting Started' guide is available [here](https://github.com/michieltjampens/dcafs/blob/main/docs/Basics.md).
 
-## Experimental feature
+## Experimental feature: draw.io configuration
 
-From 3.0.0 onwards I'm starting to add support to read draw.io diagrams.
+Starting with version 3.0.0, dcafs supports reading Draw.io diagrams as a basic form of visual programming.
 
 * The parser can handle multiple tabs.
-* The configuration is definated by shape properties and value/label of arrows. Meaning users can choose their own
-  visuals.
-* Some suggestions can be found in the [drawio folder](https://github.com/michieltjampens/dcafs/tree/main/drawio)
-* TaskManager blocks have shape
-  alternatives, [an md about this](https://github.com/michieltjampens/dcafs/blob/main/docs/drawio/taskblocks.md)
-  * Drawio config is reloaded on change. (full clean sweep for now)
-  * Allows complex flows that can return and branch.
-* Rtvals blocks is being worked on.
-  * Possible to make reactive logic based on real or integer variables.
-  * This logic can flow into taskmanager logic, creating active/reactive hybrid.
+* The configuration is defined by shape properties and arrow label/value, allowing users to customize visuals freely.
+* Some suggestions of visuals can be found in the [drawio folder](https://github.com/michieltjampens/dcafs/tree/main/drawio)
+* TaskManager blocks have shape alternatives, [an md about this](https://github.com/michieltjampens/dcafs/blob/main/docs/drawio/taskblocks.md)
+  * Drawio configuration auto-reloads on change. (currently triggers a full clean sweep)
+  * Enables complex flows with branching and returning.
+* Rtvals blocks are under development.
+  * Enables reactive logic based on real/integer variables.
+  * This logic can flow into taskmanager logic, creating active/reactive hybrid system.
+
+They say a picture is worth a thousand words... (not a mockup).
+
+<img src="https://github.com/user-attachments/assets/9b7b42d5-9822-4cb1-87cb-9cbfa2a28ac8" width="500" height="300">
 
 ## Data Collection
 
