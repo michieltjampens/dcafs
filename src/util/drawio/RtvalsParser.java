@@ -132,17 +132,21 @@ public class RtvalsParser {
             return tools.rtvals().getFlagVal(group + "_" + name).get(); //get is fine because of earlier has
 
         var fv = FlagVal.newVal(group, name);
+        return alterFlagVal(fv, cell, tools, tls);
+    }
+
+    public static FlagVal alterFlagVal(FlagVal fv, Drawio.DrawioCell cell, ValParserTools tools, TaskParser.TaskTools tls) {
         fv.unit(cell.getParam("unit", ""));
         fv.defValue(cell.getParam("def", fv.defValue()));
 
         // Connected blocks...
         AbstractBlock raiseBlock = null, fallBlock = null, highBlock = null, lowBlock = null;
 
-        var raised = cell.getArrowTarget("raise", "raised", "set", "raising");
+        var raised = cell.getArrowTarget("raise", "raised", "set", "rising");
         if (raised != null)
             raiseBlock = TaskParser.createBlock(raised, tls, fv.id() + "_raise");
 
-        var fall = cell.getArrowTarget("fall", "fell", "cleared", "falling");
+        var fall = cell.getArrowTarget("fall", "fell", "cleared", "falling", "lowered");
         if (fall != null)
             fallBlock = TaskParser.createBlock(fall, tls, fv.id() + "_fall");
 
@@ -156,10 +160,8 @@ public class RtvalsParser {
 
         fv.setBlocks(highBlock, lowBlock, raiseBlock, fallBlock);
         tools.rtvals().addFlagVal(fv);
-        DrawioEditor.addIds(tls.idRef(), tools.source());
         return fv;
     }
-
     private static String[] getId(Drawio.DrawioCell cell) {
         if (cell.hasParam("dcafsid")) {
             var id = cell.getParam("dcafsid", "");

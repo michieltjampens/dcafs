@@ -5,6 +5,7 @@ import io.netty.channel.EventLoopGroup;
 import org.tinylog.Logger;
 import util.data.vals.Rtvals;
 import util.drawio.Drawio;
+import util.drawio.GpioParser;
 import util.drawio.RtvalsParser;
 import util.drawio.TaskParser;
 import util.tasks.blocks.*;
@@ -27,6 +28,7 @@ public class TaskManagerFab {
             Logger.info("Reading a taskmanager tasks from a drawio file!");
             var cells = Drawio.parseFile(tm.getScriptPath());
             RtvalsParser.parseDrawIoRtvals(cells, tm.eventLoop, tm.rtvals(), tm.getScriptPath());
+            GpioParser.parseDrawIoGpios(cells, tm.eventLoopGroup(), tm.rtvals(), tm.getScriptPath());
             var origins = TaskParser.parseTasks(tm.getScriptPath(), cells, tm.eventLoopGroup(), tm.rtvals());
             origins.forEach(tm::addStarter);
         }

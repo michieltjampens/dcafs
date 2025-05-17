@@ -40,20 +40,22 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
             return;
 
         for (var isrDig : dig.digOut("gpio")) {
+
             int pin = isrDig.attr("nr", -1);
+            Logger.info("Processing: " + pin);
             PinInfo pinInfo;
             if (pin == -1) {
                 var name = isrDig.attr("name", "");
                 pinInfo = board.getByName(name);
                 if (pinInfo == null) {
-                    Logger.error("Couldn't find math for pin name <" + name + ">");
+                    Logger.error("Couldn't find match for pin name <" + name + ">");
                     continue;
                 }
                 Logger.info("Matched " + name + " to " + pinInfo.getName());
             } else {
                 pinInfo = board.getByGpioNumber(pin).orElse(null);
                 if (pinInfo == null) {
-                    Logger.error("Couldn't find math for pin nr " + pin);
+                    Logger.error("Couldn't find match for pin nr " + pin);
                     continue;
                 }
                 Logger.info("Matched pin nr " + pin + " to " + pinInfo.getName());
@@ -65,7 +67,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
 
             var trigger = initializeGpioTrigger(isrDig, pinInfo);
             if (trigger == null)
-                return;
+                continue;
 
             if (isrDig.hasPeek("cmd")) {
                 var list = isrDig.digOut("cmd").stream()
@@ -96,6 +98,7 @@ public class InterruptPins implements DeviceEventConsumer<DigitalInputEvent>, Co
 
         if (addGPIO(pinInfo, trigger, pud).isEmpty())
             return trigger;
+        Logger.error("Something went wrong trying to add gpio " + pinInfo.getName());
         return null;
     }
 

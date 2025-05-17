@@ -8,12 +8,12 @@ import util.tools.Tools;
 import java.math.BigDecimal;
 
 public class FlagVal extends BaseVal implements NumericVal {
-    boolean value, defValue;
+    protected boolean value, defValue;
 
-    AbstractBlock raiseBlock = NoOpBlock.INSTANCE;
-    AbstractBlock fallBlock = NoOpBlock.INSTANCE;
-    AbstractBlock highBlock = NoOpBlock.INSTANCE;
-    AbstractBlock lowBlock = NoOpBlock.INSTANCE;
+    protected AbstractBlock raiseBlock = NoOpBlock.INSTANCE;
+    protected AbstractBlock fallBlock = NoOpBlock.INSTANCE;
+    protected AbstractBlock highBlock = NoOpBlock.INSTANCE;
+    protected AbstractBlock lowBlock = NoOpBlock.INSTANCE;
 
     public FlagVal(String group, String name, String unit) {
         super(group, name, unit);
@@ -84,27 +84,27 @@ public class FlagVal extends BaseVal implements NumericVal {
     @Override
     public boolean parseValue(String value) {
         var opt = Tools.parseBool(value);
-        opt.ifPresentOrElse(b -> this.value = b, () -> Logger.error(id() + "-> Failed to parse " + value));
+        opt.ifPresentOrElse(this::update, () -> Logger.error(id() + "-> Failed to parse " + value));
         return opt.isPresent();
     }
 
     @Override
     public double asDouble() {
-        return value ? 1.0 : 0.0;
+        return isUp() ? 1.0 : 0.0;
     }
 
     @Override
     public int asInteger() {
-        return value ? 1 : 0;
+        return isUp() ? 1 : 0;
     }
 
     @Override
     public BigDecimal asBigDecimal() {
-        return value ? BigDecimal.ONE : BigDecimal.ZERO;
+        return isUp() ? BigDecimal.ONE : BigDecimal.ZERO;
     }
 
     public String asString() {
-        return String.valueOf(value);
+        return String.valueOf(isUp());
     }
 
     @Override
