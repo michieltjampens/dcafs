@@ -62,7 +62,7 @@ public class Datagram {
 
     /* Combined cmd and args */
     public String getData(){
-        return cmd + ":" + args;
+        return args.isEmpty() ? cmd : (cmd + ":" + args);
     }
     public void setData(String msg ){
         var spl = msg.split(":", 2);
