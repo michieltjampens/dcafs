@@ -16,7 +16,8 @@ import java.util.stream.Collectors;
 public class TaskParser {
 
     public record TaskTools(EventLoopGroup eventLoop, ArrayList<OriginBlock> origins, Rtvals rtvals,
-                            HashMap<String, AbstractBlock> blocks, HashMap<String, String> idRef) {
+                            HashMap<String, AbstractBlock> blocks, HashMap<String, String> idRef,
+                            HashMap<String, String[]> todo) {
     }
 
     public record OriginCell(OriginBlock origin, Drawio.DrawioCell cell) {
@@ -35,7 +36,7 @@ public class TaskParser {
     public static ArrayList<OriginBlock> parseTasks(Path file, HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
         HashMap<String, String> idRef = new HashMap<>();
         ArrayList<OriginBlock> origins = new ArrayList<>();
-        var tools = new TaskTools(eventLoop, origins, rtvals, new HashMap<>(), idRef);
+        var tools = new TaskTools(eventLoop, origins, rtvals, new HashMap<>(), idRef, new HashMap<>());
 
         // First create all the origins and then populate with the rest because controlblocks need a full list during set up
         ArrayList<OriginCell> oricell = new ArrayList<>();
@@ -50,11 +51,29 @@ public class TaskParser {
         for (var oricel : oricell) {
             addNext(oricel.cell(), oricel.origin(), tools, "next");
         }
+        // Fill in rest of controlblock if needed
+        fixControlBlocks(cells, tools);
+
         DrawioEditor.addIds(idRef, file);
         oricell.clear();
         return origins;
     }
 
+    public static void fixControlBlocks(HashMap<String, Drawio.DrawioCell> cells, TaskTools tools) {
+        if (!tools.todo.isEmpty()) {
+            for (var entry : tools.todo().entrySet()) {
+                var control = (ControlBlock) tools.blocks.get(entry.getKey()); // Get control block
+                var trigger = tools.blocks.get(entry.getValue()[0]); // trigger block
+                var stop = tools.blocks.get(entry.getValue()[1]); // stop block
+
+                if (trigger == null) {
+                    var triggerCell = cells.get(entry.getValue()[0]);
+                    trigger = createBlock(triggerCell, tools, control.id());
+                }
+                control.setBlocks(trigger, stop);
+            }
+        }
+    }
     private static void lookup(HashMap<String, String> idRef, ArrayList<OriginBlock> origins) {
         var list = new ArrayList<String>();
         for (var entry : idRef.entrySet()) {
@@ -241,16 +260,37 @@ public class TaskParser {
             return null;
         }
 
-        OriginBlock trigger = null, stop = null;
+        AbstractBlock trigger = null, stop = null;
 
-        var triggerId = cell.hasArrow("trigger") ? cell.getArrowTarget("trigger").dasId : "";
-        var stopId = cell.hasArrow("stop") ? cell.getArrowTarget("stop").dasId : "";
+        var triggerCell = cell.getArrowTarget("trigger");
+        var stopCell = cell.getArrowTarget("stop");
+        var cbId = alterId(id);
 
-        for (var ori : tools.origins) {
-            if (ori.id().equals(triggerId))
-                trigger = ori;
-            if (ori.id().equals(stopId))
-                stop = ori;
+        if (stopCell != null || triggerCell != null) {
+            var stopDas = stopCell == null ? "" : stopCell.dasId;
+            var triggerDas = triggerCell == null ? "" : triggerCell.dasId;
+
+            for (var ori : tools.origins) {
+                if (ori.id().equals(stopDas))
+                    trigger = ori;
+                if (ori.id().equals(triggerDas))
+                    stop = ori;
+            }
+            if (trigger == null && triggerCell != null) {
+                trigger = tools.blocks.get(triggerCell.drawId);
+                if (trigger == null) // Not created yet
+                    tools.todo.put(cell.drawId, new String[]{triggerCell.drawId, ""});
+            }
+            if (stop == null && stopCell != null) {
+                stop = tools.blocks.get(stopCell.drawId);
+                if (stop == null) { // Not created yet
+                    var old = tools.todo.putIfAbsent(cell.drawId, new String[]{"", stopCell.drawId});
+                    if (old != null) {
+                        old[1] = stopCell.drawId;
+                        tools.todo.put(cell.drawId, old);
+                    }
+                }
+            }
         }
         var cb = new ControlBlock(tools.eventLoop, trigger, stop);
         cb.id(alterId(id));
@@ -258,6 +298,19 @@ public class TaskParser {
         return cb;
     }
 
+    private static AbstractBlock createOrTake(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        AbstractBlock block;
+        if (cell != null) {
+            if (tools.blocks.containsKey(cell.drawId)) {
+                return tools.blocks.get(cell.drawId);
+            } else {
+                block = createBlock(cell, tools, id);
+                tools.blocks.put(cell.drawId, block);
+                return block;
+            }
+        }
+        return null;
+    }
     private static ReadingBlock doReaderBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
 
         if (!cell.hasArrow("source") && !cell.hasParam("source")) {

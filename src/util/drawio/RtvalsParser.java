@@ -9,7 +9,6 @@ import util.data.vals.*;
 import util.evalcore.MathFab;
 import util.tasks.blocks.AbstractBlock;
 import util.tasks.blocks.ConditionBlock;
-import util.tasks.blocks.OriginBlock;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -28,34 +27,39 @@ public class RtvalsParser {
             Logger.error("This is not a drawio file: " + file);
             return;
         }
-        var tools = new ValParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>(), file);
+        //var tools = new ValParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>(), file);
+        var tls = new TaskParser.TaskTools(eventLoop, new ArrayList<>(), rtvals, new HashMap<>(), new HashMap<>(), new HashMap<>());
+        ArrayList<RtvalsParser.ValCell> vals = new ArrayList<>();
         var cells = Drawio.parseFile(file);
-        parseRtvals(cells, tools, file);
+        parseRtvals(cells, tls, vals, file);
     }
 
     public static void parseDrawIoRtvals(HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals, Path file) {
-        var tools = new ValParserTools(eventLoop, rtvals, new HashMap<>(), new ArrayList<>(), file);
-        parseRtvals(cells, tools, file);
+        var tools = new TaskParser.TaskTools(eventLoop, new ArrayList<>(), rtvals, new HashMap<>(), new HashMap<>(), new HashMap<>());
+        ArrayList<RtvalsParser.ValCell> vals = new ArrayList<>();
+        parseRtvals(cells, tools, vals, file);
     }
 
-    public static ConditionBlock parseRtvals(HashMap<String, Drawio.DrawioCell> cells, ValParserTools tools, Path file) {
+    public static ConditionBlock parseRtvals(HashMap<String, Drawio.DrawioCell> cells, TaskParser.TaskTools tools, ArrayList<RtvalsParser.ValCell> vals, Path file) {
         // First create all the origins and then populate with the rest because controlblocks need a full list during set up
         ArrayList<Drawio.DrawioCell> starts = new ArrayList<>();
-        var tls = new TaskParser.TaskTools(tools.eventLoop(), null, tools.rtvals, new HashMap<>(), new HashMap<>());
 
         for (var entry : cells.entrySet()) {
             var cell = entry.getValue();
             switch (cell.type) {
-                case "realval" -> addToValsIfNew(doRealVal(cell, tools), cell, tools.vals());
-                case "integerval" -> addToValsIfNew(doIntegerVal(cell, tools), cell, tools.vals());
-                case "flagval" -> addToValsIfNew(doFlagVal(cell, tools, tls), cell, tools.vals());
+                case "realval" -> addToValsIfNew(doRealVal(cell, tools), cell, vals);
+                case "integerval" -> addToValsIfNew(doIntegerVal(cell, tools), cell, vals);
+                case "flagval" -> addToValsIfNew(doFlagVal(cell, tools), cell, vals);
 
                 case "valupdater" -> starts.add(cell);
                 //default -> Logger.error( "Unknown dcafstype used: "+cell.type );
             }
         }
-        DrawioEditor.addIds(tls.idRef(), file);
-        parseTasks(starts, tools);
+
+
+        parseTasks(starts, tools, vals);
+        DrawioEditor.addIds(tools.idRef(), file);
+        TaskParser.fixControlBlocks(cells, tools);
         return null;
     }
 
@@ -69,7 +73,7 @@ public class RtvalsParser {
         vcs.add(new ValCell(nv, cell));
     }
 
-    public static RealVal doRealVal(Drawio.DrawioCell cell, ValParserTools tools) {
+    public static RealVal doRealVal(Drawio.DrawioCell cell, TaskParser.TaskTools tools) {
         var idArray = getId(cell);
         if (idArray.length == 0)
             return null;
@@ -94,7 +98,7 @@ public class RtvalsParser {
         return rv;
     }
 
-    public static IntegerVal doIntegerVal(Drawio.DrawioCell cell, ValParserTools tools) {
+    public static IntegerVal doIntegerVal(Drawio.DrawioCell cell, TaskParser.TaskTools tools) {
 
         var idArray = getId(cell);
         if (idArray.length == 0)
@@ -121,7 +125,7 @@ public class RtvalsParser {
         return iv;
     }
 
-    public static FlagVal doFlagVal(Drawio.DrawioCell cell, ValParserTools tools, TaskParser.TaskTools tls) {
+    public static FlagVal doFlagVal(Drawio.DrawioCell cell, TaskParser.TaskTools tools) {
 
         var idArray = getId(cell);
         if (idArray.length == 0)
@@ -132,31 +136,32 @@ public class RtvalsParser {
             return tools.rtvals().getFlagVal(group + "_" + name).get(); //get is fine because of earlier has
 
         var fv = FlagVal.newVal(group, name);
-        return alterFlagVal(fv, cell, tools, tls);
+        return alterFlagVal(fv, cell, tools);
     }
 
-    public static FlagVal alterFlagVal(FlagVal fv, Drawio.DrawioCell cell, ValParserTools tools, TaskParser.TaskTools tls) {
+    public static FlagVal alterFlagVal(FlagVal fv, Drawio.DrawioCell cell, TaskParser.TaskTools tools) {
         fv.unit(cell.getParam("unit", ""));
         fv.defValue(cell.getParam("def", fv.defValue()));
 
         // Connected blocks...
         AbstractBlock raiseBlock = null, fallBlock = null, highBlock = null, lowBlock = null;
+        var idle = cell.getParam("idle", true);
 
-        var raised = cell.getArrowTarget("raise", "raised", "set", "rising");
+        var raised = cell.getArrowTarget("raise", "raised", "set", "rising", idle ? "released" : "pressed");
         if (raised != null)
-            raiseBlock = TaskParser.createBlock(raised, tls, fv.id() + "_raise");
+            raiseBlock = TaskParser.createBlock(raised, tools, fv.id() + "_raise");
 
-        var fall = cell.getArrowTarget("fall", "fell", "cleared", "falling", "lowered");
+        var fall = cell.getArrowTarget("fall", "fell", "cleared", "falling", "lowered", idle ? "pressed" : "released");
         if (fall != null)
-            fallBlock = TaskParser.createBlock(fall, tls, fv.id() + "_fall");
+            fallBlock = TaskParser.createBlock(fall, tools, fv.id() + "_fall");
 
         var high = cell.getArrowTarget("high", "stillhigh");
         if (high != null)
-            highBlock = TaskParser.createBlock(high, tls, fv.id() + "_high");
+            highBlock = TaskParser.createBlock(high, tools, fv.id() + "_high");
 
         var low = cell.getArrowTarget("low", "stilllow");
         if (low != null)
-            lowBlock = TaskParser.createBlock(low, tls, fv.id() + "_low");
+            lowBlock = TaskParser.createBlock(low, tools, fv.id() + "_low");
 
         fv.setBlocks(highBlock, lowBlock, raiseBlock, fallBlock);
         tools.rtvals().addFlagVal(fv);
@@ -174,15 +179,13 @@ public class RtvalsParser {
         }
     }
 
-    private static void parseTasks(ArrayList<Drawio.DrawioCell> starters, ValParserTools tools) {
-        HashMap<String, String> idRef = new HashMap<>();
-        ArrayList<OriginBlock> origins = new ArrayList<>();
+    private static void parseTasks(ArrayList<Drawio.DrawioCell> starters, TaskParser.TaskTools tools, ArrayList<ValCell> vals) {
 
         for (var cell : starters) {
             var label = cell.getParam("arrowlabel", "");
             var target = cell.getArrowTarget(label);
 
-            var res = buildValCel(target, label, tools, origins, idRef);
+            var res = buildValCel(target, label, tools, vals);
             if (res == null) {
                 Logger.error("Failed to make val");
                 continue;
@@ -202,7 +205,7 @@ public class RtvalsParser {
         return exp.replace("math", "i2"); // alter so it get i2 instead of math
     }
 
-    private static ValCell buildValCel(Drawio.DrawioCell target, String label, ValParserTools tools, ArrayList<OriginBlock> origins, HashMap<String, String> idRef) {
+    private static ValCell buildValCel(Drawio.DrawioCell target, String label, TaskParser.TaskTools tools, ArrayList<ValCell> vals) {
 
         ValCell valcell = null;
         ConditionBlock pre = null;
@@ -215,38 +218,8 @@ public class RtvalsParser {
         while (valcell == null) {
             switch (target.type) {
                 case "realval", "integerval" -> {
-                    for (var vc : tools.vals()) {
-                        if (vc.cell().equals(target)) {
-                            valcell = vc;
-                            if (pre != null) {
-                                pre.id(valcell.val().id() + "_pre");
-                                valcell.val().setPreCheck(pre);
-                            }
-                            if (post != null) {
-                                post.id(valcell.val().id() + "_post");
-                                valcell.val().setPostCheck(post, false);
-                            }
-                            if (math != null) {
-                                valcell.val().setMath(math);
-                            } else if (!builtin.isEmpty()) {
-                                if (target.type.startsWith("real")) {
-                                    if (Builtin.isValidDoubleProc(builtin)) {
-                                        valcell.val().setMath(Builtin.getDoubleFunction(builtin, scale));
-                                    } else {
-                                        Logger.error("Builtin " + builtin + " not recognized as a valid function.");
-                                        return null;
-                                    }
-                                } else {
-                                    if (Builtin.isValidIntProc(builtin)) {
-                                        valcell.val().setMath(Builtin.getIntFunction(builtin));
-                                    } else {
-                                        Logger.error("Builtin " + builtin + " not recognized as a valid function.");
-                                        return null;
-                                    }
-                                }
-                            }
-                            break;
-                        }
+                    for (var vc : vals) {
+                        valcell = buildRealIntegerVal(vc, target, pre, post, builtin, math, scale);
                     }
                     if (valcell == null) {
                         Logger.error("Couldn't match shape with a val");
@@ -257,9 +230,9 @@ public class RtvalsParser {
                     target.addParam("expression", normalizeExpression(exp, label));
 
                     if (pre == null) {
-                        pre = (ConditionBlock) TaskParser.createBlock(target, new TaskParser.TaskTools(tools.eventLoop(), origins, tools.rtvals, new HashMap<>(), idRef), "id");
+                        pre = (ConditionBlock) TaskParser.createBlock(target, tools, "id");
                     } else {
-                        post = (ConditionBlock) TaskParser.createBlock(target, new TaskParser.TaskTools(tools.eventLoop(), origins, tools.rtvals, new HashMap<>(), idRef), "id");
+                        post = (ConditionBlock) TaskParser.createBlock(target, tools, "id");
                     }
 
                     // that's precheck?
@@ -279,7 +252,7 @@ public class RtvalsParser {
                             return null;
                         }
                     } else {
-                        math = MathFab.parseExpression(normalizeExpression(mexp, label), tools.rtvals, null);
+                        math = MathFab.parseExpression(normalizeExpression(mexp, label), tools.rtvals(), null);
                         if (math == null) {
                             Logger.error("Failed to parse " + mexp);
                             return null;
@@ -308,7 +281,7 @@ public class RtvalsParser {
             var postCheck = valcell.cell().getArrowTarget("next");
             var exp = postCheck.getParam("expression", "");
             postCheck.addParam("expression", normalizeExpression(exp, label));
-            var block = TaskParser.createBlock(postCheck, new TaskParser.TaskTools(tools.eventLoop(), origins, tools.rtvals, new HashMap<>(), idRef), valcell.val().id() + "_post");
+            var block = TaskParser.createBlock(postCheck, tools, valcell.val().id() + "_post");
             valcell.val().setPostCheck((ConditionBlock) block, true);
         }
         // At this post the precondition should be taken care off... now it's the difficult stuff like symbiote etc
@@ -318,7 +291,7 @@ public class RtvalsParser {
                 RealValSymbiote symb = new RealValSymbiote(0, (RealVal) valcell.val()); // First create the symbiote
                 tools.rtvals().addRealVal(symb); // And add it to the collection
                 try {
-                    processDerives(valcell, label, tools, origins, idRef).forEach(val -> symb.addUnderling((RealVal) val)); // Then process because it might be referred to
+                    processDerives(valcell, label, tools, vals).forEach(val -> symb.addUnderling((RealVal) val)); // Then process because it might be referred to
                 } catch (ClassCastException e) {
                     Logger.error("Tried to add an integer to a realval symbiote...? Symbiote:" + symb.id());
                 }
@@ -326,7 +299,7 @@ public class RtvalsParser {
             } else if (valcell.val() instanceof IntegerVal iv) {
                 IntegerValSymbiote symb = new IntegerValSymbiote(0, iv, new NumericVal[1]);
                 tools.rtvals().addIntegerVal(symb);
-                processDerives(valcell, label, tools, origins, idRef).forEach(symb::addUnderling);
+                processDerives(valcell, label, tools, vals).forEach(symb::addUnderling);
                 valcell = new ValCell(symb, valcell.cell());
             }
         } else { // Just find the next block
@@ -339,12 +312,47 @@ public class RtvalsParser {
         return valcell;
     }
 
-    private static ArrayList<NumericVal> processDerives(ValCell valcell, String label, ValParserTools tools, ArrayList<OriginBlock> origins, HashMap<String, String> idRef) {
+    private static ValCell buildRealIntegerVal(ValCell vc, Drawio.DrawioCell target, ConditionBlock pre, ConditionBlock post, String builtin, MathEvalForVal math, int scale) {
+        ValCell valcell = null;
+        if (vc.cell().equals(target)) {
+            valcell = vc;
+            if (pre != null) {
+                pre.id(valcell.val().id() + "_pre");
+                valcell.val().setPreCheck(pre);
+            }
+            if (post != null) {
+                post.id(valcell.val().id() + "_post");
+                valcell.val().setPostCheck(post, false);
+            }
+            if (math != null) {
+                valcell.val().setMath(math);
+            } else if (!builtin.isEmpty()) {
+                if (target.type.startsWith("real")) {
+                    if (Builtin.isValidDoubleProc(builtin)) {
+                        valcell.val().setMath(Builtin.getDoubleFunction(builtin, scale));
+                    } else {
+                        Logger.error("Builtin " + builtin + " not recognized as a valid function.");
+                        return null;
+                    }
+                } else {
+                    if (Builtin.isValidIntProc(builtin)) {
+                        valcell.val().setMath(Builtin.getIntFunction(builtin));
+                    } else {
+                        Logger.error("Builtin " + builtin + " not recognized as a valid function.");
+                        return null;
+                    }
+                }
+            }
+        }
+        return valcell;
+    }
+
+    private static ArrayList<NumericVal> processDerives(ValCell valcell, String label, TaskParser.TaskTools tools, ArrayList<ValCell> vals) {
         StringBuilder derive = new StringBuilder("derive");
         var target = valcell.cell().getArrowTarget(derive.toString());
         ArrayList<NumericVal> unders = new ArrayList<>();
         while (target != null) {
-            var result = buildValCel(target, label, tools, origins, idRef);
+            var result = buildValCel(target, label, tools, vals);
             if (result == null) {
                 Logger.error("Failed to parse derive of type " + valcell.cell().type);
                 return unders;
