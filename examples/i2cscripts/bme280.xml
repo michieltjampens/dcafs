@@ -12,7 +12,7 @@
 		<read reg="0xFA" bits="24" return="1"/>
 		<read reg="0x88" return="1"/> <!-- T1: unsigned 16bit -->
 		<read reg="0x88" signed="true" return="2"/> <!-- T2 to T3: signed 16bit -->
-		
+	</i2cop>
 	<!--
 		double var1 = (adc/16384 - comp[0]/1024) * comp[1];
         double var2 = (adc/131072 - (comp[0]/8192)) * (adc/131072.0 - comp[0]/8192) * comp[2];
@@ -32,7 +32,7 @@
 		x7 = x6/5120
 	-->
 				
-	</i2cop>
+
 	<i2cop id="read_press" info="Read the pressure registers." bits="24">
 		<read reg="0xF7" return="1"/>
 	</i2cop>
