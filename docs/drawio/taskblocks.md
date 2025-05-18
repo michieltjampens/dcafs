@@ -37,27 +37,79 @@
   freely without restriction. Logical sense is not enforced.
 - **Hint** As you might notice when clicking on a shape. The text contains words enclosed in `%`, those are properties.
   Meaning these are placeholders that get replaced by the property if it exists.
+- **Alternative for next** `pass` and `ok` are also viable.
 
 ## Current blocks (as of 3.0.0)
 
-### Origin block
+### Condition Block
 
-- **Purpose:** Serves as entry point to linked blocks and provides an ID that allows it to be triggered via a `command`.
-- **Outputs**: A single output labeled `next`, leading to the next block in the sequence.
-- **Inputs**: Receives a trigger that restarts the task in sequence. Unlike when triggered by a `command` or
-  `Controlblock`,
-  this behavior is sequential rather than threaded.
+- **Purpose:** Checks a condition and diverts flow on fail.
+- **Outputs**:
+    - A route labeled `pass` (`next`,`ok`,`true`,`yes` also valid), leading to the next block in the sequence on pass.
+    - A route labeled `fail`(`no`,`false` also valid), diverting flow when result is false. Marks the task as failed
+    - An optional route labeled `update`, passes the result of the condition to an attached FlagVal.
+- **Inputs**: Receives a trigger that initiates the comparison. Successive triggers repeat this.
 - **Required properties:**
-    - `dcafstype`: Must be `originblock` for it to be processed as an Origin Block.
-    - `dcafsid`: The unique ID used to reference the link. It needs to be unique within file.
+    - `dcafstype`: Must be `conditionblock` for it to be processed as a Condition Block.
+    - `expression`: Defines the condition, brackets and references to `rtvals` are allowed, nesting not (yet).
 - **Optional Properties:**
-    - `autostart`: Defaults to `no/false`. Determines whether the sequence starts on startup/reload or only when
-      triggered by a command or other block.
+    - None yet.
+
+### Control Block
+
+- **Purpose:** Start or stop another block.
+- **Outputs**:
+    - A route labeled `next`, leading to the next block in the sequence.
+    - A route labeled `stop`, the target is stopped and reset.
+    - A route labeled `trigger` or `start`, the target is triggered.
+- **Inputs**: Receives a trigger that initiates the start/stop. Successive triggers repeat this.
+- **Required properties:**
+    - `dcafstype`: Must be `controlblock` for it to be processed as a Control Block.
+- **Optional Properties:**
+    - None yet.
+
+### Counter Block
+
+- **Purpose:** Counts down every time it is triggered, optionally diverts the flow to the alternate route on reaching
+  zero.
+- **Outputs**:
+    - A route labeled `counter>0`, leading to the next block in the sequence, taken while counter is above 0.
+    - A route labeled `counter==0`, diverting flow once the counter reached zero.
+- **Inputs**: Receives a trigger that decrements the counter and acts according to the new value.
+- **Required properties:**
+    - `dcafstype`: Must be `originblock` for it to be processed as a Counter Block.
+    - `counter`: The amount of times this block can be triggered before it optionally diverts flow.
+- **Optional Properties:**
+    - `onzero`: Defaults to `alt_pass`. Determines what happens on reaching zero, options:
+        - `alt_pass`: Follow the alternative route without marking the task as failed.
+        - `alt_fail`: Follow the alternative route but mark the task as failed.
+        - `alt_reset`: Follow the alternative route, don't mark as failed, reset counter.
+            - `stop`: Don't continue.
+    - `altcount`: Defaults to `once`. How often the alternative route is taken, options are `once` or `infinite`. Note
+      that
+      a failed task will be logged on every use of that route and result will be logged even if no block is connected.
+
+### Clock block
+
+- **Purpose:** Pauses **execution** here until the time is reached (for now, repeated infinitely).
+- **Outputs**: A single output labeled `next`, leading to the next block in the route.
+- **Inputs**: Receives a trigger that starts the wait. Successive triggers are ignored.
+- **Required properties:**
+    - `dcafstype`: Must be `clockblock` for it to be processed as a Clock Block.
+    - `time`: Defines the time of day. The format is 24h time (i.e. `13:20`)
+    - `days`: The day(s) on which to execute, options:
+        - `always` : Always run, independent of day
+        - `weekday` : Only run on weekdays
+        - `weekend` : Only run on saturday and sunday
+        - Shortened day list, concat first two letters of the relevant days. So monday and thursday means `moth`.
+        - Full name list: Delimited list of the days to trigger on. So monday and thursday `monday,thursday`.
+- **Optional Properties:**
+    - None for now
 
 ### Delay block
 
-- **Purpose:** Pauses **execution** here until the delay time has passed._
-- **Outputs**: A single output labeled `next`, leading to the next block in the sequence.
+- **Purpose:** Pauses **execution** here until the delay time has passed.
+- **Outputs**: A single output labeled `next`, leading to the next block in the route.
 - **Inputs**: Receives a trigger that starts the delay countdown. Successive triggers are ignored until the countdown
   has passed.
 - **Required properties:**
@@ -67,6 +119,19 @@
     - None for now, below is an untested addition.
     - `retrigger`: Defaults to `no`. When this block is triggered while a wait is active, the count-down **does not**
       restart.
+
+### Flag block
+
+- **Purpose:** Alters the state of a FlagVal.
+- **Outputs**: A single output labeled `next`, leading to the next block in the route.
+- **Inputs**: Receives a trigger that executes the update.
+- **Required properties:**
+    - `dcafstype`: Must be `flagblock` for it to be processed as a Flag Block.
+    - `action`: The state change to execute (note: if 'raise' is used and it was high already, it just remains high)
+        - `raise`: The state is changed to true. Alternatives: `set`
+        - `fall`: The state is changed to false. Alternative: `clear`
+        - `toggle`: The state is negated.
+- **Optional Properties:**
 
 ### Interval block
 
@@ -85,6 +150,49 @@
         - `stop`– stops the current interval cycle;
         - `continue`– ignores the new trigger (default);
         - `restart`– restarts the current interval countdown but doesn't affect `repeats`.
+
+### Log Block
+
+- **Purpose:** Writes a message to a global log.
+- **Outputs**:
+    - A route labeled `next`, leading to the next block in the sequence.
+- **Inputs**: Receives a trigger writes the message. Successive triggers repeat this.
+- **Required properties:**
+    - `dcafstype`: Must be `intervalblock` for it to be processed as an Interval Block.
+    - `message`: Defines the message.
+    - `level`: Determines which level the message has, `info`,`warn` or `error`.
+
+### Origin block
+
+- **Purpose:** Serves as entry point to linked blocks and provides an ID that allows it to be triggered via a `command`.
+- **Outputs**: A single output labeled `next`, leading to the next block in the sequence.
+- **Inputs**: Receives a trigger that restarts the task in sequence. Unlike when triggered by a `command` or
+  `Controlblock`,
+  this behavior is sequential rather than threaded.
+- **Required properties:**
+    - `dcafstype`: Must be `originblock` for it to be processed as an Origin Block.
+    - `dcafsid`: The unique ID used to reference the link. It needs to be unique within file.
+- **Optional Properties:**
+    - `autostart`: Defaults to `no/false`. Determines whether the sequence starts on startup/reload or only when
+      triggered by a command or other block.
+
+### Reader Block
+
+- **Purpose:** Pauses **execution** at this block until either the specified data is received from the source or the
+  timeout expires.
+- **Outputs**:
+    - A route labeled `received`, leading to the next block in the sequence.
+    - A route labeled `timeout`, diverting flow when `timeout` reaches 0.
+- **Inputs**:
+    - A route from another task block, triggers to subscribe to the source and wait for data.
+    - A route labeled `source`, determines which source to subscribe to.
+- **Required properties:**
+    - `dcafstype`: Must be `readerblock` for it to be processed as a Reader Block.
+    - `wants`: Defines the data to wait for. The check is case-insensitive.
+    - `timeout`: Default is **no** timeout. Maximum time to wait before triggering the `timeout` route. The format is
+      abbreviated time period (i.e. `5s`,`10m`,`3h10m2s`)
+- **Optional Properties:**
+    - `source`: Defines the source of the data, if no block is connected with an arrow that has the `source` label.
 
 ### Time Block
 
@@ -105,24 +213,6 @@
                 - For example Tuesday and Thursday -> tuth
             - Our full names: `monday`,`tuesday` and so on. Use  `,` to separate multiple days.
 
-### Reader Block
-
-- **Purpose:** Pauses **execution** at this block until either the specified data is received from the source or the
-  timeout expires.
-- **Outputs**:
-    - A route labeled `received`, leading to the next block in the sequence.
-    - A route labeled `timeout`, diverting flow when `timeout` reaches 0.
-- **Inputs**:
-    - A route from another task block, triggers to subscribe to the source and wait for data.
-    - A route labeled `source`, determines which source to subscribe to.
-- **Required properties:**
-    - `dcafstype`: Must be `readerblock` for it to be processed as a Reader Block.
-    - `wants`: Defines the data to wait for. The check is case-insensitive.
-    - `timeout`: Default is **no** timeout. Maximum time to wait before triggering the `timeout` route. The format is
-      abbreviated time period (i.e. `5s`,`10m`,`3h10m2s`)
-- **Optional Properties:**
-    - `source`: Defines the source of the data, if no block is connected with an arrow that has the `source` label.
-
 ### Writer Block
 
 - **Purpose:** Writes the specified data to the `target`.
@@ -139,37 +229,3 @@
     - `message`: Defines the data to send. Expected end-of-line sequences are automatically added.
 - **Optional Properties:**
     - `target`: Same as the arrow. Used if no arrow connected valid target is found.
-
-### Counter Block
-
-- **Purpose:** Counts down every time it is triggered, optionally diverts the flow to the alternate route on reaching
-  zero.
-- **Outputs**:
-    - A route labeled `counter>0`, leading to the next block in the sequence, taken while counter is above 0.
-    - A route labeled `counter==0`, diverting flow once the counter reached zero.
-- **Inputs**: Receives a trigger that decrements the counter and acts according to the new value.
-- **Required properties:**
-    - `dcafstype`: Must be `originblock` for it to be processed as a Counter Block.
-    - `counter`: The amount of times this block can be triggered before it optionally diverts flow.
-- **Optional Properties:**
-    - `onzero`: Defaults to `alt_pass`. Determines what happens on reaching zero, options:
-        - `alt_pass`: Follow the alternative route without marking the task as failed.
-        - `alt_fail`: Follow the alternative route but mark the task as failed.
-      - `alt_reset`: Follow the alternative route, don't mark as failed, reset counter.
-        - `stop`: Don't continue.
-    - `altcount`: Defaults to `once`. How often the alternative route is taken, options are `once` or `infinite`. Note
-      that
-      a failed task will be logged on every use of that route and result will be logged even if no block is connected.
-
-### Condition Block
-
-- **Purpose:** Checks a condition and diverts flow on fail.
-- **Outputs**:
-    - A route labeled `pass`, leading to the next block in the sequence on pass.
-    - A route labeled `fail`, diverting flow when result is false. Marks the task as failed
-- **Inputs**: Receives a trigger that initiates the comparison. Successive triggers repeat this.
-- **Required properties:**
-    - `dcafstype`: Must be `conditionblock` for it to be processed as a Condition Block.
-    - `expression`: Defines the condition, brackets and references to `rtvals` are allowed, nesting not (yet).
-- **Optional Properties:**
-  
