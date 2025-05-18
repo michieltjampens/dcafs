@@ -1,0 +1,12 @@
+<mxlibrary>[
+  {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object label=\"&amp;lt;b&amp;gt;Input&amp;lt;/b&amp;gt;&amp;lt;div&amp;gt;%group%_%name%&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;internall pull-%pull%&amp;lt;/div&amp;gt;\" placeholders=\"1\" dcafstype=\"inputpin\" gpio=\"??\" group=\"??\" name=\"??\" debounce=\"50ms\" idle=\"high\" pulllogic=\"external\" id=\"2\"&gt;&lt;mxCell style=\"rounded=0;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry width=\"120\" height=\"60\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;mxCell id=\"3\" value=\"falling\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;\" edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"160\" y=\"80\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"200\" y=\"30\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=\"4\" value=\"rising\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;\" edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"100\" y=\"90\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"60\" y=\"120\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 200,
+    "h": 120
+  },
+  {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object label=\"&amp;lt;b&amp;gt;Output Pin&amp;lt;/b&amp;gt;&amp;lt;div&amp;gt;%group%_%name%&amp;lt;/div&amp;gt;\" placeholders=\"1\" dcafstype=\"inputpin\" gpio=\"??\" group=\"??\" name=\"??\" debounce=\"50ms\" idle=\"high\" pulllogic=\"external\" id=\"2\"&gt;&lt;mxCell style=\"rounded=0;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry width=\"120\" height=\"60\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 120,
+    "h": 60
+  }
+]</mxlibrary>
