@@ -7,10 +7,9 @@ Note: Version numbering: x.y.z
 ### To do/fix
 - back up path for sqlite db etc? for when sd is missing/full...
 
-## 3.0.1 (wip)
+## 3.1.0 (wip)
 
-## Drawio
-
+### Drawio (Still experimental)
 - Added flagval
     - Active: Flagblock that allows set/clear/toggle of a flagval
     - Reactive: Flagval that allows arrows that depend on the effect the update had (h->h,l->l,l->h,h->l)
@@ -18,10 +17,16 @@ Note: Version numbering: x.y.z
           conditionblock that triggers the update with the result of the condition.
         - Made it so a conditionblock that is connected to a flagval encapsulates it and takes over its 'next'
 - Added GPIO, pretending to be flagval. Input can trigger on rising and falling edge, just like regular flag.
+  - This involved adding extra classes, xml version still uses 'old' ones.
+- Controlblock can now be used for 'any' taskblock instead of only origin block and allows `start` as alternative to
+  `trigger`.
+- Conditionblock received a new arrow with label 'update', when connected to a flagval, it will update the state
+  according to the result.
+- If no label is given to an arrow connecting two shapes, `next` is given as default.
 
-## Fixes
-
+### Fixes
 - Datagram always added a : even without arguments, changed that. This was reason for exit no longer working in telnet.
+- Taskmanagerpool watcher gave an error on linux because it wasn't using an absolute path.
 
 ## 3.0.0 (15/05/2025)
 
