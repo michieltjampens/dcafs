@@ -17,8 +17,8 @@ public class GpioFab {
             Logger.error("Couldn't find match for pin name <" + name + ">");
             return null;
         }
-        Logger.info("Matched " + name + " to " + pinInfo.getName());
 
+        Logger.info("Matched " + name + " to " + pinInfo.getName());
         return initInput(pinInfo, pull, edge);
     }
 
@@ -30,8 +30,8 @@ public class GpioFab {
             Logger.error("Couldn't find match for pin name <" + name + ">");
             return null;
         }
-        Logger.info("Matched " + name + " to " + pinInfo.getName());
 
+        Logger.info("Matched " + name + " to " + pinInfo.getName());
         return addOutput(pinInfo, activeHigh).orElse(null);
     }
 
