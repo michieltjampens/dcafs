@@ -9,6 +9,20 @@ Note: Version numbering: x.y.z
 
 ## 3.0.1 (wip)
 
+## Drawio
+
+- Added flagval
+    - Active: Flagblock that allows set/clear/toggle of a flagval
+    - Reactive: Flagval that allows arrows that depend on the effect the update had (h->h,l->l,l->h,h->l)
+        - Can connect a conditionblock to a flagval using 'update', this adds a reference to the flagval in that
+          conditionblock that triggers the update with the result of the condition.
+        - Made it so a conditionblock that is connected to a flagval encapsulates it and takes over its 'next'
+- Added GPIO, pretending to be flagval. Input can trigger on rising and falling edge, just like regular flag.
+
+## Fixes
+
+- Datagram always added a : even without arguments, changed that. This was reason for exit no longer working in telnet.
+
 ## 3.0.0 (15/05/2025)
 
 - Added EXPERIMENTAL support for reading draw.io files for configuration as alternative to xml.
