@@ -215,7 +215,7 @@ public class TaskParser {
             return null;
         }
         clockBlock.id(alterId(id));
-        addNext(cell, clockBlock, tools, "next");
+        addNext(cell, clockBlock, tools, "next", "pass", "ok");
         return clockBlock;
     }
 
@@ -231,7 +231,7 @@ public class TaskParser {
         }
         var wr = new WritableBlock(cell.getParam("target", ""), cell.getParam("message", ""));
         wr.id(alterId(id));
-        addNext(cell, wr, tools, "next");
+        addNext(cell, wr, tools, "next", "pass", "ok");
         addAlt(cell, wr, tools, "timeout");
         return wr;
     }
@@ -248,23 +248,25 @@ public class TaskParser {
 
         counter.setOnZero(onzero, altInfinite);
         counter.id(alterId(id));
-        addNext(cell, counter, tools, "count>0", "next");
+        addNext(cell, counter, tools, "count>0", "next", "pass", "ok");
         addAlt(cell, counter, tools, "count==0");
         return counter;
     }
 
     private static ControlBlock doControlBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing control block");
-        if (!cell.hasArrow("trigger") && !cell.hasArrow("stop")) {
-            Logger.error("Controlblock without a connection to trigger or stop.");
+        if (cell.getArrowTarget("stop", "trigger", "start") == null) {
+            Logger.error("Controlblock without a connection to trigger/start or stop.");
             return null;
         }
 
         AbstractBlock trigger = null, stop = null;
 
         var triggerCell = cell.getArrowTarget("trigger");
+        if (triggerCell == null)
+            triggerCell = cell.getArrowTarget("start");
         var stopCell = cell.getArrowTarget("stop");
-        var cbId = alterId(id);
+
 
         if (stopCell != null || triggerCell != null) {
             var stopDas = stopCell == null ? "" : stopCell.dasId;
@@ -294,22 +296,8 @@ public class TaskParser {
         }
         var cb = new ControlBlock(tools.eventLoop, trigger, stop);
         cb.id(alterId(id));
-        addNext(cell, cb, tools, "next");
+        addNext(cell, cb, tools, "next", "pass", "ok");
         return cb;
-    }
-
-    private static AbstractBlock createOrTake(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        AbstractBlock block;
-        if (cell != null) {
-            if (tools.blocks.containsKey(cell.drawId)) {
-                return tools.blocks.get(cell.drawId);
-            } else {
-                block = createBlock(cell, tools, id);
-                tools.blocks.put(cell.drawId, block);
-                return block;
-            }
-        }
-        return null;
     }
     private static ReadingBlock doReaderBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
 
@@ -330,7 +318,7 @@ public class TaskParser {
         var reader = new ReadingBlock(tools.eventLoop);
         reader.setMessage(src, cell.getParam("wants", ""), cell.getParam("timeout", ""));
         reader.id(alterId(id));
-        addNext(cell, reader, tools, "received", "ok");
+        addNext(cell, reader, tools, "received", "ok", "next");
         addAlt(cell, reader, tools, "timeout");
         return reader;
     }
@@ -368,7 +356,7 @@ public class TaskParser {
         };
         if (lb != null) {
             lb.id(alterId(id));
-            addNext(cell, lb, tools, "next", "pass");
+            addNext(cell, lb, tools, "next", "pass", "ok");
         }
         return lb;
     }
@@ -451,7 +439,7 @@ public class TaskParser {
         }
         FlagBlock fb = switch (action) {
             case "raise", "set" -> FlagBlock.raises(flagOpt.get());
-            case "lower", "reset", "clear" -> FlagBlock.lowers(flagOpt.get());
+            case "lower", "clear" -> FlagBlock.lowers(flagOpt.get());
             case "toggle" -> FlagBlock.toggles(flagOpt.get());
             default -> {
                 Logger.error("Unknown action picked for " + flagId + ": " + flagId);
