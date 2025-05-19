@@ -23,6 +23,10 @@ Note: Version numbering: x.y.z
 - Conditionblock received a new arrow with label 'update', when connected to a flagval, it will update the state
   according to the result.
 - If no label is given to an arrow connecting two shapes, `next` is given as default.
+- Fixed, if controlblock trigger target isn't created by a task, meaning it's just an alternative path, the id was
+  taken from the next target. Now it get [T]|0 and so on appended to controlblock id.
+- The method that updates the dcafsid's now first checks to see if the node already has that id. No write is done if
+  nothing is changed.
 
 ### Fixes
 - Datagram always added a : even without arguments, changed that. This was reason for exit no longer working in telnet.
