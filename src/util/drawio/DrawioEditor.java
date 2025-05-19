@@ -22,15 +22,22 @@ public class DrawioEditor {
 
     public static void addIdsInTab(XMLdigger dig, ArrayList<String[]> idMap) {
         var iterator = idMap.iterator();
+        var altered = false;
         while (iterator.hasNext()) {
             var pair = iterator.next();
             if (dig.hasPeek("object", "id", pair[0])) {
-                dig.usePeek().useEditor().attr("dcafsid", pair[1]);
+                dig.usePeek();
+                if (!dig.attr("dcafsid", "").equals(pair[1])) {
+                    dig.useEditor().attr("dcafsid", pair[1]);
+                    Logger.info("Gave " + pair[1] + " to " + pair[0]);
+                    altered = true;
+                }
                 dig.goUp();
                 iterator.remove();
             }
         }
-        dig.useEditor().build();
+        if (altered)
+            dig.useEditor().build();
     }
 
     public static int addAttributeBatch(Path xml, ArrayList<String[]> prep) {
