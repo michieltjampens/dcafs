@@ -68,7 +68,7 @@ public class TaskParser {
 
                 if (trigger == null) {
                     var triggerCell = cells.get(entry.getValue()[0]);
-                    trigger = createBlock(triggerCell, tools, control.id());
+                    trigger = createBlock(triggerCell, tools, control.id() + "[T]" + "|");
                 }
                 control.setBlocks(trigger, stop);
             }
