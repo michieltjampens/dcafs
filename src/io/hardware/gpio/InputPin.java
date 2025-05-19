@@ -29,11 +29,6 @@ public class InputPin extends FlagVal implements DeviceEventConsumer<DigitalInpu
     }
 
     @Override
-    public void update(boolean state) {
-        value = input.getValue();
-        super.update(state);
-    }
-    @Override
     public void accept(DigitalInputEvent event) {
         //Logger.info("Trigger: " + event);
         var newState = event.getValue();
