@@ -13,11 +13,24 @@ public class OutputPin extends FlagVal {
 
     @Override
     public void update(boolean state) {
+        super.update(state);
         output.setValue(state);
     }
 
     @Override
+    public void value(boolean state) {
+        output.setValue(state);
+        value = state;
+    }
+
+    @Override
+    public void resetValue() {
+        super.resetValue();
+        output.setValue(defValue);
+    }
+    @Override
     public void toggleState() {
+        super.toggleState();
         output.toggle();
     }
 
