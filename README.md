@@ -20,13 +20,13 @@ The 'Getting Started' guide is available [here](https://github.com/michieltjampe
 
 Starting with version 3.0.0, dcafs supports reading Draw.io diagrams as a basic form of visual programming.
 
-* The parser can handle multiple tabs.
-* The configuration is defined by shape properties and arrow label/value, allowing users to customize visuals freely.
-* Some suggestions of visuals can be found in the [drawio folder](https://github.com/michieltjampens/dcafs/tree/main/drawio)
-* TaskManager blocks have shape alternatives, [an md about this](https://github.com/michieltjampens/dcafs/blob/main/docs/drawio/taskblocks.md)
+* **Multitab support** The parser can handle multiple tabs.
+* **Minimal visual restrictions** The configuration is defined by shape properties and arrow label/value, allowing users to customize visuals freely.
+* **To get started** Some suggestions of visuals can be found in the [drawio folder](https://github.com/michieltjampens/dcafs/tree/main/drawio)
+* **Task Blocks** TaskManager blocks have shape alternatives, [an md about this](https://github.com/michieltjampens/dcafs/blob/main/docs/drawio/taskblocks.md)
   * Drawio configuration auto-reloads on change. (currently triggers a full clean sweep)
   * Enables complex flows with branching and returning.
-* Rtvals blocks are under development.
+* **Rtvals blocks** are under development.
   * Enables reactive logic based on real/integer variables.
   * This logic can flow into taskmanager logic, creating active/reactive hybrid system.
 
