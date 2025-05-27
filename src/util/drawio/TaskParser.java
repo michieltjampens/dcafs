@@ -116,26 +116,19 @@ public class TaskParser {
     }
 
     private static OriginBlock doOriginBlock(Drawio.DrawioCell cell) {
-        var origin = new OriginBlock(cell.dasId);
+        var ob = new OriginBlock(cell.dasId);
 
         var auto = cell.getParam("autostart", "no");
         var shut = cell.getParam("shutdownhook", "no");
 
-        origin.setAutostart(Tools.parseBool(auto, false));
-        origin.setShutdownhook(Tools.parseBool(shut, false));
+        ob.setAutostart(Tools.parseBool(auto, false));
+        ob.setShutdownhook(Tools.parseBool(shut, false));
 
         if (!cell.hasArrow("next")) {
-            if (cell.hasArrow("")) {
-                var next = cell.getArrowTarget("");
-                if (next.type.endsWith("block")) {
-                    cell.addArrow("next", next);
-                    Logger.info(origin.id() + " -> No next arrow defined, but an arrow with empty label found instead");
-                    return origin;
-                }
-            }
-            Logger.error("Origin block without next? origin:" + origin.id());
+            if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                Logger.error(ob.id() + " -> Origin Block without 'next' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
         }
-        return origin;
+        return ob;
     }
 
     private static DelayBlock doDelayBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
@@ -144,7 +137,10 @@ public class TaskParser {
             var eventLoop = tools.eventLoop();
             var db = DelayBlock.useDelay(cell.params.get("delay"), eventLoop);
             db.id(alterId(id));
-            addNext(cell, db, tools, "next");
+            if (!addNext(cell, db, tools, "next", "ok", "done")) {
+                if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                    Logger.error(db.id() + " -> Delay Block without 'next/done/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
+            }
             return db;
         }
         Logger.error("No delay specified for delayblock");
@@ -215,7 +211,10 @@ public class TaskParser {
             return null;
         }
         clockBlock.id(alterId(id));
-        addNext(cell, clockBlock, tools, "next", "pass", "ok");
+        if (!addNext(cell, clockBlock, tools, "next", "pass", "ok")) {
+            if (cell.hasArrows())
+                Logger.error(clockBlock.id() + " -> clock block without 'next' arrow, but does have at least one other arrow connected.");
+        }
         return clockBlock;
     }
 
@@ -318,6 +317,7 @@ public class TaskParser {
         var reader = new ReadingBlock(tools.eventLoop);
         reader.setMessage(src, cell.getParam("wants", ""), cell.getParam("timeout", ""));
         reader.id(alterId(id));
+        // Arrows
         addNext(cell, reader, tools, "received", "ok", "next");
         addAlt(cell, reader, tools, "timeout");
         return reader;
@@ -356,7 +356,11 @@ public class TaskParser {
         };
         if (lb != null) {
             lb.id(alterId(id));
-            addNext(cell, lb, tools, "next", "pass", "ok");
+            // Arrows
+            if (!addNext(cell, lb, tools, "next", "pass", "ok")) {
+                if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                    Logger.error(lb.id() + " -> Log Block without 'next/pass/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
+            }
         }
         return lb;
     }
@@ -448,11 +452,15 @@ public class TaskParser {
         };
         if (fb != null) {
             fb.id(alterId(id));
-            addNext(cell, fb, tools, "next", "pass", "yes", "ok");
+            if (!addNext(cell, fb, tools, "next", "pass", "yes", "ok")) {
+                if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                    Logger.error(fb.id() + " -> Flag Block without 'next/pass/yes/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
+            }
         }
         return fb;
     }
-    private static void addNext(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... nexts) {
+
+    private static boolean addNext(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... nexts) {
 
         tools.blocks.put(cell.drawId, block);
         if (block.id().isEmpty())
@@ -468,9 +476,10 @@ public class TaskParser {
                 } else {
                     block.addNext(existing);
                 }
-                break;
+                return true;
             }
         }
+        return false;
     }
 
     private static boolean addAlt(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... labels) {
