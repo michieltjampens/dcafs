@@ -15,9 +15,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class RtvalsParser {
-    public record ValParserTools(EventLoopGroup eventLoop, Rtvals rtvals,
-                                 HashMap<String, AbstractBlock> blocks, ArrayList<ValCell> vals, Path source) {
-    }
 
     public record ValCell(NumericVal val, Drawio.DrawioCell cell) {
     }

@@ -259,7 +259,7 @@ public class XMLtools {
 				.flatMap(list -> IntStream.range(0, list.getLength()).mapToObj(list::item))// Extract the items
 				.filter(node -> node.getNodeType() == Node.ELEMENT_NODE)// Remove non-element nodes
 				.map(node -> (Element) node)// Cast the remainder to Element
-				.filter(ele -> ele.getParentNode().equals(element))// Remove that don't have element as parent node
+				.filter(ele -> ele.getParentNode().equals(element))// Remove those that don't have element as parent node
 				.toList(); // Add the matches to an immutable list
 	}
 	/**

@@ -41,47 +41,34 @@ public class Drawio {
         int cellSize = cells.size();
         for (var obj : diagram.digOut("object")) {
             var drawId = obj.attr("id", "");
-            parseObject(obj).ifPresent(ob -> cells.put(drawId, ob));
+            parseShapeObjects(obj).ifPresent(ob -> cells.put(drawId, ob));
         }
-        cellSize = cells.size() - cellSize;
-
         diagram.goUp();
+        cellSize = cells.size() - cellSize;
 
         // Start looking for arrows
         HashMap<String, Arrow> arrows = new HashMap<>();
+        for (var obj : diagram.digOut("object")) {
+            if (!obj.attr("dcafstype", "").isEmpty())
+                continue;
+            if (obj.attr("dcafslabel", "").isEmpty())
+                continue;
+            var label = obj.attr("label", "");
+            if (label.isEmpty() || label.startsWith("%"))
+                label = obj.attr("dcafslabel", label);
+            if (obj.hasPeek("mxCell")) {
+                processArrow(obj.digDown("mxCell"), label, cells, arrows);
+                obj.goUp();
+            }
+        }
+        diagram.goUp();
         var mxCells = diagram.digOut("mxCell");
         Iterator<XMLdigger> it = mxCells.iterator(); // Use iterator so we can remove used nodes
         while (it.hasNext()) {
             var mxcell = it.next();
             if (mxcell.attr("parent", -1) != 1)
                 continue;
-            var drawId = mxcell.attr("id", "");
-
-            if (drawId.equals("0") || drawId.equals("1"))
-                continue;
-
-            var style = mxcell.attr("style", "");
-            var source = mxcell.attr("source", "");
-            var target = mxcell.attr("target", "");
-
-            var tg = cells.get(target);
-            var src = cells.get(source);
-            var label = mxcell.attr("value", "");
-
-            if (style.startsWith("endArrow")) {
-                if (src != null && target != null && !label.isEmpty()) {
-                    src.addArrow(label, tg);
-                } else {
-                    arrows.put(drawId, new Arrow(src, label, tg));
-                }
-            } else if (src != null) {
-                if (label.isEmpty()) {
-                    arrows.put(drawId, new Arrow(src, label, tg));
-                } else {
-                    src.addArrow(label, tg);
-                }
-
-            }
+            processArrow(mxcell, "", cells, arrows);
             it.remove();
         }
         int arrowCount = arrows.size();
@@ -101,12 +88,17 @@ public class Drawio {
             if (arrows.isEmpty())
                 break;
         }
-
-        for (var arrow : arrows.values()) {
+        // Check the leftovers if they have a block as target and source but no label, if so change label to 'next'
+        var ars = arrows.values().iterator();
+        while (ars.hasNext()) {
+            var arrow = ars.next();
             if (arrow.source != null && arrow.target != null) {
                 if (arrow.target.type.endsWith("block")) {
-                    arrow.source.addArrow("next", arrow.target);
-                    Logger.info("Adding blank arrow to " + arrow.source.type);
+                    if (!arrow.source.hasArrows()) {
+                        arrow.source.addArrow("next", arrow.target);
+                        Logger.info("Adding blank arrow to " + arrow.source.type + " with default label of next.");
+                        ars.remove();
+                    }
                 }
             }
         }
@@ -115,7 +107,36 @@ public class Drawio {
         return cells;
     }
 
-    private static Optional<DrawioCell> parseObject(XMLdigger obj) {
+    private static void processArrow(XMLdigger mxcell, String objLabel, HashMap<String, DrawioCell> cells, HashMap<String, Arrow> arrows) {
+        var drawId = mxcell.attr("id", "");
+
+        if (drawId.equals("0") || drawId.equals("1"))
+            return;
+
+        var style = mxcell.attr("style", "");
+        var source = mxcell.attr("source", "");
+        var target = mxcell.attr("target", "");
+
+        var tg = cells.get(target);
+        var src = cells.get(source);
+        var label = mxcell.attr("value", objLabel);
+
+        if (style.startsWith("endArrow")) {
+            if (src != null && target != null && !label.isEmpty()) {
+                src.addArrow(label, tg);
+            } else {
+                arrows.put(drawId, new Arrow(src, label, tg));
+            }
+        } else if (src != null) {
+            if (label.isEmpty()) {
+                arrows.put(drawId, new Arrow(src, label, tg));
+            } else {
+                src.addArrow(label, tg);
+            }
+        }
+    }
+
+    private static Optional<DrawioCell> parseShapeObjects(XMLdigger obj) {
         var drawId = obj.attr("id", "");
         var dasType = obj.attr("dcafstype", "");
 
@@ -220,6 +241,9 @@ public class Drawio {
             return null;
         }
 
+        public String getArrowLabels() {
+            return String.join(",", arrows.keySet());
+        }
         public boolean hasArrows() {
             return !arrows.isEmpty();
         }
