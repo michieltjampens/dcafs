@@ -91,7 +91,7 @@ public class TaskManagerFab {
                             onFailure = null;
                         }
                         if (type.length == 2)
-                            prev.addNext(new DelayBlock(eventLoop).useDelay(type[1]));
+                            prev.addNext(DelayBlock.useDelay(type[1], "ignore", eventLoop));
                     }
                     case "retry" -> {
                         var result = parseRetry(task, prev,tm);
@@ -172,10 +172,10 @@ public class TaskManagerFab {
         var timeAttr = task.matchAttr("time", "localtime");
         var time = task.attr(timeAttr, "");
 
-        var delayBlock = new DelayBlock(eventLoop);
+        var delayBlock = DelayBlock.useDelay("1s", "ignore", eventLoop);
 
         if (!delay.equals("-1s")) {
-            delayBlock.useDelay(delay);
+            delayBlock.alterDelay(delay);
         } else if (!time.isEmpty()) {
             return ClockBlock.create(eventLoop, time, timeAttr.contains("local"));
         } else if (!interval.isEmpty()) {
@@ -267,7 +267,7 @@ public class TaskManagerFab {
             if (cond == null)
                 return null;
 
-            var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
+            var delay = DelayBlock.useDelay(task.attr("interval", "1s"), "restart", eventLoop);
 
             cond.setAltRouteBlock(counter); // If condition fails, go to delay
             counter.addNext(delay).addNext(cond);  // After counter go to the delay and then back to condition
@@ -338,7 +338,7 @@ public class TaskManagerFab {
             var cond = ConditionBlock.build(task.value(""), rtvals, sharedMem).orElse(null);
             if (cond == null)
                 return null;
-            var delay = new DelayBlock(eventLoop).useDelay(task.attr("interval", "1s"));
+            var delay = DelayBlock.useDelay(task.attr("interval", "1s"), "restart", eventLoop);
 
             cond.setNext(counter).setAltRouteBlock(dummy);  // If ok, go to counter, if not, dummy
             counter.setNext(delay);    // After counter go to delay
@@ -356,7 +356,7 @@ public class TaskManagerFab {
 
         var content = node.value("");
         return switch (node.tagName("")) {
-            case "delay" -> new DelayBlock(eventLoop).useDelay(content);
+            case "delay" -> DelayBlock.useDelay(content, "restart", eventLoop);
             case "req" -> ConditionBlock.build(content, rtvals, sharedMem).orElse(null);
             case "stream" -> {
                 var id = node.attr("to", "");

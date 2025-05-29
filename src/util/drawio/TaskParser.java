@@ -135,7 +135,8 @@ public class TaskParser {
         Logger.info("Processing delay block");
         if (cell.hasParam("delay")) {
             var eventLoop = tools.eventLoop();
-            var db = DelayBlock.useDelay(cell.params.get("delay"), eventLoop);
+            var db = DelayBlock.useDelay(cell.params.get("delay"), cell.getParam("retrigger", "restart"), eventLoop);
+
             db.id(alterId(id));
             if (!addNext(cell, db, tools, "next", "ok", "done")) {
                 if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
@@ -169,7 +170,7 @@ public class TaskParser {
 
         if (repeats == 0) { // Repeats of zero means it's just a single delay, so make it one
             var eventLoop = tools.eventLoop();
-            var db = DelayBlock.useDelay(interval, eventLoop);
+            var db = DelayBlock.useDelay(interval, "ignore", eventLoop);
             db.id(alterId(id));
             addNext(cell, db, tools, "next");
             return db;

@@ -116,9 +116,10 @@
     - `dcafstype`: Must be `delayblock` for it to be processed as a Delay Block.
     - `delay`: Defines the period to wait. The format is abbreviated time period (i.e. `5s`,`10m`,`3h10m2s`)
 - **Optional Properties:**
-    - None for now, below is an untested addition.
-    - `retrigger`: Defaults to `no`. When this block is triggered while a wait is active, the count-down **does not**
-      restart.
+  - `retrigger`: What to do when a trigger is received after the first one, options (default: `restart`).
+  - `ignore`: Ignore the trigger.
+  - `cancel`: Stop current delay if active, don't do anything else.
+  - `restart`: Stop current delay (if active), restart delay.
 
 ### Flag block
 

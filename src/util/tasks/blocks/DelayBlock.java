@@ -11,7 +11,11 @@ public class DelayBlock extends AbstractBlock {
 
     enum TYPE {DELAY, INTERVAL}
 
+    enum RETRIGGER {IGNORE, CANCEL, RESTART}
+
     TYPE type = TYPE.DELAY;
+    RETRIGGER retrigger;
+
     EventLoopGroup eventLoop;
     long initialDelay = 0;
     long interval = 0;
@@ -19,14 +23,14 @@ public class DelayBlock extends AbstractBlock {
     int reps = -1;
 
     ScheduledFuture<?> future;
-    boolean retrigger = false;
 
-    public DelayBlock(EventLoopGroup eventLoop) {
+    private DelayBlock(EventLoopGroup eventLoop, RETRIGGER retrigger) {
+        this.retrigger = retrigger;
         this.eventLoop = eventLoop;
     }
 
     public static DelayBlock useInterval(EventLoopGroup eventLoop, String initialDelay, String interval, int repeats) {
-        var db = new DelayBlock(eventLoop);
+        var db = new DelayBlock(eventLoop, RETRIGGER.IGNORE);
         return db.useInterval(initialDelay, interval, repeats);
     }
 
@@ -39,29 +43,49 @@ public class DelayBlock extends AbstractBlock {
         return this;
     }
 
-    public static DelayBlock useDelay(String delay, EventLoopGroup eventLoop) {
-        var db = new DelayBlock(eventLoop);
-        return db.useDelay(delay);
+    public static DelayBlock useDelay(String delay, String retriggerVal, EventLoopGroup eventLoop) {
+        var retrigger = switch (retriggerVal.toLowerCase()) {
+            case "ignore" -> RETRIGGER.IGNORE;
+            case "restart" -> RETRIGGER.RESTART;
+            case "cancel" -> RETRIGGER.CANCEL;
+            default -> {
+                Logger.error("Unknown retrigger property value used '" + retriggerVal + "', defaulting to 'restart'.");
+                yield RETRIGGER.RESTART;
+            }
+        };
+        var db = new DelayBlock(eventLoop, retrigger);
+        return db.alterDelay(delay);
     }
-    public DelayBlock useDelay(String delay) {
+
+    public DelayBlock alterDelay(String delay) {
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(delay);
         type = TYPE.DELAY;
         return this;
     }
 
-
     @Override
     public boolean start() {
-        clean = false;
-        if (future == null || future.isCancelled() || future.isDone()) {
+        if (clean) {
             firstRun();
-        } else if (retrigger) {
-            future.cancel(true);
-            firstRun();
+        } else if (retrigger != RETRIGGER.IGNORE) {
+            cancelIfRunning(retrigger == RETRIGGER.RESTART);
         }
+        clean = false;
         return true;
     }
 
+    /**
+     * Cancels the current delay if active, and restarts it if requested.
+     *
+     * @param shouldRestart Whether a new delay should start or not
+     */
+    private void cancelIfRunning(boolean shouldRestart) {
+        if (future != null && !(future.isCancelled() || future.isDone())) {
+            future.cancel(false);
+        }
+        if (shouldRestart)
+            firstRun();
+    }
     private void firstRun() {
         if (future != null && !future.isDone()) {
             Logger.error(id() + " -> Old future still alive? Cancelling...");
@@ -90,6 +114,7 @@ public class DelayBlock extends AbstractBlock {
             case -1 -> super.doNext(); // -1 means endless
             case 0 -> { // Last rep done, take the detour
                 doAltRoute(false); // Do the alternative route
+                cancelIfRunning(false);
             }
             default -> { // Reps not yet 0
                 super.doNext();
