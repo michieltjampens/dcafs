@@ -3,10 +3,7 @@ package util.database;
 import das.Paths;
 import org.tinylog.Logger;
 import util.data.store.ValStore;
-import util.data.vals.IntegerVal;
-import util.data.vals.RealVal;
-import util.data.vals.Rtvals;
-import util.data.vals.TextVal;
+import util.data.vals.*;
 import util.xml.XMLdigger;
 import util.xml.XMLfab;
 
@@ -21,7 +18,11 @@ public class SqlTableFab {
 
         var tableName = dig.attr("name", "").trim();
         var table = SqlTable.withName(tableName);
-
+        var allow = dig.attr("allowinserts", "");
+        if (!allow.isEmpty()) {
+            var split = allow.split("_", 2);
+            table.setAllowInsertsFlag(FlagVal.newVal(split[0], split[1]));
+        }
         boolean ok = true;
 
         // Build the columns

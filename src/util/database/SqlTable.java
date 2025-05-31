@@ -3,6 +3,7 @@ package util.database;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
 import util.data.store.ValStore;
+import util.data.vals.FlagVal;
 import util.tools.FileTools;
 import util.tools.TimeTools;
 import util.xml.XMLfab;
@@ -23,6 +24,7 @@ public class SqlTable{
     private final String tableName;
     private final ArrayList<SqlColumn> columns = new ArrayList<>();
     private final HashMap<String, ValStore> stores = new HashMap<>();
+    private FlagVal allowInserts = FlagVal.newVal("dcafs", "temp");
 
     enum TABLE_STATE {
         NEW, READ_FROM_XML, XML_FAILED, FOUND_IN_DB, READ_FROM_DB, READY
@@ -41,8 +43,21 @@ public class SqlTable{
     public SqlTable(String name) {
         this.tableName = name;
         preps.put("", new SqlTableFab.PrepStatement());
+        allowInserts.value(true);
     }
 
+    public void setAllowInsertsFlag(FlagVal allow) {
+        allow.value(true);
+        this.allowInserts = allow;
+    }
+
+    public boolean insertsNotAllowed() {
+        return !allowInserts.isUp();
+    }
+
+    public FlagVal getAllowInsertFlag() {
+        return allowInserts;
+    }
     /**
      * Create a SQLiteTable object for a table with the given name
      *

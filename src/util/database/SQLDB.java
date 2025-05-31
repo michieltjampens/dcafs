@@ -543,23 +543,34 @@ public class SQLDB extends Database implements TableInsert{
     public void buildStores(Rtvals rtvals) {
         tables.values().stream()
                 .filter(table -> table.noValidStore(""))
-                .forEach(table -> SqlTableFab.buildTableStore(table, rtvals));
+                .forEach(table -> {
+                    SqlTableFab.buildTableStore(table, rtvals);
+                    var allow = table.getAllowInsertFlag();
+                    var res = rtvals.addFlagVal(allow); // Only adds if absent, returns og flagval if it was absent
+                    if (res != null)
+                        table.setAllowInsertsFlag(res);
+                });
     }
     public synchronized boolean insertStore(String[] dbInsert ) {
-        if (!doInserts)
+        if (!doInserts)  // Global insert disable
             return true;
 
         if( !id.equalsIgnoreCase(dbInsert[0])) {
             Logger.warn(id + "(db) -> Mismatch between insert id and current db -> " + id + " vs " + dbInsert[0]);
             return false;
         }
-        if( getTable(dbInsert[1]).isEmpty() ){
+        var tableOpt = getTable(dbInsert[1]);
+        if (tableOpt.isEmpty()) {
             Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+">");
             lastError= "No such table <"+dbInsert[1]+"> in the database.";
             insertErrors++;
             return false;
         }
-        var table = getTable(dbInsert[1]).get();
+
+        var table = tableOpt.get();
+        if (table.insertsNotAllowed()) // Table level disable
+            return false;
+
         if (!table.isReady() && isValid(2)) {
             Logger.error(id+"(db) ->  No such table <"+dbInsert[1]+"> in the database.");
             lastError= "No such table <"+dbInsert[1]+"> in the database.";
