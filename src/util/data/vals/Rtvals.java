@@ -230,12 +230,12 @@ public class Rtvals implements Commandable {
     }
 
     /* ************************************** F L A G S ************************************************************* */
-    public void addFlagVal(FlagVal fv) {
+    public FlagVal addFlagVal(FlagVal fv) {
         if (fv == null) {
-            Logger.error("Invalid IntegerVal received, won't try adding it");
-            return;
+            Logger.error("Invalid FlagVal received, won't try adding it");
+            return null;
         }
-        flagVals.putIfAbsent(fv.id(), fv);
+        return flagVals.putIfAbsent(fv.id(), fv);
     }
 
     public boolean hasFlag(String flag) {
