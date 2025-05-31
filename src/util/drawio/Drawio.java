@@ -90,20 +90,32 @@ public class Drawio {
         }
         // Check the leftovers if they have a block as target and source but no label, if so change label to 'next'
         var ars = arrows.values().iterator();
+        int blanks = 0;
         while (ars.hasNext()) {
             var arrow = ars.next();
             if (arrow.source != null && arrow.target != null) {
                 if (arrow.target.type.endsWith("block")) {
-                    if (!arrow.source.hasArrows()) {
+                    if (arrow.source().hasArrowTarget(arrow.target().drawId)) {
+                        Logger.warn("Two arrows with same target starting from a " + arrow.source().type + " with id " + arrow.source().drawId);
+                        continue;
+                    }
+                    if (arrow.source().drawId.equals(arrow.target().drawId)) {
+                        Logger.warn("Looping arrow? id=" + arrow.source().drawId + "/" + arrow.source().dasId);
+                        continue;
+                    }
+                    if (!arrow.source.hasArrow("next")) {
                         arrow.source.addArrow("next", arrow.target);
-                        Logger.info("Adding blank arrow to " + arrow.source.type + " with default label of next.");
+                        blanks++;
                         ars.remove();
+                    } else {
+                        Logger.warn("There's a shape with a blank and next arrow or two blanks! type=" + arrow.source().type + " id=" + arrow.source.drawId + "/" + arrow.source().dasId);
                     }
                 }
             }
         }
+        Logger.info("Added " + blanks + " blank arrows to shapes after setting label to next.");
         Logger.info(tabName + " -> Found " + cellSize + " valid shapes, " + arrowCount
-                + " arrows of which " + arrows.size() + " are left after parsing (probably without label).");
+                + " arrows of which " + arrows.size() + " are left after parsing.");
         return cells;
     }
 
@@ -228,6 +240,13 @@ public class Drawio {
             return false;
         }
 
+        public boolean hasArrowTarget(String id) {
+            for (var arrow : arrows.values()) {
+                if (arrow.drawId.equals(id))
+                    return true;
+            }
+            return false;
+        }
         public DrawioCell getArrowTarget(String label) {
             return arrows.get(label);
         }
