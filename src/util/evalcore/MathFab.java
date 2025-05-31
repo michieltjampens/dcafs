@@ -17,6 +17,13 @@ public class MathFab {
         return build(expression, rtvals, valRefs);
     }
 
+    /**
+     * Converts a math expression to an evaluator
+     *
+     * @param expression The expression to convert
+     * @param rtvals     The global pool of realtimevalues
+     * @return The evaluator build or null if failed
+     */
     public static MathEvaluator parseExpression(String expression, Rtvals rtvals) {
         return build(expression, rtvals, null);
     }
@@ -281,6 +288,8 @@ public class MathFab {
     }
 
     public static MathEvalForVal stripForValIfPossible(MathEvaluator math) {
+        if (math == null)
+            return null;
         // No refs allowed in lite
         if (math.getRefs() != null)
             return math;

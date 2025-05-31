@@ -46,8 +46,8 @@ public class Reducer {
                         .orElse(defValue);
             };
             default -> {
-                Logger.warn("Unknown reducer type '{}'. Defaulting to 'avg'. Waiting on your pull request to get it implemented!", reducer);
-                yield (window) -> DoubleStream.of(window).average().orElse(defValue);
+                Logger.warn("Unknown reducer type '{}'. Returning null. Waiting on your pull request to get it implemented!", reducer);
+                yield null;
             }
 
         };
@@ -69,8 +69,8 @@ public class Reducer {
             };
             case "sum" -> sumInts();
             default -> {
-                Logger.warn("Unknown reducer type '{}'. Defaulting to 'sum'. Waiting on your pull request to get it implemented!", reducer);
-                yield sumInts();
+                Logger.warn("Unknown reducer type '{}'. Returning null. Waiting on your pull request to get it implemented!", reducer);
+                yield null;
             }
 
         };

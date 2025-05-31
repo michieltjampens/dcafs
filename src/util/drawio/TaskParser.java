@@ -15,7 +15,6 @@ import worker.Datagram;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.stream.Collectors;
 
 public class TaskParser {
 
@@ -26,17 +25,6 @@ public class TaskParser {
 
     public record OriginCell(OriginBlock origin, Drawio.DrawioCell cell) {
     }
-
-    public static ArrayList<OriginBlock> parseDrawIoTaskFile(Path file, EventLoopGroup eventLoop, Rtvals rtvals) {
-        if (!file.getFileName().toString().endsWith(".drawio")) {
-            Logger.error("This is not a drawio file: " + file);
-            return new ArrayList<>();
-        }
-
-        var cells = Drawio.parseFile(file);
-        return parseTasks(file, cells, eventLoop, rtvals);
-    }
-
     public static ArrayList<OriginBlock> parseTasks(Path file, HashMap<String, Drawio.DrawioCell> cells, EventLoopGroup eventLoop, Rtvals rtvals) {
         HashMap<String, String> idRef = new HashMap<>();
         ArrayList<OriginBlock> origins = new ArrayList<>();
@@ -78,31 +66,12 @@ public class TaskParser {
             }
         }
     }
-    private static void lookup(HashMap<String, String> idRef, ArrayList<OriginBlock> origins) {
-        var list = new ArrayList<String>();
-        for (var entry : idRef.entrySet()) {
-            boolean found = false;
-            for (var ori : origins) {
-                var match = ori.matchId(entry.getKey());
-                if (match != null) {
-                    var clSplit = match.getClass().toString().split("\\.");
-                    list.add(entry.getKey() + " -> " + clSplit[clSplit.length - 1] + " -> " + entry.getValue());
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-                list.add(entry.getKey() + " -> ??? -> " + entry.getValue());
-        }
-        Logger.info(list.stream().sorted().collect(Collectors.joining("\r\n")));
-    }
-
     public static AbstractBlock createBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         if (cell == null)
             return null;
 
         return switch (cell.type) {
-            case "basicvalblock" -> doBasicValBlock(cell, tools, id);
+            case "basicvalblock" -> doAlterValBlock(cell, tools, id);
             case "clockblock" -> doClockBlock(cell, tools, id);
             case "controlblock" -> doControlBlock(cell, tools, id);
             case "counterblock" -> doCounterBlock(cell, tools, id);
@@ -138,24 +107,26 @@ public class TaskParser {
         return ob;
     }
 
-    private static BasicMathBlock doBasicValBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+    private static BasicMathBlock doAlterValBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing AlterValBlock");
+
         var target = cell.getParam("target", "");
         var source = cell.getParam("source", "");
         var op = cell.getParam("action", "");
 
-        var newId = alterId(id);
         if (!tools.rtvals().hasBaseVal(target)) {
-            Logger.error(newId + " -> No such target yet: " + target);
+            Logger.error(blockId + " -> No such target yet: " + target);
             return null;
         }
         if (op.isEmpty()) {
-            Logger.error(newId + " -> No action provided.");
+            Logger.error(blockId + " -> No action provided.");
             return null;
         }
 
         var targetVal = getRealOrIntVal(tools.rtvals(), source);
         if (targetVal == null) {
-            Logger.error(newId + " -> No valid source provided");
+            Logger.error(blockId + " -> No valid source provided");
             return null;
         }
 
@@ -173,72 +144,16 @@ public class TaskParser {
                 sourceVal = getRealOrIntVal(tools.rtvals(), source);
             }
         }
-        var bmb = BasicMathBlock.build(newId, targetVal, op, sourceVal);
+        var bmb = BasicMathBlock.build(blockId, targetVal, op, sourceVal);
         if (bmb == null) {
-            Logger.error(newId + " -> Failed to build block.");
+            Logger.error(blockId + " -> Failed to build block.");
         }
         addNext(cell, bmb, tools, "next", "ok", "done");
         return bmb;
     }
-
-    private static NumericVal getRealOrIntVal(Rtvals rtvals, String target) {
-        var real = rtvals.getRealVal(target);
-        if (real.isPresent())
-            return real.get();
-        return rtvals.getIntegerVal(target).orElse(null);
-    }
-    private static DelayBlock doDelayBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        Logger.info("Processing delay block");
-        if (cell.hasParam("delay")) {
-            var eventLoop = tools.eventLoop();
-            var db = DelayBlock.useDelay(cell.params.get("delay"), cell.getParam("retrigger", "restart"), eventLoop);
-
-            db.id(alterId(id));
-            if (!addNext(cell, db, tools, "next", "ok", "done")) {
-                if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
-                    Logger.error(db.id() + " -> Delay Block without 'next/done/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
-            }
-            return db;
-        }
-        Logger.error("No delay specified for delayblock");
-        return null;
-    }
-    private static DelayBlock doIntervalBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        var repeats = cell.getParam("repeats", -1);
-        var interval = cell.getParam("interval", "");
-
-        if (repeats == 0) { // Repeats of zero means it's just a single delay, so make it one
-            var eventLoop = tools.eventLoop();
-            var db = DelayBlock.useDelay(interval, "ignore", eventLoop);
-            db.id(alterId(id));
-            addNext(cell, db, tools, "next");
-            return db;
-        }
-
-        Logger.info("Processing interval block");
-        if (cell.hasParam("interval")) {
-            var eventLoop = tools.eventLoop();
-            var init = cell.getParam("initialdelay", interval);
-            // If repeats is not 0, can have a failure
-
-            var db = DelayBlock.useInterval(eventLoop, init, interval, repeats);
-            db.id(alterId(id));
-
-            addNext(cell, db, tools, "next", "repeats>0");
-            addAlt(cell, db, tools, "repeat==0");
-
-            if (repeats != -1) {
-                if (!addAlt(cell, db, tools, "repeats==0"))
-                    Logger.warn("Interval task with repeats but failure link not used.");
-            }
-            return db;
-        }
-        Logger.error("No interval specified for intervalblock, or still empty");
-        return null;
-    }
-
     private static ClockBlock doClockBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        Logger.info("Processing time block");
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Clockblock");
 
         var days = cell.getParam("days", "always");
         ClockBlock clockBlock;
@@ -247,55 +162,84 @@ public class TaskParser {
         } else if (cell.hasParam("localtime")) {
             clockBlock = ClockBlock.create(tools.eventLoop(), cell.getParam("localtime", ""), days, true);
         } else {
-            Logger.error("No time or localtime defined in Timeblock, or still empty.");
+            Logger.error(blockId + " -> No time or localtime defined in Clockblock, or still empty.");
             return null;
         }
-        clockBlock.id(alterId(id));
+        clockBlock.id(blockId);
         if (!addNext(cell, clockBlock, tools, "next", "pass", "ok")) {
             if (cell.hasArrows())
-                Logger.error(clockBlock.id() + " -> clock block without 'next' arrow, but does have at least one other arrow connected.");
+                Logger.error(clockBlock.id() + " -> Clockblock without 'next' arrow, but does have at least one other arrow connected: " + cell.getArrowLabels());
         }
         return clockBlock;
     }
+    private static CmdBlock doCmdBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing CommandBlock");
 
-    private static WritableBlock doWritableBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        Logger.info("Processing writer block");
-        if (!cell.hasParam("message")) {
-            Logger.error("Writable block is missing a message property or it's still empty");
+        if (!cell.hasParam("cmd") && !cell.hasParam("message")) {
+            Logger.error("Commandblock without a cmd/message specified");
             return null;
         }
-        if (!cell.hasParam("target")) { // TODO use arrow instead
-            Logger.error("Writable block is missing a target property or it's still empty");
-            return null;
-        }
-        var wr = new WritableBlock(cell.getParam("target", ""), cell.getParam("message", ""));
-        wr.id(alterId(id));
-        addNext(cell, wr, tools, "next", "pass", "ok");
-        addAlt(cell, wr, tools, "timeout");
-        return wr;
+        var cmd = cell.getParam("cmd", cell.getParam("message", ""));
+        cmd = switch (cell.type) {
+            case "errorblock" -> "log:error," + cmd;
+            case "warnblock" -> "log:warn," + cmd;
+            case "infoblock" -> "log:info," + cmd;
+            default -> cmd;
+        };
+        var cb = new CmdBlock(Datagram.system(cmd));
+        cb.id(blockId);
+        addNext(cell, cb, tools, "next", "pass", "ok");
+        addAlt(cell, cb, tools, "fail");
+        return cb;
     }
+    private static ConditionBlock doConditionBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Conditionblock");
 
-    private static CounterBlock doCounterBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        Logger.info("Processing counter block");
-        if (!cell.hasParam("count")) {
-            Logger.error("Counter block is missing a count property or it's still empty");
+        if (!cell.hasParam("expression")) {
+            Logger.error(blockId + " -> ConditionBlock without an expression specified.");
             return null;
         }
-        var onzero = cell.getParam("onzero", "alt_fail"); // Options alt_fail,alt_pass,stop
-        var altInfinite = !cell.getParam("altcount", "once").equals("once"); // once or infinite
-        var counter = new CounterBlock(cell.getParam("count", 0));
+        var cb = ConditionBlock.build(cell.getParam("expression", ""), tools.rtvals, null);
+        cb.ifPresent(block -> {
+            block.id(blockId);
+            var target = cell.getArrowTarget("update");
+            if (target != null && target.type.equals("flagval")) {
+                var flagId = target.getParam("group", "") + "_" + target.getParam("name", "");
+                tools.rtvals().getFlagVal(flagId).ifPresent(block::setFlag);
 
-        counter.setOnZero(onzero, altInfinite);
-        counter.id(alterId(id));
-        addNext(cell, counter, tools, "count>0", "next", "pass", "ok", "retries>0", "retry");
-        addAlt(cell, counter, tools, "count==0", "count=0", "retries==0", "retries=0", "no retries left");
-        return counter;
+                // Grab the next of the flagval and make it the next of the condition
+                if (target.hasArrow("next")) {
+                    tools.blocks.put(cell.drawId, block);
+                    if (block.id().isEmpty())
+                        Logger.info("Id still empty?");
+                    tools.idRef.put(block.id(), cell.drawId);
+                    if (target.hasArrow("next")) {
+                        var targetCell = target.getArrowTarget("next");
+                        var targetId = targetCell.drawId;
+                        var existing = tools.blocks.get(targetId);
+                        if (existing == null) { // not created yet
+                            block.addNext(createBlock(targetCell, tools, block.id()));
+                        } else {
+                            block.addNext(existing);
+                        }
+                    }
+                }
+            } else {
+                addNext(cell, block, tools, "next", "pass", "yes", "ok", "true");
+                addAlt(cell, block, tools, "fail", "no", "false");
+            }
+        });
+        return cb.orElse(null);
     }
 
     private static ControlBlock doControlBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        Logger.info("Processing control block");
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Controlblock");
+
         if (cell.getArrowTarget("stop", "trigger", "start") == null) {
-            Logger.error("Controlblock without a connection to trigger/start or stop.");
+            Logger.error(blockId + " -> Controlblock without a connection to trigger/start or stop.");
             return null;
         }
 
@@ -334,57 +278,135 @@ public class TaskParser {
             }
         }
         var cb = new ControlBlock(tools.eventLoop, trigger, stop);
-        cb.id(alterId(id));
+        cb.id(blockId);
         addNext(cell, cb, tools, "next", "pass", "ok");
         return cb;
     }
-    private static ReadingBlock doReaderBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
 
-        if (!cell.hasArrow("source") && !cell.hasParam("source")) {
-            Logger.error("Reading block without a source.");
+    private static CounterBlock doCounterBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Counterblock");
+
+        if (!cell.hasParam("count")) {
+            Logger.error(blockId + " -> Counter block is missing a count property or it's still empty");
             return null;
         }
-        if (!cell.hasParam("wants")) {
-            Logger.error("Reading block without a wants specified");
-            return null;
-        }
-        String src = "";
-        if (cell.hasArrow("source")) {
-            // TODO
-        } else if (cell.hasParam("source")) {
-            src = cell.getParam("source", "");
-        }
-        var reader = new ReadingBlock(tools.eventLoop);
-        reader.setMessage(src, cell.getParam("wants", ""), cell.getParam("timeout", ""));
-        reader.id(alterId(id));
-        // Arrows
-        addNext(cell, reader, tools, "received", "ok", "next");
-        addAlt(cell, reader, tools, "timeout");
-        return reader;
+        var onZero = cell.getParam("onzero", "alt_fail"); // Options alt_fail,alt_pass,stop
+        var altInfinite = !cell.getParam("altcount", "once").equals("once"); // once or infinite
+        var counter = new CounterBlock(cell.getParam("count", 0));
+
+        counter.setOnZero(onZero, altInfinite);
+        counter.id(blockId);
+        addNext(cell, counter, tools, "count>0", "next", "pass", "ok", "retries>0", "retry");
+        addAlt(cell, counter, tools, "count==0", "count=0", "retries==0", "retries=0", "no retries left");
+        return counter;
     }
 
-    private static SplitBlock doSplitBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        if (!cell.hasArrows()) {
-            Logger.error("Splitblock without any next blocks specified");
+    private static DelayBlock doDelayBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Delayblock");
+
+        if (!cell.hasParam("delay")) {
+            Logger.error(blockId + " -> No delay specified for delayblock");
             return null;
         }
-        var sb = new SplitBlock(tools.eventLoop);
-        sb.setInterval(cell.getParam("interval", ""));
-        sb.id(alterId(id, "[", "]"));
-        tools.idRef.put(sb.id(), cell.drawId);
 
-        for (int a = 0; a < 50; a++) {
-            var next = cell.getArrowTarget("next_" + a);
-            if (next != null) {
-                sb.addNext(createBlock(next, tools, sb.id() + "[" + a + "]" + "|"));
-            }
+        var eventLoop = tools.eventLoop();
+        var db = DelayBlock.useDelay(cell.params.get("delay"), cell.getParam("retrigger", "restart"), eventLoop);
+
+        db.id(alterId(id));
+        if (!addNext(cell, db, tools, "next", "ok", "done")) {
+            if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                Logger.error(db.id() + " -> Delay Block without 'next/done/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
         }
-        return sb;
+        return db;
+    }
+    private static FlagBlock doFlagBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Flag Block: " + blockId);
+
+        if (!cell.hasParam("action")) {
+            Logger.error(blockId + " -> Flagblock without action specified.");
+            return null;
+        }
+        if (!cell.hasParam("flag") && !cell.hasParam("flagval")) {
+            Logger.error(blockId + " -> Flagblock without flagval id specified.");
+            return null;
+        }
+        var action = cell.getParam("action", "raise");
+        var flagId = cell.getParam("flagval", "");
+        if (flagId.isEmpty())
+            flagId = cell.getParam("flag", "");
+
+        var flagOpt = tools.rtvals().getFlagVal(flagId);
+        if (flagOpt.isEmpty()) {
+            Logger.error(blockId + " -> No such flagVal yet: " + flagId);
+            return null;
+        }
+        FlagBlock fb = switch (action) {
+            case "raise", "set" -> FlagBlock.raises(flagOpt.get());
+            case "lower", "clear" -> FlagBlock.lowers(flagOpt.get());
+            case "toggle" -> FlagBlock.toggles(flagOpt.get());
+            default -> {
+                Logger.error(blockId + " -> Unknown action picked for " + flagId + ": " + action);
+                yield null;
+            }
+        };
+        if (fb == null)
+            return null;
+
+        fb.id(blockId);
+        if (!addNext(cell, fb, tools, "next", "pass", "yes", "ok")) {
+            if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                Logger.error(blockId + " -> Flag Block without 'next/pass/yes/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
+        }
+        return fb;
+    }
+
+    private static DelayBlock doIntervalBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Interval block");
+
+        var repeats = cell.getParam("repeats", -1);
+        var interval = cell.getParam("interval", "");
+
+        if (repeats == 0) { // Repeats of zero means it's just a single delay, so make it one
+            Logger.info(blockId + " -> Replacing interval with delay block because 1 rep");
+            var eventLoop = tools.eventLoop();
+            var db = DelayBlock.useDelay(interval, "ignore", eventLoop);
+            db.id(alterId(id));
+            addNext(cell, db, tools, "next");
+            return db;
+        }
+
+        Logger.info(blockId + " -> Processing interval block");
+        if (cell.hasParam("interval")) {
+            var eventLoop = tools.eventLoop();
+            var init = cell.getParam("initialdelay", interval);
+            // If repeats is not 0, can have a failure
+
+            var db = DelayBlock.useInterval(eventLoop, init, interval, repeats);
+            db.id(blockId);
+
+            addNext(cell, db, tools, "next", "repeats>0");
+            addAlt(cell, db, tools, "repeat==0");
+
+            if (repeats != -1) {
+                if (!addAlt(cell, db, tools, "repeats==0"))
+                    Logger.warn(blockId + " -> Interval task with repeats but failure link not used.");
+            }
+            return db;
+        }
+        Logger.error(blockId + " -> No interval specified for intervalblock, or still empty");
+        return null;
     }
 
     private static LogBlock doLogBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Log block");
+
         if (!cell.hasParam("message")) {
-            Logger.error("Logblock without a message specified");
+            Logger.error(blockId + " -> Logblock without a message specified");
             return null;
         }
         var message = cell.getParam("message", "");
@@ -395,7 +417,7 @@ public class TaskParser {
             default -> null;
         };
         if (lb != null) {
-            lb.id(alterId(id));
+            lb.id(blockId);
             // Arrows
             if (!addNext(cell, lb, tools, "next", "pass", "ok")) {
                 if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
@@ -404,106 +426,12 @@ public class TaskParser {
         }
         return lb;
     }
-
-    private static CmdBlock doCmdBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        if (!cell.hasParam("cmd") && !cell.hasParam("message")) {
-            Logger.error("Commandblock without a cmd/message specified");
-            return null;
-        }
-        var cmd = cell.getParam("cmd", cell.getParam("message", ""));
-        cmd = switch (cell.type) {
-            case "errorblock" -> "log:error," + cmd;
-            case "warnblock" -> "log:warn," + cmd;
-            case "infoblock" -> "log:info," + cmd;
-            default -> cmd;
-        };
-        var cb = new CmdBlock(Datagram.system(cmd));
-        cb.id(alterId(id));
-        addNext(cell, cb, tools, "next", "pass", "ok");
-        addAlt(cell, cb, tools, "fail");
-        return cb;
-    }
-
-    private static ConditionBlock doConditionBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        if (!cell.hasParam("expression")) {
-            Logger.error("ConditionBlock without an expression specified.");
-            return null;
-        }
-        var cb = ConditionBlock.build(cell.getParam("expression", ""), tools.rtvals, null);
-        cb.ifPresent(block -> {
-            block.id(alterId(id));
-            var target = cell.getArrowTarget("update");
-            if (target != null && target.type.equals("flagval")) {
-                var flagId = target.getParam("group", "") + "_" + target.getParam("name", "");
-                tools.rtvals().getFlagVal(flagId).ifPresent(block::setFlag);
-
-                // Grab the next of the flagval and make it the next of the condition
-                if (target.hasArrow("next")) {
-                    tools.blocks.put(cell.drawId, block);
-                    if (block.id().isEmpty())
-                        Logger.info("Id still empty?");
-                    tools.idRef.put(block.id(), cell.drawId);
-                    if (target.hasArrow("next")) {
-                        var targetCell = target.getArrowTarget("next");
-                        var targetId = targetCell.drawId;
-                        var existing = tools.blocks.get(targetId);
-                        if (existing == null) { // not created yet
-                            block.addNext(createBlock(targetCell, tools, block.id()));
-                        } else {
-                            block.addNext(existing);
-                        }
-                    }
-                }
-            } else {
-                addNext(cell, block, tools, "next", "pass", "yes", "ok", "true");
-                addAlt(cell, block, tools, "fail", "no", "false");
-            }
-        });
-        return cb.orElse(null);
-    }
-
-    private static FlagBlock doFlagBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
-        if (!cell.hasParam("action")) {
-            Logger.error("Flagblock without action specified.");
-            return null;
-        }
-        if (!cell.hasParam("flag") && !cell.hasParam("flagval")) {
-            Logger.error("Flagblock without flagval id specified.");
-            return null;
-        }
-        var action = cell.getParam("action", "raise");
-        var flagId = cell.getParam("flagval", "");
-        if (flagId.isEmpty())
-            flagId = cell.getParam("flag", "");
-
-        var flagOpt = tools.rtvals().getFlagVal(flagId);
-        if (flagOpt.isEmpty()) {
-            Logger.error("No such flagVal yet: " + flagId);
-            return null;
-        }
-        FlagBlock fb = switch (action) {
-            case "raise", "set" -> FlagBlock.raises(flagOpt.get());
-            case "lower", "clear" -> FlagBlock.lowers(flagOpt.get());
-            case "toggle" -> FlagBlock.toggles(flagOpt.get());
-            default -> {
-                Logger.error("Unknown action picked for " + flagId + ": " + flagId);
-                yield null;
-            }
-        };
-        if (fb == null)
-            return null;
-
-        fb.id(alterId(id));
-        if (!addNext(cell, fb, tools, "next", "pass", "yes", "ok")) {
-            if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
-                Logger.error(fb.id() + " -> Flag Block without 'next/pass/yes/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
-        }
-        return fb;
-    }
-
     private static MathBlock doMathBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Math Block: " + blockId);
+
         if (!cell.hasParam("expression")) {
-            Logger.error("Mathblock without expression specified.");
+            Logger.error(blockId + " -> Math Block without expression specified.");
             return null;
         }
 
@@ -514,12 +442,78 @@ public class TaskParser {
             return null;
 
         var mb = MathBlock.build(res);
-        mb.id(alterId(id));
+        mb.id(blockId);
         addNext(cell, mb, tools, "next", "pass", "yes", "ok");
 
         return mb;
     }
 
+    private static ReadingBlock doReaderBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing Reader block");
+
+        if (!cell.hasArrow("source") && !cell.hasParam("source")) {
+            Logger.error(blockId + " -> Reading block without a source.");
+            return null;
+        }
+        if (!cell.hasParam("wants")) {
+            Logger.error(blockId + " -> Reading block without a wants specified");
+            return null;
+        }
+        String src = "";
+        if (cell.hasArrow("source")) {
+            // TODO
+        } else if (cell.hasParam("source")) {
+            src = cell.getParam("source", "");
+        }
+        var reader = new ReadingBlock(tools.eventLoop);
+        reader.setMessage(src, cell.getParam("wants", ""), cell.getParam("timeout", ""));
+        reader.id(blockId);
+        // Arrows
+        addNext(cell, reader, tools, "received", "ok", "next");
+        addAlt(cell, reader, tools, "timeout");
+        return reader;
+    }
+
+    private static SplitBlock doSplitBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id, "[", "]");
+        Logger.info(blockId + " -> Processing Split block");
+
+        if (!cell.hasArrows()) {
+            Logger.error(blockId + " -> Splitblock without any next blocks specified");
+            return null;
+        }
+        var sb = new SplitBlock(tools.eventLoop);
+        sb.setInterval(cell.getParam("interval", ""));
+        sb.id(blockId);
+        tools.idRef.put(sb.id(), cell.drawId);
+
+        for (int a = 0; a < 50; a++) {
+            var next = cell.getArrowTarget("next_" + a, String.valueOf(a));
+            if (next != null) {
+                sb.addNext(createBlock(next, tools, sb.id() + "[" + a + "]" + "|"));
+            }
+        }
+        return sb;
+    }
+
+    private static WritableBlock doWritableBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        Logger.info("Processing writer block");
+        var blockId = alterId(id);
+        if (!cell.hasParam("message")) {
+            Logger.error(blockId + " -> Writable block is missing a message property or it's still empty");
+            return null;
+        }
+        if (!cell.hasParam("target")) { // TODO use arrow instead?
+            Logger.error(blockId + " -> Writable block is missing a target property or it's still empty");
+            return null;
+        }
+        var wr = new WritableBlock(cell.getParam("target", ""), cell.getParam("message", ""));
+        wr.id(blockId);
+        addNext(cell, wr, tools, "next", "pass", "ok");
+        addAlt(cell, wr, tools, "timeout", "fail", "failed", "failure");
+        return wr;
+    }
     /* ************************************************* H E L P E R S ********************************************** */
     private static String alterId(String id) {
         return alterId(id, "", "");
@@ -535,6 +529,13 @@ public class TaskParser {
         var splitter = id.contains("|") ? "|" : "@";
         var split = Tools.endSplit(id, splitter);
         return split[0] + splitter + prefix + (NumberUtils.toInt(split[1]) + 1) + suffix;
+    }
+
+    private static NumericVal getRealOrIntVal(Rtvals rtvals, String target) {
+        var real = rtvals.getRealVal(target);
+        if (real.isPresent())
+            return real.get();
+        return rtvals.getIntegerVal(target).orElse(null);
     }
     private static boolean addNext(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... nexts) {
 
