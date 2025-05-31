@@ -8,8 +8,9 @@ import java.math.BigDecimal;
 public interface NumericVal {
 
     boolean update(double value);
-
     boolean update(int value);
+
+    void resetValue();
 
     String name();
     String id(); //get the id

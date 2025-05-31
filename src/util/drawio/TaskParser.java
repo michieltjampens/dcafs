@@ -3,7 +3,11 @@ package util.drawio;
 import io.netty.channel.EventLoopGroup;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.tinylog.Logger;
+import util.data.vals.IntegerVal;
+import util.data.vals.NumericVal;
+import util.data.vals.RealVal;
 import util.data.vals.Rtvals;
+import util.evalcore.MathFab;
 import util.tasks.blocks.*;
 import util.tools.Tools;
 import worker.Datagram;
@@ -98,19 +102,22 @@ public class TaskParser {
             return null;
 
         return switch (cell.type) {
-            case "originblock" -> doOriginBlock(cell);
-            case "delayblock" -> doDelayBlock(cell, tools, id);
-            case "intervalblock" -> doIntervalBlock(cell, tools, id);
+            case "basicvalblock" -> doBasicValBlock(cell, tools, id);
             case "clockblock" -> doClockBlock(cell, tools, id);
-            case "writerblock" -> doWritableBlock(cell, tools, id);
-            case "counterblock" -> doCounterBlock(cell, tools, id);
             case "controlblock" -> doControlBlock(cell, tools, id);
+            case "counterblock" -> doCounterBlock(cell, tools, id);
+            case "commandblock" -> doCmdBlock(cell, tools, id);
+            case "conditionblock" -> doConditionBlock(cell, tools, id);
+            case "delayblock" -> doDelayBlock(cell, tools, id);
+            case "errorblock", "warnblock", "infoblock" -> doLogBlock(cell, tools, id);
+            case "flagblock" -> doFlagBlock(cell, tools, id);
+            case "intervalblock" -> doIntervalBlock(cell, tools, id);
+            case "mathblock" -> doMathBlock(cell, tools, id);
+            case "originblock" -> doOriginBlock(cell);
             case "readerblock" -> doReaderBlock(cell, tools, id);
             case "splitblock" -> doSplitBlock(cell, tools, id);
-            case "commandblock" -> doCmdBlock(cell, tools, id);
-            case "errorblock", "warnblock", "infoblock" -> doLogBlock(cell, tools, id);
-            case "conditionblock" -> doConditionBlock(cell, tools, id);
-            case "flagblock" -> doFlagBlock(cell, tools, id);
+            case "writerblock" -> doWritableBlock(cell, tools, id);
+
             default -> null;
         };
     }
@@ -131,6 +138,55 @@ public class TaskParser {
         return ob;
     }
 
+    private static BasicMathBlock doBasicValBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var target = cell.getParam("target", "");
+        var source = cell.getParam("source", "");
+        var op = cell.getParam("action", "");
+
+        var newId = alterId(id);
+        if (!tools.rtvals().hasBaseVal(target)) {
+            Logger.error(newId + " -> No such target yet: " + target);
+            return null;
+        }
+        if (op.isEmpty()) {
+            Logger.error(newId + " -> No action provided.");
+            return null;
+        }
+
+        var targetVal = getRealOrIntVal(tools.rtvals(), source);
+        if (targetVal == null) {
+            Logger.error(newId + " -> No valid source provided");
+            return null;
+        }
+
+        NumericVal sourceVal = null;
+        if (!op.equals("reset")) {
+            if (NumberUtils.isParsable(source)) {
+                if (source.contains(".")) {
+                    sourceVal = RealVal.newVal("dcafs", "temp");
+                    sourceVal.update(NumberUtils.toDouble(source));
+                } else {
+                    sourceVal = IntegerVal.newVal("dcafs", "temp");
+                    sourceVal.update(NumberUtils.toInt(source));
+                }
+            } else if (tools.rtvals().hasBaseVal(target)) {
+                sourceVal = getRealOrIntVal(tools.rtvals(), source);
+            }
+        }
+        var bmb = BasicMathBlock.build(newId, targetVal, op, sourceVal);
+        if (bmb == null) {
+            Logger.error(newId + " -> Failed to build block.");
+        }
+        addNext(cell, bmb, tools, "next", "ok", "done");
+        return bmb;
+    }
+
+    private static NumericVal getRealOrIntVal(Rtvals rtvals, String target) {
+        var real = rtvals.getRealVal(target);
+        if (real.isPresent())
+            return real.get();
+        return rtvals.getIntegerVal(target).orElse(null);
+    }
     private static DelayBlock doDelayBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing delay block");
         if (cell.hasParam("delay")) {
@@ -147,23 +203,6 @@ public class TaskParser {
         Logger.error("No delay specified for delayblock");
         return null;
     }
-
-    private static String alterId(String id) {
-        return alterId(id, "", "");
-    }
-
-    private static String alterId(String id, String prefix, String suffix) {
-        if (!id.contains("@"))
-            return id + "@" + prefix + "0" + suffix;
-
-        if (id.endsWith("|"))
-            return id + prefix + "0" + suffix;
-
-        var splitter = id.contains("|") ? "|" : "@";
-        var split = Tools.endSplit(id, splitter);
-        return split[0] + splitter + prefix + (NumberUtils.toInt(split[1]) + 1) + suffix;
-    }
-
     private static DelayBlock doIntervalBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         var repeats = cell.getParam("repeats", -1);
         var interval = cell.getParam("interval", "");
@@ -248,8 +287,8 @@ public class TaskParser {
 
         counter.setOnZero(onzero, altInfinite);
         counter.id(alterId(id));
-        addNext(cell, counter, tools, "count>0", "next", "pass", "ok");
-        addAlt(cell, counter, tools, "count==0");
+        addNext(cell, counter, tools, "count>0", "next", "pass", "ok", "retries>0", "retry");
+        addAlt(cell, counter, tools, "count==0", "count=0", "retries==0", "retries=0", "no retries left");
         return counter;
     }
 
@@ -451,16 +490,52 @@ public class TaskParser {
                 yield null;
             }
         };
-        if (fb != null) {
-            fb.id(alterId(id));
-            if (!addNext(cell, fb, tools, "next", "pass", "yes", "ok")) {
-                if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
-                    Logger.error(fb.id() + " -> Flag Block without 'next/pass/yes/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
-            }
+        if (fb == null)
+            return null;
+
+        fb.id(alterId(id));
+        if (!addNext(cell, fb, tools, "next", "pass", "yes", "ok")) {
+            if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                Logger.error(fb.id() + " -> Flag Block without 'next/pass/yes/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
         }
         return fb;
     }
 
+    private static MathBlock doMathBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        if (!cell.hasParam("expression")) {
+            Logger.error("Mathblock without expression specified.");
+            return null;
+        }
+
+        var exp = cell.getParam("expression", "");
+        var mathEval = MathFab.parseExpression(exp, tools.rtvals());
+        var res = MathFab.stripForValIfPossible(mathEval);
+        if (res == null)
+            return null;
+
+        var mb = MathBlock.build(res);
+        mb.id(alterId(id));
+        addNext(cell, mb, tools, "next", "pass", "yes", "ok");
+
+        return mb;
+    }
+
+    /* ************************************************* H E L P E R S ********************************************** */
+    private static String alterId(String id) {
+        return alterId(id, "", "");
+    }
+
+    private static String alterId(String id, String prefix, String suffix) {
+        if (!id.contains("@"))
+            return id + "@" + prefix + "0" + suffix;
+
+        if (id.endsWith("|"))
+            return id + prefix + "0" + suffix;
+
+        var splitter = id.contains("|") ? "|" : "@";
+        var split = Tools.endSplit(id, splitter);
+        return split[0] + splitter + prefix + (NumberUtils.toInt(split[1]) + 1) + suffix;
+    }
     private static boolean addNext(Drawio.DrawioCell cell, AbstractBlock block, TaskTools tools, String... nexts) {
 
         tools.blocks.put(cell.drawId, block);
