@@ -510,8 +510,8 @@ public class TaskParser {
         }
         var wr = new WritableBlock(cell.getParam("target", ""), cell.getParam("message", ""));
         wr.id(blockId);
-        addNext(cell, wr, tools, "next", "pass", "ok");
-        addAlt(cell, wr, tools, "timeout", "fail", "failed", "failure");
+        addNext(cell, wr, tools, "next", "pass", "ok", "send");
+        addAlt(cell, wr, tools, "timeout", "fail", "failed", "failure", "disconnected", "not connected");
         return wr;
     }
     /* ************************************************* H E L P E R S ********************************************** */
