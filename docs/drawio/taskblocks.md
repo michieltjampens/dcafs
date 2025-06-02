@@ -229,8 +229,8 @@
 
 - **Purpose:** Writes the specified data to the `target`.
 - **Outputs**:
-    - A route labeled `next`, leading to the next block in the sequence.
-    - A route labeled `fail`, diverting flow when writing failed.
+    - A route labeled `next` (or `pass`,`ok`,`send`), leading to the next block in the sequence.
+    - A route labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`), diverting flow when writing failed.
 - **Inputs**:
     - A route from another task block, triggers to resolve the target and write the data. Successive triggers repeat the
       writing.
@@ -239,5 +239,7 @@
 - **Required properties:**
     - `dcafstype`: Must be `writerblock` for it to be processed as a Writer Block.
     - `message`: Defines the data to send. Expected end-of-line sequences are automatically added.
+  - `target`: Defines the target of the data fe. stream:sensor.
 - **Optional Properties:**
-    - `target`: Same as the arrow. Used if no arrow connected valid target is found.
+    - `targettype`: If you wish to use just the id as text on the shape, this property can be used to store type.
+        - For example: target=sensor, targettype=stream
