@@ -379,7 +379,6 @@ public class TaskParser {
             return db;
         }
 
-        Logger.info(blockId + " -> Processing interval block");
         if (cell.hasParam("interval")) {
             var eventLoop = tools.eventLoop();
             var init = cell.getParam("initialdelay", interval);
@@ -465,6 +464,14 @@ public class TaskParser {
             // TODO
         } else if (cell.hasParam("source")) {
             src = cell.getParam("source", "");
+            if (!src.contains(":")) {
+                var type = cell.getParam("sourcetype", "");
+                if (type.isEmpty()) {
+                    Logger.warn("No type provided, defaulting to 'raw'");
+                    type = "raw";
+                }
+                src = type + ":" + src;
+            }
         }
         var reader = new ReadingBlock(tools.eventLoop);
         reader.setMessage(src, cell.getParam("wants", ""), cell.getParam("timeout", ""));
@@ -504,11 +511,22 @@ public class TaskParser {
             Logger.error(blockId + " -> Writable block is missing a message property or it's still empty");
             return null;
         }
+        String target;
         if (!cell.hasParam("target")) { // TODO use arrow instead?
             Logger.error(blockId + " -> Writable block is missing a target property or it's still empty");
             return null;
+        } else {
+            target = cell.getParam("target", "");
+            if (!target.contains(":")) {
+                var type = cell.getParam("targettype", "");
+                if (type.isEmpty()) {
+                    Logger.warn("No type provided, defaulting to 'raw'");
+                    type = "raw";
+                }
+                target = type + ":" + target;
+            }
         }
-        var wr = new WritableBlock(cell.getParam("target", ""), cell.getParam("message", ""));
+        var wr = new WritableBlock(target, cell.getParam("message", ""));
         wr.id(blockId);
         addNext(cell, wr, tools, "next", "pass", "ok", "send");
         addAlt(cell, wr, tools, "timeout", "fail", "failed", "failure", "disconnected", "not connected");
