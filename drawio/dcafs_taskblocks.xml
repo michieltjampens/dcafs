@@ -112,6 +112,13 @@
     "title": "Split Block"
   },
   {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;mxCell id=\"2\" value=\"1\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;shadow=1;strokeColor=default;align=center;verticalAlign=middle;arcSize=10;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;curved=0;\" edge=\"1\" source=\"5\" parent=\"1\"&gt;&lt;mxGeometry x=\"0.4953\" relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint as=\"offset\"/&gt;&lt;mxPoint x=\"-39\" y=\"29\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"74\" as=\"targetPoint\"/&gt;&lt;Array as=\"points\"&gt;&lt;mxPoint x=\"34\" y=\"43\"/&gt;&lt;mxPoint x=\"34\"/&gt;&lt;/Array&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=\"3\" value=\"2\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shadow=1;\" edge=\"1\" source=\"5\" parent=\"1\"&gt;&lt;mxGeometry x=\"0.1383\" relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint as=\"offset\"/&gt;&lt;mxPoint x=\"-37\" y=\"43\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"78\" y=\"43\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=\"4\" value=\"3\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;shadow=1;strokeColor=default;align=center;verticalAlign=middle;arcSize=10;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;curved=0;\" edge=\"1\" source=\"5\" parent=\"1\"&gt;&lt;mxGeometry x=\"0.4423\" relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint as=\"offset\"/&gt;&lt;mxPoint x=\"-37\" y=\"43\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"76\" y=\"81\" as=\"targetPoint\"/&gt;&lt;Array as=\"points\"&gt;&lt;mxPoint x=\"33\" y=\"43\"/&gt;&lt;mxPoint x=\"33\" y=\"81\"/&gt;&lt;/Array&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;object dcafsid=\"shedulecheck@[0]\" dcafstype=\"splitblock\" label=\"\" id=\"5\"&gt;&lt;mxCell style=\"shape=waypoint;sketch=0;fillStyle=solid;size=6;pointerEvents=1;points=[];fillColor=#1ba1e2;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;fontColor=#ffffff;strokeColor=#006EAF;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry y=\"33\" width=\"20\" height=\"20\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 78,
+    "h": 81,
+    "aspect": "fixed",
+    "title": "Splitter Dot"
+  },
+  {
     "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;object label=\"&amp;lt;div&amp;gt;&amp;lt;span style=&amp;quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&amp;quot;&amp;gt;&amp;lt;font style=&amp;quot;font-size: 9px;&amp;quot;&amp;gt;Wait for&amp;lt;/font&amp;gt;&amp;lt;/span&amp;gt;&amp;lt;span style=&amp;quot;font-size: 10px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&amp;quot;&amp;gt; &amp;lt;b&amp;gt;%delay%&amp;lt;/b&amp;gt;&amp;lt;/span&amp;gt;&amp;lt;/div&amp;gt;\" dcafstype=\"delayblock\" placeholders=\"1\" delay=\"??\" retrigger=\"ignore\" id=\"2\"&gt;&lt;mxCell style=\"rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry width=\"60\" height=\"30\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/object&gt;&lt;mxCell id=\"3\" value=\"\" style=\"endArrow=classic;html=1;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;curved=0;arcSize=10;\" edge=\"1\" source=\"2\" parent=\"1\"&gt;&lt;mxGeometry width=\"50\" height=\"50\" relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"100\" y=\"10\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"90\" y=\"15\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
     "w": 90,
     "h": 30,
@@ -180,5 +187,12 @@
     "h": 78,
     "aspect": "fixed",
     "title": "Interval Block"
+  },
+  {
+    "xml": "&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=\"0\"/&gt;&lt;mxCell id=\"1\" parent=\"0\"/&gt;&lt;mxCell id=\"2\" value=\"?\" style=\"endArrow=none;html=1;rounded=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;curved=0;arcSize=10;\" edge=\"1\" source=\"3\" parent=\"1\"&gt;&lt;mxGeometry width=\"50\" height=\"50\" relative=\"1\" as=\"geometry\"&gt;&lt;mxPoint x=\"75\" y=\"-9\" as=\"sourcePoint\"/&gt;&lt;mxPoint x=\"121\" y=\"46\" as=\"targetPoint\"/&gt;&lt;/mxGeometry&gt;&lt;/mxCell&gt;&lt;mxCell id=\"3\" value=\"comment?\" style=\"text;html=1;align=right;verticalAlign=middle;whiteSpace=wrap;rounded=0;fillColor=none;strokeColor=light-dark(#909090,#EDEDED);dashed=1;dashPattern=1 4;fontSize=10;\" vertex=\"1\" parent=\"1\"&gt;&lt;mxGeometry width=\"84\" height=\"30\" as=\"geometry\"/&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;",
+    "w": 120.99999999999997,
+    "h": 45.99999999999985,
+    "aspect": "fixed",
+    "title": "comment"
   }
 ]</mxlibrary>
