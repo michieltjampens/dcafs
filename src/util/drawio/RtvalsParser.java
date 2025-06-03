@@ -179,7 +179,7 @@ public class RtvalsParser {
     private static void parseTasks(ArrayList<Drawio.DrawioCell> starters, TaskParser.TaskTools tools, ArrayList<ValCell> vals) {
 
         for (var cell : starters) {
-            var label = cell.getParam("arrowlabel", "");
+            var label = cell.getParam("arrowlabel", "update");
             var target = cell.getArrowTarget(label);
 
             var res = buildValCel(target, label, tools, vals);
@@ -217,9 +217,11 @@ public class RtvalsParser {
                 case "realval", "integerval" -> {
                     for (var vc : vals) {
                         valcell = buildRealIntegerVal(vc, target, pre, post, builtin, math, scale);
+                        if (valcell != null)
+                            break;
                     }
                     if (valcell == null) {
-                        Logger.error("Couldn't match shape with a val");
+                        Logger.error("Couldn't match shape with a val: " + target.type);
                     }
                 }
                 case "conditionblock" -> {
