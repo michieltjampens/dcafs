@@ -7,18 +7,21 @@ public class BasicMathBlock extends AbstractBlock {
 
     enum OP {COPY, INCREMENT, DECREMENT, RESET, NOOP}
 
-    NumericVal targetVal;
+    NumericVal[] targetVal;
     NumericVal sourceVal;
 
     OP op;
 
-    public BasicMathBlock(NumericVal targetVal, NumericVal sourceVal, String op) {
+    public BasicMathBlock(NumericVal[] targetVal, NumericVal sourceVal, String op) {
         this.targetVal = targetVal;
         this.sourceVal = sourceVal;
         this.op = parseOp(op);
     }
-
     public static BasicMathBlock build(String id, NumericVal targetVal, String op, NumericVal sourceVal) {
+        return BasicMathBlock.build(id, new NumericVal[]{targetVal}, op, sourceVal);
+    }
+
+    public static BasicMathBlock build(String id, NumericVal[] targetVal, String op, NumericVal sourceVal) {
         var b = new BasicMathBlock(targetVal, sourceVal, op);
         b.id(id);
         if (b.op == OP.NOOP) {
@@ -26,7 +29,7 @@ public class BasicMathBlock extends AbstractBlock {
             return null;
         }
         if (b.op != OP.RESET && sourceVal == null) {
-            Logger.error(id + " -> Requested " + op + " which requires a source, but none provided. (target:" + targetVal.id() + ")");
+            Logger.error(id + " -> Requested " + op + " which requires a source, but none provided. (target:" + targetVal[0].id() + ")");
             return null;
         }
         return b;
@@ -47,12 +50,14 @@ public class BasicMathBlock extends AbstractBlock {
 
     @Override
     public boolean start() {
-        switch (op) {
-            case COPY -> targetVal.update(sourceVal.asDouble());
-            case INCREMENT -> targetVal.update(targetVal.asDouble() + sourceVal.asDouble());
-            case DECREMENT -> targetVal.update(targetVal.asDouble() - sourceVal.asDouble());
-            case RESET -> targetVal.resetValue();
-            case NOOP -> {
+        for (var nv : targetVal) {
+            switch (op) {
+                case COPY -> nv.update(sourceVal.asDouble());
+                case INCREMENT -> nv.update(nv.asDouble() + sourceVal.asDouble());
+                case DECREMENT -> nv.update(nv.asDouble() - sourceVal.asDouble());
+                case RESET -> nv.resetValue();
+                case NOOP -> {
+                }
             }
         }
         doNext();

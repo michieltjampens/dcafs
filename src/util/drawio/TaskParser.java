@@ -14,6 +14,7 @@ import worker.Datagram;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class TaskParser {
@@ -111,24 +112,22 @@ public class TaskParser {
         var blockId = alterId(id);
         Logger.info(blockId + " -> Processing AlterValBlock");
 
-        var target = cell.getParam("target", "");
+        var targets = cell.getParam("target", "").split(",");
         var source = cell.getParam("source", "");
         var op = cell.getParam("action", "");
 
-        if (!tools.rtvals().hasBaseVal(target)) {
-            Logger.error(blockId + " -> No such target yet: " + target);
-            return null;
+        for (var target : targets) {
+            if (!tools.rtvals().hasBaseVal(target)) {
+                Logger.error(blockId + " -> No such target yet: " + target);
+                return null;
+            }
         }
         if (op.isEmpty()) {
             Logger.error(blockId + " -> No action provided.");
             return null;
         }
 
-        var targetVal = getRealOrIntVal(tools.rtvals(), source);
-        if (targetVal == null) {
-            Logger.error(blockId + " -> No valid source provided");
-            return null;
-        }
+        var targetVals = Arrays.stream(targets).map(target -> getRealOrIntVal(tools.rtvals(), target)).toArray(NumericVal[]::new);
 
         NumericVal sourceVal = null;
         if (!op.equals("reset")) {
@@ -140,13 +139,19 @@ public class TaskParser {
                     sourceVal = IntegerVal.newVal("dcafs", "temp");
                     sourceVal.update(NumberUtils.toInt(source));
                 }
-            } else if (tools.rtvals().hasBaseVal(target)) {
+            } else if (tools.rtvals().hasBaseVal(source)) {
                 sourceVal = getRealOrIntVal(tools.rtvals(), source);
             }
         }
-        var bmb = BasicMathBlock.build(blockId, targetVal, op, sourceVal);
+        if (sourceVal == null) {
+            Logger.error(blockId + " -> No valid source provided.");
+            return null;
+        }
+
+        var bmb = BasicMathBlock.build(blockId, targetVals, op, sourceVal);
         if (bmb == null) {
             Logger.error(blockId + " -> Failed to build block.");
+            return null;
         }
         addNext(cell, bmb, tools, "next", "ok", "done");
         return bmb;
@@ -487,7 +492,7 @@ public class TaskParser {
         Logger.info(blockId + " -> Processing Split block");
 
         if (!cell.hasArrows()) {
-            Logger.error(blockId + " -> Splitblock without any next blocks specified");
+            Logger.error(blockId + " -> Splitblock/Splitdot without departing arrows");
             return null;
         }
         var sb = new SplitBlock(tools.eventLoop);
