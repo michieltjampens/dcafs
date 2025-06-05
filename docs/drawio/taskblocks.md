@@ -8,13 +8,11 @@
 - **Functional Group:** A set of related blocks that can freely connect within the group. Cross-group connections are
   only valid if supported by the receiving block's logic.
 - `Command:` Often abbreviated to `cmd`, text that is part of the Command Pipeline to control dcafs but can also be use
-  by the various modules
-  within the system itself.
+  by the various modules within the system itself.
 - `Route`: Visually represented as an arrow between blocks in the diagram. A route defines a directional connection and
-  may
-  represent either the flow of execution (e.g., `next`, `fail`) or structural relationships (e.g., `target`, `source`).
-  The meaning
-  of a route depends on its label and the block types involved.
+  may represent either the flow of execution (e.g., `next`, `fail`) or structural relationships (e.g., `target`,
+  `source`).
+  The meaning of a route depends on its label and the block types involved.
 
 ## General rules
 
@@ -24,10 +22,11 @@
 - **Shape Properties and Arrow Label Are Key:** All logic depends on:
     - The properties (mainly `dcafstype`) of the shapes.
   - The label and start and end of the arrows. Arrows without label are given the label `next`.
-- **Output Limits:** The number of outputs a block can have is limited and depends on the block's type. The types of
+- **Output Limits:** The number of Outgoing Arrow(s) a block can have is limited and depends on the block's type. The
+  types of
   blocks it can connect to may also be restricted by its own logic.
-- **Input Limits:** A single input can serve any number of outputs. So the only limit is a practical one.
-  For now, inputs don't receive data, they are just a trigger for the block to start.
+- **Input Limits:** A single input can serve any number of Outgoing Arrow(s). So the only limit is a practical one.
+  For now, Incoming Arrow(s) don't receive data, they are just a trigger for the block to start.
 - **Arrow Label Syntax:** Arrow labels may include a pipe (`|`). Everything after the pipe is treated as a comment and
   ignored by the parser.
 - **Comment Arrows (Experimental):** Arrows without direction (i.e. plain lines) and with a ? label are considered
@@ -42,8 +41,8 @@
 ### Basicval Block
 
 - **Purpose:** Provides some simple operations to apply to a val for which Math Block is overkill.
-- **Outputs**: A single output labeled `next` (or `done`,`ok`), leading to the next block in the sequence.
-- **Inputs**: Receives a trigger that executes the `action`.
+- **Outgoing Arrow**: Labeled `next` (or `done`,`ok`), leading to the next block in the route.
+- **Incoming Arrow**: From another task block, triggers the `action`.
 - **Required properties:**
     - `dcafstype`: Must be `basicvalblock` for it to be processed as a Basicval Block.
     - `target`: The integerval or realval the `action` will affect.
@@ -58,11 +57,11 @@
 ### Clock Block
 
 - **Purpose:** Triggers **execution** at a set time of day, on specified days of the week.
-- **Outputs**: A single output labeled `next` (or `pass`,`ok`), leading to the next block in the sequence.
-- **Inputs**: Receives a trigger that starts the timer. Successive triggers are ignored by default.
+- **Outgoing Arrow**: Labeled `next` (or `pass`,`ok`), leading to the next block in the route.
+- **Incoming Arrow**: From another task block, triggers the timer. Successive triggers are ignored by default.
 - **Required properties:**
-    - `dcafstype`: Must be `timeblock` for it to be processed as a Time Block.
-    - `time`: Defines the time of day in **UTC** (24-hour format, e.g., 14:30).
+    - `dcafstype`: Must be `clockblock` for it to be processed as a Time Block.
+    - `time`: Defines the time of day in **UTC** (24-hour format HH:MM, e.g., 14:30).
     - `localtime`: Time of day in **system local time** (same format)
 - **Optional Properties:**
     - `days`: Defaults to `always`. Specifies which days the block is active. Options include:
@@ -77,39 +76,35 @@
 ### Condition Block
 
 - **Purpose:** Checks a condition and diverts flow on fail.
-- **Outputs**:
-    - A route labeled `pass`(or `next`,`ok`,`true`,`yes`), leading to the next block in the sequence on pass.
-    - A route labeled `fail` (or `no`,`false`), diverting flow when result is false. Marks the task as failed.
-      - An optional route labeled `update`, passes the result of the condition to an attached FlagVal.
-- **Inputs**: Receives a trigger that initiates the comparison. Successive triggers repeat this.
+- **Outgoing Arrow(s)**:
+    - Labeled `pass`(or `next`,`ok`,`true`,`yes`), leading to the next block in the route on pass.
+    - Labeled `fail` (or `no`,`false`), diverting flow when result is false. Marks the task as failed.
+    - Labeled `update`, passes the result of the condition to the targeted FlagVal.
+- **Incoming Arrow**: From another task block, triggers the comparison. Successive triggers repeat this.
 - **Required properties:**
     - `dcafstype`: Must be `conditionblock` for it to be processed as a Condition Block.
     - `expression`: Defines the condition, brackets and references to `rtvals` are allowed, nesting not (yet).
-- **Optional Properties:**
-    - None yet.
 
 ### Control Block
 
 - **Purpose:** Start or stop another block.
-- **Outputs**:
-    - A route labeled `next` (or `pass`, `ok`), leading to the next block in the sequence.
-    - A route labeled `stop`, the target is stopped and reset.
-    - A route labeled `trigger` or `start`, the target is triggered.
-- **Inputs**: Receives a trigger that initiates the start/stop. Successive triggers repeat this.
-- **Required properties:**
+- **Outgoing Arrows**:
+    - Labeled `next` (or `pass`, `ok`), leading to the next block in the route.
+    - Labeled `stop`, the target is stopped and reset.
+    - Labeled `trigger` or `start`, the target is triggered.
+- **Incoming Arrow**: From another task block, triggers the start/stop. Successive triggers repeat this.
+- **Required property:**
     - `dcafstype`: Must be `controlblock` for it to be processed as a Control Block.
-- **Optional Properties:**
-    - None yet.
 
 ### Counter Block
 
 - **Purpose:** Counts down every time it is triggered, optionally diverts the flow to the alternate route on reaching
   zero.
-- **Outputs**:
-    - A route labeled `counter>0` (or `retries>0`,`retry`,`ok`,`pass`) , leading to the next block in the sequence,
+- **Outgoing Arrows**:
+    - Labeled `counter>0` (or `retries>0`,`retry`,`ok`,`pass`) , leading to the next block in the route,
       taken while counter is above 0.
-    - A route labeled `counter==0` (or `retries==0`, `no retries left`) , diverting flow once the counter reached zero.
-- **Inputs**: Receives a trigger that decrements the counter and acts according to the new value.
+    - Labeled `counter==0` (or `retries==0`, `no retries left`) , diverting flow once the counter reached zero.
+- **Incoming Arrow**: From another task block, triggers decrementing the counter and act according to the new value.
 - **Required properties:**
     - `dcafstype`: Must be `counterblock` for it to be processed as a Counter Block.
     - `counter`: The amount of times this block can be triggered before it optionally diverts flow.
@@ -124,9 +119,9 @@
 ### Delay block
 
 - **Purpose:** Pauses **execution** here until the delay time has passed.
-- **Outputs**: A single output labeled `next`(or `ok`,`done`), leading to the next block in the route.
-- **Inputs**: Receives a trigger that starts the delay countdown. Successive triggers are ignored until the countdown
-  has passed.
+- **Outgoing Arrow**: Labeled `next`(or `ok`,`done`), leading to the next block in the route.
+- **Incoming Arrow**: From another task block, triggers the start of the delay countdown. Successive triggers restart
+  the countdown.
 - **Required properties:**
     - `dcafstype`: Must be `delayblock` for it to be processed as a Delay Block.
     - `delay`: Defines the period to wait. The format is abbreviated time period (i.e. `5s`,`10m`,`3h10m2s`)
@@ -139,24 +134,22 @@
 ### Flag block
 
 - **Purpose:** Alters the state of a FlagVal.
-- **Outputs**: A single output labeled `next` (or `pass`,`yes`,`ok`), leading to the next block in the route.
-- **Inputs**: Receives a trigger that executes the update.
+- **Outgoing Arrow**: Labeled `next` (or `pass`,`yes`,`ok`), leading to the next block in the route.
+- **Incoming Arrow**: From another task block, triggers the execution of the update.
 - **Required properties:**
     - `dcafstype`: Must be `flagblock` for it to be processed as a Flag Block.
     - `action`: The state change to execute (note: if 'raise' is used and it was high already, it just remains high)
         - `raise`/`set`: The state is changed to true.
         - `fall`/`clear`: The state is changed to false.
         - `toggle`: The state is negated.
-- **Optional Properties:**
-    - None for now
 
 ### Interval block
 
 - **Purpose:** Triggers **execution** at a set interval, indefinitely or fur the number of times specified by `repeats`.
-- **Outputs**:
-    - A route labeled `next` (or `repeats>0`), leading to the next block in the sequence.
-    - A route labeled `repeats==0`, diverting flow when `repeats` reaches 0.
-- **Inputs**: Receives a trigger that starts the interval. Successive triggers are ignored by default.
+- **Outgoing Arrows**:
+    - Labeled `next` (or `repeats>0`), leading to the next block in the route.
+    - Labeled `repeats==0`, diverting flow when `repeats` reaches 0.
+- **Incoming Arrow**: From another task block, triggers the interval. Successive triggers are ignored by default.
 - **Required properties:**
     - `dcafstype`: Must be `intervalblock` for it to be processed as an Interval Block.
     - `interval`: Defines the interval. The format is abbreviated time period (i.e. `5s`,`10m`,`3h10m2s`)
@@ -171,9 +164,8 @@
 ### Log Block
 
 - **Purpose:** Writes a message to a global log.
-- **Outputs**:
-    - A route labeled `next` (or `pass`,`ok`), leading to the next block in the sequence.
-- **Inputs**: Receives a trigger writes the message. Successive triggers repeat this.
+- **Outgoing Arrow**: Labeled `next` (or `pass`,`ok`), leading to the next block in the route.
+- **Incoming Arrow**: Receives a trigger writes the message. Successive triggers repeat this.
 - **Required properties:**
     - `dcafstype`: Must be `logblock` for it to be processed as a Log Block.
     - `message`: Defines the message.
@@ -182,23 +174,22 @@
 ### Math Block
 
 - **Purpose:** Execute an `expression` that likely alters a rtval.
-- **Outputs**: A single output labeled `next` (or `pass`, `yes`, `ok`), leading to the next block in the sequence.
-- **Inputs**: Receives a trigger that evaluates the `expression`.
+- **Outgoing Arrow**: Labeled `next` (or `pass`, `yes`, `ok`), leading to the next block in the route.
+- **Incoming Arrow**: From another task block, trigger that evaluates the `expression`.
 - **Required properties:**
     - `dcafstype`: Must be `mathblock` for it to be processed as a Math Block.
-    - `exprssion`: The expression to evaluate, check `logic/MathParser.md` for background.
-- **Optional Properties:**
-    - None for now
+  - `expression`: The expression to evaluate, check `logic/MathParser.md` for background.
 
 ### Origin block
 
 - **Purpose:** Serves as entry point to linked blocks and provides an ID that allows it to be triggered via a `command`.
-- **Outputs**: A single output labeled `next`, leading to the next block in the sequence.
-- **Inputs**: Receives a trigger that restarts the task in sequence. Unlike when triggered by a `command` or
-  `Controlblock`, this behavior is sequential rather than threaded.
+- **Outgoing Arrow**: Labeled `next`, leading to the next block in the route.
+- **Incoming Arrow**: From another task block, triggers restarting the task using the same thread as the block
+  triggering.
+  Unlike when triggered by a `command` or `Controlblock`, this behavior is thus sequential rather than threaded.
 - **Required properties:**
     - `dcafstype`: Must be `originblock` for it to be processed as an Origin Block.
-  - `dcafsid`: An unique ID used to reference the link. It needs to be unique within file.
+    - `dcafsid`: An unique ID used to reference the task/sequence. It needs to be unique within the file.
 - **Optional Properties:**
     - `autostart`: Defaults to `no`/`false`. Determines whether the sequence starts on startup/reload or only when
       triggered by a command or other block.
@@ -209,12 +200,12 @@
 
 - **Purpose:** Pauses **execution** at this block until either the specified data is received from the source or the
   timeout expires.
-- **Outputs**:
-    - A route labeled `received` (or `next`,`ok`), leading to the next block in the sequence.
-    - A route labeled `timeout`, diverting flow when `timeout` reaches 0.
-- **Inputs**:
-    - A route from another task block, triggers to subscribe to the source and wait for data.
-    - A route labeled `source`, determines which source to subscribe to.
+- **Outgoing Arrows**:
+    - Labeled `received` (or `next`,`ok`), leading to the next block in the route.
+    - Labeled `timeout`, diverting flow when `timeout` reaches 0.
+- **Incoming Arrows**:
+    - From another task block, triggers to subscribe to the source and wait for data.
+    - Labeled `source`, determines which source to subscribe to. (not implemented yet)
 - **Required properties:**
     - `dcafstype`: Must be `readerblock` for it to be processed as a Reader Block.
     - `wants`: Defines the data to wait for. The check is case-insensitive.
@@ -228,14 +219,15 @@
 ### Writer Block
 
 - **Purpose:** Writes the specified data to the `target`.
-- **Outputs**:
-    - A route labeled `next` (or `pass`,`ok`,`send`), leading to the next block in the sequence.
-    - A route labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`), diverting flow when writing failed.
-- **Inputs**:
-    - A route from another task block, triggers to resolve the target and write the data. Successive triggers repeat the
+- **Outgoing Arrows**:
+    - Labeled `next` (or `pass`,`ok`,`send`), leading to the next block in the route.
+    - Labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`), leading to the alternative block when writing
+      failed.
+    - Labeled `target`, points to the target of the data, which could be a stream, file, or another writable reference.
+      (not implemented yet)
+- **Incoming Arrow**:
+    - From another task block, triggers to resolve the target and write the data. Successive triggers repeat the
       writing.
-    - A route labeled`target`. Defines the target of the data, which could be a stream, file,
-      or another writable reference.
 - **Required properties:**
     - `dcafstype`: Must be `writerblock` for it to be processed as a Writer Block.
     - `message`: Defines the data to send. Expected end-of-line sequences are automatically added.
