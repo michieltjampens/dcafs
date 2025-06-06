@@ -4,18 +4,19 @@ import org.tinylog.Logger;
 import util.data.vals.FlagVal;
 import util.data.vals.NumericVal;
 import util.data.vals.Rtvals;
-import util.evalcore.LogicEvaluator;
+import util.evalcore.Evaluator;
+import util.evalcore.ParseTools;
 
 import java.util.ArrayList;
 import java.util.Optional;
 
 public class ConditionBlock extends AbstractBlock {
 
-    LogicEvaluator logEval;
+    Evaluator logEval;
     FlagVal flag;
 
     // Only to be used by LogicFab during block construction
-    ConditionBlock(LogicEvaluator logEval) {
+    ConditionBlock(Evaluator logEval) {
         this.logEval=logEval;
     }
 
@@ -23,8 +24,10 @@ public class ConditionBlock extends AbstractBlock {
     }
 
     public static Optional<ConditionBlock> build(String condition, Rtvals rtvals, ArrayList<NumericVal> sharedMem) {
-        var logEvalOpt = util.evalcore.LogicFab.parseComparison(condition,rtvals,sharedMem);
-        return logEvalOpt.map(ConditionBlock::new);
+        var logEvalOpt = ParseTools.parseComparison(condition, rtvals, sharedMem);
+        if (logEvalOpt == null)
+            return Optional.empty();
+        return Optional.of(new ConditionBlock(logEvalOpt));
     }
 
     public void setFlag(FlagVal flag) {
@@ -41,7 +44,7 @@ public class ConditionBlock extends AbstractBlock {
             Logger.error(id() + " -> This block probably wasn't constructed properly because no valid evaluator was found, route aborted.");
             return false;
         }
-        var pass = logEval.eval(input);
+        var pass = logEval.logicEval(input);
         if (flag != null)
             flag.update(pass);
         if (pass) {
