@@ -19,32 +19,37 @@ public class DelayBlock extends AbstractBlock {
     EventLoopGroup eventLoop;
     long initialDelay = 0;
     long interval = 0;
-    int repeats = -1;
+    int repeats = 0;
     int reps = -1;
 
     ScheduledFuture<?> future;
+    boolean waiting = false;
 
-    private DelayBlock(EventLoopGroup eventLoop, RETRIGGER retrigger) {
-        this.retrigger = retrigger;
+    private DelayBlock(EventLoopGroup eventLoop, String retrigger) {
+        this.retrigger = parseRetrigger(retrigger);
         this.eventLoop = eventLoop;
     }
 
-    public static DelayBlock useInterval(EventLoopGroup eventLoop, String initialDelay, String interval, int repeats) {
-        var db = new DelayBlock(eventLoop, RETRIGGER.IGNORE);
+    public static DelayBlock useInterval(EventLoopGroup eventLoop, String initialDelay, String interval, int repeats, String retrigger) {
+        var db = new DelayBlock(eventLoop, retrigger);
         return db.useInterval(initialDelay, interval, repeats);
     }
 
     public DelayBlock useInterval(String initialDelay, String interval, int repeats) {
         this.interval = TimeTools.parsePeriodStringToSeconds(interval);
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(initialDelay);
-        this.repeats = repeats;
-        reps = repeats;
+        this.repeats = repeats - 1;
         type = TYPE.INTERVAL;
         return this;
     }
 
     public static DelayBlock useDelay(String delay, String retriggerVal, EventLoopGroup eventLoop) {
-        var retrigger = switch (retriggerVal.toLowerCase()) {
+        var db = new DelayBlock(eventLoop, retriggerVal);
+        return db.alterDelay(delay);
+    }
+
+    private static RETRIGGER parseRetrigger(String retriggerVal) {
+        return switch (retriggerVal.toLowerCase()) {
             case "ignore" -> RETRIGGER.IGNORE;
             case "restart" -> RETRIGGER.RESTART;
             case "cancel" -> RETRIGGER.CANCEL;
@@ -53,10 +58,7 @@ public class DelayBlock extends AbstractBlock {
                 yield RETRIGGER.RESTART;
             }
         };
-        var db = new DelayBlock(eventLoop, retrigger);
-        return db.alterDelay(delay);
     }
-
     public DelayBlock alterDelay(String delay) {
         this.initialDelay = TimeTools.parsePeriodStringToSeconds(delay);
         type = TYPE.DELAY;
@@ -80,18 +82,19 @@ public class DelayBlock extends AbstractBlock {
      * @param shouldRestart Whether a new delay should start or not
      */
     private void cancelIfRunning(boolean shouldRestart) {
-        if (future != null && !(future.isCancelled() || future.isDone())) {
+        Logger.info("Done:" + future.isDone() + " cancel:" + future.isCancelled());
+        if (waiting && future != null) {
+            Logger.info(telnetId() + " -> Got stopped with " + TimeTools.convertPeriodToString(future.getDelay(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS) + " left.");
             future.cancel(false);
+            waiting = false;
+            doAltRoute(true);
         }
         if (shouldRestart)
             firstRun();
     }
     private void firstRun() {
-        if (future != null && !future.isDone()) {
-            Logger.error(id() + " -> Old future still alive? Cancelling...");
-            future.cancel(true);  // Cancel the old future
-            future = null;        // Clear the reference to avoid future interference
-        }
+        waiting = true;
+        reps = repeats;
         future = switch (type) {
             case DELAY -> eventLoop.schedule(this::doNext, initialDelay, TimeUnit.SECONDS);
             case INTERVAL -> {
@@ -99,6 +102,7 @@ public class DelayBlock extends AbstractBlock {
                 // For example if interval is 20min, and it's now 16:14, initial delay will be 6min
                 if (initialDelay == 0)
                     initialDelay = TimeTools.secondsDelayToCleanTime(interval * 1000) / 1000;
+
                 yield eventLoop.scheduleWithFixedDelay(this::doNext, initialDelay, interval, TimeUnit.SECONDS);
             }
         };
@@ -113,8 +117,10 @@ public class DelayBlock extends AbstractBlock {
         switch (reps) {
             case -1 -> super.doNext(); // -1 means endless
             case 0 -> { // Last rep done, take the detour
-                doAltRoute(false); // Do the alternative route
-                cancelIfRunning(false);
+                if (type == TYPE.INTERVAL)
+                    cancelIfRunning(false);
+                waiting = false;
+                super.doNext(); // Do the main route
             }
             default -> { // Reps not yet 0
                 super.doNext();
@@ -136,10 +142,6 @@ public class DelayBlock extends AbstractBlock {
 
     @Override
     public void setAltRouteBlock(AbstractBlock altRoute) {
-        if (repeats == -1) {
-            Logger.warn(id + " -> Trying to set a failure block in a DelayBlock");
-            return;
-        }
         if (altRoute != null)
             this.altRoute = altRoute;
     }

@@ -303,7 +303,7 @@ public class TaskParser {
         counter.setOnZero(onZero, altInfinite);
         counter.id(blockId);
         addNext(cell, counter, tools, "count>0", "next", "pass", "ok", "retries>0", "retry");
-        addAlt(cell, counter, tools, "count==0", "count=0", "retries==0", "retries=0", "no retries left");
+        addAlt(cell, counter, tools, "count==0", "counter==0", "count=0", "retries==0", "retries=0", "no retries left");
         return counter;
     }
 
@@ -384,25 +384,22 @@ public class TaskParser {
             return db;
         }
 
-        if (cell.hasParam("interval")) {
-            var eventLoop = tools.eventLoop();
-            var init = cell.getParam("initialdelay", interval);
-            // If repeats is not 0, can have a failure
-
-            var db = DelayBlock.useInterval(eventLoop, init, interval, repeats);
-            db.id(blockId);
-
-            addNext(cell, db, tools, "next", "repeats>0");
-            addAlt(cell, db, tools, "repeat==0");
-
-            if (repeats != -1) {
-                if (!addAlt(cell, db, tools, "repeats==0"))
-                    Logger.warn(blockId + " -> Interval task with repeats but failure link not used.");
-            }
-            return db;
+        if (!cell.hasParam("interval")) {
+            Logger.error(blockId + " -> No interval specified for intervalblock, or still empty");
+            return null;
         }
-        Logger.error(blockId + " -> No interval specified for intervalblock, or still empty");
-        return null;
+
+        var eventLoop = tools.eventLoop();
+        var init = cell.getParam("initialdelay", interval);
+        var retrigger = cell.getParam("retrigger", "ignore");
+        // If repeats is not 0, can have a failure
+
+        var db = DelayBlock.useInterval(eventLoop, init, interval, repeats, retrigger);
+        db.id(blockId);
+
+        addNext(cell, db, tools, "next");
+        addAlt(cell, db, tools, "stopped", "cancelled");
+        return db;
     }
 
     private static LogBlock doLogBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {

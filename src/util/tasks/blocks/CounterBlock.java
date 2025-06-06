@@ -3,8 +3,8 @@ package util.tasks.blocks;
 import org.tinylog.Logger;
 
 public class CounterBlock extends AbstractBlock {
-    int count = -1;
-    int tempCount = -1;
+    int count;
+    int tempCount;
     ONZERO onZero = ONZERO.ALT;
 
     enum ONZERO {ALT, STOP, FAIL, ALT_RESET}

@@ -22,11 +22,12 @@
 - **Shape Properties and Arrow Label Are Key:** All logic depends on:
     - The properties (mainly `dcafstype`) of the shapes.
   - The label and start and end of the arrows. Arrows without label are given the label `next`.
-- **Output Limits:** The number of Outgoing Arrow(s) a block can have is limited and depends on the block's type. The
-  types of
+- **Outgoing arrow Limits:** The number a block can have is limited and depends on the block's type. The types of
   blocks it can connect to may also be restricted by its own logic.
-- **Input Limits:** A single input can serve any number of Outgoing Arrow(s). So the only limit is a practical one.
-  For now, Incoming Arrow(s) don't receive data, they are just a trigger for the block to start.
+- **Incoming arrow limits:** A single block can receive any number of incoming arrows. So the only limit is a practical
+  one.
+  For now, incoming arrows **in a pure taskblock diagram** don't transport data, they are just a trigger for the block
+  to start.
 - **Arrow Label Syntax:** Arrow labels may include a pipe (`|`). Everything after the pipe is treated as a comment and
   ignored by the parser.
 - **Comment Arrows (Experimental):** Arrows without direction (i.e. plain lines) and with a ? label are considered
@@ -60,7 +61,7 @@
 - **Outgoing Arrow**: Labeled `next` (or `pass`,`ok`), leading to the next block in the route.
 - **Incoming Arrow**: From another task block, triggers the timer. Successive triggers are ignored by default.
 - **Required properties:**
-    - `dcafstype`: Must be `clockblock` for it to be processed as a Time Block.
+    - `dcafstype`: Must be `clockblock` for it to be processed as a Clock Block.
     - `time`: Defines the time of day in **UTC** (24-hour format HH:MM, e.g., 14:30).
     - `localtime`: Time of day in **system local time** (same format)
 - **Optional Properties:**
@@ -78,7 +79,7 @@
 - **Purpose:** Checks a condition and diverts flow on fail.
 - **Outgoing Arrow(s)**:
     - Labeled `pass`(or `next`,`ok`,`true`,`yes`), leading to the next block in the route on pass.
-    - Labeled `fail` (or `no`,`false`), diverting flow when result is false. Marks the task as failed.
+  - Labeled `fail` (or `no`,`false`), diverting to alternative route when result is false. Marks the task as failed.
     - Labeled `update`, passes the result of the condition to the targeted FlagVal.
 - **Incoming Arrow**: From another task block, triggers the comparison. Successive triggers repeat this.
 - **Required properties:**
@@ -90,8 +91,9 @@
 - **Purpose:** Start or stop another block.
 - **Outgoing Arrows**:
     - Labeled `next` (or `pass`, `ok`), leading to the next block in the route.
-    - Labeled `stop`, the target is stopped and reset.
-    - Labeled `trigger` or `start`, the target is triggered.
+  - Labeled `stop`, the target is stopped and reset. This does not continue the route.
+  - Labeled `trigger` or `start`, the target is triggered. Difference with the `next` arrow is that this starts a new
+    route in a new thread from the targeted block onwards.
 - **Incoming Arrow**: From another task block, triggers the start/stop. Successive triggers repeat this.
 - **Required property:**
     - `dcafstype`: Must be `controlblock` for it to be processed as a Control Block.
@@ -103,7 +105,8 @@
 - **Outgoing Arrows**:
     - Labeled `counter>0` (or `retries>0`,`retry`,`ok`,`pass`) , leading to the next block in the route,
       taken while counter is above 0.
-    - Labeled `counter==0` (or `retries==0`, `no retries left`) , diverting flow once the counter reached zero.
+  - Labeled `counter==0` (or `retries==0`, `no retries left`) , diverting to alternative route once the counter reached
+    zero.
 - **Incoming Arrow**: From another task block, triggers decrementing the counter and act according to the new value.
 - **Required properties:**
     - `dcafstype`: Must be `counterblock` for it to be processed as a Counter Block.
@@ -147,19 +150,20 @@
 
 - **Purpose:** Triggers **execution** at a set interval, indefinitely or fur the number of times specified by `repeats`.
 - **Outgoing Arrows**:
-    - Labeled `next` (or `repeats>0`), leading to the next block in the route.
-    - Labeled `repeats==0`, diverting flow when `repeats` reaches 0.
+    - Labeled `next`, leading to the next block in the route.
+    - Labeled `stopped` (or `cancelled`), diverting to alternative route when something interrupts it.
 - **Incoming Arrow**: From another task block, triggers the interval. Successive triggers are ignored by default.
 - **Required properties:**
     - `dcafstype`: Must be `intervalblock` for it to be processed as an Interval Block.
     - `interval`: Defines the interval. The format is abbreviated time period (i.e. `5s`,`10m`,`3h10m2s`)
 - **Optional Properties:**
-    - `repeats` Defaults to -1 (infinite). Defines how many times the interval is executed. A value of 0 reduces it to a
-      `delayblock`.
+    - `repeats` Defaults to -1 (infinite). Defines how many times the interval is executed, and thus the next block is
+      triggered.
+      A value of 0 reduces it to a `delayblock`.
     - (Untested) `retrigger`: Defines how the block responds to a trigger while already active., Options are:
-        - `stop`– stops the current interval cycle;
+        - `stop`/`cancel`– stops the current interval cycle;
         - `continue`– ignores the new trigger (default);
-        - `restart`– restarts the current interval countdown but doesn't affect `repeats`.
+        - `restart`– restarts the current interval and resets `repeats`.
 
 ### Log Block
 
@@ -202,7 +206,7 @@
   timeout expires.
 - **Outgoing Arrows**:
     - Labeled `received` (or `next`,`ok`), leading to the next block in the route.
-    - Labeled `timeout`, diverting flow when `timeout` reaches 0.
+  - Labeled `timeout`, diverting to alternative route when `timeout` reaches 0.
 - **Incoming Arrows**:
     - From another task block, triggers to subscribe to the source and wait for data.
     - Labeled `source`, determines which source to subscribe to. (not implemented yet)
@@ -221,7 +225,7 @@
 - **Purpose:** Writes the specified data to the `target`.
 - **Outgoing Arrows**:
     - Labeled `next` (or `pass`,`ok`,`send`), leading to the next block in the route.
-    - Labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`), leading to the alternative block when writing
+  - Labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`), diverting to alternative route when writing
       failed.
     - Labeled `target`, points to the target of the data, which could be a stream, file, or another writable reference.
       (not implemented yet)
