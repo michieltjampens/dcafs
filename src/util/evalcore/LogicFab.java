@@ -70,7 +70,6 @@ public class LogicFab {
             }
         }
 
-
         // Replace rtvals references to rx instead
         var refs = new ArrayList<>( Objects.requireNonNullElse(oldRefs, new ArrayList<>()) );
         exp = ParseTools.replaceRealtimeValues(exp, refs, rtvals, refLookup);
@@ -81,20 +80,23 @@ public class LogicFab {
         var normalized = exp;
 
         // With references cleaned up, split it all in processable blocks
+        // Maybe simplify is single operand? like a+1<0
         var blocks = splitInBlocks(exp);
         var join = new StringJoiner("\r\n");
         for( var block :blocks ){
             join.add( block[0] +" -> "+block[1]);
         }
 
-        // Split the blocks in parts to easily convert to functions
-        blocks.replaceAll(LogicFab::extractParts);
-
         // Start filling the eval
         var logicEval = new LogicEvaluator(ori, normalized, join.toString(), blocks.size()); // Set the amount of expected ops
         logicEval.setHighestI(highestI); // Highest encountered I reference
         logicEval.setRefs(refs.toArray(NumericVal[]::new)); // All encountered vals and temps
         logicEval.setRefLookup(refLookup.toArray(Integer[]::new));  // Array to link the r* to the actual values
+
+        // Determine here if math or logic?
+
+        // Split the blocks in parts to easily convert to functions
+        blocks.replaceAll(LogicFab::extractParts);
 
         for( int a=0;a<blocks.size();a++) {
             var parts = blocks.get(a);

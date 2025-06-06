@@ -16,7 +16,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
+public class MathEvaluator extends BaseEvaluator implements MathEvalForVal, Evaluator {
 
 
     Function<BigDecimal[], BigDecimal>[] ops;
@@ -102,6 +102,10 @@ public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
         return info + "\r\n" + next.getInfo(id);
     }
 
+    @Override
+    public String getInfo() {
+        return getInfo("*");
+    }
     /**
      * Provides an overview of the current state of the scratchpad register.
      * Includes details about the origin of the values stored.
@@ -261,6 +265,13 @@ public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
     }
 
     @Override
+    public boolean logicEval(double... value) {
+
+        var bds = Arrays.stream(value).mapToObj(BigDecimal::valueOf).toArray(BigDecimal[]::new);
+        var result = eval(bds);
+        return result.map(bd -> bd.compareTo(BigDecimal.ONE) == 0).orElse(false);
+    }
+    @Override
     public int eval(int i0, int i1, int i2) {
         if (highestI > 1)
             return Integer.MAX_VALUE;
@@ -311,4 +322,5 @@ public class MathEvaluator extends BaseEvaluator implements MathEvalForVal {
     public String getOriExpr() {
         return super.getOriginalExpression();
     }
+
 }

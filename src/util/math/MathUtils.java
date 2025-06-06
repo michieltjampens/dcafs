@@ -15,7 +15,7 @@ import java.util.stream.DoubleStream;
 public class MathUtils {
 
     // Ordered ops come in pairs, the pairs share precedence, so repeated means it's higher than whatever comes next
-    static final String[] ORDERED_OPS={"°","°","^","^","*","/","%","%","+","-"};
+    static final String[] ORDERED_OPS = {"°", "°", "^", "^", "*", "/", "%", "%", "+", "-", "<", ">", "<=", ">="};
     static final MathContext MATH_CONTEXT = new MathContext(10, RoundingMode.HALF_UP);
     /**
      * Splits a simple expression of the type i1+125 etc. into distinct parts i1,+,125
@@ -121,6 +121,12 @@ public class MathUtils {
             case "~" -> bd1.min(bd2).abs();
             case "scale" -> bd1.setScale(bd2.intValue(),RoundingMode.HALF_UP);
             case "°" -> handleAngleBigDecimalsOps(bd1,bd2);
+            case ">" -> bd1.compareTo(bd2) > 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+            case ">=" -> bd1.compareTo(bd2) >= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+            case "<" -> bd1.compareTo(bd2) < 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+            case "<=" -> bd1.compareTo(bd2) <= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+            case "==" -> bd1.compareTo(bd2) == 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+            case "!=" -> bd1.compareTo(bd2) != 0 ? BigDecimal.ONE : BigDecimal.ZERO;
             default ->{
                 Logger.error("Unknown operand: "+op);
                 yield BigDecimal.ZERO;

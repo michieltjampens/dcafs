@@ -22,7 +22,26 @@ public class ParseTools {
     static final MathContext MATH_CONTEXT = new MathContext(10, RoundingMode.HALF_UP);
     private static final Pattern I_REF_PATTERN = Pattern.compile("(?<![a-zA-Z0-9_])i[0-9]{1,2}(?![a-zA-Z0-9_])");
     private static final Pattern T_REF_PATTERN = Pattern.compile("(?<![a-zA-Z0-9_])i[0-9]{1,2}(?![a-zA-Z0-9_])");
+    private static final String[] ops = {"+", "-", "*", "/", "%", "^"};
 
+    public static Evaluator parseComparison(String exp, Rtvals rtvals, List<NumericVal> oldRefs) {
+        var test = exp.startsWith("-") ? exp.substring(1) : exp; // Remove leading - if any
+        test = test.replace("<-", "<");
+        test = test.replace(">-", ">");
+
+        boolean math = false;
+        if (!test.contains("&&") && !test.contains("||")) {
+            for (var op : ops) {
+                if (test.contains(op)) {
+                    math = true;
+                    break;
+                }
+            }
+        }
+        if (math)
+            return MathFab.parseExpression(exp, rtvals, null);
+        return LogicFab.parseComparison(exp, rtvals, oldRefs).orElse(null);
+    }
     public static List<String> extractParts(String expression) {
 
         var list = new ArrayList<String>();
@@ -243,6 +262,64 @@ public class ParseTools {
         }
         return contents.stream().toList();
     }
+
+    // Functional interface to represent a mathematical operation (e.g., +, -, *, /)
+// Takes two BigDecimals and returns a BigDecimal result
+    @FunctionalInterface
+    interface BigDecimalBiFunction {
+        BigDecimal apply(BigDecimal bd1, BigDecimal bd2);
+    }
+
+    // This method will be called *once* when 'proc' is assigned,
+    // based on the operator string (op) and the determined operand types.
+    private static Function<BigDecimal[], BigDecimal> createOperationLambda(
+            String op,
+            boolean numberNumber, boolean indexNumber, boolean numberIndex,
+            BigDecimal bd1, BigDecimal bd2, int i1, int i2) { // Pass in context variables
+
+        // Define the core operation based on 'op'
+        final BigDecimalBiFunction mathOp = switch (op) {
+            // --- Comparison Operators ---
+            case ">" -> ((a, b) -> a.compareTo(b) > 0 ? BigDecimal.ONE : BigDecimal.ZERO);
+            case "<" -> ((a, b) -> a.compareTo(b) < 0 ? BigDecimal.ONE : BigDecimal.ZERO);
+            case ">=" -> ((a, b) -> a.compareTo(b) >= 0 ? BigDecimal.ONE : BigDecimal.ZERO);
+            case "<=" -> ((a, b) -> a.compareTo(b) <= 0 ? BigDecimal.ONE : BigDecimal.ZERO);
+            case "==" ->
+                    ((a, b) -> a.compareTo(b) == 0 ? BigDecimal.ONE : BigDecimal.ZERO);// Use compareTo for numerical equality
+            case "!=" -> ((a, b) -> a.compareTo(b) != 0 ? BigDecimal.ONE : BigDecimal.ZERO);
+
+            // --- Math Operators ---
+            case "+" -> BigDecimal::add; // Use method references for clarity
+            case "-" -> BigDecimal::subtract;
+            case "*" -> BigDecimal::multiply;
+            case "/" -> (a, b) -> a.divide(b, MATH_CONTEXT);
+            case "%" -> BigDecimal::remainder;
+            case "scale" -> (a, b) -> a.setScale(b.intValue(), RoundingMode.HALF_UP);
+            default -> {
+                Logger.error("Unsupported operator: " + op);
+                yield null;
+            }
+        };
+
+        // Now, return the appropriate lambda for 'proc' based on operand types,
+        // applying the core operation defined above.
+        if (mathOp != null) { // It's a mathematical operator
+            if (numberNumber) {
+                return x -> mathOp.apply(bd1, bd2);
+            } else if (indexNumber) {
+                return x -> mathOp.apply(x[i1], bd2);
+            } else if (numberIndex) {
+                return x -> mathOp.apply(bd1, x[i2]);
+            } else {
+                return x -> mathOp.apply(x[i1], x[i2]);
+            }
+        } else {
+
+        }
+
+        // Should ideally not be reached if operator and type combinations are exhaustive
+        throw new IllegalStateException("Unhandled operator or operand type combination: " + op);
+    }
     /**
      * Converts a simple operation (only two operands) on elements in an array to a function
      * @param first The first element of the operation
@@ -279,15 +356,16 @@ public class ParseTools {
             Logger.error("Something went wrong decoding: "+first+" or "+second);
             return null;
         }
-
+        final boolean numberNumber = bd1 != null && bd2 != null;
+        final boolean indexNumber = bd1 == null && bd2 != null;
         Function<BigDecimal[],BigDecimal> proc=null;
         switch( op ){
             case "+":
                 try {
-                    if (bd1 != null && bd2 != null) { // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         var p = bd1.add(bd2);
                         proc = x -> p;
-                    } else if (bd1 == null && bd2 != null) { // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         proc = x -> x[i1].add(bd2);
                     } else if (bd1 != null) { // meaning first is a number and second an index
                         proc = x -> bd1.add(x[i2]);
@@ -301,10 +379,10 @@ public class ParseTools {
                 break;
             case "-":
                 try{
-                    if( bd1!=null && bd2!=null ){ // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         var p = bd1.subtract(bd2);
                         proc = x -> p;
-                    }else if( bd1==null && bd2!=null){ // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         proc = x -> x[i1].subtract(bd2);
                     }else if(bd1 != null){ // meaning first is a number and second an index
                         proc = x -> bd1.subtract(x[i2]);
@@ -318,9 +396,9 @@ public class ParseTools {
                 break;
             case "*":
                 try{
-                    if( bd1!=null && bd2!=null ){ // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         proc = x -> bd1.multiply(bd2);
-                    }else if( bd1==null && bd2!=null){ // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         proc = x -> x[i1].multiply(bd2);
                     }else if(bd1 != null){ // meaning first is a number and second an index
                         proc = x -> bd1.multiply(x[i2]);
@@ -335,11 +413,11 @@ public class ParseTools {
 
             case "/": // i0/25
                 try {
-                    if (bd1 != null && bd2 != null) { // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         if (bd2.equals(BigDecimal.ZERO))
                             Logger.warn("Requested to divide by zero for " + (first + op + second));
                         proc = x -> bd1.divide(bd2, MATH_CONTEXT);
-                    } else if (bd1 == null && bd2 != null) {
+                    } else if (indexNumber) {
                         // meaning first is an index and second a number
                         if (bd2.equals(BigDecimal.ZERO))
                             Logger.warn("Requested to divide by zero for " + (first + op + second));
@@ -357,9 +435,9 @@ public class ParseTools {
 
             case "%": // i0%25
                 try{
-                    if( bd1!=null && bd2!=null ){ // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         proc = x -> bd1.remainder(bd2);
-                    }else if( bd1==null && bd2!=null){ // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         proc = x -> x[i1].remainder(bd2);
                     }else if(bd1 != null){ //  meaning first is a number and second an index
                         proc = x -> bd1.remainder(x[i2]);
@@ -373,9 +451,9 @@ public class ParseTools {
                 break;
             case "^": // i0/25
                 try{
-                    if( bd1!=null && bd2!=null ){ // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         proc = x -> bd1.pow(bd2.intValue());
-                    }else if( bd1==null && bd2!=null){ // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         if( bd2.compareTo(BigDecimal.valueOf(0.5)) == 0){ // root
                             proc = x -> x[i1].sqrt(MathContext.DECIMAL64);
                         }else{
@@ -393,9 +471,9 @@ public class ParseTools {
                 break;
             case "~": // i0~25 -> ABS(i0-25)
                 try{
-                    if( bd1!=null && bd2!=null ){ // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         proc = x -> bd1.min(bd2).abs();
-                    }else if( bd1==null && bd2!=null){ // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         proc = x -> x[i1].min(bd2).abs();
                     }else if(bd1 != null){ //  meaning first is a number and second an index
                         proc = x -> bd1.min(x[i2]).abs();
@@ -409,9 +487,9 @@ public class ParseTools {
                 break;
             case "scale": // i0/25
                 try{
-                    if( bd1!=null && bd2!=null ){ // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         proc = x -> bd1.setScale(bd2.intValue(), RoundingMode.HALF_UP);
-                    }else if( bd1==null && bd2!=null){ // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         proc = x -> x[i1].setScale(bd2.intValue(),RoundingMode.HALF_UP);
                     }else if(bd1 != null){ //  meaning first is a number and second an index
                         proc = x -> bd1.setScale(x[i2].intValue(),RoundingMode.HALF_UP);
@@ -425,9 +503,9 @@ public class ParseTools {
                 break;
             case "ln":
                 try{
-                    if( bd1!=null && bd2!=null ){ // meaning both numbers
+                    if (numberNumber) { // meaning both numbers
                         Logger.error("Todo - ln bd,bd");
-                    }else if( bd1==null && bd2!=null){ // meaning first is an index and second a number
+                    } else if (indexNumber) { // meaning first is an index and second a number
                         Logger.error("Todo - ln ix,bd");
                     }else if(bd1 != null){ //  meaning first is a number and second an index
                         proc = x -> BigDecimal.valueOf(Math.log(x[i2].doubleValue()));
@@ -480,6 +558,102 @@ public class ParseTools {
                             proc = x -> bd2.abs();
                         }
                         break;
+                }
+                break;
+            case "<":
+                try {
+                    if (numberNumber) { // meaning both numbers
+                        proc = x -> bd1.compareTo(bd2) < 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (indexNumber) { // meaning first is an index and second a number
+                        proc = x -> x[i1].compareTo(bd2) < 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (bd1 != null) { //  meaning first is a number and second an index
+                        proc = x -> bd1.compareTo(x[i2]) < 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else {// meaning both indexes
+                        proc = x -> x[i1].compareTo(x[i2]) < 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
+                }
+                break;
+            case ">":
+                try {
+                    if (numberNumber) { // meaning both numbers
+                        proc = x -> bd1.compareTo(bd2) > 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (indexNumber) { // meaning first is an index and second a number
+                        proc = x -> x[i1].compareTo(bd2) > 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (bd1 != null) { //  meaning first is a number and second an index
+                        proc = x -> bd1.compareTo(x[i2]) > 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else {// meaning both indexes
+                        proc = x -> x[i1].compareTo(x[i2]) > 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
+                }
+                break;
+            case "<=":
+                try {
+                    if (numberNumber) { // meaning both numbers
+                        proc = x -> bd1.compareTo(bd2) <= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (indexNumber) { // meaning first is an index and second a number
+                        proc = x -> x[i1].compareTo(bd2) <= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (bd1 != null) { //  meaning first is a number and second an index
+                        proc = x -> bd1.compareTo(x[i2]) <= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else {// meaning both indexes
+                        proc = x -> x[i1].compareTo(x[i2]) <= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
+                }
+                break;
+            case ">=":
+                try {
+                    if (numberNumber) { // meaning both numbers
+                        proc = x -> bd1.compareTo(bd2) >= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (indexNumber) { // meaning first is an index and second a number
+                        proc = x -> x[i1].compareTo(bd2) >= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (bd1 != null) { //  meaning first is a number and second an index
+                        proc = x -> bd1.compareTo(x[i2]) >= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else {// meaning both indexes
+                        proc = x -> x[i1].compareTo(x[i2]) >= 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
+                }
+                break;
+            case "==":
+                try {
+                    if (numberNumber) { // meaning both numbers
+                        proc = x -> bd1.compareTo(bd2) == 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (indexNumber) { // meaning first is an index and second a number
+                        proc = x -> x[i1].compareTo(bd2) == 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (bd1 != null) { //  meaning first is a number and second an index
+                        proc = x -> bd1.compareTo(x[i2]) == 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else {// meaning both indexes
+                        proc = x -> x[i1].compareTo(x[i2]) == 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
+                }
+                break;
+            case "!=":
+                try {
+                    if (numberNumber) { // meaning both numbers
+                        proc = x -> bd1.compareTo(bd2) != 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (indexNumber) { // meaning first is an index and second a number
+                        proc = x -> x[i1].compareTo(bd2) != 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else if (bd1 != null) { //  meaning first is a number and second an index
+                        proc = x -> bd1.compareTo(x[i2]) != 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    } else {// meaning both indexes
+                        proc = x -> x[i1].compareTo(x[i2]) != 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+                    }
+                } catch (IndexOutOfBoundsException | NullPointerException e) {
+                    Logger.error("Bad things when " + first + " " + op + " " + second + " was processed");
+                    Logger.error(e);
                 }
                 break;
             default:Logger.error("Unknown operand: "+op); break;

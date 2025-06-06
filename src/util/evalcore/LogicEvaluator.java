@@ -64,7 +64,7 @@ public class LogicEvaluator extends BaseEvaluator implements Evaluator {
         return true;
     }
 
-    public boolean eval(double... inputs) {
+    public boolean logicEval(double... inputs) {
         if( ! buildScratchpad(inputs) )
             return false;
 
@@ -85,7 +85,7 @@ public class LogicEvaluator extends BaseEvaluator implements Evaluator {
             Logger.error("Failed to parse input data: " + data);
             return Optional.empty(); // or however you want to handle the failure
         }
-        return Optional.of(eval(inputs));
+        return Optional.of(logicEval(inputs));
     }
     /* ************************  Get Debug information ******************************************* */
 

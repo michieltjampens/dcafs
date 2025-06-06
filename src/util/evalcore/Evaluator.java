@@ -1,9 +1,10 @@
 package util.evalcore;
 
-import java.util.Optional;
-
 public interface Evaluator {
-    boolean eval(double... value);
+    boolean logicEval(double... value);
 
+    String getOriginalExpression();
     void setId(String id);
+
+    String getInfo();
 }

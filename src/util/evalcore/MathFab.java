@@ -16,7 +16,6 @@ public class MathFab {
     public static MathEvaluator parseExpression(String expression, Rtvals rtvals, NumericVal[] valRefs) {
         return build(expression, rtvals, valRefs);
     }
-
     /**
      * Converts a math expression to an evaluator
      *
@@ -254,6 +253,9 @@ public class MathFab {
                 // replace the sub part in the original formula with a reference to the last sub-formula
                 expression = expression.replace(piece, "o" + (subExpr.size() - 1));
             }
+        }
+        if (!expression.isEmpty()) { // Simplified to a constant
+            subExpr.add(new String[]{expression, "0", "+"});
         }
         return subExpr;
     }
