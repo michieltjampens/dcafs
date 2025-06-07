@@ -79,7 +79,8 @@
 - **Purpose:** Checks a condition and diverts flow on fail.
 - **Outgoing Arrow(s)**:
     - Labeled `pass`(or `next`,`ok`,`true`,`yes`), leading to the next block in the route on pass.
-  - Labeled `fail` (or `no`,`false`), diverting to alternative route when result is false. Marks the task as failed.
+  - Labeled `fail` (or `no`,`false`,`failed`), diverting to alternative route when result is false. Marks the task as
+    failed.
     - Labeled `update`, passes the result of the condition to the targeted FlagVal.
 - **Incoming Arrow**: From another task block, triggers the comparison. Successive triggers repeat this.
 - **Required properties:**
@@ -160,7 +161,7 @@
     - `repeats` Defaults to -1 (infinite). Defines how many times the interval is executed, and thus the next block is
       triggered.
       A value of 0 reduces it to a `delayblock`.
-    - (Untested) `retrigger`: Defines how the block responds to a trigger while already active., Options are:
+  - `retrigger`: Defines how the block responds to a trigger while already active., Options are:
         - `stop`/`cancel`– stops the current interval cycle;
         - `continue`– ignores the new trigger (default);
         - `restart`– restarts the current interval and resets `repeats`.
@@ -225,7 +226,8 @@
 - **Purpose:** Writes the specified data to the `target`.
 - **Outgoing Arrows**:
     - Labeled `next` (or `pass`,`ok`,`send`), leading to the next block in the route.
-  - Labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`), diverting to alternative route when writing
+  - Labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`,`failure`), diverting to alternative route when
+    writing
       failed.
     - Labeled `target`, points to the target of the data, which could be a stream, file, or another writable reference.
       (not implemented yet)

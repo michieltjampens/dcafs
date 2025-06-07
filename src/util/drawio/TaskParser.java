@@ -233,7 +233,7 @@ public class TaskParser {
                 }
             } else {
                 addNext(cell, block, tools, "next", "pass", "yes", "ok", "true");
-                addAlt(cell, block, tools, "fail", "no", "false");
+                addAlt(cell, block, tools, "fail", "no", "false", "failed");
             }
         });
         return cb.orElse(null);
