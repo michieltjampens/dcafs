@@ -26,8 +26,8 @@ public class LogicFab {
         compareInverts.put("#L#",">=");
         compareInverts.put("#G#","<=");
         compareInverts.put("#NE#","==");
-        compareInverts.put("#AND#", "||");
-        compareInverts.put("#OR#", "&&");
+        compareInverts.put("#AND#", "&&");
+        compareInverts.put("#OR#", "||");
     }
     private static final Map<String, String> logicReplacements = new LinkedHashMap<>();
     static {
@@ -44,6 +44,7 @@ public class LogicFab {
         logicReplacements.put("below", "<");   // retain support for below
         logicReplacements.put("above", ">");   // retain support for above
         logicReplacements.put("equals", "=="); // retain support for equals
+        logicReplacements.put(" set", "==1"); // retain support for equals
         logicReplacements.put("not", "!=");
         logicReplacements.put("++", "+=1");
         logicReplacements.put("--", "-=1");
