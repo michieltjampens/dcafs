@@ -8,14 +8,13 @@ import util.data.vals.NumericVal;
 import util.data.vals.RealVal;
 import util.data.vals.Rtvals;
 import util.evalcore.MathFab;
+import util.evalcore.ParseTools;
 import util.tasks.blocks.*;
 import util.tools.Tools;
 import worker.Datagram;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.*;
 
 public class TaskParser {
 
@@ -411,10 +410,15 @@ public class TaskParser {
             return null;
         }
         var message = cell.getParam("message", "");
+        var list = ParseTools.extractCurlyContent(message,true);
+        var refs = list.stream().filter( l -> l.contains("_"))
+                        .map(it-> tools.rtvals().getNumericalVal(it))
+                        .flatMap(Optional::stream).toArray(NumericVal[]::new);
+
         var lb = switch (cell.type) {
-            case "errorblock" -> LogBlock.error(message);
-            case "warnblock" -> LogBlock.warn(message);
-            case "infoblock" -> LogBlock.info(message);
+            case "errorblock" -> LogBlock.error(message,refs);
+            case "warnblock" -> LogBlock.warn(message,refs);
+            case "infoblock" -> LogBlock.info(message,refs);
             default -> null;
         };
         if (lb != null) {

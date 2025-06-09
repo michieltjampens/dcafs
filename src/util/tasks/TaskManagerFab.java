@@ -376,9 +376,9 @@ public class TaskManagerFab {
                 yield new ReadingBlock(eventLoop).setMessage(from, content, timeout);
             }
             case "log" -> switch (node.attr("level", "info")) {
-                case "info" -> LogBlock.info(content);
-                case "warn" -> LogBlock.warn(content);
-                case "error" -> LogBlock.error(content);
+                case "info" -> LogBlock.info(content,null);
+                case "warn" -> LogBlock.warn(content,null);
+                case "error" -> LogBlock.error(content,null);
                 default -> null;
             };
             default -> {

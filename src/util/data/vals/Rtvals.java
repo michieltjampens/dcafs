@@ -263,7 +263,12 @@ public class Rtvals implements Commandable {
                 .filter(Objects::nonNull)  // Filter out any null results
                 .findFirst();  // Return the first non-null value (if any)
     }
-
+    public Optional<NumericVal> getNumericalVal(String id) {
+        return Stream.of(realVals, integerVals, flagVals )  // Stream of your maps
+                .map(map -> (NumericVal) map.get(id))  // For each map, try to get the value by id
+                .filter(Objects::nonNull)  // Filter out any null results
+                .findFirst();  // Return the first non-null value (if any)
+    }
     /**
      * Look through all the vals for one that matches the id
      *
