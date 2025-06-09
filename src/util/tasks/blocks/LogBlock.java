@@ -1,28 +1,27 @@
 package util.tasks.blocks;
 
 import org.tinylog.Logger;
+import util.data.vals.NumericVal;
 
 public class LogBlock extends AbstractBlock {
     enum LEVEL {INFO, WARN, ERROR}
 
     LEVEL level;
     String message;
+    NumericVal[] refs=null;
 
-    private LogBlock(LEVEL level, String message) {
+    private LogBlock(LEVEL level, String message, NumericVal[] refs) {
         this.level = level;
         this.message = id() + " -> " + message;
+        this.refs=refs;
     }
 
-    public static LogBlock info(String message) {
-        return new LogBlock(LEVEL.INFO, message);
+    public static LogBlock info(String message, NumericVal[] refs) { return new LogBlock(LEVEL.INFO, message,refs); }
+    public static LogBlock warn(String message, NumericVal[] refs) {
+        return new LogBlock(LEVEL.WARN, message,refs);
     }
-
-    public static LogBlock warn(String message) {
-        return new LogBlock(LEVEL.WARN, message);
-    }
-
-    public static LogBlock error(String message) {
-        return new LogBlock(LEVEL.ERROR, message);
+    public static LogBlock error(String message, NumericVal[] refs) {
+        return new LogBlock(LEVEL.ERROR, message,refs);
     }
 
     @Override
@@ -37,10 +36,14 @@ public class LogBlock extends AbstractBlock {
             m = m.replace("{old}", String.valueOf(input[1]));
             m = m.replace("{math}", String.valueOf(input[2]));
         }
+        if( refs!=null ){
+            for( var nf : refs )
+                m = m.replace("{"+nf.id()+"}",nf.asString()+nf.unit());
+        }
         switch (level) {
-            case INFO -> Logger.info(m);
-            case WARN -> Logger.warn(m);
-            case ERROR -> Logger.error(m);
+            case INFO -> Logger.tag("TASK").info(m);
+            case WARN -> Logger.tag("TASK").warn(m);
+            case ERROR -> Logger.tag("TASK").error(m);
         }
         doNext();
         return true;
