@@ -27,6 +27,25 @@ Note: Version numbering: x.y.z
   taken from the next target. Now it get [T]|0 and so on appended to controlblock id.
 - The method that updates the dcafsid's now first checks to see if the node already has that id. No write is done if
   nothing is changed.
+- Added support for the property `dcafslabel` on arrows to allow visual styles without visible label.
+- Added `retrigger` property to `delayblock`, options are restart,cancel,ignore.
+- Allow the target/source in writer/reader block to be split in two properties target+targettype and source+sourcetype.
+This is done to allow only showing id on the block.
+- Intervalblock and delay block now use the alternative route when they get cancelled/stopped.
+- Added referring to numericalvals (real,integer,boolean) in log blocks {group_name}
+
+### Database Manager
+- Added option to refer to a flag to determine if inserts are allow in a table or not.
+  If the flagval isn't defined anywhere yet, it will created and added to the global pool.
+```xml
+      <table allowinsert="sensor_doinserts" name="data">
+        <real>temp</real>
+        <real>other</real>
+      </table>
+```
+
+### Math parser
+- Can now process `a+1<b` allows more advanced expressions in conditionblock.
 
 ### Fixes
 - Datagram always added a : even without arguments, changed that. This was reason for exit no longer working in telnet.
