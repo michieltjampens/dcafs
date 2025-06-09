@@ -227,8 +227,7 @@
 - **Outgoing Arrows**:
     - Labeled `next` (or `pass`,`ok`,`send`), leading to the next block in the route.
   - Labeled `failed` (or `fail`,`failure`,`timeout`,`not connected`,`failure`), diverting to alternative route when
-    writing
-      failed.
+    writing failed.
     - Labeled `target`, points to the target of the data, which could be a stream, file, or another writable reference.
       (not implemented yet)
 - **Incoming Arrow**:
