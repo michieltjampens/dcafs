@@ -22,15 +22,30 @@ Starting with version 3.0.0, dcafs supports reading Draw.io diagrams as a basic 
 
 * **Multitab support** The parser can handle multiple tabs.
 * **Minimal visual restrictions** The configuration is defined by shape properties and arrow label/value, allowing users to customize visuals freely.
-* **To get started** Some suggestions of visuals can be found in the [drawio folder](https://github.com/michieltjampens/dcafs/tree/main/drawio)
+* **To get started** Some examples of visuals can be found in
+  the [drawio folder](https://github.com/michieltjampens/dcafs/tree/main/drawio), it also contains libraries.
+* **Auto-reload on change** For now this does a full reset, hotplugging is planned.
 * **Task Blocks** TaskManager blocks have shape alternatives, [an md about this](https://github.com/michieltjampens/dcafs/blob/main/docs/drawio/taskblocks.md)
-  * Drawio configuration auto-reloads on change. (currently triggers a full clean sweep)
-  * Enables complex flows with branching and returning.
-* **Rtvals blocks** are under development.
-  * Enables reactive logic based on real/integer variables.
-  * This logic can flow into taskmanager logic, creating active/reactive hybrid system.
+  * Adds delays and interval or timer based triggers.
+  * Reading from/writing to serial,tcp,udp.
+  * `Condition block` adds branching logic based on realtime data, allows to jump forward or back in the sequence.
+  * Combine all of the above with counters to mimic retry/while/for loops.
+  * Command block can issue any command the user could input in telnet. This enables altering realtime data, redirecting
+    data flows, trigger database inserts and more, before I make a 'block' for it.
+* **GPIO blocks**
+  * Enable input pin triggering based on edge.
+  * Adds setting an output pin state.
+* **Rtvals blocks**
+  * Enables reactive logic based on real/integer/boolean variables.
+  * An rtval block representing a variable can be joined by two condition blocks in its update path that can check the
+    current and new value.
+    This can be used to block an update or start a sequence of other task blocks in response.
+  * Add a math expression between those condition blocks to do 'last minute' changes or just 'demote' the variable to a
+    counter.
+* **I2C blocks**
+  * Started working on adding i2c comms.
 
-They say a picture is worth a thousand words... (not a mockup).
+They say a picture is worth a thousand words... (but need to update this).
 
 <img src="https://github.com/user-attachments/assets/9b7b42d5-9822-4cb1-87cb-9cbfa2a28ac8" width="500" height="300">
 
