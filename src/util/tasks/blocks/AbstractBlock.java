@@ -16,10 +16,11 @@ public abstract class AbstractBlock {
 
     public abstract boolean start();
 
-    void doNext() {
+    boolean doNext() {
         if (next != null)
-            next.start();
+            return next.start();
         sendCallback(id() + " -> OK");
+        return true;
     }
 
     public AbstractBlock setNext(AbstractBlock next) {

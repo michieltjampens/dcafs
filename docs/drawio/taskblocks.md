@@ -221,6 +221,25 @@
     - `sourcetype`: If you wish to use just the id as text on the shape, this property can be used to store type.
         - For example: source=sensor, sourcetype=raw
 
+### Trigger Gate block
+
+- **Purpose:** Allows one trigger through but then no others till the period has passed. Effectively limited processed
+  triggers.
+- **Outgoing Arrow**:
+    - Labeled `next`(or `ok`,`done`), leading to the next block in the route.
+    - Labeled `retrigger`/`period passed` or ( `timeout`,`elapsed`,`excess`), (pick what suits the chosen retrigger)
+- **Incoming Arrow**: From another task block, triggers the start of the period countdown. Successive triggers are
+  ignored by default till period has passed.
+- **Required properties:**
+    - `dcafstype`: Must be `triggergateblock` for it to be processed as such.
+    - `period`: Defines the period to not allow triggers through. The format is abbreviated time period (i.e. `5s`,
+      `10m`,`3h10m2s`)
+- **Optional Properties:**
+    - `retrigger`: What to do when a trigger is received after the first one, options (default: `ignore`).
+        - `ignore`: Ignore the trigger. Alt route is used **after** period expired.
+        - `restart`: Stop current period and restart it.
+        - `count`: Trigger the alt route every time a trigger is received during the period. (mainly for debugging)
+
 ### Writer Block
 
 - **Purpose:** Writes the specified data to the `target`.

@@ -14,7 +14,10 @@ import util.tools.Tools;
 import worker.Datagram;
 
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Optional;
 
 public class TaskParser {
 
@@ -80,6 +83,7 @@ public class TaskParser {
             case "delayblock" -> doDelayBlock(cell, tools, id);
             case "errorblock", "warnblock", "infoblock" -> doLogBlock(cell, tools, id);
             case "flagblock" -> doFlagBlock(cell, tools, id);
+            case "triggergateblock" -> doTriggerGateBlock(cell, tools, id);
             case "intervalblock" -> doIntervalBlock(cell, tools, id);
             case "mathblock" -> doMathBlock(cell, tools, id);
             case "originblock" -> doOriginBlock(cell);
@@ -510,6 +514,26 @@ public class TaskParser {
         return sb;
     }
 
+    private static TriggerGateBlock doTriggerGateBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
+        var blockId = alterId(id);
+        Logger.info(blockId + " -> Processing TriggerGateBlock");
+
+        if (!cell.hasParam("period")) {
+            Logger.error(blockId + " -> No period specified for TriggerGateBlock");
+            return null;
+        }
+
+        var eventLoop = tools.eventLoop();
+        var tgb = TriggerGateBlock.build(eventLoop, cell.params.get("period"), cell.getParam("retrigger", "ignore"));
+
+        tgb.id(alterId(id));
+        if (!addNext(cell, tgb, tools, "next", "ok", "done")) {
+            if (cell.hasArrows() && !cell.getArrowLabels().equals("?"))
+                Logger.error(tgb.id() + " -> TriggerGate Block without 'next/done/ok' arrow, but does have at least one other arrow connected with label(s) " + cell.getArrowLabels() + " )");
+        }
+        addAlt(cell, tgb, tools, "disarmed", "counting", "alt");
+        return tgb;
+    }
     private static WritableBlock doWritableBlock(Drawio.DrawioCell cell, TaskTools tools, String id) {
         Logger.info("Processing writer block");
         var blockId = alterId(id);

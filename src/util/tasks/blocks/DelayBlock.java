@@ -109,10 +109,10 @@ public class DelayBlock extends AbstractBlock {
     }
 
     @Override
-    public void doNext() {
+    public boolean doNext() {
         if (future == null || future.isCancelled()) {
             Logger.info(id() + " -> Task is canceled or future is null, exiting...");
-            return;  // Exit early if the task is canceled or future is null
+            return false;  // Exit early if the task is canceled or future is null
         }
         switch (reps) {
             case -1 -> super.doNext(); // -1 means endless
@@ -127,6 +127,7 @@ public class DelayBlock extends AbstractBlock {
                 reps--;
             }
         }
+        return true;
     }
 
     @Override
